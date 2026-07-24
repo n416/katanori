@@ -6,10 +6,18 @@
 #include <cstdlib>
 #include <cstring>
 #include <algorithm>
+#include <thread>
+#include <iostream>
+#include <string>
 #include "IHal.h"
 #include "RobotCore.h"
 
 namespace {
+
+constexpr UINT WM_APP_CMD_SPEAK_START = WM_APP + 1;
+constexpr UINT WM_APP_CMD_SPEAK_END   = WM_APP + 2;
+
+HWND g_hwnd = NULL;
 
 constexpr int SCALE = 8;
 constexpr int DISP_W = 128;
@@ -185,6 +193,19 @@ Win32Hal g_hal;
 katanori::RobotCore g_robot(g_hal);
 const char* g_stateNames[] = { "IDLE", "LISTEN", "THINK", "SPEAK" };
 
+void StdinMonitorThread() {
+    std::string line;
+    // 標準入力(stdin)から行を読み取り続ける
+    while (std::getline(std::cin, line)) {
+        if (line.find("CMD:SPEAK_START") != std::string::npos) {
+            if (g_hwnd) PostMessageA(g_hwnd, WM_APP_CMD_SPEAK_START, 0, 0);
+        }
+        else if (line.find("CMD:SPEAK_END") != std::string::npos) {
+            if (g_hwnd) PostMessageA(g_hwnd, WM_APP_CMD_SPEAK_END, 0, 0);
+        }
+    }
+}
+
 void updateWindowTitle(HWND hwnd) {
     char title[256];
     const char* stateName = g_stateNames[static_cast<int>(g_robot.state())];
@@ -197,17 +218,32 @@ void updateWindowTitle(HWND hwnd) {
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
     case WM_CREATE:
+        g_hwnd = hwnd;
         g_hal.setHwnd(hwnd);
+        return 0;
+
+    case WM_APP_CMD_SPEAK_START:
+        g_robot.injectEvent(katanori::RobotEvent::RESPONSE_READY);
+        g_hal.log("Event Injected (via stdin): RESPONSE_READY");
+        updateWindowTitle(hwnd);
+        return 0;
+
+    case WM_APP_CMD_SPEAK_END:
+        g_robot.injectEvent(katanori::RobotEvent::SPEECH_DONE);
+        g_hal.log("Event Injected (via stdin): SPEECH_DONE");
+        updateWindowTitle(hwnd);
         return 0;
 
     case WM_KEYDOWN:
         if (!(lParam & 0x40000000)) { // リピート判定除外
             switch (wParam) {
             case '1':
+                std::printf("[EVENT] WAKE_WORD\n"); std::fflush(stdout);
                 g_robot.injectEvent(katanori::RobotEvent::WAKE_WORD);
                 g_hal.log("Event Injected: WAKE_WORD");
                 break;
             case '2':
+                std::printf("[EVENT] SPEECH_END\n"); std::fflush(stdout);
                 g_robot.injectEvent(katanori::RobotEvent::SPEECH_END);
                 g_hal.log("Event Injected: SPEECH_END");
                 break;
@@ -260,6 +296,9 @@ int main() {
     std::printf("  ESC   : Exit Simulator\n");
     std::printf("=====================================================\n\n");
     std::fflush(stdout);
+
+    // Pythonラッパーからのコマンドを受け取る監視スレッドを開始
+    std::thread(StdinMonitorThread).detach();
 
     HINSTANCE hInstance = GetModuleHandleA(NULL);
 

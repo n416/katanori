@@ -23,6 +23,7 @@ firmware/
 simulator/
   win32/
     main_win32.cpp
+  wrapper.py                (追加: API通信・音声制御用Pythonラッパー)
   build.bat
 docs/
   SIMULATOR.md
@@ -76,6 +77,9 @@ struct IHal {
   - `Space`: 押下中 micLevel を0.2〜1.0でランダム振動（喋り/入力の模擬）、離すと0へ減衰
   - `ESC`: 終了
 - コンソールにも状態遷移ログを出力（log実装）。
+- **Pythonラッパーとの連携 (IPC)**:
+  - キー操作等でイベントが発火した際、標準出力に `[EVENT] WAKE_WORD` などのトリガーを出力し、即座に `fflush(stdout)` します。
+  - バックグラウンドで `stdin` を監視し、ラッパーからのコマンド（例: `CMD:SPEAK_START`）を受け取って状態遷移（口パクの開始など）を連動させます。
 
 ## simulator/build.bat
 - `g++ -std=c++14 -O2` で firmware/core/*.cpp と simulator/win32/main_win32.cpp をコンパイル、`-lgdi32 -luser32 -mwindows` なし（コンソールログを見たいので -mwindows は付けない）。出力 `simulator\katanori_sim.exe`。
@@ -86,3 +90,12 @@ struct IHal {
 
 ## docs/SIMULATOR.md
 - w64devkit等でg++を入れる手順、build.batの実行、キー操作一覧、実機移植の手順（core/halはそのままコピー、esp32ディレクトリのHALだけ実装）を記載。
+
+## Pythonラッパー仕様 (wrapper.py)
+C++シミュレーター側（`main_win32.cpp`）を純粋なWin32環境に保ち、Windows専用の複雑なネットワーク・音声処理を混入させないため、Gemini APIの双方向ストリーミング通信とPCのマイク/スピーカー制御は別プロセスのPythonスクリプトが担います。
+
+*   **動作フロー**:
+    1. `wrapper.py` が `subprocess` でコンパイル済みの `katanori_sim.exe` を起動し、その標準入出力（stdin/stdout）を監視・フックします。
+    2. C++側でのキー操作により WAKE_WORD イベントが発生し、`stdout` に `[EVENT] WAKE_WORD` が出力されたのを確認すると、`pyaudio` を用いてマイク録音を開始し、Gemini APIへWebSocket接続を確立して音声を送信します。
+    3. Gemini APIから音声ストリームを受信すると、スピーカーから再生しつつ、C++側の `stdin` に対して `CMD:SPEAK_START` コマンドを送ります。
+    4. C++シミュレーターはコマンドを受けて `SPEAK` 状態に遷移し、顔（口パク）のアニメーションを開始します。再生完了後は `CMD:SPEAK_END` を受けて `IDLE` に戻ります。

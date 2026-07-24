@@ -1,0 +1,11 @@
+name = "katanori-backend"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+
+[[durable_objects.bindings]]
+name = "ROBOT_DO"
+class_name = "RobotDO"
+
+[[migrations]]
+tag = "v1"
+new_classes = ["RobotDO"]
