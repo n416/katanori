@@ -1,7 +1,15 @@
+import { Downsampler, base64ToInt16, arrayBufferToBase64 } from "./resample";
+
 export interface Env {
   ROBOT_DO: DurableObjectNamespace;
   GEMINI_API_KEY: string;
 }
+
+/**
+ * Gemini が受け付ける入力音声のレート。仕様で 16kHz 固定。
+ * ReSpeaker Lite のマイクも 16kHz なので、入力方向の変換は不要。
+ */
+const GEMINI_INPUT_RATE = 16000;
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
@@ -17,6 +25,31 @@ export default {
     }
   }
 };
+
+/**
+ * PCMモードで、クライアント(マイコン)へ送る価値のないメッセージか。
+ * 帯域とパース負荷を無駄にしないために落とす。
+ * turnComplete / interrupted / 文字起こし などが残っていれば当然送る。
+ */
+function shouldDropForDevice(msg: any): boolean {
+  const keys = Object.keys(msg ?? {});
+  if (keys.length === 0) {
+    return true;
+  }
+
+  // セッション再開ハンドル。Geminiが数秒おきに送ってくるが、ESP32は
+  // 再開機能を使わないので捨てる（実測で20秒に13件届いていた）
+  if (keys.length === 1 && keys[0] === "sessionResumptionUpdate") {
+    return true;
+  }
+
+  // 音声を抜いた結果、あるいは元から中身が空だったもの
+  if (keys.length === 1 && keys[0] === "serverContent") {
+    return Object.keys(msg.serverContent ?? {}).length === 0;
+  }
+
+  return false;
+}
 
 export class RobotDO implements DurableObject {
   state: DurableObjectState;
@@ -40,8 +73,19 @@ export class RobotDO implements DurableObject {
       
       const requestUrl = new URL(request.url);
       const voice = requestUrl.searchParams.get("voice") || "Aoede";
-      
-      this.connectToGemini(server, voice).catch(e => {
+
+      // ?pcm=<レート> を付けたクライアントは「生PCMバイナリ」でやり取りする。
+      // 付けなければ従来どおり Gemini のメッセージを素通しする (wrapper.py 互換)。
+      const pcmParam = requestUrl.searchParams.get("pcm");
+      let pcmRate = 0;
+      if (pcmParam !== null) {
+        const parsed = parseInt(pcmParam, 10);
+        pcmRate = Number.isFinite(parsed) && parsed >= 8000 && parsed <= 48000
+          ? parsed
+          : GEMINI_INPUT_RATE;
+      }
+
+      this.connectToGemini(server, voice, pcmRate).catch(e => {
         console.error("Gemini connection error:", e);
       });
 
@@ -59,8 +103,12 @@ export class RobotDO implements DurableObject {
     try { ws.send(JSON.stringify({ _debug: msg })); } catch {}
   }
 
-  async connectToGemini(serverWs: WebSocket, voiceName: string) {
+  async connectToGemini(serverWs: WebSocket, voiceName: string, pcmRate: number) {
+    const pcmMode = pcmRate > 0;
     this.dbg(serverWs, `DO fetch ok, connecting to Gemini with voice: ${voiceName}...`);
+    if (pcmMode) {
+      this.dbg(serverWs, `PCM mode: audio as binary frames @${pcmRate}Hz`);
+    }
 
     if (!this.env.GEMINI_API_KEY) {
       this.dbg(serverWs, "ERROR: No GEMINI_API_KEY set.");
@@ -94,13 +142,86 @@ export class RobotDO implements DurableObject {
     this.geminiWs = geminiWs;
 
     // Gemini -> Client
+    //
+    // 素通しモード: Gemini のメッセージをそのまま流す (wrapper.py が使う)。
+    // PCMモード  : 音声だけを取り出して 16bit PCM のバイナリフレームで送り、
+    //              残りの制御情報をテキストJSONで送る。ESP32側は
+    //              「バイナリ=音声 / テキスト=制御」だけを見ればよくなる。
+    let downsampler: Downsampler | null = null;
+
     geminiWs.addEventListener("message", (event) => {
       try {
-        const preview = typeof event.data === "string"
-          ? event.data.slice(0, 200)
-          : `<binary ${ (event.data as ArrayBuffer).byteLength } bytes>`;
-        console.log("[DO] Gemini -> client:", preview);
-        serverWs.send(event.data);
+        if (!pcmMode) {
+          const preview = typeof event.data === "string"
+            ? event.data.slice(0, 200)
+            : `<binary ${(event.data as ArrayBuffer).byteLength} bytes>`;
+          console.log("[DO] Gemini -> client:", preview);
+          serverWs.send(event.data);
+          return;
+        }
+
+        // Gemini はバイナリフレームで返してくる場合がある (中身はJSONテキスト)
+        const text = typeof event.data === "string"
+          ? event.data
+          : new TextDecoder().decode(event.data as ArrayBuffer);
+
+        let msg: any;
+        try {
+          msg = JSON.parse(text);
+        } catch {
+          serverWs.send(event.data); // JSONでないものはそのまま渡す
+          return;
+        }
+
+        const parts = msg?.serverContent?.modelTurn?.parts;
+
+        if (Array.isArray(parts)) {
+          const remaining: any[] = [];
+
+          for (const part of parts) {
+            const inline = part?.inlineData;
+            const mime: string = inline?.mimeType ?? "";
+
+            if (inline?.data && mime.startsWith("audio/pcm")) {
+              // mimeType から実際のレートを読む (24000決め打ちにしない)
+              const m = /rate=(\d+)/.exec(mime);
+              const srcRate = m ? parseInt(m[1], 10) : 24000;
+
+              const pcm = base64ToInt16(inline.data);
+
+              // .buffer ではなくビューを渡す。base64が奇数バイトで終わった場合に
+              // .buffer だと末尾の余分な1バイトまで送ってしまう。
+              let out: Int16Array;
+              if (srcRate === pcmRate) {
+                out = pcm; // 変換不要
+              } else {
+                if (!downsampler || downsampler.inRate !== srcRate) {
+                  downsampler = new Downsampler(srcRate, pcmRate);
+                }
+                out = downsampler.process(pcm);
+              }
+
+              // 極小のチャンクではリサンプル後に0サンプルになることがある。
+              // 長さ0のフレームはマイコンを無駄に起こすだけなので送らない。
+              if (out.length > 0) {
+                serverWs.send(out);
+              }
+            } else {
+              remaining.push(part);
+            }
+          }
+
+          if (remaining.length > 0) {
+            msg.serverContent.modelTurn.parts = remaining;
+          } else {
+            delete msg.serverContent.modelTurn;
+          }
+        }
+
+        if (shouldDropForDevice(msg)) {
+          return;
+        }
+        serverWs.send(JSON.stringify(msg));
       } catch (e) {
         console.error("Forward to client error:", e);
       }
@@ -116,8 +237,25 @@ export class RobotDO implements DurableObject {
     });
 
     // Client -> Gemini
+    //
+    // PCMモードでは「バイナリフレーム = 生の16kHz PCM」と解釈して、
+    // Gemini が要求する realtimeInput.audio の形に包み直す。
+    // 制御メッセージ (audioStreamEnd など) はテキストで送ってもらい素通しする。
+    // これで ESP32 側は base64 も JSON 組み立ても一切やらなくて済む。
     serverWs.addEventListener("message", (event) => {
       try {
+        if (pcmMode && typeof event.data !== "string") {
+          const b64 = arrayBufferToBase64(event.data as ArrayBuffer);
+          geminiWs.send(JSON.stringify({
+            realtimeInput: {
+              audio: {
+                mimeType: `audio/pcm;rate=${GEMINI_INPUT_RATE}`,
+                data: b64,
+              },
+            },
+          }));
+          return;
+        }
         geminiWs.send(event.data);
       } catch (e) {
         console.error("Forward to Gemini error:", e);
