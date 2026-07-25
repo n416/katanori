@@ -20,6 +20,7 @@
 #include "IHal.h"
 #include "RobotCore.h"
 #include "NetLink.h"
+#include "AudioIo.h"
 
 // ---------------------------------------------------------------------------
 // ボード設定
@@ -54,13 +55,8 @@
 // 描画レート。128x64 の全面転送は 400kHz I2C で約23ms かかるため、
 // 20FPS(50ms)がこの構成の実用上限。上げたい場合は I2C を 1MHz にする。
 static constexpr uint32_t FRAME_INTERVAL_MS = 50;
-
-// Stage 1 は I2S マイクが未接続なので、LISTEN/SPEAK の口パク・波形が
-// 動いているか目視で確認できるよう擬似的なマイクレベルを生成する。
-// Stage 3 で実際の I2S 入力に差し替えたらこれを 0 にする。
-#ifndef KATANORI_FAKE_MIC
-#define KATANORI_FAKE_MIC 1
-#endif
+// 音声受信中はこちらへ落とす（描画がCPUを占有して受信を落とすのを防ぐ）
+static constexpr uint32_t FRAME_INTERVAL_SLOW_MS = 120;
 
 // DisplayBuffer は MSB(0x80)=左ピクセル。U8g2 の drawBitmap() は U8glib互換の
 // MSB-first なのでそのまま渡せる。万一 8ピクセル単位で左右反転して見えたら
@@ -91,14 +87,7 @@ public:
     }
 
     float getMicLevel() override {
-#if KATANORI_FAKE_MIC
-        // Stage 3 でここを I2S(ReSpeaker Lite)の実測ピークに差し替える。
-        // それまでは 0.0〜1.0 をゆっくり往復する擬似信号で描画を確認する。
-        float t = static_cast<float>(::millis()) / 1000.0f;
-        return 0.5f + 0.5f * sinf(t * 3.0f);
-#else
-        return 0.0f;
-#endif
+        return katanori::audioIo.micLevel();
     }
 
     void flushDisplay(const uint8_t* fb) override {
@@ -125,6 +114,152 @@ public:
 
 static Esp32Hal hal;
 static katanori::RobotCore robot(hal);
+
+// ---------------------------------------------------------------------------
+// 対話フロー
+//
+// wrapper.py が確立した手順をそのまま実機へ移したもの:
+//   ウェイクワード -> 録音してDOへ送る -> audioStreamEnd で発話終了を確定
+//   -> 応答音声を再生 -> turnComplete + 再生完了で IDLE へ戻る
+// ---------------------------------------------------------------------------
+
+// 応答音声の受信中か（顔をSPEAKにするため）
+static bool speaking = false;
+// Geminiがターンを終えたか。再生キューが空になるまで IDLE には戻らない。
+static bool turnComplete = false;
+// audioStreamEnd を送った時刻（応答遅延の実測用）
+static uint32_t streamEndMs = 0;
+
+/**
+ * 状態機械を目的の状態まで歩かせる。
+ *
+ * StateMachine は IDLE -> LISTEN -> THINK -> SPEAK の一本道で、途中の
+ * イベントを飛ばせない。一方 Gemini は自前のVADで勝手にターンを進めるため、
+ * こちらの状態と食い違う（例: LISTENが10秒でタイムアウトしてIDLEに戻った後に
+ * 応答音声が届く）。顔を実際の会話に追従させるため、必要なイベントを
+ * 順に注入して追いつかせる。
+ */
+static void driveTo(katanori::RobotState target) {
+    for (int guard = 0; guard < 4 && robot.state() != target; ++guard) {
+        switch (robot.state()) {
+        case katanori::RobotState::IDLE:
+            robot.injectEvent(katanori::RobotEvent::WAKE_WORD);
+            break;
+        case katanori::RobotState::LISTEN:
+            robot.injectEvent(katanori::RobotEvent::SPEECH_END);
+            break;
+        case katanori::RobotState::THINK:
+            robot.injectEvent(katanori::RobotEvent::RESPONSE_READY);
+            break;
+        case katanori::RobotState::SPEAK:
+            robot.injectEvent(katanori::RobotEvent::SPEECH_DONE);
+            break;
+        }
+    }
+}
+
+/** DOから届いた生PCM。そのまま再生キューへ積むだけ。 */
+static void onAudio(const int16_t* pcm, size_t samples) {
+    if (!speaking) {
+        speaking = true;
+        turnComplete = false;
+        if (streamEndMs != 0) {
+            Serial.printf("[TURN] 発話終了 -> 応答開始 %.2f秒\n",
+                          (millis() - streamEndMs) / 1000.0f);
+            streamEndMs = 0;
+        }
+        driveTo(katanori::RobotState::SPEAK);
+    }
+    katanori::audioIo.play(pcm, samples);
+}
+
+/** DOから届いた制御JSON。パーサは積まず、必要な語だけ拾う。 */
+static void onControl(const char* json) {
+    // 割り込み: マイクがスピーカー音を拾うと Gemini がこれを返す。
+    // 未再生ぶんを捨てないと、古い応答が延々と流れ続ける。
+    if (strstr(json, "\"interrupted\"") != nullptr) {
+        Serial.println("[TURN] 割り込み検知 — 再生を中断します");
+        katanori::audioIo.stopPlayback();
+        speaking = false;
+        turnComplete = false;
+        robot.injectEvent(katanori::RobotEvent::SPEECH_DONE);
+        return;
+    }
+    if (strstr(json, "\"turnComplete\"") != nullptr) {
+        turnComplete = true;
+    }
+
+    // GeminiのVADをそのまま顔に反映する。ボタンを押さなくても
+    // 喋り始め・喋り終わりで表情が変わる。
+    if (strstr(json, "\"speechState\":\"SPEECH\"") != nullptr) {
+        if (!speaking) {
+            driveTo(katanori::RobotState::LISTEN);
+        }
+    } else if (strstr(json, "\"speechState\":\"NON_SPEECH\"") != nullptr) {
+        if (!speaking && robot.state() == katanori::RobotState::LISTEN) {
+            robot.injectEvent(katanori::RobotEvent::SPEECH_END); // -> THINK
+        }
+    }
+}
+
+/** ウェイクワード相当。接続してから録音を始める。 */
+static void startTurn() {
+    if (!katanori::netLink.wsConnected()) {
+        Serial.println("[TURN] 未接続です。'wifi' と 'c' で繋いでください");
+        return;
+    }
+    streamEndMs = 0;
+    katanori::audioIo.startRecording();
+    robot.injectEvent(katanori::RobotEvent::WAKE_WORD);
+    Serial.println("[TURN] 録音開始（'2' または BOOTボタンで終了）");
+}
+
+/** 発話終了。audioStreamEnd を送ると Gemini が応答生成を始める。 */
+static void endTurn() {
+    if (!katanori::audioIo.isRecording()) {
+        return;
+    }
+    katanori::audioIo.stopRecording();
+    robot.injectEvent(katanori::RobotEvent::SPEECH_END);
+
+    // clientContent+turnComplete はVADが発話中と認識していると無視されて
+    // ハングする。audioStreamEnd を使うこと（wrapper.py で確定済みの知見）
+    if (katanori::netLink.sendControl("{\"realtimeInput\":{\"audioStreamEnd\":true}}")) {
+        streamEndMs = millis();
+        Serial.println("[TURN] audioStreamEnd 送信（応答待ち）");
+    }
+}
+
+/** マイクを読んでDOへ送る。main loop から毎回呼ぶ。 */
+static void pumpMic() {
+    static int16_t buf[512];
+
+    if (!katanori::audioIo.isRecording()) {
+        return;
+    }
+    size_t n = katanori::audioIo.readMic(buf, sizeof(buf) / sizeof(buf[0]));
+    if (n == 0) {
+        return;
+    }
+
+    // エコーガード: 再生中はマイクを送らない。
+    // 送ると自分の声で Gemini が割り込み判定して会話が破綻する。
+    // (ReSpeaker Lite のハードウェアAECが効けば不要になるはずの暫定措置)
+    if (katanori::audioIo.isPlaying()) {
+        return;
+    }
+    katanori::netLink.sendAudio(buf, n);
+}
+
+/** ターンの終了判定。Geminiが喋り終え、再生キューも空になったら IDLE へ。 */
+static void pumpTurnState() {
+    if (speaking && turnComplete && !katanori::audioIo.isPlaying()) {
+        speaking = false;
+        turnComplete = false;
+        driveTo(katanori::RobotState::IDLE);
+        Serial.println("[TURN] 応答の再生が完了しました");
+    }
+}
 
 // ---------------------------------------------------------------------------
 // ヘルパー
@@ -342,9 +477,17 @@ static void runSelfTest() {
 
 static void printHelp() {
     Serial.println("---------------------------------------------");
-    Serial.println(" シリアルコマンド (シミュレーターのキー操作と同じ)");
-    Serial.println("   1 : WAKE_WORD      (IDLE   -> LISTEN)");
-    Serial.println("   2 : SPEECH_END     (LISTEN -> THINK)");
+    Serial.println(" 会話");
+    Serial.println("   1 : 話し始める（録音開始してDOへ送る）");
+    Serial.println("   2 : 話し終わる（audioStreamEnd を送って応答を待つ）");
+    Serial.println("   au  : 音声の状態を表示");
+    Serial.println("   mic : マイク単独テスト(5秒) ch0/ch1のレベルを測る");
+    Serial.println("   vol <0-100> : 再生音量（既定35）");
+    Serial.println("   beep : スピーカー単独テスト(440Hzを1秒, 振幅600)");
+    Serial.println("   beep2: 同上だが振幅4000 ※イヤホンを耳に着けないこと");
+    Serial.println("   scan2: I2S設定の総当たり（無音状態で実行）");
+    Serial.println("   i2s <m|s> <i2s|msb> <16|32> : I2S設定を実行時に切替");
+    Serial.println(" 顔の状態を直接いじる（音声なしの確認用）");
     Serial.println("   3 : RESPONSE_READY (THINK  -> SPEAK)");
     Serial.println("   4 : SPEECH_DONE    (SPEAK  -> IDLE)");
     Serial.println("   s : I2Cバスを再スキャン");
@@ -398,9 +541,9 @@ static void handleSerial() {
         len = 0;
 
         if (strcmp(line, "1") == 0) {
-            robot.injectEvent(katanori::RobotEvent::WAKE_WORD);
+            startTurn();
         } else if (strcmp(line, "2") == 0) {
-            robot.injectEvent(katanori::RobotEvent::SPEECH_END);
+            endTurn();
         } else if (strcmp(line, "3") == 0) {
             robot.injectEvent(katanori::RobotEvent::RESPONSE_READY);
         } else if (strcmp(line, "4") == 0) {
@@ -429,6 +572,27 @@ static void handleSerial() {
             katanori::netLink.wsDisconnect();
         } else if (strcmp(line, "n") == 0) {
             katanori::netLink.printStatus();
+        } else if (strcmp(line, "au") == 0) {
+            katanori::audioIo.printStatus();
+        } else if (strcmp(line, "mic") == 0) {
+            katanori::audioIo.micTest(5000);
+        } else if (strcmp(line, "beep") == 0) {
+            katanori::audioIo.toneTest(1000, 440, 600);
+        } else if (strcmp(line, "beep2") == 0) {
+            katanori::audioIo.toneTest(1000, 440, 4000);
+        } else if (strncmp(line, "vol ", 4) == 0) {
+            katanori::audioIo.setGain(atoi(line + 4) / 100.0f);
+        } else if (strcmp(line, "scan2") == 0) {
+            katanori::audioIo.scanConfigs();
+        } else if (strncmp(line, "i2s ", 4) == 0) {
+            // 例: "i2s s msb 32"  (master/slave, i2s/msb, 16/32)
+            bool slave = (line[4] == 's');
+            bool msb = (strstr(line, "msb") != nullptr);
+            int bits = (strstr(line, "32") != nullptr) ? 32 : 16;
+            if (katanori::audioIo.applyConfig(slave, msb, bits)) {
+                Serial.printf("[I2S] %s / %s / %dbit に切り替えました\n",
+                              slave ? "SLAVE" : "MASTER", msb ? "MSB" : "標準I2S", bits);
+            }
 
         } else if (strcmp(line, "s") == 0) {
             scanI2c();
@@ -484,8 +648,15 @@ static void handleButton() {
         lastChangeMs = now;
         lastPressed = pressed;
         if (pressed) {
-            Serial.println("[BTN] BOOT pressed -> WAKE_WORD");
-            robot.injectEvent(katanori::RobotEvent::WAKE_WORD);
+            // 押すたびに 話し始め / 話し終わり を切り替える。
+            // Stage 4 でウェイクワード検出に置き換える。
+            if (katanori::audioIo.isRecording()) {
+                Serial.println("[BTN] BOOT -> 発話終了");
+                endTurn();
+            } else {
+                Serial.println("[BTN] BOOT -> 発話開始");
+                startTurn();
+            }
         }
     }
 }
@@ -538,6 +709,12 @@ void setup() {
     }
 
     katanori::netLink.begin();
+    katanori::netLink.setAudioSink(onAudio);
+    katanori::netLink.setControlSink(onControl);
+
+    if (!katanori::audioIo.begin()) {
+        Serial.println("[I2S] !! 音声の初期化に失敗しました。顔の表示だけ動きます");
+    }
 
     printHelp();
 
@@ -553,6 +730,8 @@ void loop() {
     handleSerial();
     handleButton();
     katanori::netLink.loop();
+    pumpMic();
+    pumpTurnState();
 
     // 仕様書どおり、内蔵LEDを通信中のステータス表示に使う
     static bool lastWsState = false;
@@ -575,7 +754,11 @@ void loop() {
         return;
     }
 
-    if ((now - lastFrameMs) >= FRAME_INTERVAL_MS) {
+    // 応答音声の受信中は描画を間引く。OLEDの全面転送は約29msブロックするので、
+    // 20FPSのままだと時間の半分以上を描画に取られて受信が追いつかない。
+    uint32_t interval = katanori::audioIo.isPlaying() ? FRAME_INTERVAL_SLOW_MS
+                                                      : FRAME_INTERVAL_MS;
+    if ((now - lastFrameMs) >= interval) {
         lastFrameMs = now;
         robot.tick();
         ++frameCount;

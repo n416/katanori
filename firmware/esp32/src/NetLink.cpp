@@ -23,6 +23,14 @@ bool wantConnected = false;
 bool connected = false;
 uint32_t connectStartedMs = 0;
 
+NetLink::AudioSink audioSink = nullptr;
+NetLink::ControlSink controlSink = nullptr;
+
+// 制御JSONを NUL 終端して渡すための作業領域。
+// 音声はバイナリで来るので、テキスト側が巨大になることはない。
+constexpr size_t CONTROL_BUF = 1024;
+char controlBuf[CONTROL_BUF];
+
 /** wl_status_t を読める名前にする。数値だけ出しても原因が分からないため。 */
 const char* wifiStatusName(int s) {
     switch (s) {
@@ -88,10 +96,34 @@ bool contains(const uint8_t* payload, size_t length, const char* needle) {
     return false;
 }
 
+void handleControl(const uint8_t* payload, size_t length) {
+    if (contains(payload, length, "setupComplete")) {
+        Serial.println("[WS] ★ setupComplete 受信 — Geminiまで疎通しました");
+    }
+
+    size_t n = length < CONTROL_BUF - 1 ? length : CONTROL_BUF - 1;
+    memcpy(controlBuf, payload, n);
+    controlBuf[n] = '\0';
+
+    Serial.printf("[WS] %s%s\n", controlBuf, length > n ? " ..." : "");
+
+    if (controlSink != nullptr) {
+        controlSink(controlBuf);
+    }
+}
+
+// 受信統計。音声が本当に届いているのかを切り分けるため。
+uint32_t binFrames = 0;
+uint32_t binBytes = 0;
+uint32_t textFrames = 0;
+
 void onWsEvent(WStype_t type, uint8_t* payload, size_t length) {
     switch (type) {
     case WStype_CONNECTED:
         connected = true;
+        binFrames = 0;
+        binBytes = 0;
+        textFrames = 0;
         Serial.printf("[WS] 接続しました (%.1f秒)\n",
                       (millis() - connectStartedMs) / 1000.0f);
         Serial.println("[WS] Geminiの setupComplete を待っています...");
@@ -99,7 +131,10 @@ void onWsEvent(WStype_t type, uint8_t* payload, size_t length) {
 
     case WStype_DISCONNECTED:
         if (connected || wantConnected) {
-            Serial.println("[WS] 切断されました");
+            Serial.printf("[WS] 切断されました  受信: BIN %u件/%uB  TEXT %u件  "
+                          "wifi=%d heap=%uB\n",
+                          binFrames, binBytes, textFrames,
+                          WiFi.status(), ESP.getFreeHeap());
         }
         connected = false;
         // 自動再接続を止める (Geminiのセッション浪費を防ぐ)
@@ -110,23 +145,42 @@ void onWsEvent(WStype_t type, uint8_t* payload, size_t length) {
         }
         break;
 
-    // Gemini Live API は応答を「バイナリフレーム」で返してくる。中身はJSONテキスト。
-    // (wrapper.py では Python の websockets が bytes/str を透過的に扱うため
-    //  気づかなかったが、実機では両方を同じように読む必要がある)
-    case WStype_TEXT:
+    // PCMモードでは バイナリ=音声 / テキスト=制御 に分離されている。
+    // ただしDOの _debug や、素通しになった非JSONはバイナリで来る場合があるので、
+    // 先頭が '{' ならJSONとして扱う。
     case WStype_BIN: {
-        const char* kind = (type == WStype_TEXT) ? "TEXT" : "BIN";
-
-        if (contains(payload, length, "setupComplete")) {
-            Serial.println("[WS] ★ setupComplete 受信 — Geminiまで疎通しました");
+        ++binFrames;
+        binBytes += length;
+        if (binFrames <= 5) {
+            Serial.printf("[WS] BIN #%u %uB\n", binFrames, (unsigned)length);
         }
-        // DOが送ってくるデバッグ情報 (Gemini側のエラーはここに出る)
-        size_t preview = length < 300 ? length : 300;
-        Serial.printf("[WS] %s %ubytes: %.*s%s\n",
-                      kind, (unsigned)length, (int)preview, (const char*)payload,
-                      length > preview ? " ..." : "");
+        // PCMモードではバイナリは必ず音声。中身を覗いて振り分けてはいけない。
+        // PCMデータの先頭バイトがたまたま '{' (0x7B) になることは普通に起きる。
+        // 実機で1フレーム誤判定して音が欠けた。DO側で制御は必ずテキストにしてある。
+        if (audioSink != nullptr) {
+            audioSink(reinterpret_cast<const int16_t*>(payload), length / 2);
+        }
         break;
     }
+
+    case WStype_TEXT:
+        ++textFrames;
+        handleControl(payload, length);
+        break;
+
+    // 大きなメッセージが分割されて届く場合。ここに落ちていると音声が
+    // まったく処理されないので、検出できるようにしておく。
+    case WStype_FRAGMENT_TEXT_START:
+    case WStype_FRAGMENT_BIN_START:
+    case WStype_FRAGMENT:
+    case WStype_FRAGMENT_FIN:
+        Serial.printf("[WS] !! 分割フレーム(type=%d, %uB) — 未対応です\n",
+                      (int)type, (unsigned)length);
+        break;
+
+    case WStype_PING:
+    case WStype_PONG:
+        break;
 
     case WStype_ERROR:
         Serial.printf("[WS] エラー: %.*s\n", (int)length, (const char*)payload);
@@ -159,9 +213,37 @@ void NetLink::begin() {
 }
 
 void NetLink::loop() {
-    if (wantConnected) {
+    if (!wantConnected) {
+        return;
+    }
+    // 応答音声は 4KB × 100フレーム規模がまとめて届く。OLEDの全面転送(約29ms)で
+    // main loop が止まる間に受信バッファが埋まるため、1周あたり複数回まわして
+    // 取りこぼしを防ぐ。
+    for (int i = 0; i < 8; ++i) {
         ws.loop();
     }
+}
+
+void NetLink::setAudioSink(AudioSink fn) {
+    audioSink = fn;
+}
+
+void NetLink::setControlSink(ControlSink fn) {
+    controlSink = fn;
+}
+
+bool NetLink::sendAudio(const int16_t* pcm, size_t samples) {
+    if (!connected || samples == 0) {
+        return false;
+    }
+    return ws.sendBIN(reinterpret_cast<const uint8_t*>(pcm), samples * sizeof(int16_t));
+}
+
+bool NetLink::sendControl(const char* json) {
+    if (!connected) {
+        return false;
+    }
+    return ws.sendTXT(json);
 }
 
 void NetLink::setSsid(const char* ssid) {

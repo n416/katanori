@@ -25,16 +25,31 @@
 #ifndef KATANORI_WS_PORT
 #define KATANORI_WS_PORT 443
 #endif
+// ?pcm=16000 で「音声=バイナリ / 制御=テキスト」モードになる。
+// base64もJSON組み立ても不要になり、24k->16k変換もDO側で済ませてくれる。
 #ifndef KATANORI_WS_PATH
-#define KATANORI_WS_PATH "/?voice=Achird"
+#define KATANORI_WS_PATH "/?voice=Achird&pcm=16000"
 #endif
 
 namespace katanori {
 
 class NetLink {
 public:
+    /** DOから届いた音声（生PCM）。バイナリフレームで来る。 */
+    using AudioSink = void (*)(const int16_t* pcm, size_t samples);
+    /** DOから届いた制御JSON（文字列, NUL終端済み）。 */
+    using ControlSink = void (*)(const char* json);
+
     /** NVSから資格情報を読み出す。接続はしない。 */
     void begin();
+
+    void setAudioSink(AudioSink fn);
+    void setControlSink(ControlSink fn);
+
+    /** 録音した生PCMをバイナリフレームで送る。 */
+    bool sendAudio(const int16_t* pcm, size_t samples);
+    /** 制御JSONをテキストフレームで送る（DOはGeminiへ素通しする）。 */
+    bool sendControl(const char* json);
 
     /** WebSocketのポンプ。loop() から毎回呼ぶこと。 */
     void loop();

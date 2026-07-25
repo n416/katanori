@@ -1,0 +1,161 @@
+/*
+ * ============================================================================
+ *  AudioIo - ReSpeaker Lite との I2S 音声入出力
+ *
+ *  DO側で base64/JSON/リサンプルを済ませてあるので、ここは
+ *  「生PCMを読む / 生PCMを書く」だけに徹する。
+ *
+ *  再生は専用タスク + リングバッファで行う。Geminiは応答音声を実時間より
+ *  ずっと速くまとめて送ってくるため、受信スレッドから直接 i2s_write すると
+ *  DMAが空くまでブロックして OLED の描画が止まる。
+ * ============================================================================
+ */
+
+#ifndef KATANORI_AUDIO_IO_H
+#define KATANORI_AUDIO_IO_H
+
+#include <Arduino.h>
+
+// ReSpeaker Lite との I2S 結線 (Seeed公式の I2S サンプルと同じ)
+//   I2S.setPins(8, 7, 43, 44) = (bclk, ws, dout, din)
+#ifndef KATANORI_I2S_BCLK
+#define KATANORI_I2S_BCLK 8   // D9
+#endif
+#ifndef KATANORI_I2S_WS
+#define KATANORI_I2S_WS 7     // D8
+#endif
+#ifndef KATANORI_I2S_DOUT
+#define KATANORI_I2S_DOUT 43  // D6  ESP32 -> ReSpeaker (スピーカー)
+#endif
+#ifndef KATANORI_I2S_DIN
+#define KATANORI_I2S_DIN 44   // D7  ReSpeaker -> ESP32 (マイク)
+#endif
+// MCLK は公式サンプルが未使用のため既定で出さない。必要なら 9 (D10) を指定する。
+#ifndef KATANORI_I2S_MCLK
+#define KATANORI_I2S_MCLK -1
+#endif
+
+// ReSpeaker Lite の XMOS が I2S マスタ。ESP32 はスレーブで受ける。
+// 実機での総当たり結果:
+//   MASTER 各種      -> rms 17000超（自分のクロックで無意味なビットを読むだけ）
+//   SLAVE/I2S/16bit  -> 32427 fps（32bitスロットを2回に割ってしまい壊れる）
+//   SLAVE/I2S/32bit  -> 16213 fps = 16kHz ちょうど、無音時 rms 256  ★これが正解
+#ifndef KATANORI_I2S_SLAVE
+#define KATANORI_I2S_SLAVE 1
+#endif
+
+// スロット幅。XMOS は 32bit スロットで送ってくる（データは上位16bit）。
+#ifndef KATANORI_I2S_BITS
+#define KATANORI_I2S_BITS 32
+#endif
+
+// 0 = 標準I2S(1bit遅れ) / 1 = 左詰め(MSB)。機器が合わないと無音か雑音になる。
+#ifndef KATANORI_I2S_MSB_FORMAT
+#define KATANORI_I2S_MSB_FORMAT 0
+#endif
+
+// ReSpeaker Lite の I2S ファームは 16kHz / 16bit / ステレオ。
+// Gemini の入力仕様も 16kHz なので変換は不要。
+#ifndef KATANORI_AUDIO_RATE
+#define KATANORI_AUDIO_RATE 16000
+#endif
+
+// マイクのどちらのチャンネルを使うか。
+// ch0-asr/ch1-mww ファームでは 0 = 音声認識向け、1 = ウェイクワード向け。
+#ifndef KATANORI_MIC_CHANNEL
+#define KATANORI_MIC_CHANNEL 0
+#endif
+
+namespace katanori {
+
+class AudioIo {
+public:
+    /** I2Sを初期化し、再生タスクを起動する。 */
+    bool begin();
+
+    // --- 録音 ---
+    void startRecording();
+    void stopRecording();
+    bool isRecording() const { return recording_; }
+
+    /**
+     * マイクから読めるぶんだけ読んでモノラル化する。ブロックしない。
+     * @return 書き込んだサンプル数 (0 = まだ溜まっていない)
+     */
+    size_t readMic(int16_t* out, size_t maxSamples);
+
+    // --- 再生 ---
+    /** 再生キューへ積む。実時間より速く届くのでバッファで吸収する。 */
+    void play(const int16_t* pcm, size_t samples);
+    /** 割り込み時: 未再生ぶんを破棄する。 */
+    void stopPlayback();
+    bool isPlaying() const;
+
+    /** 直近のマイクピーク (0.0〜1.0)。顔の口パク・波形表示に使う。 */
+    float micLevel() const { return micLevel_; }
+
+    /** 再生音量 0.0〜1.0。ReSpeakerの出力はアンプ経由なので既定は控えめ。 */
+    void setGain(float g);
+    float gain() const { return gain_; }
+
+    void printStatus() const;
+
+    /**
+     * マイク単独テスト。指定時間ぶん読んで、ch0/ch1 それぞれの
+     * ピークとRMSを出す。
+     *   バイト数が0     -> クロックが回っていない（マスタ/スレーブ設定かピン）
+     *   読めるが全部0   -> ReSpeaker側が音を出していない（ファームかマイク）
+     *   片方だけ振れる  -> KATANORI_MIC_CHANNEL が逆
+     */
+    void micTest(uint32_t durationMs);
+
+    /**
+     * I2Sの設定を実行時に張り替える。書き込み直さずに条件を変えて試すため。
+     * @param bits 16 または 32（スロット幅）
+     */
+    bool applyConfig(bool slave, bool msbFormat, int bits);
+
+    /**
+     * マスタ/スレーブ × 標準I2S/左詰め × 16/32bit の全組み合わせを試し、
+     * それぞれのマイク入力レベルを測って一覧にする。
+     * 無音状態で実行すること。RMSが最も低い組み合わせが正解の候補。
+     */
+    void scanConfigs();
+
+    /**
+     * スピーカー単独テスト。正弦波を鳴らして出力経路だけを確かめる。
+     * @param amplitude 0〜32767。既定は十分小さくしてある。
+     *        ReSpeaker Lite の出力はアンプ経由なので、イヤホンを直結すると
+     *        小さい値でも非常に大きな音になる。耳に着けたまま試さないこと。
+     */
+    void toneTest(uint32_t durationMs, int freqHz, int amplitude = 600);
+
+private:
+    static void playbackTask(void* arg);
+    void runPlayback();
+
+    /** 現在のスロット幅での1フレームのバイト数（ステレオ）。 */
+    size_t frameBytes() const;
+    /** モノラル16bitを左右へ複製してI2Sへ書く。32bitスロットなら上位へ載せる。 */
+    void writeMono(const int16_t* mono, size_t samples, TickType_t wait);
+
+    bool started_ = false;
+    // 実行時に張り替えられる現在のI2S設定
+    bool curSlave_ = KATANORI_I2S_SLAVE;
+    bool curMsb_ = KATANORI_I2S_MSB_FORMAT;
+    int curBits_ = 16;
+    volatile bool recording_ = false;
+    volatile float micLevel_ = 0.0f;
+    volatile float gain_ = 0.35f;
+
+    // 統計 (デバッグ用)
+    volatile uint32_t sentSamples_ = 0;
+    volatile uint32_t playedSamples_ = 0;
+    volatile uint32_t droppedSamples_ = 0;
+};
+
+extern AudioIo audioIo;
+
+} // namespace katanori
+
+#endif // KATANORI_AUDIO_IO_H

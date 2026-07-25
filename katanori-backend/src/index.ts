@@ -11,6 +11,25 @@ export interface Env {
  */
 const GEMINI_INPUT_RATE = 16000;
 
+/**
+ * PCMモードで1フレームに詰める音声の最大バイト数。
+ *
+ * マイコン側の WebSocket ライブラリ (links2004/WebSockets) は
+ * WEBSOCKETS_MAX_DATA_SIZE = 15KB を超えるフレームを受け取ると、
+ * 中身を読まずに close(1009) で切断する。Geminiは1チャンクで
+ * それを超える音声を送ってくることがあるため、ここで刻んでおく。
+ * 4096バイト = 2048サンプル = 16kHzで128ms。
+ */
+const MAX_AUDIO_FRAME_BYTES = 4096;
+
+/** 上限を超えないよう分割して送る。 */
+function sendAudioChunked(ws: WebSocket, pcm: Int16Array) {
+  const maxSamples = MAX_AUDIO_FRAME_BYTES / 2;
+  for (let off = 0; off < pcm.length; off += maxSamples) {
+    ws.send(pcm.subarray(off, Math.min(off + maxSamples, pcm.length)));
+  }
+}
+
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     try {
@@ -169,7 +188,11 @@ export class RobotDO implements DurableObject {
         try {
           msg = JSON.parse(text);
         } catch {
-          serverWs.send(event.data); // JSONでないものはそのまま渡す
+          // PCMモードでは「バイナリ=音声」をクライアントの唯一の判定基準にする。
+          // JSONでないものもテキストで渡し、バイナリ枠を音声専用に保つ。
+          // (PCMデータの先頭バイトがたまたま '{' になることは普通に起きるため、
+          //  中身を覗いて振り分ける方式は成立しない)
+          serverWs.send(text);
           return;
         }
 
@@ -204,7 +227,7 @@ export class RobotDO implements DurableObject {
               // 極小のチャンクではリサンプル後に0サンプルになることがある。
               // 長さ0のフレームはマイコンを無駄に起こすだけなので送らない。
               if (out.length > 0) {
-                serverWs.send(out);
+                sendAudioChunked(serverWs, out);
               }
             } else {
               remaining.push(part);
