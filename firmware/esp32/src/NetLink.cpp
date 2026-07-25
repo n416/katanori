@@ -4,6 +4,8 @@
 #include <Preferences.h>
 #include <WebSocketsClient.h>
 
+#include "RootCa.h"
+
 namespace katanori {
 
 namespace {
@@ -135,6 +137,16 @@ void onWsEvent(WStype_t type, uint8_t* payload, size_t length) {
                           "wifi=%d heap=%uB\n",
                           binFrames, binBytes, textFrames,
                           WiFi.status(), ESP.getFreeHeap());
+#if !KATANORI_TLS_INSECURE
+            // 一度も繋がらないまま切れた場合、TLS検証の失敗が最有力。
+            // 沈黙のまま繋がらないと原因が分からなくなるので明示する。
+            if (!connected) {
+                Serial.println("[WS] 一度も接続できていません。TLS証明書の検証に");
+                Serial.println("[WS] 失敗した可能性があります。接続先が発行元CAを変更した");
+                Serial.println("[WS] 場合は src/RootCa.h の更新が必要です。");
+                Serial.println("[WS] 暫定回避: build_flags に -DKATANORI_TLS_INSECURE=1");
+            }
+#endif
         }
         connected = false;
         // 自動再接続を止める (Geminiのセッション浪費を防ぐ)
@@ -376,14 +388,19 @@ void NetLink::wsConnect() {
     Serial.printf("[WS] wss://%s:%d%s へ接続します\n",
                   KATANORI_WS_HOST, KATANORI_WS_PORT, KATANORI_WS_PATH);
 
-    // TODO(Stage 4): サーバ証明書を検証していない。fingerprint に NULL を渡すと
-    // ライブラリ内部で setInsecure() が呼ばれ、中間者攻撃を検出できなくなる。
-    // 出荷前に beginSslWithCA() でルート証明書を渡すか、証明書バンドルを積むこと。
-    Serial.println("[WS] !! 警告: TLSサーバ証明書を検証していません (Stage 2の暫定実装)");
-
     wantConnected = true;
     connectStartedMs = millis();
+
+#if KATANORI_TLS_INSECURE
+    // 緊急用の逃げ道。CAを更新するまでの一時しのぎ以外で使わないこと。
+    Serial.println("[WS] !! 警告: TLSサーバ証明書を検証していません");
     ws.beginSSL(KATANORI_WS_HOST, KATANORI_WS_PORT, KATANORI_WS_PATH);
+#else
+    // ルートCAを検証する。接続できなくなった場合、まず疑うべきは
+    // 接続先が発行元CAを変更したこと（RootCa.h のコメント参照）。
+    ws.beginSslWithCA(KATANORI_WS_HOST, KATANORI_WS_PORT, KATANORI_WS_PATH,
+                      KATANORI_ROOT_CA_PEM);
+#endif
 }
 
 void NetLink::wsDisconnect() {

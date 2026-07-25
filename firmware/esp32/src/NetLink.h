@@ -25,6 +25,12 @@
 #ifndef KATANORI_WS_PORT
 #define KATANORI_WS_PORT 443
 #endif
+// 1にするとTLSサーバ証明書を検証しない。ピン留めしたCAが古くなって
+// 接続できなくなったときの緊急避難用で、常用してはいけない。
+#ifndef KATANORI_TLS_INSECURE
+#define KATANORI_TLS_INSECURE 0
+#endif
+
 // ?pcm=16000 で「音声=バイナリ / 制御=テキスト」モードになる。
 // base64もJSON組み立ても不要になり、24k->16k変換もDO側で済ませてくれる。
 #ifndef KATANORI_WS_PATH
