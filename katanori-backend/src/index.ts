@@ -22,6 +22,25 @@ const GEMINI_INPUT_RATE = 16000;
  */
 const MAX_AUDIO_FRAME_BYTES = 4096;
 
+/**
+ * 人格と、名前の誤認識を吸収するための指示。
+ *
+ * Gemini Live API には音声認識のヒント（phrase hints）を渡す手段がないため、
+ * 「カタノリロボ」が誤って文字起こしされる問題はプロンプト側で吸収するしかない。
+ * 実機で「加藤のいとこ」と認識された実例がある。
+ */
+const SYSTEM_INSTRUCTION = [
+  "あなたは「カタノリロボ」という名前の小さなロボットです。",
+  "親しみやすく、短く返答してください。",
+  "",
+  "【名前の聞き取りについて】",
+  "音声認識の都合で、あなたの名前が次のように誤って文字起こしされることがあります。",
+  "「加藤のいとこ」「加藤の従兄弟」「肩乗り」「片乗り」「カタノリ」「かたのり」",
+  "「かた乗り」「方のり」など。",
+  "これらが出てきたら、すべてあなたへの呼びかけだと解釈してください。",
+  "聞き間違いを指摘したり名前を訂正したりせず、自然に応答を続けてください。",
+].join("\n");
+
 /** 上限を超えないよう分割して送る。 */
 function sendAudioChunked(ws: WebSocket, pcm: Int16Array) {
   const maxSamples = MAX_AUDIO_FRAME_BYTES / 2;
@@ -300,7 +319,7 @@ export class RobotDO implements DurableObject {
         // native-audio-latest へ戻すこと(その場合クライアントは旧mediaChunks形式も可)
         model: "models/gemini-3.1-flash-live-preview",
         systemInstruction: {
-          parts: [{ text: "あなたはカタノリロボです。親しみやすく短い返答をしてください。" }]
+          parts: [{ text: SYSTEM_INSTRUCTION }]
         },
         generationConfig: {
           responseModalities: ["AUDIO"],
