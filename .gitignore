@@ -1,2 +1,12 @@
 node_modules
 dist
+
+# ビルド成果物 (simulator/build.bat で再生成できるためコミットしない)
+*.o
+*.obj
+*.exe
+bin/
+
+# Python
+__pycache__/
+*.pyc
