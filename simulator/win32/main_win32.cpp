@@ -210,7 +210,7 @@ void updateWindowTitle(HWND hwnd) {
     char title[256];
     const char* stateName = g_stateNames[static_cast<int>(g_robot.state())];
     std::snprintf(title, sizeof(title),
-        "Katanori Simulator [State: %s] (Keys: 1:WAKE 2:END 3:READY 4:DONE | Space:Mic | ESC:Exit)",
+        "Katanori Simulator [State: %s] (Keys: 1/2/3/4 | Space:Mic | Arrows:Tune Voice | ESC:Exit)",
         stateName);
     SetWindowTextA(hwnd, title);
 }
@@ -258,6 +258,18 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             case VK_SPACE:
                 g_hal.setMicPressed(true);
                 break;
+            case VK_UP:
+                std::printf("[EVENT] FREQ_UP\n"); std::fflush(stdout);
+                break;
+            case VK_DOWN:
+                std::printf("[EVENT] FREQ_DOWN\n"); std::fflush(stdout);
+                break;
+            case VK_RIGHT:
+                std::printf("[EVENT] BIT_UP\n"); std::fflush(stdout);
+                break;
+            case VK_LEFT:
+                std::printf("[EVENT] BIT_DOWN\n"); std::fflush(stdout);
+                break;
             case VK_ESCAPE:
                 PostQuitMessage(0);
                 break;
@@ -293,6 +305,8 @@ int main() {
     std::printf("  3     : Inject RESPONSE_READY (THINK -> SPEAK)\n");
     std::printf("  4     : Inject SPEECH_DONE (SPEAK -> IDLE)\n");
     std::printf("  Space : Simulate Microphone Audio Input\n");
+    std::printf("  Up/Dn : Tune Voice Frequency\n");
+    std::printf("  Lt/Rt : Tune Voice Bit Depth (Resolution)\n");
     std::printf("  ESC   : Exit Simulator\n");
     std::printf("=====================================================\n\n");
     std::fflush(stdout);

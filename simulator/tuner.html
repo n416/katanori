@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Katanori Robot Voice Tuner</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --glass-bg: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --accent: #06b6d4;
+            --accent-hover: #0891b2;
+            --text-main: #f8fafc;
+            --text-sub: #94a3b8;
+        }
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            margin: 0;
+            padding: 2rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-image: radial-gradient(circle at 50% 0%, #1e293b 0%, #0f172a 100%);
+        }
+        .container {
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 2.5rem;
+            width: 100%;
+            max-width: 500px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+        h1 {
+            margin: 0 0 0.5rem 0;
+            font-size: 1.8rem;
+            font-weight: 600;
+            text-align: center;
+            background: linear-gradient(135deg, #22d3ee, #818cf8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        p.subtitle {
+            text-align: center;
+            color: var(--text-sub);
+            margin-bottom: 2rem;
+            font-size: 0.95rem;
+        }
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+        .control-group label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.95rem;
+            font-weight: 500;
+        }
+        .val-display {
+            color: var(--accent);
+            font-variant-numeric: tabular-nums;
+            font-weight: 600;
+        }
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--accent);
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(6, 182, 212, 0.5);
+            transition: transform 0.1s;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+        .action-buttons {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        button, .file-upload-btn {
+            flex: 1;
+            padding: 0.8rem;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: var(--glass-border);
+            color: var(--text-main);
+            text-align: center;
+        }
+        button:hover:not(:disabled), .file-upload-btn:hover {
+            background: rgba(255, 255, 255, 0.15);
+            transform: translateY(-2px);
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(0, 0, 0, 0.2);
+            color: white;
+            font-size: 1rem;
+            outline: none;
+            box-sizing: border-box;
+        }
+        input[type="text"]:focus {
+            border-color: var(--accent);
+        }
+        .file-upload-btn input[type="file"] {
+            display: none;
+        }
+        button:disabled, .file-upload-btn.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        button.primary {
+            background: var(--accent);
+            color: #000;
+        }
+        button.primary:hover:not(:disabled) {
+            background: var(--accent-hover);
+        }
+        button.danger {
+            background: #ef4444;
+            color: #fff;
+        }
+        button.danger:hover:not(:disabled) {
+            background: #dc2626;
+        }
+        #status {
+            margin-top: 1.5rem;
+            text-align: center;
+            font-size: 0.85rem;
+            color: var(--text-sub);
+            padding: 0.5rem;
+            border-radius: 8px;
+            background: rgba(0,0,0,0.2);
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Robot Voice Tuner</h1>
+    <p class="subtitle">API不要。ブラウザ上でマイコン用DSPのテストが可能です。</p>
+
+    <div class="controls">
+        <div class="control-group">
+            <label>
+                Pitch Ratio (声の高さ)
+                <span class="val-display" id="pitchVal">1.10</span>
+            </label>
+            <input type="range" id="pitchSlider" min="0.5" max="2.5" step="0.05" value="1.10">
+        </div>
+
+        <div class="control-group">
+            <label>
+                Comb Feedback (金属共鳴)
+                <span class="val-display" id="combVal">0.75</span>
+            </label>
+            <input type="range" id="combSlider" min="0.0" max="0.95" step="0.05" value="0.75">
+        </div>
+
+        <div class="control-group">
+            <label>
+                Window Size (ブレンド窓サイズ)
+                <span class="val-display" id="grainVal">44 ms</span>
+            </label>
+            <input type="range" id="grainSlider" min="20" max="100" step="1" value="44">
+            <span style="font-size: 0.75rem; color: var(--text-sub);">※ピッチシフトの滑らかさを調整（基本は50ms）</span>
+        </div>
+        
+        <div class="control-group">
+            <label>テストフレーズ (Geminiに喋らせる内容)</label>
+            <input type="text" id="promptInput" value="こんにちは！私はカタノリロボです。親しみやすい声に聞こえますか？">
+        </div>
+        
+        <div class="control-group">
+            <label>Geminiの元の声 (Voiceモデル)</label>
+            <select id="voiceSelect" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.2); background: rgba(0, 0, 0, 0.2); color: white; font-size: 1rem; outline: none;">
+                <option value="Aoede">Aoede (Breezy / 明るい・女性的)</option>
+                <option value="Zephyr">Zephyr (Bright)</option>
+                <option value="Puck">Puck (Upbeat / 男性的)</option>
+                <option value="Charon">Charon (情報が豊富 / 男性的)</option>
+                <option value="Kore">Kore (Firm / 落ち着いた・女性的)</option>
+                <option value="Fenrir">Fenrir (Excitable / 低い・男性的)</option>
+                <option value="Leda">Leda (Youthful / 若い・女性的)</option>
+                <option value="Orus">Orus (Firm)</option>
+                <option value="Callirrhoe">Callirrhoe (のんびり屋 / 女性的)</option>
+                <option value="Autonoe">Autonoe (Bright)</option>
+                <option value="Enceladus">Enceladus (Breathy)</option>
+                <option value="Iapetus">Iapetus (Clear)</option>
+                <option value="Umbriel">Umbriel (Easy-going)</option>
+                <option value="Algieba">Algieba (Smooth)</option>
+                <option value="Despina">Despina (Smooth)</option>
+                <option value="Erinome">Erinome (晴れ)</option>
+                <option value="Algenib">Algenib (Gravelly)</option>
+                <option value="Rasalgethi">Rasalgethi (情報が豊富)</option>
+                <option value="Laomedeia">Laomedeia (アップビート)</option>
+                <option value="Achernar">Achernar (Soft)</option>
+                <option value="Alnilam">Alnilam (Firm)</option>
+                <option value="Schedar">Schedar (Even)</option>
+                <option value="Gacrux">Gacrux (成人向け)</option>
+                <option value="Pulcherrima">Pulcherrima (転送)</option>
+                <option value="Achird" selected>Achird (Friendly)</option>
+                <option value="Zubenelgenubi">Zubenelgenubi (カジュアル)</option>
+                <option value="Vindemiatrix">Vindemiatrix (Gentle)</option>
+                <option value="Sadachbia">Sadachbia (Lively)</option>
+                <option value="Sadaltager">Sadaltager (知識が豊富)</option>
+                <option value="Sulafat">Sulafat (Warm)</option>
+            </select>
+        </div>
+
+        <div class="action-buttons">
+            <button id="btnFetch" class="danger">1. APIから取得</button>
+            <label class="file-upload-btn">
+                <input type="file" id="fileInput" accept="audio/*">
+                または ファイル読込
+            </label>
+        </div>
+        
+        <div class="action-buttons">
+            <button id="btnPlay" class="primary" disabled>▶ ループ再生</button>
+            <button id="btnStop" disabled>■ 停止</button>
+            <button id="btnSave" disabled>💾 原音を保存</button>
+        </div>
+    </div>
+
+    <div id="status">Ready.</div>
+</div>
+
+<script>
+// ==========================================
+// DSP Engine (AudioWorklet)
+// ==========================================
+// CORS制約を回避するため、BlobからURLを生成してWorkletをロードします。
+const workletCode = `
+class RobotDSPProcessor extends AudioWorkletProcessor {
+    constructor() {
+        super();
+        this.pitchRatio = 1.10;
+        this.combFeedback = 0.75;
+        this.grainSizeMs = 44.0;
+        
+        // マイコン移植用のリングバッファ
+        this.delayBuf = new Float32Array(48000);
+        this.wrIdx = 0;
+        this.phase = 0.0; // LFO phase for dual pointer
+        
+        // コムフィルターのフィードバック用バッファ
+        this.outBuf = new Float32Array(4800);
+        this.outIdx = 0;
+
+        this.port.onmessage = (e) => {
+            if (e.data.pitchRatio !== undefined) this.pitchRatio = e.data.pitchRatio;
+            if (e.data.combFeedback !== undefined) this.combFeedback = e.data.combFeedback;
+            if (e.data.grainSizeMs !== undefined) this.grainSizeMs = e.data.grainSizeMs;
+        };
+    }
+
+    process(inputs, outputs) {
+        const input = inputs[0];
+        const output = outputs[0];
+        if (!input || !input[0] || !output || !output[0]) return true;
+
+        const inChannel = input[0];
+        const outChannel = output[0];
+        const bufLen = this.delayBuf.length;
+        const outBufLen = this.outBuf.length;
+        
+        const delaySamples = Math.floor(sampleRate * 0.003); // 3ms comb delay
+        
+        // クロスフェードピッチシフト用の最大ディレイ
+        let maxDelay = Math.floor(sampleRate * (this.grainSizeMs / 1000.0));
+        if (maxDelay < 10) maxDelay = 10;
+        
+        // ピッチ比に基づく位相の進み具合 (1サンプルあたり)
+        let phaseInc = 0.0;
+        if (this.pitchRatio !== 1.0) {
+            phaseInc = (1.0 - this.pitchRatio) / maxDelay;
+        }
+
+        for (let i = 0; i < inChannel.length; i++) {
+            // Write
+            this.delayBuf[this.wrIdx] = inChannel[i];
+            
+            // LFO Update
+            this.phase += phaseInc;
+            if (this.phase >= 1.0) this.phase -= 1.0;
+            else if (this.phase < 0.0) this.phase += 1.0;
+            
+            // Dual Pointer Phases (180 deg apart)
+            let phase1 = this.phase;
+            let phase2 = this.phase + 0.5;
+            if (phase2 >= 1.0) phase2 -= 1.0;
+            
+            // Delay times
+            let d1 = phase1 * maxDelay;
+            let d2 = phase2 * maxDelay;
+            
+            // Triangle window function
+            let w1 = 1.0 - Math.abs(2.0 * phase1 - 1.0);
+            let w2 = 1.0 - Math.abs(2.0 * phase2 - 1.0);
+            
+            // Read Pointer 1
+            let rd1 = this.wrIdx - d1;
+            if (rd1 < 0) rd1 += bufLen;
+            let idx1_0 = Math.floor(rd1);
+            let idx1_1 = (idx1_0 + 1) % bufLen;
+            let frac1 = rd1 - idx1_0;
+            let s1 = this.delayBuf[idx1_0] + frac1 * (this.delayBuf[idx1_1] - this.delayBuf[idx1_0]);
+            
+            // Read Pointer 2
+            let rd2 = this.wrIdx - d2;
+            if (rd2 < 0) rd2 += bufLen;
+            let idx2_0 = Math.floor(rd2);
+            let idx2_1 = (idx2_0 + 1) % bufLen;
+            let frac2 = rd2 - idx2_0;
+            let s2 = this.delayBuf[idx2_0] + frac2 * (this.delayBuf[idx2_1] - this.delayBuf[idx2_0]);
+            
+            // Crossfade
+            let val = s1 * w1 + s2 * w2;
+            
+            // Comb Filter
+            let prevOutIdx = (this.outIdx - delaySamples + outBufLen) % outBufLen;
+            val += this.outBuf[prevOutIdx] * this.combFeedback;
+            
+            if (val > 1.0) val = 1.0;
+            if (val < -1.0) val = -1.0;
+            
+            this.outBuf[this.outIdx] = val;
+            this.outIdx = (this.outIdx + 1) % outBufLen;
+            
+            outChannel[i] = val;
+            this.wrIdx = (this.wrIdx + 1) % bufLen;
+        }
+        return true;
+    }
+}
+registerProcessor('robot-dsp-processor', RobotDSPProcessor);
+`;
+
+// ==========================================
+// UI & Audio Context Management
+// ==========================================
+const pitchSlider = document.getElementById('pitchSlider');
+const combSlider = document.getElementById('combSlider');
+const grainSlider = document.getElementById('grainSlider');
+const pitchVal = document.getElementById('pitchVal');
+const combVal = document.getElementById('combVal');
+const grainVal = document.getElementById('grainVal');
+const promptInput = document.getElementById('promptInput');
+const voiceSelect = document.getElementById('voiceSelect');
+const btnFetch = document.getElementById('btnFetch');
+const fileInput = document.getElementById('fileInput');
+const btnPlay = document.getElementById('btnPlay');
+const btnStop = document.getElementById('btnStop');
+const btnSave = document.getElementById('btnSave');
+const statusDisplay = document.getElementById('status');
+
+let audioCtx;
+let dspNode;
+let recordedBuffer = null;
+let sourceNode = null;
+
+async function initAudio() {
+    if (audioCtx) return;
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
+    
+    const blob = new Blob([workletCode], { type: 'application/javascript' });
+    const workletUrl = URL.createObjectURL(blob);
+    await audioCtx.audioWorklet.addModule(workletUrl);
+    
+    dspNode = new AudioWorkletNode(audioCtx, 'robot-dsp-processor');
+    dspNode.connect(audioCtx.destination);
+    
+    updateDSPParams();
+}
+
+function updateDSPParams() {
+    if (dspNode) {
+        dspNode.port.postMessage({
+            pitchRatio: parseFloat(pitchSlider.value),
+            combFeedback: parseFloat(combSlider.value),
+            grainSizeMs: parseFloat(grainSlider.value)
+        });
+    }
+}
+
+pitchSlider.addEventListener('input', (e) => {
+    pitchVal.textContent = parseFloat(e.target.value).toFixed(2);
+    updateDSPParams();
+});
+
+combSlider.addEventListener('input', (e) => {
+    combVal.textContent = parseFloat(e.target.value).toFixed(2);
+    updateDSPParams();
+});
+
+grainSlider.addEventListener('input', (e) => {
+    grainVal.textContent = parseInt(e.target.value) + " ms";
+    updateDSPParams();
+});
+
+// ファイルから読み込み
+fileInput.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    statusDisplay.textContent = "ファイルを読み込み中...";
+    await initAudio();
+    
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+        try {
+            recordedBuffer = await audioCtx.decodeAudioData(event.target.result);
+            statusDisplay.textContent = `「${file.name}」を読み込みました。「ループ再生」を押してください。`;
+            btnPlay.disabled = false;
+            btnSave.disabled = false;
+        } catch (err) {
+            statusDisplay.textContent = "音声のデコードに失敗しました: " + err.message;
+        }
+    };
+    reader.readAsArrayBuffer(file);
+});
+
+// Base64 (Little Endian PCM 16bit) -> Int16Array
+function base64ToInt16Array(base64) {
+    const binaryStr = window.atob(base64);
+    const len = binaryStr.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+        bytes[i] = binaryStr.charCodeAt(i);
+    }
+    return new Int16Array(bytes.buffer);
+}
+
+btnFetch.addEventListener('click', async () => {
+    btnFetch.disabled = true;
+    btnPlay.disabled = true;
+    statusDisplay.textContent = "Geminiに接続中...";
+    let pcmData = [];
+    const voice = voiceSelect.value;
+    const ws = new WebSocket(`wss://katanori-backend.tobira-sys.workers.dev/?voice=${voice}`);
+    
+    ws.onopen = () => {
+        statusDisplay.textContent = "接続完了。音声を生成中...";
+    };
+    
+    ws.onmessage = async (event) => {
+        try {
+            let textData = event.data;
+            if (textData instanceof Blob) {
+                textData = await textData.text();
+            }
+            const msg = JSON.parse(textData);
+            
+            if (msg.setupComplete) {
+                // Send text prompt
+                const payload = {
+                    clientContent: {
+                        turns: [{
+                            role: "user",
+                            parts: [{ text: promptInput.value }]
+                        }],
+                        turnComplete: true
+                    }
+                };
+                ws.send(JSON.stringify(payload));
+            }
+            
+            if (msg.serverContent && msg.serverContent.modelTurn) {
+                const parts = msg.serverContent.modelTurn.parts;
+                for (const part of parts) {
+                    if (part.inlineData) {
+                        const int16Arr = base64ToInt16Array(part.inlineData.data);
+                        for (let i = 0; i < int16Arr.length; i++) {
+                            pcmData.push(int16Arr[i]);
+                        }
+                    }
+                }
+            }
+            
+            if (msg.serverContent && msg.serverContent.turnComplete) {
+                ws.close();
+                
+                await initAudio();
+                if (pcmData.length === 0) {
+                    statusDisplay.textContent = "音声が取得できませんでした。";
+                    btnFetch.disabled = false;
+                    return;
+                }
+                
+                // Create AudioBuffer (1 channel, 24000Hz)
+                recordedBuffer = audioCtx.createBuffer(1, pcmData.length, 24000);
+                const channelData = recordedBuffer.getChannelData(0);
+                for (let i = 0; i < pcmData.length; i++) {
+                    channelData[i] = pcmData[i] / 32768.0;
+                }
+                
+                statusDisplay.textContent = "✨ 取得完了！「ループ再生」でテスト、または「原音を保存」できます。";
+                btnFetch.disabled = false;
+                btnPlay.disabled = false;
+                btnSave.disabled = false;
+            }
+        } catch (e) {
+            console.error("WebSocket message error:", e);
+        }
+    };
+    
+    ws.onerror = () => {
+        statusDisplay.textContent = "エラー: WebSocket接続に失敗しました。";
+        btnFetch.disabled = false;
+    };
+});
+
+// WAV保存機能
+function writeString(view, offset, string) {
+    for (let i = 0; i < string.length; i++) {
+        view.setUint8(offset + i, string.charCodeAt(i));
+    }
+}
+
+btnSave.addEventListener('click', () => {
+    if (!recordedBuffer) return;
+    
+    const numChannels = recordedBuffer.numberOfChannels;
+    const sampleRate = recordedBuffer.sampleRate;
+    const format = 1; // PCM
+    const bitDepth = 16;
+    
+    const floatData = recordedBuffer.getChannelData(0); // 1ch(Mono)前提
+    const dataLength = floatData.length * (bitDepth / 8);
+    const buffer = new ArrayBuffer(44 + dataLength);
+    const view = new DataView(buffer);
+    
+    writeString(view, 0, 'RIFF');
+    view.setUint32(4, 36 + dataLength, true);
+    writeString(view, 8, 'WAVE');
+    
+    writeString(view, 12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, format, true);
+    view.setUint16(22, numChannels, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * numChannels * (bitDepth / 8), true);
+    view.setUint16(32, numChannels * (bitDepth / 8), true);
+    view.setUint16(34, bitDepth, true);
+    
+    writeString(view, 36, 'data');
+    view.setUint32(40, dataLength, true);
+    
+    let offset = 44;
+    for (let i = 0; i < floatData.length; i++) {
+        let s = Math.max(-1, Math.min(1, floatData[i]));
+        view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+        offset += 2;
+    }
+    
+    const blob = new Blob([view], { type: 'audio/wav' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'gemini_test_voice.wav';
+    a.click();
+    URL.revokeObjectURL(url);
+});
+
+btnPlay.addEventListener('click', async () => {
+    await initAudio();
+    if (!recordedBuffer) return;
+    
+    if (sourceNode) {
+        sourceNode.stop();
+        sourceNode.disconnect();
+    }
+    
+    sourceNode = audioCtx.createBufferSource();
+    sourceNode.buffer = recordedBuffer;
+    sourceNode.loop = true;
+    sourceNode.connect(dspNode);
+    sourceNode.start(0);
+    
+    statusDisplay.textContent = "🔄 ループ再生中... スライダーで調整してください";
+    btnPlay.disabled = true;
+    btnStop.disabled = false;
+});
+
+btnStop.addEventListener('click', () => {
+    if (sourceNode) {
+        sourceNode.stop();
+        sourceNode.disconnect();
+        sourceNode = null;
+    }
+    statusDisplay.textContent = "停止しました。";
+    btnPlay.disabled = false;
+    btnStop.disabled = true;
+});
+
+</script>
+
+</body>
+</html>
