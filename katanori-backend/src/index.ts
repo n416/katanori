@@ -38,7 +38,10 @@ export class RobotDO implements DurableObject {
       server.accept();
       this.clientWs = server;
       
-      this.connectToGemini(server).catch(e => {
+      const requestUrl = new URL(request.url);
+      const voice = requestUrl.searchParams.get("voice") || "Aoede";
+      
+      this.connectToGemini(server, voice).catch(e => {
         console.error("Gemini connection error:", e);
       });
 
@@ -56,8 +59,8 @@ export class RobotDO implements DurableObject {
     try { ws.send(JSON.stringify({ _debug: msg })); } catch {}
   }
 
-  async connectToGemini(serverWs: WebSocket) {
-    this.dbg(serverWs, "DO fetch ok, connecting to Gemini...");
+  async connectToGemini(serverWs: WebSocket, voiceName: string) {
+    this.dbg(serverWs, `DO fetch ok, connecting to Gemini with voice: ${voiceName}...`);
 
     if (!this.env.GEMINI_API_KEY) {
       this.dbg(serverWs, "ERROR: No GEMINI_API_KEY set.");
@@ -131,12 +134,34 @@ export class RobotDO implements DurableObject {
 
     const setupMsg = {
       setup: {
-        model: "models/gemini-2.5-flash-native-audio-preview-12-2025",
+        // gemini-2.5-flash-native-audio-preview-12-2025 (遅延~1.9s) から変更。
+        // 実測で発話終了→応答開始が1.3sに短縮。previewモデルのため廃止時は
+        // native-audio-latest へ戻すこと(その場合クライアントは旧mediaChunks形式も可)
+        model: "models/gemini-3.1-flash-live-preview",
         systemInstruction: {
           parts: [{ text: "あなたはカタノリロボです。親しみやすく短い返答をしてください。" }]
         },
         generationConfig: {
-          responseModalities: ["AUDIO"]
+          responseModalities: ["AUDIO"],
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: {
+                voiceName: voiceName
+              }
+            }
+          }
+        },
+        // クライアント側デバッグ表示用: Geminiが聞き取った内容と応答内容の文字起こし
+        inputAudioTranscription: {},
+        outputAudioTranscription: {},
+        // 自動VADを鈍らせる: 文間の休止で発話終了と誤判定→応答開始→続きの音声で
+        // interrupted になり会話が破綻するため。発話終了はクライアントの
+        // audioStreamEnd で即時確定するので沈黙2秒待ちのデメリットは実質ない
+        realtimeInputConfig: {
+          automaticActivityDetection: {
+            endOfSpeechSensitivity: "END_SENSITIVITY_LOW",
+            silenceDurationMs: 2000
+          }
         }
       }
     };
