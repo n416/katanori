@@ -19,6 +19,7 @@
 
 #include "IHal.h"
 #include "RobotCore.h"
+#include "NetLink.h"
 
 // ---------------------------------------------------------------------------
 // ボード設定
@@ -357,6 +358,16 @@ static void printHelp() {
     Serial.println("   i : ブート情報を再表示");
     Serial.println("   ? : このヘルプ");
     Serial.println(" BOOTボタン: WAKE_WORD を注入");
+    Serial.println("--- ネットワーク ---------------------------");
+    Serial.println("   ssid <名前>       : Wi-Fi の SSID を保存");
+    Serial.println("   pass <パスワード> : Wi-Fi のパスワードを保存");
+    Serial.println("   forget            : 保存したWi-Fi設定を消去");
+    Serial.println("   scan              : 周囲のAPを一覧表示");
+    Serial.println("   wifi              : Wi-Fiへ接続");
+    Serial.println("   wifioff           : Wi-Fiを切断");
+    Serial.println("   c                 : Durable Object へ WebSocket 接続");
+    Serial.println("   d                 : WebSocket を切断");
+    Serial.println("   n                 : ネットワーク状態を表示");
     Serial.println("---------------------------------------------");
 }
 
@@ -366,7 +377,8 @@ static void printHelp() {
  * Stage 3 で PC 側ラッパーを実機に向けて動作確認する際にそのまま使えるため。
  */
 static void handleSerial() {
-    static char line[32];
+    // SSIDとパスワードを受け取るため余裕を持たせる
+    static char line[160];
     static size_t len = 0;
 
     while (Serial.available() > 0) {
@@ -397,11 +409,32 @@ static void handleSerial() {
             robot.injectEvent(katanori::RobotEvent::RESPONSE_READY);
         } else if (strcmp(line, "CMD:SPEAK_END") == 0) {
             robot.injectEvent(katanori::RobotEvent::SPEECH_DONE);
-        } else if (line[0] == 's') {
+
+        // --- ネットワーク (単文字コマンドより先に判定すること) ---
+        } else if (strncmp(line, "ssid ", 5) == 0) {
+            katanori::netLink.setSsid(line + 5);
+        } else if (strncmp(line, "pass ", 5) == 0) {
+            katanori::netLink.setPassword(line + 5);
+        } else if (strcmp(line, "forget") == 0) {
+            katanori::netLink.clearCredentials();
+        } else if (strcmp(line, "scan") == 0) {
+            katanori::netLink.scan();
+        } else if (strcmp(line, "wifi") == 0) {
+            katanori::netLink.wifiConnect();
+        } else if (strcmp(line, "wifioff") == 0) {
+            katanori::netLink.wifiDisconnect();
+        } else if (strcmp(line, "c") == 0) {
+            katanori::netLink.wsConnect();
+        } else if (strcmp(line, "d") == 0) {
+            katanori::netLink.wsDisconnect();
+        } else if (strcmp(line, "n") == 0) {
+            katanori::netLink.printStatus();
+
+        } else if (strcmp(line, "s") == 0) {
             scanI2c();
-        } else if (line[0] == 'a') {
+        } else if (strcmp(line, "a") == 0) {
             sweepI2cPins();
-        } else if (line[0] == 'r') {
+        } else if (strcmp(line, "r") == 0) {
             // 起動時にOLEDが繋がっていなかった場合、初期化コマンド列がパネルに
             // 届いていない。配線を直した後にリセットボタンを押さずやり直すための口。
             Serial.println("[OLED] 再初期化します");
@@ -412,24 +445,24 @@ static void handleSerial() {
             }
             u8g2.setBusClock(400000);
             runSelfTest();
-        } else if (line[0] == 'R') {
+        } else if (strcmp(line, "R") == 0) {
             Serial.println("[SYS] 再起動します");
             Serial.flush();
             delay(50);
             ESP.restart();
-        } else if (line[0] == 'l') {
+        } else if (strcmp(line, "l") == 0) {
             static bool ledOn = false;
             ledOn = !ledOn;
             digitalWrite(KATANORI_USER_LED, ledOn ? LOW : HIGH);
             Serial.printf("[LED] ユーザーLED(GPIO%d) = %s\n",
                           KATANORI_USER_LED, ledOn ? "点灯" : "消灯");
-        } else if (line[0] == 'v') {
+        } else if (line[0] == 'v' && isdigit((unsigned char)line[1])) {
             measureVoltage(atoi(line + 1));
-        } else if (line[0] == 'g') {
+        } else if (line[0] == 'g' && isdigit((unsigned char)line[1])) {
             testGround(atoi(line + 1));
-        } else if (line[0] == 't') {
+        } else if (strcmp(line, "t") == 0) {
             runSelfTest();
-        } else if (line[0] == 'i') {
+        } else if (strcmp(line, "i") == 0) {
             printBootInfo();
         } else if (line[0] == '?') {
             printHelp();
@@ -504,6 +537,8 @@ void setup() {
         Serial.println("[OLED] (I2Cスキャンで見つからなかったため描画されない可能性があります)");
     }
 
+    katanori::netLink.begin();
+
     printHelp();
 
     // 起動直後は自己診断パターンを出す。ネイティブUSB CDC ではブートログが
@@ -517,6 +552,15 @@ void setup() {
 void loop() {
     handleSerial();
     handleButton();
+    katanori::netLink.loop();
+
+    // 仕様書どおり、内蔵LEDを通信中のステータス表示に使う
+    static bool lastWsState = false;
+    bool wsNow = katanori::netLink.wsConnected();
+    if (wsNow != lastWsState) {
+        lastWsState = wsNow;
+        digitalWrite(KATANORI_USER_LED, wsNow ? LOW : HIGH); // アクティブLOW
+    }
 
     static uint32_t lastFrameMs = 0;
     static uint32_t lastStatMs = 0;
