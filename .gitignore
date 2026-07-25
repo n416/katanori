@@ -7,6 +7,9 @@ dist
 *.exe
 bin/
 
+# PlatformIO (実機ファームのビルド成果物・DLしたツールチェーン)
+.pio/
+
 # Python
 __pycache__/
 *.pyc
