@@ -78,6 +78,13 @@ public:
     void wsConnect();
     void wsDisconnect();
     bool wsConnected() const;
+    /**
+     * 音声を送り始めてよいか。
+     *
+     * WebSocketが繋がった時点ではまだ Gemini の setup が終わっておらず、
+     * 送った音声は捨てられる。録音開始の判断はこちらを使うこと。
+     */
+    bool wsReady() const;
 
     /** 現在の状態をまとめてシリアルへ出す。 */
     void printStatus() const;

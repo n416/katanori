@@ -25,6 +25,11 @@ bool wantConnected = false;
 bool connected = false;
 uint32_t connectStartedMs = 0;
 
+// Geminiの setupComplete を受け取ったか。
+// WebSocketが繋がっただけでは音声を送っても捨てられる。録音を始めてよいかの
+// 判断はこちらを見ること。
+bool geminiReady = false;
+
 NetLink::AudioSink audioSink = nullptr;
 NetLink::ControlSink controlSink = nullptr;
 
@@ -100,6 +105,7 @@ bool contains(const uint8_t* payload, size_t length, const char* needle) {
 
 void handleControl(const uint8_t* payload, size_t length) {
     if (contains(payload, length, "setupComplete")) {
+        geminiReady = true;
         Serial.println("[WS] ★ setupComplete 受信 — Geminiまで疎通しました");
     }
 
@@ -123,6 +129,7 @@ void onWsEvent(WStype_t type, uint8_t* payload, size_t length) {
     switch (type) {
     case WStype_CONNECTED:
         connected = true;
+        geminiReady = false; // setupComplete はこの後に来る
         binFrames = 0;
         binBytes = 0;
         textFrames = 0;
@@ -149,6 +156,7 @@ void onWsEvent(WStype_t type, uint8_t* payload, size_t length) {
 #endif
         }
         connected = false;
+        geminiReady = false;
         // 自動再接続を止める (Geminiのセッション浪費を防ぐ)
         if (wantConnected) {
             wantConnected = false;
@@ -290,6 +298,10 @@ bool NetLink::hasCredentials() const {
 
 bool NetLink::wifiConnected() const {
     return WiFi.status() == WL_CONNECTED;
+}
+
+bool NetLink::wsReady() const {
+    return connected && geminiReady;
 }
 
 bool NetLink::wifiConnect(uint32_t timeoutMs) {

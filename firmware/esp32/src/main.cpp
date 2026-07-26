@@ -22,6 +22,7 @@
 #include "NetLink.h"
 #include "AudioIo.h"
 #include "Provisioning.h"
+#include "VoiceClips.h"
 
 #include <qrcode.h>
 
@@ -133,6 +134,109 @@ static bool turnComplete = false;
 // audioStreamEnd を送った時刻（応答遅延の実測用）
 static uint32_t streamEndMs = 0;
 
+// ---------------------------------------------------------------------------
+// 自動接続
+//
+// 渡した相手はUSBもシリアルコンソールも持たない。電源を入れたら、こちらから
+// 何も操作せずに会話できる状態まで行き着かなければならない。
+//
+// Wi-Fi は起動後すぐ自動で繋ぐ。WebSocketは「話しかけられたときに張る」まま
+// にする（DOは接続と同時にGeminiへ繋ぐので、常時接続はセッションの浪費になる。
+// 詳細は NetLink.h の設計方針）。
+// ---------------------------------------------------------------------------
+
+/** 次にWi-Fi接続を試す時刻。0なら即試す。 */
+static uint32_t nextWifiTryMs = 0;
+/** 連続失敗回数。成功したら0に戻す。 */
+static uint8_t wifiFailures = 0;
+/**
+ * 起動してから一度でもWi-Fiに繋がったか。
+ *
+ * 一度も繋がらないなら設定が悪い（SSID変更・パスワード間違い）と判断して
+ * 設定モードへ落ちる。一度繋がった後の切断はルーターの再起動や電波状況が
+ * 原因なので、設定モードへ落とさず再試行を続ける（勝手に設定モードへ入って
+ * 会話が終わるほうが利用者には理不尽）。
+ */
+static bool wifiEverConnected = false;
+/** 一度も繋がらないまま何回失敗したら設定モードへ落ちるか。 */
+static constexpr uint8_t WIFI_FAILURES_TO_PROVISIONING = 3;
+
+// --- 焼き込み音声（VoiceClips.h） ---
+//
+// サーバーに繋がる前・繋がらないときに状況を伝えるための音。シリアルを持たない
+// 相手にとっては、これが唯一の「今どうなっているか」の手がかりになる。
+
+/** 起動アナウンスを鳴らしたか。電源を入れてから1回だけ。 */
+static bool bootAnnounced = false;
+
+// ---------------------------------------------------------------------------
+// 出力ゲート
+//
+// コーデックの開け閉めは、必ずここ1か所だけで行う。
+//
+// 開けっ放しのまま電源を切られる/リセットされると、その状態がコーデックに
+// 残り、次の起動でROMブートログ(115200bps)がGPIO43=I2S DOUTからそのまま
+// 増幅されて轟音になる。実際にこれで耳を痛めている。
+//
+// 以前は再生経路ごとに setOutputMute() を呼んでいた（応答再生・割り込み・
+// ターン終了）。経路が増えるたびに閉じ忘れの穴ができる作りで、起動アナウンスを
+// 足した時点で「電源を入れるだけで自動的に開く」経路が生まれてしまった。
+//
+// 方針: 鳴らすものがキューにあるあいだだけ開ける。それ以外は必ず閉じる。
+// ---------------------------------------------------------------------------
+
+/**
+ * キューが空になってから閉じるまでの猶予。
+ *
+ * isPlaying() が見ているのはソフト側のキューだけで、I2Sドライバ内にはまだ
+ * 送信待ちが残っている。空になった瞬間に閉じると語尾が切れる。
+ */
+static constexpr uint32_t OUTPUT_TAIL_MS = 250;
+
+/**
+ * 手動 `unmute` のあいだだけゲートを止める。
+ *
+ * ゲートは「鳴っていなければ閉じる」ので、そのままでは手動で開けても
+ * すぐ閉じられてスピーカー単独の切り分けができない。`mute` で戻る。
+ */
+static bool outputGateOverride = false;
+
+/** 出力ゲート。main loop から毎回呼ぶ。 */
+static void pumpOutputGate() {
+    static uint32_t emptySinceMs = 0;
+
+    if (outputGateOverride) {
+        return;
+    }
+
+    if (katanori::audioIo.isPlaying()) {
+        emptySinceMs = 0;
+        if (katanori::audioIo.outputMuted()) {
+            katanori::audioIo.setOutputMute(false);
+        }
+        return;
+    }
+
+    if (katanori::audioIo.outputMuted()) {
+        return;
+    }
+    if (emptySinceMs == 0) {
+        emptySinceMs = millis();
+        return;
+    }
+    if (millis() - emptySinceMs >= OUTPUT_TAIL_MS) {
+        emptySinceMs = 0;
+        katanori::audioIo.setOutputMute(true);
+    }
+}
+
+/** ボタンが押されたが、まだサーバーに繋がっていない状態か。 */
+static bool pendingTurn = false;
+/** その待ち始めた時刻。 */
+static uint32_t pendingTurnMs = 0;
+/** 接続を待つ上限。TLSハンドシェイクを含めても実測2秒程度で繋がる。 */
+static constexpr uint32_t PENDING_TURN_TIMEOUT_MS = 15000;
+
 /**
  * 状態機械を目的の状態まで歩かせる。
  *
@@ -166,8 +270,7 @@ static void onAudio(const int16_t* pcm, size_t samples) {
     if (!speaking) {
         speaking = true;
         turnComplete = false;
-        // 普段はミュートしてある（リセット時の轟音対策）。喋る直前だけ開ける。
-        katanori::audioIo.setOutputMute(false);
+        // 出力を開けるのは pumpOutputGate() の仕事。ここでは触らない。
         if (streamEndMs != 0) {
             Serial.printf("[TURN] 発話終了 -> 応答開始 %.2f秒\n",
                           (millis() - streamEndMs) / 1000.0f);
@@ -184,8 +287,8 @@ static void onControl(const char* json) {
     // 未再生ぶんを捨てないと、古い応答が延々と流れ続ける。
     if (strstr(json, "\"interrupted\"") != nullptr) {
         Serial.println("[TURN] 割り込み検知 — 再生を中断します");
+        // キューを空にすれば pumpOutputGate() が閉じる
         katanori::audioIo.stopPlayback();
-        katanori::audioIo.setOutputMute(true);
         speaking = false;
         turnComplete = false;
         robot.injectEvent(katanori::RobotEvent::SPEECH_DONE);
@@ -210,10 +313,28 @@ static void onControl(const char* json) {
 
 /** ウェイクワード相当。接続してから録音を始める。 */
 static void startTurn() {
-    if (!katanori::netLink.wsConnected()) {
-        Serial.println("[TURN] 未接続です。'wifi' と 'c' で繋いでください");
+    if (!katanori::netLink.wifiConnected()) {
+        // 自動接続が動いている。ここで諦めさせず、繋がったらもう一度押せばよい。
+        Serial.println("[TURN] Wi-Fi未接続です（自動で接続を試みています）");
         return;
     }
+
+    // まだサーバーに繋がっていなければ、ここから張って繋がり次第録音を始める。
+    // 待つのは setupComplete まで。WebSocketが繋がっただけで音声を送ると
+    // Gemini側のsetupが終わっておらず、最初のひと言が捨てられる。
+    if (!katanori::netLink.wsReady()) {
+        if (!pendingTurn) {
+            pendingTurn = true;
+            pendingTurnMs = millis();
+            Serial.println("[TURN] サーバーへ接続します。繋がり次第録音を始めます");
+        }
+        if (!katanori::netLink.wsConnected()) {
+            katanori::netLink.wsConnect();
+        }
+        return;
+    }
+
+    pendingTurn = false;
     streamEndMs = 0;
     katanori::audioIo.startRecording();
     robot.injectEvent(katanori::RobotEvent::WAKE_WORD);
@@ -233,6 +354,111 @@ static void endTurn() {
     if (katanori::netLink.sendControl("{\"realtimeInput\":{\"audioStreamEnd\":true}}")) {
         streamEndMs = millis();
         Serial.println("[TURN] audioStreamEnd 送信（応答待ち）");
+    }
+}
+
+/**
+ * ファームに焼いた音声を鳴らす。
+ *
+ * 出力の開け閉めは pumpOutputGate() に任せる（ここでミュートを触らない）。
+ */
+static void announce(const int16_t* pcm, size_t samples, const char* what) {
+    if (speaking) {
+        // Geminiの応答再生中。割り込んで喋ると会話を壊すので見送る。
+        return;
+    }
+    Serial.printf("[VOICE] %s\n", what);
+
+    // 先にキューへ積む。出力を開けるのはこの後 pumpOutputGate() が行う。
+    // 「開けてから積む」順にすると、音が出ていない状態で開いた時間ができる。
+    katanori::audioIo.play(pcm, samples);
+    pumpOutputGate();
+}
+
+/** Wi-Fiが繋がった。初回なら起動アナウンスを鳴らす。 */
+static void noteWifiUp() {
+    wifiFailures = 0;
+    wifiEverConnected = true;
+    if (!bootAnnounced) {
+        bootAnnounced = true;
+        // ここが「使える状態になった」の合図。シリアルを持たない相手には
+        // これが唯一の手がかりになる。
+        announce(katanori::clips::BOOT_READY,
+                 katanori::clips::BOOT_READY_SAMPLES,
+                 "カタノリ、起動しました！");
+    }
+}
+
+/** Wi-Fi設定モードへ入る。入ったことを声でも伝える。 */
+static bool enterProvisioning() {
+    if (!katanori::provisioning.begin()) {
+        return false;
+    }
+    // 設定モードの画面が読めない/見えない相手にも状況を伝える
+    announce(katanori::clips::PROV_NEEDED,
+             katanori::clips::PROV_NEEDED_SAMPLES,
+             "ワイファイの設定をしてください");
+    return true;
+}
+
+/**
+ * Wi-Fiへ自動で繋ぐ。main loop から毎回呼ぶ。
+ *
+ * 電源の入れ方によっては、ロボットのほうがルーターより先に起きる。一度失敗した
+ * ら諦めるのではなく、間隔を広げながら試し続ける。
+ */
+static void pumpAutoConnect() {
+    if (katanori::provisioning.active() || !katanori::netLink.hasCredentials()) {
+        return;
+    }
+    if (katanori::netLink.wifiConnected()) {
+        noteWifiUp();
+        return;
+    }
+    if (nextWifiTryMs != 0 && (int32_t)(millis() - nextWifiTryMs) < 0) {
+        return;
+    }
+
+    Serial.printf("[NET] 自動接続を試みます（%u回目）\n", (unsigned)wifiFailures + 1);
+    // 既定の20秒はここでは長い。待っている間 main loop が止まり、顔も止まる。
+    if (katanori::netLink.wifiConnect(12000)) {
+        noteWifiUp();
+        return;
+    }
+
+    ++wifiFailures;
+
+    if (!wifiEverConnected && wifiFailures >= WIFI_FAILURES_TO_PROVISIONING) {
+        // 保存された設定では繋がらない。利用者が自分で直せるよう設定モードへ。
+        Serial.println("[NET] 保存された設定では繋がりませんでした。Wi-Fi設定モードへ移ります");
+        wifiFailures = 0;
+        nextWifiTryMs = 0;
+        enterProvisioning();
+        return;
+    }
+
+    // 5秒, 10秒, 15秒... と広げる。上限30秒。
+    uint32_t waitMs = 5000u * wifiFailures;
+    if (waitMs > 30000u) {
+        waitMs = 30000u;
+    }
+    nextWifiTryMs = millis() + waitMs;
+    Serial.printf("[NET] %u秒後にもう一度試します\n", (unsigned)(waitMs / 1000));
+}
+
+/** ボタンを押したがサーバー未接続だった場合の続き。繋がり次第録音を始める。 */
+static void pumpPendingTurn() {
+    if (!pendingTurn) {
+        return;
+    }
+    if (katanori::netLink.wsReady()) {
+        pendingTurn = false;
+        startTurn();
+        return;
+    }
+    if (millis() - pendingTurnMs > PENDING_TURN_TIMEOUT_MS) {
+        pendingTurn = false;
+        Serial.println("[TURN] サーバーへ接続できませんでした。もう一度押してください");
     }
 }
 
@@ -262,8 +488,7 @@ static void pumpTurnState() {
     if (speaking && turnComplete && !katanori::audioIo.isPlaying()) {
         speaking = false;
         turnComplete = false;
-        // 再生し終わったら必ず閉じる。この状態でリセットされても音が出ない。
-        katanori::audioIo.setOutputMute(true);
+        // 出力を閉じるのは pumpOutputGate()（キューが空になった時点で閉じる）
         driveTo(katanori::RobotState::IDLE);
         Serial.println("[TURN] 応答の再生が完了しました");
     }
@@ -629,7 +854,7 @@ static void printHelp() {
     Serial.println("   au  : 音声の状態を表示");
     Serial.println("   mic : マイク単独テスト(5秒) ch0/ch1のレベルを測る");
     Serial.println("   vol <0-100> : 再生音量（既定35）");
-    Serial.println("   mute/unmute : コーデック出力のミュート（既定はミュート）");
+    Serial.println("   mute/unmute : コーデック出力（普段は自動。unmuteは自動制御を止めるので戻すこと）");
     Serial.println("   beep : スピーカー単独テスト(440Hzを1秒, 振幅600)");
     Serial.println("   beep2: 同上だが振幅4000 ※イヤホンを耳に着けないこと");
     Serial.println("   scan2: I2S設定の総当たり（無音状態で実行）");
@@ -733,9 +958,14 @@ static void handleSerial() {
         } else if (strncmp(line, "vol ", 4) == 0) {
             katanori::audioIo.setGain(atoi(line + 4) / 100.0f);
         } else if (strcmp(line, "mute") == 0) {
+            outputGateOverride = false;
             katanori::audioIo.setOutputMute(true);
         } else if (strcmp(line, "unmute") == 0) {
+            // 開けっ放しは危険なので、手動で開けたことを明示しておく
+            outputGateOverride = true;
             katanori::audioIo.setOutputMute(false);
+            Serial.println("[CODEC] !! 手動で開けました。自動の開け閉めは止まります");
+            Serial.println("[CODEC]    この状態でリセットすると起動時に轟音が出ます。'mute' で戻してください");
         } else if (strcmp(line, "scan2") == 0) {
             katanori::audioIo.scanConfigs();
         } else if (strncmp(line, "i2s ", 4) == 0) {
@@ -804,6 +1034,10 @@ static void exitProvisioning() {
         return;
     }
     katanori::provisioning.stop();
+    // 自動接続のカウンタを畳む。設定し直した直後に「3回失敗したから設定モード」へ
+    // すぐ戻ってしまうのを防ぐ。
+    wifiFailures = 0;
+    nextWifiTryMs = 0;
     if (katanori::netLink.hasCredentials()) {
         katanori::netLink.wifiConnect();
     }
@@ -855,7 +1089,7 @@ static void handleButton() {
             Serial.println("[BTN] BOOT長押し -> Wi-Fi設定モードへ");
             katanori::netLink.wsDisconnect();
             katanori::audioIo.stopRecording();
-            katanori::provisioning.begin();
+            enterProvisioning();
         }
     }
 }
@@ -938,7 +1172,7 @@ void setup() {
     // Wi-Fi未設定なら、いきなり設定モードで立ち上がる（仕様書3章）
     if (!katanori::netLink.hasCredentials()) {
         Serial.println("[BOOT] Wi-Fi未設定のため設定モードで起動します");
-        if (katanori::provisioning.begin()) {
+        if (enterProvisioning()) {
             renderProvisioning();
             return;
         }
@@ -956,6 +1190,9 @@ void loop() {
     handleSerial();
     handleButton();
 
+    // 設定モード中も閉じ忘れが起きてはいけないので、下の early return より前に置く
+    pumpOutputGate();
+
     // Wi-Fi設定モード中は顔も音声も止めて、設定画面だけを回す
     if (katanori::provisioning.active()) {
         katanori::provisioning.loop();
@@ -972,7 +1209,11 @@ void loop() {
         return;
     }
 
+    // 電源を入れるだけで会話できる状態まで自力で行き着かせる
+    pumpAutoConnect();
+
     katanori::netLink.loop();
+    pumpPendingTurn(); // setupComplete は netLink.loop() の中で届く
     pumpMic();
     pumpTurnState();
 
