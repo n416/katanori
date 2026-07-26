@@ -382,9 +382,21 @@ Windowsではドライバが当たっていないため Zadig で WinUSB を入�
 dfu-util -R -e -a 1 -D respeaker_lite_i2s_dfu_firmware_v1.0.9.bin
 ```
 
-**Stage 4 に向けて**: `v1.1.0_ch0-asr_ch1-mww` という派生ファームがあり、ch0を音声認識用、
-ch1をウェイクワード検出用に別アルゴリズムで処理してくれる。自前のTinyMLより確実。
-その場合 `KATANORI_MIC_CHANNEL` で使うチャンネルを切り替える。
+**`ch0-asr/ch1-mww` ファームについての訂正**（2026-07-26に一次情報で確認）:
+
+`v1.1.0_ch0-asr_ch1-mww` という派生ファームは存在するが、**ウェイクワードを検出しない**。
+ch1は「外部のMicro Wake Wordエンジンに向いた処理をした音声」を出すだけで、判定そのものは
+ESP32側でやる必要がある（ESPHomeの microWakeWord コンポーネント用という位置づけ）。
+「載せ替えれば自前のTinyMLが不要になる」というのは誤り。
+
+さらに **DFU版は48kHzのみ**（`respeaker_lite_i2s_dfu_firmware_48k_v1.1.0_ch0-asr_ch1-mww.bin`）。
+現構成は16kHz（Geminiの入力仕様と一致）なので、載せるとマイク側と再生側の両方に
+レート変換が必要になる。16kHzの ch0-asr/ch1-mww は factory firmware のみで、
+DFUとは書き込み手順が違う。
+
+結論: **ウェイクワードのためにこのファームを入れる必要はない**。判定はどうせESP32側なので、
+まず既存の16kHz ch0 の音声で作る。ch1は「認識精度が上がるかもしれない改善案」であって
+前提条件ではない。使うときは `KATANORI_MIC_CHANNEL` で切り替える。
 
 ## Stage 4: Wi-Fiプロビジョニング
 
