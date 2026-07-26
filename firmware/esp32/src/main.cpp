@@ -237,6 +237,10 @@ static uint32_t pendingTurnMs = 0;
 /** 接続を待つ上限。TLSハンドシェイクを含めても実測2秒程度で繋がる。 */
 static constexpr uint32_t PENDING_TURN_TIMEOUT_MS = 15000;
 
+// VAD計測モード（定義は下）。会話とマイクを共有するので、送信側から参照する。
+static bool vadMeasuringActive();
+static void vadFeed(const int16_t* pcm, size_t n);
+
 /**
  * 状態機械を目的の状態まで歩かせる。
  *
@@ -313,6 +317,10 @@ static void onControl(const char* json) {
 
 /** ウェイクワード相当。接続してから録音を始める。 */
 static void startTurn() {
+    if (vadMeasuringActive()) {
+        Serial.println("[TURN] VAD計測中です。'vad' で終了してから話しかけてください");
+        return;
+    }
     if (!katanori::netLink.wifiConnected()) {
         // 自動接続が動いている。ここで諦めさせず、繋がったらもう一度押せばよい。
         Serial.println("[TURN] Wi-Fi未接続です（自動で接続を試みています）");
@@ -474,6 +482,12 @@ static void pumpMic() {
         return;
     }
 
+    // 計測モード中は数えるだけ。送らない。
+    if (vadMeasuringActive()) {
+        vadFeed(buf, n);
+        return;
+    }
+
     // エコーガード: 再生中はマイクを送らない。
     // 送ると自分の声で Gemini が割り込み判定して会話が破綻する。
     // (ReSpeaker Lite のハードウェアAECが効けば不要になるはずの暫定措置)
@@ -481,6 +495,513 @@ static void pumpMic() {
         return;
     }
     katanori::netLink.sendAudio(buf, n);
+}
+
+// ---------------------------------------------------------------------------
+// VAD計測モード
+//
+// ウェイクワードを「クラウドで文字にして照合する」方式にするなら、費用は
+// 「1日に何分ぶん送るか」だけで決まる。単価は音声1分あたり $0.00051
+// (Cloudflare Workers AI whisper-large-v3-turbo, 2026-07時点) なので、
+// 発話が1日1時間なら月140円ほど。費用は問題にならない。
+//
+// 分からないのは「実際の部屋で何分になるか」。テレビや家族の会話でVADが開けば
+// そのぶん増える。ここは推測しても意味がないので実測する。
+//
+// このモードは音声をどこにも送らない。ローカルで有声区間を数えるだけ。
+// ここで作るVADは、方式を採用した場合そのまま送信の判断に使える。
+// ---------------------------------------------------------------------------
+
+/** 計測中か。 */
+static bool vadMeasuring = false;
+
+static bool vadMeasuringActive() {
+    return vadMeasuring;
+}
+
+/** 騒音床の測定に使う時間。この間は判定しない。 */
+static constexpr uint32_t VAD_CALIBRATE_MS = 2000;
+/** 騒音床の何倍を超えたら有声とみなすか。 */
+static constexpr float VAD_MARGIN = 3.0f;
+/** 静かすぎる部屋で騒音床が0近くになったときの下限。 */
+static constexpr float VAD_MIN_THRESHOLD = 60.0f;
+/**
+ * 装着者ゲートの既定値（騒音床の何倍）。
+ *
+ * 実測(2026-07-26, 肩乗り・横に家族):
+ *   家族の相槌   RMS 1856〜4287 (床の4〜9倍)
+ *   装着者の発話 RMS 7242・22033 (床の15〜47倍)
+ * 倍以上の差がある。口がマイクに近いぶんだけ大きく入るため。
+ * この差で「装着者が喋ったか」を切り分ける。長さでは切り分けられない
+ * （装着者の5秒の発話と家族の短い相槌が、長さでは逆に出る）。
+ */
+static constexpr float VAD_GATE_MARGIN = 13.0f;
+
+/** これだけ続けて超えたら発話開始とみなす（単発の物音を弾く）。 */
+static constexpr uint32_t VAD_ATTACK_MS = 96;
+/** これだけ続けて下回ったら発話終了とみなす（語間の息継ぎで切らない）。 */
+static constexpr uint32_t VAD_RELEASE_MS = 500;
+
+/**
+ * 1区間の上限。これを超えたら打ち切る。
+ *
+ * 騒音床を1回しか測らない作りだと、部屋が少し騒がしくなった時点で「声が
+ * 続いている」と判断したまま永久に閉じなくなる（実測で2分間無反応になった）。
+ * 呼びかけでも会話でも10秒は超えないので、超えたら打ち切って床を測り直す。
+ */
+static constexpr uint32_t VAD_MAX_SEGMENT_MS = 10000;
+
+/**
+ * 騒音床の追従の速さ（静かなフレーム1つあたり）。
+ *
+ * 部屋の静けさは時間で変わる。ReSpeaker側の自動音量調整でも絶対値が動く
+ * （実測で床が38〜469まで12倍動いた）。1回測って固定にはできない。
+ */
+static constexpr float VAD_FLOOR_ADAPT = 0.02f;
+/** 報告の間隔。 */
+static constexpr uint32_t VAD_REPORT_MS = 60000;
+
+/** 音声1分あたりの単価(USD)。上記コメントの出典と揃えること。 */
+static constexpr float STT_USD_PER_MIN = 0.00051f;
+/** 月額の目安を円で出すための為替。厳密さは不要（桁を知りたいだけ）。 */
+static constexpr float USD_JPY = 150.0f;
+
+static uint32_t vadStartMs = 0;
+static uint32_t vadLastReportMs = 0;
+static float vadNoiseFloor = 0.0f;
+static uint32_t vadCalibratedMs = 0;
+static uint32_t vadCalibrateFrames = 0;
+static bool vadInSpeech = false;
+static uint32_t vadAboveMs = 0;
+static uint32_t vadBelowMs = 0;
+/*
+ * 区間ごとのピーク音量。
+ *
+ * 肩乗りなので、装着者の声は口の近くから入り、周囲の音より大きく入る。
+ * 「呼びかけかどうか」を音量と長さで切り分けられるかを見るために、
+ * 区間ごとの実測値を出す。しきい値はこの数字を見てから決める。
+ */
+static float vadSegPeakRms = 0.0f;
+
+/**
+ * 装着者ゲート。この音量を超えた区間だけ「装着者が喋った」とみなす。
+ *
+ * 0 なら騒音床 × VAD_GATE_MARGIN を使う。`vadth <値>` で直接指定、
+ * `vadme` で自分の声を測って自動設定する。
+ */
+static float vadGateRms = 0.0f;
+
+/** ゲートを通った区間の数と時間（これが実際にクラウドへ送る量になる）。 */
+static uint32_t vadGatedSegments = 0;
+static uint32_t vadGatedMs = 0;
+
+/*
+ * 正解ラベル。
+ *
+ * しきい値を決めるには「どの区間が装着者の声だったか」が要る。ログの数字だけ
+ * では判断できず、勘で動かすことになる（実測で 1260〜1674 の帯がどちらとも
+ * つかず行き詰まった）。
+ *
+ * 計測中はボタンを「今喋っているのは自分」の目印として使う。押しながら喋れば
+ * その区間は自分、押さなければ周囲として集計し、境界を機体に計算させる。
+ */
+static bool vadLabelSelf = false;
+/**
+ * シリアルから切り替えたラベル。
+ *
+ * XIAOのBOOTボタンは基板上の小さなスイッチで、押しながら喋るのは現実的でない。
+ * モニタを開いているなら `me` と打って切り替えるほうが楽なので両方使えるようにする。
+ */
+static bool vadLabelSelfLatched = false;
+/** 今の区間中に一度でも「自分」とされたか。 */
+static bool vadSegLabeled = false;
+static uint32_t vadSelfCount = 0;
+static uint32_t vadOtherCount = 0;
+/** 自分の声の最小と、周囲の最大。この2つの間が、しきい値の置ける範囲。 */
+static float vadSelfMinRms = 0.0f;
+static float vadOtherMaxRms = 0.0f;
+
+/** 区間中の最小音量。打ち切ったときに騒音床を測り直すのに使う。 */
+static float vadSegMinRms = 0.0f;
+
+/*
+ * 低域比（近接効果）。
+ *
+ * 口がマイクに近いほど低い周波数が持ち上がる。これは距離で決まる物理現象なので、
+ * 遠くの人が大声を出しても真似できない。音量だけでは「近くの小声」と「遠くの
+ * 大声」が同じに見えるが、低域比なら分けられる可能性がある。
+ *
+ * マイク2本の方向検知が使えれば一番良かったが、この機体では取り出せない
+ * （DOAは4マイクの上位機の機能で、I2Sから来るのは処理済みの音声）。
+ * 1本のマイクで距離の手がかりを得る代わりの手段。
+ *
+ * XMOS側のノイズ抑制が低域を削っている可能性があるので、効くかどうかは実測で判断する。
+ */
+static constexpr float VAD_LPF_ALPHA = 0.111f; // 一次ローパス ≒ 300Hz @16kHz
+static float vadLpfState = 0.0f;
+static double vadSegLowEnergy = 0.0;
+static double vadSegTotalEnergy = 0.0;
+/** 直近の区間の低域比（0〜1）。1に近いほど低音寄り＝近い。 */
+static float vadSegLowRatio = 0.0f;
+/** ラベルごとの低域比の合計と数（平均を出すため）。 */
+static double vadSelfLowSum = 0.0;
+static double vadOtherLowSum = 0.0;
+/** 最後に音量を表示した時刻。無反応のとき原因を見えるようにするため。 */
+static uint32_t vadLastLevelMs = 0;
+/** 音量の表示間隔。 */
+static constexpr uint32_t VAD_LEVEL_MS = 5000;
+
+/** 自分の声を測っている最中か（`vadme`）。 */
+static bool vadEnrolling = false;
+static uint32_t vadEnrollStartMs = 0;
+static float vadEnrollPeak = 0.0f;
+/** 測った自分の声のピークに対して、この割合をゲートにする。 */
+static constexpr float VAD_ENROLL_FACTOR = 0.35f;
+/** 自分の声を測る時間。 */
+static constexpr uint32_t VAD_ENROLL_MS = 4000;
+
+/** 現在有効なゲート音量。 */
+static float vadGate() {
+    if (vadGateRms > 0.0f) {
+        return vadGateRms;
+    }
+    const float g = vadNoiseFloor * VAD_GATE_MARGIN;
+    return g > VAD_MIN_THRESHOLD ? g : VAD_MIN_THRESHOLD;
+}
+// 直近の報告区間ぶん
+static uint32_t vadSegments = 0;
+static uint32_t vadVoicedMs = 0;
+// 計測開始からの累計
+static uint32_t vadSegmentsTotal = 0;
+static uint32_t vadVoicedMsTotal = 0;
+static uint32_t vadLongestMs = 0;
+static uint32_t vadCurrentMs = 0;
+
+static void vadReport(bool final) {
+    const uint32_t elapsed = millis() - vadStartMs;
+    if (elapsed == 0) {
+        return;
+    }
+    // 費用はゲートを通った分だけで決まる（送るのはそれだけなので）
+    const float ratio = (float)vadGatedMs / (float)elapsed;
+    // この割合で1日中身に着けていたら、という換算
+    const float minPerMonth = ratio * 60.0f * 24.0f * 30.0f;
+    const float yen = minPerMonth * STT_USD_PER_MIN * USD_JPY;
+
+    Serial.printf(
+        "[VAD] %s %.1f分 | 検出 %u回/%.1f秒 → ゲート通過 %u回/%.1f秒 (%.1f%%) | "
+        "騒音床RMS=%.0f ゲート=%.0f | 送るぶんの月額目安 約%.0f円\n",
+        final ? "計測終了" : "報告",
+        elapsed / 60000.0f,
+        (unsigned)vadSegmentsTotal, vadVoicedMsTotal / 1000.0f,
+        (unsigned)vadGatedSegments, vadGatedMs / 1000.0f, ratio * 100.0f,
+        vadNoiseFloor, vadGate(),
+        yen);
+
+    // 正解を付けた区間があれば、しきい値の置ける範囲を出す
+    if (vadSelfCount == 0 && vadOtherCount == 0) {
+        return;
+    }
+
+    Serial.printf("[VAD] 正解ラベル 自分%u回(最小RMS=%.0f) / 周囲%u回(最大RMS=%.0f)  → ",
+                  (unsigned)vadSelfCount, vadSelfMinRms,
+                  (unsigned)vadOtherCount, vadOtherMaxRms);
+    if (vadSelfCount == 0) {
+        Serial.println("自分の声が未記録。'me' で【自分】にしてから喋ってください");
+        return;
+    }
+    if (vadOtherCount == 0) {
+        Serial.printf("周囲が未記録。暫定ゲート %.0f\n", vadSelfMinRms * 0.7f);
+        return;
+    }
+
+    if (vadSelfMinRms > vadOtherMaxRms) {
+        // 綺麗に分かれている。真ん中に置けば両方満たせる
+        Serial.printf("音量で分離できています。推奨ゲート %.0f\n",
+                      (vadSelfMinRms + vadOtherMaxRms) / 2.0f);
+    } else {
+        // 重なっている。音量だけではどちらかを取りこぼす
+        Serial.printf("重なっています(%.0f〜%.0f)。音量だけでは分けられません\n",
+                      vadSelfMinRms, vadOtherMaxRms);
+    }
+
+    // 低域比（近さの手がかり）が音量の代わりになるかを見る
+    const float selfLow = (float)(vadSelfLowSum / vadSelfCount);
+    const float otherLow = (float)(vadOtherLowSum / vadOtherCount);
+    Serial.printf("[VAD] 低域比の平均 自分=%.2f / 周囲=%.2f  → %s\n",
+                  selfLow, otherLow,
+                  selfLow > otherLow * 1.15f
+                      ? "近接効果が出ています。距離の手がかりとして使えます"
+                      : "差がありません。低域比は使えません");
+
+    vadSegments = 0;
+    vadVoicedMs = 0;
+}
+
+/**
+ * 区間を1つ閉じて集計・表示する。
+ *
+ * @param forced 上限に達して打ち切った場合。声ではなく騒音の可能性が高い。
+ */
+static void vadCloseSegment(bool forced) {
+    vadInSpeech = false;
+
+    // 語尾判定に使った無音は長さから戻す（実際に声が出ていた分だけ見る）
+    const uint32_t voicedMs =
+        vadCurrentMs > VAD_RELEASE_MS ? vadCurrentMs - VAD_RELEASE_MS : vadCurrentMs;
+    vadVoicedMs += vadCurrentMs;
+    vadVoicedMsTotal += vadCurrentMs;
+    if (vadCurrentMs > vadLongestMs) {
+        vadLongestMs = vadCurrentMs;
+    }
+
+    /*
+     * 判定は音量だけで行う。長さでは切り分けられない（実測で、装着者の5秒の
+     * 発話と家族の0.2秒の相槌が、長さでは逆の判定になった）。
+     *
+     * 見るのは絶対値ではなく騒音床との倍率。ReSpeaker側の自動音量調整で
+     * 絶対値は動くが、倍率は安定している（実測で床が38〜469まで動いても
+     * 自分15〜58倍 / 周囲4〜10倍 の帯は変わらなかった）。
+     */
+    const float ratio = vadNoiseFloor > 1.0f ? vadSegPeakRms / vadNoiseFloor : 0.0f;
+    vadSegLowRatio = vadSegTotalEnergy > 0.0
+                         ? (float)sqrt(vadSegLowEnergy / vadSegTotalEnergy)
+                         : 0.0f;
+    const bool passed = !forced && vadSegPeakRms >= vadGate();
+    if (passed) {
+        ++vadGatedSegments;
+        vadGatedMs += vadCurrentMs;
+    }
+    // 正解が付いていれば、しきい値決めの材料として集計する（打ち切りは除く）
+    if (!forced) {
+        if (vadSegLabeled) {
+            ++vadSelfCount;
+            vadSelfLowSum += vadSegLowRatio;
+            if (vadSelfMinRms == 0.0f || vadSegPeakRms < vadSelfMinRms) {
+                vadSelfMinRms = vadSegPeakRms;
+            }
+        } else {
+            ++vadOtherCount;
+            vadOtherLowSum += vadSegLowRatio;
+            if (vadSegPeakRms > vadOtherMaxRms) {
+                vadOtherMaxRms = vadSegPeakRms;
+            }
+        }
+    }
+
+    Serial.printf("[VAD] 区間 %.2f秒  音量RMS=%.0f (床の%.1f倍)  低域比=%.2f  [%s]  → %s\n",
+                  voicedMs / 1000.0f, vadSegPeakRms, ratio, vadSegLowRatio,
+                  forced ? "打ち切り" : (vadSegLabeled ? "自分" : "周囲"),
+                  forced ? "対象外" : (passed ? "送る" : "送らない"));
+
+    vadCurrentMs = 0;
+    vadBelowMs = 0;
+    vadAboveMs = 0;
+    vadSegPeakRms = 0.0f;
+    vadSegMinRms = 0.0f;
+    vadSegLabeled = false;
+}
+
+/** マイクの1フレームを食わせる。送信はしない。 */
+static void vadFeed(const int16_t* pcm, size_t n) {
+    if (n == 0) {
+        return;
+    }
+    double acc = 0;
+    double lowAcc = 0;
+    for (size_t i = 0; i < n; ++i) {
+        const float x = (float)pcm[i];
+        acc += (double)x * (double)x;
+        // 一次ローパスを通した成分＝低域のエネルギー
+        vadLpfState += VAD_LPF_ALPHA * (x - vadLpfState);
+        lowAcc += (double)vadLpfState * (double)vadLpfState;
+    }
+    const float rms = sqrt(acc / (double)n);
+    const uint32_t frameMs = (uint32_t)((n * 1000) / KATANORI_AUDIO_RATE);
+
+    // 自分の声を測っている最中（`vadme`）。ピークだけ拾ってゲートを決める。
+    if (vadEnrolling) {
+        if (rms > vadEnrollPeak) {
+            vadEnrollPeak = rms;
+        }
+        if (millis() - vadEnrollStartMs >= VAD_ENROLL_MS) {
+            vadEnrolling = false;
+            vadGateRms = vadEnrollPeak * VAD_ENROLL_FACTOR;
+            Serial.printf("[VAD] 自分の声のピーク RMS=%.0f → ゲートを %.0f にしました"
+                          "（%.0f%%）\n",
+                          vadEnrollPeak, vadGateRms, VAD_ENROLL_FACTOR * 100.0f);
+            Serial.println("[VAD] このまま計測を続けます。家族に喋ってもらって"
+                           "「送らない」と出るか確かめてください");
+        }
+        return;
+    }
+
+    // 最初の2秒は「この部屋の静けさ」を測るのに使う。固定しきい値では
+    // 部屋ごとの騒音差を吸収できない。
+    if (vadCalibratedMs < VAD_CALIBRATE_MS) {
+        vadCalibratedMs += frameMs;
+        vadNoiseFloor = (vadNoiseFloor * vadCalibrateFrames + rms) / (vadCalibrateFrames + 1);
+        ++vadCalibrateFrames;
+        if (vadCalibratedMs >= VAD_CALIBRATE_MS) {
+            Serial.printf("[VAD] 騒音床 RMS=%.0f → しきい値 %.0f で計測を始めます\n",
+                          vadNoiseFloor,
+                          vadNoiseFloor * VAD_MARGIN > VAD_MIN_THRESHOLD
+                              ? vadNoiseFloor * VAD_MARGIN : VAD_MIN_THRESHOLD);
+            vadStartMs = millis();
+            vadLastReportMs = vadStartMs;
+        }
+        return;
+    }
+
+    const float threshold = vadNoiseFloor * VAD_MARGIN > VAD_MIN_THRESHOLD
+                                ? vadNoiseFloor * VAD_MARGIN : VAD_MIN_THRESHOLD;
+
+    if (rms >= threshold) {
+        vadBelowMs = 0;
+        vadAboveMs += frameMs;
+        if (!vadInSpeech && vadAboveMs >= VAD_ATTACK_MS) {
+            vadInSpeech = true;
+            vadCurrentMs = vadAboveMs; // 立ち上がりぶんも有声に数える
+            vadSegPeakRms = rms;
+            vadSegMinRms = rms;
+            vadSegLowEnergy = lowAcc;
+            vadSegTotalEnergy = acc;
+            vadSegLabeled = vadLabelSelf || vadLabelSelfLatched;
+            ++vadSegments;
+            ++vadSegmentsTotal;
+        } else if (vadInSpeech) {
+            vadCurrentMs += frameMs;
+            if (rms > vadSegPeakRms) {
+                vadSegPeakRms = rms;
+            }
+            if (rms < vadSegMinRms) {
+                vadSegMinRms = rms;
+            }
+            vadSegLowEnergy += lowAcc;
+            vadSegTotalEnergy += acc;
+            // 押し始めが少し遅れても拾えるように、区間中に一度でも押されたら自分
+            if (vadLabelSelf || vadLabelSelfLatched) {
+                vadSegLabeled = true;
+            }
+        }
+
+        // 閉じないまま延々と続くのは、部屋が騒がしくなって床が古くなった証拠。
+        // 打ち切って、この区間で一番静かだったところを新しい床として測り直す。
+        if (vadInSpeech && vadCurrentMs >= VAD_MAX_SEGMENT_MS) {
+            vadCloseSegment(true);
+            const float before = vadNoiseFloor;
+            vadNoiseFloor = vadSegMinRms > 1.0f ? vadSegMinRms : vadNoiseFloor;
+            Serial.printf("[VAD] 音が途切れないため打ち切りました。騒音床を %.0f → %.0f に測り直します\n",
+                          before, vadNoiseFloor);
+        }
+    } else {
+        vadAboveMs = 0;
+        if (vadInSpeech) {
+            vadBelowMs += frameMs;
+            vadCurrentMs += frameMs; // 息継ぎぶんも送ることになるので数に入れる
+            if (rms < vadSegMinRms) {
+                vadSegMinRms = rms;
+            }
+            if (vadBelowMs >= VAD_RELEASE_MS) {
+                vadCloseSegment(false);
+            }
+        } else {
+            // 静かなあいだは床を少しずつ追従させる。1回測って固定にすると、
+            // 部屋が騒がしくなった時点で永久に「発話中」になる。
+            vadNoiseFloor = vadNoiseFloor * (1.0f - VAD_FLOOR_ADAPT) + rms * VAD_FLOOR_ADAPT;
+        }
+    }
+
+    // 無反応のときに何が起きているか分かるよう、5秒ごとに今の音量を出す
+    if (millis() - vadLastLevelMs >= VAD_LEVEL_MS) {
+        vadLastLevelMs = millis();
+        Serial.printf("[VAD] 音量RMS=%.0f  床=%.0f  検出=%.0f  ゲート=%.0f  %s\n",
+                      rms, vadNoiseFloor, threshold, vadGate(),
+                      vadInSpeech ? "発話中" : "静か");
+    }
+
+    if (vadCalibratedMs >= VAD_CALIBRATE_MS && millis() - vadLastReportMs >= VAD_REPORT_MS) {
+        vadLastReportMs = millis();
+        vadReport(false);
+    }
+}
+
+/** 計測モードの開始・停止。 */
+static void vadToggle() {
+    if (vadMeasuring) {
+        vadMeasuring = false;
+        katanori::audioIo.stopRecording();
+        vadReport(true);
+        Serial.println("[VAD] 計測を終了しました");
+        return;
+    }
+
+    if (katanori::audioIo.isRecording()) {
+        Serial.println("[VAD] 会話中は計測できません");
+        return;
+    }
+
+    vadMeasuring = true;
+    vadNoiseFloor = 0.0f;
+    vadCalibratedMs = 0;
+    vadCalibrateFrames = 0;
+    vadInSpeech = false;
+    vadAboveMs = vadBelowMs = vadCurrentMs = 0;
+    vadSegments = vadVoicedMs = 0;
+    vadSegmentsTotal = vadVoicedMsTotal = vadLongestMs = 0;
+    vadGatedSegments = vadGatedMs = 0;
+    vadSegPeakRms = 0.0f;
+    vadEnrolling = false;
+    vadLabelSelf = vadLabelSelfLatched = vadSegLabeled = false;
+    vadSelfCount = vadOtherCount = 0;
+    vadSelfMinRms = vadOtherMaxRms = vadSegMinRms = 0.0f;
+    vadLpfState = 0.0f;
+    vadSegLowEnergy = vadSegTotalEnergy = 0.0;
+    vadSegLowRatio = 0.0f;
+    vadSelfLowSum = vadOtherLowSum = 0.0;
+    vadLastLevelMs = millis();
+    vadStartMs = vadLastReportMs = millis();
+    katanori::audioIo.startRecording();
+
+    Serial.println("[VAD] 計測を始めます。音声はどこにも送りません");
+    Serial.println("[VAD] 最初の2秒は静かにしてください（騒音床の測定）");
+    Serial.printf("[VAD] %u秒ごとに報告します。'vad' でもう一度打つと終了\n",
+                  (unsigned)(VAD_REPORT_MS / 1000));
+    Serial.println("[VAD] ★ 'me' と打つと【自分】、もう一度打つと【周囲】に切り替わります");
+    Serial.println("[VAD]   （BOOTボタンを押しながら喋る方法でも同じです）");
+    Serial.println("[VAD]   どれが自分の声だったかを記録して、しきい値を計算します");
+    Serial.println("[VAD] ゲートの決め方: 'vadme' で自分の声から自動設定 / "
+                   "'vadth <RMS>' で直接指定");
+}
+
+/** ゲート音量を直接指定する。0なら騒音床からの自動計算に戻す。 */
+static void vadSetThreshold(float rms) {
+    vadGateRms = rms < 0.0f ? 0.0f : rms;
+    if (vadGateRms == 0.0f) {
+        Serial.printf("[VAD] ゲートを自動（騒音床の%.0f倍 = %.0f）に戻しました\n",
+                      VAD_GATE_MARGIN, vadGate());
+    } else {
+        Serial.printf("[VAD] ゲートを %.0f にしました\n", vadGateRms);
+    }
+}
+
+/**
+ * 自分の声を測ってゲートを決める。
+ *
+ * 固定値では体格・装着位置・声の大きさの差を吸収できない。装着した本人が
+ * 普通の声で数秒喋れば、そのピークからゲートを決められる。呼び名を覚えさせる
+ * のではなく「自分の声の大きさ」を覚えさせる、という考え方。
+ */
+static void vadEnroll() {
+    if (!vadMeasuring) {
+        Serial.println("[VAD] 先に 'vad' で計測を始めてください");
+        return;
+    }
+    vadEnrolling = true;
+    vadEnrollStartMs = millis();
+    vadEnrollPeak = 0.0f;
+    Serial.printf("[VAD] %u秒間、普通の声で喋ってください（例:「ねーねー、聞こえる？」）\n",
+                  (unsigned)(VAD_ENROLL_MS / 1000));
 }
 
 /** ターンの終了判定。Geminiが喋り終え、再生キューも空になったら IDLE へ。 */
@@ -855,6 +1376,10 @@ static void printHelp() {
     Serial.println("   mic : マイク単独テスト(5秒) ch0/ch1のレベルを測る");
     Serial.println("   vol <0-100> : 再生音量（既定35）");
     Serial.println("   mute/unmute : コーデック出力（普段は自動。unmuteは自動制御を止めるので戻すこと）");
+    Serial.println("   vad         : VAD計測モードの開始/終了（音声は送らず有声区間だけ数える）");
+    Serial.println("   me          : 計測中のラベルを 自分/周囲 で切り替える");
+    Serial.println("   vadme       : 自分の声を4秒測って装着者ゲートを自動設定");
+    Serial.println("   vadth <RMS> : 装着者ゲートを直接指定（0で自動に戻す）");
     Serial.println("   beep : スピーカー単独テスト(440Hzを1秒, 振幅600)");
     Serial.println("   beep2: 同上だが振幅4000 ※イヤホンを耳に着けないこと");
     Serial.println("   scan2: I2S設定の総当たり（無音状態で実行）");
@@ -966,6 +1491,16 @@ static void handleSerial() {
             katanori::audioIo.setOutputMute(false);
             Serial.println("[CODEC] !! 手動で開けました。自動の開け閉めは止まります");
             Serial.println("[CODEC]    この状態でリセットすると起動時に轟音が出ます。'mute' で戻してください");
+        } else if (strcmp(line, "vad") == 0) {
+            vadToggle();
+        } else if (strcmp(line, "me") == 0) {
+            vadLabelSelfLatched = !vadLabelSelfLatched;
+            Serial.printf("[VAD] これ以降の声は【%s】として記録します\n",
+                          vadLabelSelfLatched ? "自分" : "周囲");
+        } else if (strcmp(line, "vadme") == 0) {
+            vadEnroll();
+        } else if (strncmp(line, "vadth ", 6) == 0) {
+            vadSetThreshold(atof(line + 6));
         } else if (strcmp(line, "scan2") == 0) {
             katanori::audioIo.scanConfigs();
         } else if (strncmp(line, "i2s ", 4) == 0) {
@@ -1049,6 +1584,17 @@ static void exitProvisioning() {
  *   3秒長押し: Wi-Fi設定モードへ入る
  */
 static void handleButton() {
+    if (vadMeasuringActive()) {
+        /*
+         * 計測中はボタンの役目を「今喋っているのは自分」の目印に差し替える。
+         *
+         * 会話開始も設定モードもここでは動かさない。長押しで設定モードへ
+         * 落ちてしまうと、長い発話にラベルを付けられなくなる。
+         */
+        vadLabelSelf = (digitalRead(KATANORI_BOOT_BUTTON) == LOW);
+        return;
+    }
+
     static bool lastPressed = false;
     static uint32_t pressedAtMs = 0;
     static uint32_t lastChangeMs = 0;
