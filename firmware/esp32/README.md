@@ -64,6 +64,24 @@ I2Cバス（D4/D5）に相乗りさせる。**このバスにはプルアップ�
 I2Cスキャンでは ReSpeaker Lite 側のデバイスが `0x18` に、OLEDが `0x3C` に見える。
 両方出れば配線は正常。
 
+### Usrボタン（はんだブリッジ必須・実施済み 2026-07-27）
+
+ReSpeaker Lite 裏の **Usrボタンで会話を開始できる**（XIAOのBOOTボタンは小さすぎて実用にならないため）。
+ただし Usrボタンは XMOS XU316 側に繋がっていて、**そのままでは ESP32 から見えない**。
+
+- ReSpeaker Lite の XIAO が載っている面、左下に **`Mute D3 D2 Usr`** と印字された穴の列がある
+- そのうち隣り合った **`Usr` と `D2` をはんだブリッジ**してある（Seeed公式の想定どおり。
+  [Usr Button Usage](https://wiki.seeedstudio.com/respeaker_button/)）
+- これで Usrボタンが **D2 = GPIO3**（`KATANORI_USR_BUTTON`）に押下=LOWで入る
+
+**このブリッジが無い個体では Usrボタンは一切反応しない。** 新しいボードを組むときは必ず同じ加工をすること。
+
+- ファーム側は BOOTボタンと Usrボタンを同じ扱いで読む（`anyButtonPressed()`）。
+  短押し=会話開始/終了、3秒長押し=Wi-Fi設定モード
+- **Muteボタンはブリッジしない。** XMOS側でマイクミュートとして実際に機能しているため
+- GPIO3 はストラッピングピン。INPUT_PULLUPで読むだけなら無害だが、**リセットの瞬間に
+  押しっぱなしにしない**こと
+
 ## セットアップ
 
 PlatformIO Core をインストールします（VS Code拡張版でも可）。

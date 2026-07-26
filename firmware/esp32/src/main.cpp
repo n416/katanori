@@ -49,6 +49,13 @@
 #define KATANORI_BOOT_BUTTON 0
 #endif
 
+// ReSpeaker Lite 裏の Usr ボタン。基板の Usr-D2 穴をはんだブリッジ済み。
+// D2 = GPIO3。XMOS側は未使用なので、押下でGNDに落ちる普通のボタンとして読める。
+// (GPIO3はストラッピングピンだが INPUT_PULLUP で読むだけなら影響しない)
+#ifndef KATANORI_USR_BUTTON
+#define KATANORI_USR_BUTTON 3
+#endif
+
 // XIAO ESP32S3 のユーザーLED (GPIO21)。アクティブLOW = LOWで点灯。
 // 未設定のままだと点きっぱなしで眩しいので起動時に明示的に消す。
 // 仕様書では「通信中のステータス表示」に使う予定なので Stage 2 で点灯制御を入れる。
@@ -346,7 +353,7 @@ static void startTurn() {
     streamEndMs = 0;
     katanori::audioIo.startRecording();
     robot.injectEvent(katanori::RobotEvent::WAKE_WORD);
-    Serial.println("[TURN] 録音開始（'2' または BOOTボタンで終了）");
+    Serial.println("[TURN] 会話開始（発話の区切りは自動判定。もう一度ボタンで会話終了）");
 }
 
 /** 発話終了。audioStreamEnd を送ると Gemini が応答生成を始める。 */
@@ -363,6 +370,36 @@ static void endTurn() {
         streamEndMs = millis();
         Serial.println("[TURN] audioStreamEnd 送信（応答待ち）");
     }
+}
+
+/**
+ * 会話しているか。ボタンの「開始/終了」の分岐に使う。
+ *
+ * 録音中だけでなく、応答の受信中・再生中・接続待ちも「会話中」。
+ * どの瞬間に押されても「終了」に倒れるようにする。
+ */
+static bool conversationActive() {
+    return pendingTurn || speaking ||
+           katanori::audioIo.isRecording() ||
+           katanori::audioIo.isPlaying();
+}
+
+/**
+ * 会話全体を終了する。録音・再生を止め、サーバーとの接続も畳む。
+ *
+ * DOは接続と同時にGeminiセッションを張る（＝繋ぎっぱなしは課金される）ので、
+ * 会話をやめたら接続ごと切るのが正しい。次の会話は startTurn() が張り直す。
+ */
+static void endConversation() {
+    pendingTurn = false;
+    katanori::audioIo.stopRecording();
+    katanori::audioIo.stopPlayback();   // 喋りかけでも即座に黙る
+    speaking = false;
+    turnComplete = false;
+    streamEndMs = 0;
+    katanori::netLink.wsDisconnect();
+    driveTo(katanori::RobotState::IDLE);
+    Serial.println("[TURN] 会話を終了しました");
 }
 
 /**
@@ -1011,7 +1048,7 @@ static void pumpTurnState() {
         turnComplete = false;
         // 出力を閉じるのは pumpOutputGate()（キューが空になった時点で閉じる）
         driveTo(katanori::RobotState::IDLE);
-        Serial.println("[TURN] 応答の再生が完了しました");
+        Serial.println("[TURN] 応答の再生が完了しました（続けて話せます。ボタンで会話終了）");
     }
 }
 
@@ -1397,7 +1434,7 @@ static void printHelp() {
     Serial.println("   t : OLED自己診断パターンを表示");
     Serial.println("   i : ブート情報を再表示");
     Serial.println("   ? : このヘルプ");
-    Serial.println(" BOOTボタン: WAKE_WORD を注入");
+    Serial.println(" BOOT/Usrボタン: 短押しで会話の開始/終了、3秒長押しでWi-Fi設定モード");
     Serial.println("--- ネットワーク ---------------------------");
     Serial.println("   ssid <名前>       : Wi-Fi の SSID を保存");
     Serial.println("   pass <パスワード> : Wi-Fi のパスワードを保存");
@@ -1579,10 +1616,17 @@ static void exitProvisioning() {
 }
 
 /**
- * BOOTボタン。
- *   短押し   : 話し始め / 話し終わり を交互に（Stage 4でウェイクワードに置換予定）
+ * BOOT / Usr ボタン（役割は同じ）。
+ *   短押し   : 会話の開始 / 会話全体の終了 を交互に
+ *              （発話ごとの区切りはGeminiの無音検知に任せる。ボタンでは切らない）
  *   3秒長押し: Wi-Fi設定モードへ入る
  */
+/** BOOTボタンとUsrボタンのどちらかが押されていれば true。役割は同じ。 */
+static bool anyButtonPressed() {
+    return digitalRead(KATANORI_BOOT_BUTTON) == LOW ||
+           digitalRead(KATANORI_USR_BUTTON) == LOW;
+}
+
 static void handleButton() {
     if (vadMeasuringActive()) {
         /*
@@ -1591,7 +1635,7 @@ static void handleButton() {
          * 会話開始も設定モードもここでは動かさない。長押しで設定モードへ
          * 落ちてしまうと、長い発話にラベルを付けられなくなる。
          */
-        vadLabelSelf = (digitalRead(KATANORI_BOOT_BUTTON) == LOW);
+        vadLabelSelf = anyButtonPressed();
         return;
     }
 
@@ -1600,7 +1644,7 @@ static void handleButton() {
     static uint32_t lastChangeMs = 0;
     static bool longFired = false;
 
-    bool pressed = (digitalRead(KATANORI_BOOT_BUTTON) == LOW);
+    bool pressed = anyButtonPressed();
     uint32_t now = millis();
 
     if (pressed != lastPressed && (now - lastChangeMs) > 30) {
@@ -1615,11 +1659,11 @@ static void handleButton() {
             if (katanori::provisioning.active()) {
                 provShowQr = !provShowQr;
                 Serial.printf("[BTN] 表示切替 -> %s\n", provShowQr ? "QR" : "文字");
-            } else if (katanori::audioIo.isRecording()) {
-                Serial.println("[BTN] BOOT -> 発話終了");
-                endTurn();
+            } else if (conversationActive()) {
+                Serial.println("[BTN] ボタン -> 会話終了");
+                endConversation();
             } else {
-                Serial.println("[BTN] BOOT -> 発話開始");
+                Serial.println("[BTN] ボタン -> 会話開始");
                 startTurn();
             }
         }
@@ -1681,6 +1725,7 @@ void setup() {
     printBootInfo();
 
     pinMode(KATANORI_BOOT_BUTTON, INPUT_PULLUP);
+    pinMode(KATANORI_USR_BUTTON, INPUT_PULLUP);
 
     // ユーザーLEDを消灯 (アクティブLOWなのでHIGHで消える)
     pinMode(KATANORI_USER_LED, OUTPUT);
