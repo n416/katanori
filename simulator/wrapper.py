@@ -6,7 +6,6 @@ import queue
 import time
 import asyncio
 import json
-import base64
 import collections
 import pyaudio
 import websockets
@@ -19,13 +18,20 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 SIM_EXE = os.path.join(os.path.dirname(__file__), "katanori_sim.exe")
-WS_URL = "wss://katanori-backend.tobira-sys.workers.dev/?voice=Achird"
+
+# 実機(firmware/esp32/src/NetLink.h の KATANORI_WS_PATH)と同じURLを使う。
+#   ?pcm=16000 … DOのPCMバイナリモード。音声はバイナリフレーム、制御はテキスト。
+#                DO側で24k→16kのリサンプルと4KB分割まで済ませて送ってくる。
+#   ?voice     … つなぎ言葉の音源と同じ声にする(違うとDOはつなぎ言葉を鳴らさない)。
+# 素通しモード(?pcmなし・JSON+base64)もDOは受け付けるが、それだと実機が通る
+# 経路を一切踏まないため、シミュレーターの検証価値が落ちる。実機に揃えること。
+WS_URL = "wss://katanori-backend.tobira-sys.workers.dev/?voice=Achird&pcm=16000"
 
 # PyAudio 設定 (16bit, Mono)
 FORMAT = pyaudio.paInt16
 CHANNELS = 1
 RATE = 16000        # マイク入力 (Gemini Live APIの入力仕様)
-OUT_RATE = 24000    # スピーカー出力 (Geminiの返答は audio/pcm;rate=24000)
+OUT_RATE = 16000    # スピーカー出力 (PCMモードではDOが16kHzへ変換して送ってくる)
 CHUNK = 1024
 
 # 会話が途切れてからセッションを閉じるまでの秒数。
@@ -61,6 +67,7 @@ class WrapperApp:
         self.recv_bytes = 0
         self.turn_active = False      # Geminiの応答音声を受信中か
         self.t_stream_end = None      # audioStreamEnd送信時刻 (応答遅延の実測用)
+        self.filler_pending = False   # 次に届く音声がDOのつなぎ言葉か
         self.input_text = ""          # Geminiが聞き取った内容 (inputTranscription)
         self.output_text = ""         # Geminiの応答内容 (outputTranscription)
         self.log_lines = collections.deque(maxlen=200)
@@ -290,6 +297,7 @@ class WrapperApp:
         if self.turn_active or self.is_playing:
             self.clear_playback()
         self.turn_active = False
+        self.filler_pending = False
 
     def clear_playback(self):
         """割り込み時: 未再生の音声を破棄する"""
@@ -407,31 +415,54 @@ class WrapperApp:
             pass
 
     async def ws_sender(self, ws):
-        """オーディオキューの音声をGemini仕様のJSONに包んで送信"""
+        """オーディオキューの音声を生PCMのバイナリフレームで送信。
+
+        PCMモードではDOが realtimeInput.audio への包み直しを引き受けるので、
+        実機と同じくbase64もJSON組み立ても行わない(実機の経路をそのまま踏む)。
+        """
         # setupComplete前に送るとGemini側で取りこぼされる。待つ間の音声は
         # キューに溜まるので、発話の頭は欠けない
         await self.setup_event.wait()
         while True:
             data = await self.audio_queue.get()
-            # Gemini Live API 新形式 (gemini-3.1-flash-live は旧mediaChunksを拒否する)
-            payload = {
-                "realtimeInput": {
-                    "audio": {
-                        "mimeType": "audio/pcm;rate=16000",
-                        "data": base64.b64encode(data).decode('utf-8')
-                    }
-                }
-            }
             try:
-                await ws.send(json.dumps(payload))
+                await ws.send(data)  # bytesを渡すとバイナリフレームになる
                 self.turn_sent_chunks += 1
                 self.turn_sent_bytes += len(data)
             except Exception:
                 break # 再接続へ
 
+    def on_audio_chunk(self, data):
+        """応答音声の1フレーム(16kHz 16bit PCM)を再生キューへ流す。
+
+        PCMモードでは音声は必ずバイナリフレームで届く。DOはPCMの先頭が
+        たまたま '{' になる事故を避けるため、テキスト枠を制御専用にしている。
+        """
+        if not self.turn_active:
+            self.turn_active = True
+            self.recv_chunks = 0
+            self.recv_bytes = 0
+            self.output_text = ""
+            if self.t_stream_end:
+                # つなぎ言葉はDOが即返すので、Geminiの応答遅延とは別物として出す
+                label = "つなぎ言葉" if self.filler_pending else "応答開始"
+                self.log(f"⏱ 発話終了→{label} {time.time() - self.t_stream_end:.2f}秒")
+                self.t_stream_end = None
+            self.log("🔊 応答音声の受信・再生を開始")
+            self.play_queue.put(("START", None))
+        self.recv_chunks += 1
+        self.recv_bytes += len(data)
+        self.play_queue.put(("DATA", data))
+
     async def ws_receiver(self, ws):
-        """DO(Gemini)からの返答を受信してパース"""
+        """DOからの返答を受信してパース。
+
+        PCMモードの取り決めは実機と同じ「バイナリ=音声 / テキスト=制御」。
+        """
         async for message in ws:
+            if not isinstance(message, str):
+                self.on_audio_chunk(message)
+                continue
             try:
                 msg = json.loads(message)
             except Exception:
@@ -440,6 +471,13 @@ class WrapperApp:
                 # DOからのデバッグ情報 (接続エラー等はここに出る)
                 if "_debug" in msg:
                     self.log(f"[DO] {msg['_debug']}")
+                    continue
+
+                # つなぎ言葉の予告。直後に音源がバイナリで届く。
+                # 実機はこれを無視しているが、ここでは遅延の内訳を見るために使う
+                if "_filler" in msg:
+                    self.filler_pending = True
+                    self.log(f"💬 つなぎ言葉「{msg['_filler']}」")
                     continue
 
                 # Geminiからのセットアップ完了通知
@@ -459,6 +497,7 @@ class WrapperApp:
                     self.log("🚫 Geminiが割り込みを検知（応答を中断。マイクが音を拾った可能性）")
                     self.clear_playback()
                     self.turn_active = False
+                    self.filler_pending = False
                     continue
 
                 # 文字起こし (何が聞こえたか / 何を話しているか)
@@ -469,25 +508,12 @@ class WrapperApp:
                 if ot:
                     self.output_text += ot
 
+                # PCMモードではDOが音声(inlineData)を抜いてバイナリで送るので、
+                # ここに残るのはテキストパートだけ
                 model_turn = sc.get("modelTurn")
                 if model_turn:
                     for part in model_turn.get("parts", []):
-                        if "inlineData" in part:
-                            audio_data = base64.b64decode(part["inlineData"]["data"])
-                            if not self.turn_active:
-                                self.turn_active = True
-                                self.recv_chunks = 0
-                                self.recv_bytes = 0
-                                self.output_text = ""
-                                if self.t_stream_end:
-                                    self.log(f"⏱ 発話終了→応答開始 {time.time() - self.t_stream_end:.2f}秒")
-                                    self.t_stream_end = None
-                                self.log("🔊 応答音声の受信・再生を開始")
-                                self.play_queue.put(("START", None))
-                            self.recv_chunks += 1
-                            self.recv_bytes += len(audio_data)
-                            self.play_queue.put(("DATA", audio_data))
-                        elif "text" in part:
+                        if "text" in part:
                             self.log(f"[GEMINI TEXT] {part['text']}")
 
                 if sc.get("turnComplete"):
@@ -504,6 +530,7 @@ class WrapperApp:
                         self.play_queue.put(("END", None))
                     else:
                         self.log("✅ ターン完了（応答音声なし）")
+                    self.filler_pending = False
                     # 会話が続くなら次のWAKE_WORDでキャンセルされる
                     self.schedule_idle_close()
 

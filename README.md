@@ -40,7 +40,7 @@ Wi-Fi未設定の機体を渡せば、スマホでQRを読む → 設定画面�
 ```
 firmware/
 ├── core/          純C++14のコアロジック。Arduino依存禁止。実機とシミュレーターで共有
-│                  DisplayBuffer / StateMachine / Face / RobotCore / RobotDsp
+│                  DisplayBuffer / StateMachine / Face / RobotCore
 ├── hal/           IHal.h（プラットフォーム抽象）
 └── esp32/         実機ファームウェア（PlatformIO）   ★詳細は firmware/esp32/README.md
     └── src/       main.cpp / NetLink / AudioIo / Provisioning / RootCa.h
@@ -89,6 +89,11 @@ npm run deploy
 simulator\build.bat
 python simulator\wrapper.py
 ```
+
+顔は実機と同じ `firmware/core` が描き、DOへの接続も実機と同じPCMバイナリモード
+（`?voice=Achird&pcm=16000`）を使います。**バックエンドやプロンプトの変更は、
+実機へ焼く前にここで確かめられます。** 一方 I2S・AEC・Wi-Fi は実機でしか出ません。
+**詳細は [docs/SIMULATOR.md](docs/SIMULATOR.md)。**
 
 ## 実機で判明した重要な事実
 

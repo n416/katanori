@@ -1,7 +1,13 @@
 # カタノリ ロボット顔 PCシミュレーター ガイド
 
 ## 1. 概要
-実機（XIAO ESP32S3 + OLED 128x64 + ReSpeaker Lite）の到着前に、標準C++14で作成されたコアロジックを Windows PC上で開発・テストするための Win32 API / GDIベースの軽量シミュレーターです。
+`firmware/core`（標準C++14のコアロジック）を Windows PC 上で動かす Win32 API / GDI ベースの軽量シミュレーターです。もとは実機到着前の開発用でしたが、実機が完成した今の役割は次の2つです。
+
+- **顔の確認** — `firmware/core` は実機とシミュレーターで**同じソースを共有**しています（コピーではありません。→ 5章）。ここに映る顔は実機のOLEDと同一です。
+- **バックエンドの試験台** — `simulator/wrapper.py` は実機と同じURL・同じプロトコルで Durable Object へ接続します。プロンプト・つなぎ言葉・声・時刻注入といったサーバー側の変更は、**実機へ焼かずにここで確かめられます**。
+
+### ここでは確かめられないもの
+I2S のスレーブ設定、ReSpeaker Lite のハードウェアAEC、Wi-Fiプロビジョニング、Usrボタン、起動時ノイズ。いずれも実機でしか出ません。シミュレーターをこれらの「双子」にする計画は**ありません**（労力に対して返りが薄いため）。
 
 ---
 
@@ -24,13 +30,19 @@ simulator\build.bat
 
 ビルドが成功すると、`simulator\katanori_sim.exe` が生成されます。
 
+PATH に g++ を通していない場合は、PowerShell で前置してから実行します。
+
+```powershell
+$env:PATH = "C:\Users\shingo\w64devkit\bin;" + $env:PATH; cmd /c simulator\build.bat
+```
+
 ---
 
-## 4. シミュレーターの実行と操作方法
+## 4. 実行と操作方法
 
-`simulator\katanori_sim.exe` を実行すると 1024x512 のウィンドウが開きます。
+### 4.1 顔だけ見る
+`simulator\katanori_sim.exe` を直接実行すると 1024x512 のウィンドウが開きます。
 
-### キー操作一覧
 | キー | 動作 |
 |---|---|
 | `1` | イベント注入: `WAKE_WORD` (IDLE -> LISTEN) |
@@ -40,20 +52,44 @@ simulator\build.bat
 | `Space` | 押下中、マイク入力レベル (0.2〜1.0) を擬似振動注入 |
 | `ESC` | シミュレーター終了 |
 
+### 4.2 会話する（ラッパー経由）
+
+```cmd
+python simulator\wrapper.py
+```
+
+`wrapper.py` がシミュレーターを子プロセスとして起動し、PCのマイク・スピーカーと Durable Object への接続を担当します。会話は**シミュレーターの窓**で `1`（話し始める）→ `2`（話し終わり）。別窓のモニターGUIに接続状態・マイクレベル・聞き取り・応答・遅延が出ます。
+
+必要なもの: `pyaudio`, `websockets`。
+
 ---
 
-## 5. 実機 (ESP32S3) への移植ガイド
+## 5. 実機との関係
 
-`firmware/core` および `firmware/hal` ディレクトリ配下のコードはプラットフォーム独立（標準C++14のみ）のため、そのまま ESP32 プロジェクトにコピーして使用できます。
+### 5.1 コアは共有されている（コピーではない）
+`firmware/core` と `firmware/hal` は**両方のビルドが同じファイルを直接コンパイル**します。コピーは作りません。
 
-1. **`firmware/core/` および `firmware/hal/` をコピー**
-   ESP32用プロジェクト（Arduino IDE / PlatformIO / ESP-IDF）にそのまま配置します。
+- シミュレーター: `simulator/build.bat` が `firmware/core/*.cpp` をコンパイル対象に列挙
+- 実機: `firmware/esp32/platformio.ini` の `build_src_filter = +<../../core/*.cpp>`
 
-2. **`IHal` の実機実装**
-   `firmware/esp32/main_esp32_skeleton.cpp` を参考に、U8g2ライブラリおよび音声処理ライブラリを呼び出す `Esp32Hal` を実装します。
-   - `millis()`: `::millis()` を返却
-   - `getMicLevel()`: ReSpeaker Lite / ADC の信号レベル (0.0f〜1.0f) を返却
-   - `flushDisplay()`: `DisplayBuffer::data()` (128x64 1bpp) を U8g2 バッファへ描画
+**`firmware/core` にファイルを足したら、build.bat にも追記が必要です**（PlatformIO 側はワイルドカードなので自動で拾われます。片側だけに入って気づかれない、という事故が過去に起きています）。
 
-3. **`RobotCore::tick()` の呼び出し**
-   `setup()` で初期化し、`loop()` の周期処理内で `robotCore.tick()` を実行します。
+`IHal` の実装は2つあります。シミュレーターが `simulator/win32/main_win32.cpp` の `Win32Hal`、実機が `firmware/esp32/src/main.cpp` の `Esp32Hal` です。
+
+### 5.2 プロトコルも揃えてある
+`wrapper.py` は実機（`firmware/esp32/src/NetLink.h` の `KATANORI_WS_PATH`）と同じ **PCMバイナリモード**で接続します。
+
+```
+wss://katanori-backend.tobira-sys.workers.dev/?voice=Achird&pcm=16000
+```
+
+- **バイナリフレーム = 生の16bit PCM**、**テキストフレーム = 制御JSON**、という取り決め。
+  PCMの先頭バイトがたまたま `{` になることがあるため、中身を見て振り分ける方式は成立しません。
+- 上り（マイク→DO）は生PCMをそのまま送ります。base64もJSONも組み立てません。
+- 下り（DO→クライアント）は DO 側で 24kHz→16kHz のリサンプルと4KB分割まで済ませて届きます。
+- つなぎ言葉は `{"_filler": "えーっと"}` が先に来て、直後に音源がバイナリで届きます。
+
+DO は `?pcm=` を付けない**素通しモード**（Gemini の生JSON + base64）も受け付けますが、それだと実機が通る経路を一切踏まないため使いません。**変えないこと。**
+
+### 5.3 シミュレーターが実機に追随していない点
+意図的に追随させていません（1章の「確かめられないもの」を参照）。シミュレーター側の会話開始は `1` キーですが、実機は Usr ボタン（GPIO3）で開始/終了します。VAD・再生中のミュート・エコーガードの実装も両者で別物です。
