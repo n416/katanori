@@ -4,6 +4,7 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/stream_buffer.h>
 #include <esp_heap_caps.h>
+#include <Wire.h>
 
 namespace katanori {
 
@@ -275,6 +276,59 @@ void AudioIo::play(const int16_t* pcm, size_t samples) {
     if (sent < bytes) {
         droppedSamples_ += (bytes - sent) / sizeof(int16_t);
     }
+}
+
+namespace {
+
+// ReSpeaker Lite の音声コーデック。Seeed公式の音量制御サンプルと同じアドレス。
+constexpr uint8_t AIC3204_ADDR = 0x18;
+
+bool codecWrite(uint8_t reg, uint8_t value) {
+    Wire.beginTransmission(AIC3204_ADDR);
+    Wire.write(reg);
+    Wire.write(value);
+    return Wire.endTransmission() == 0;
+}
+
+bool codecRead(uint8_t reg, uint8_t& out) {
+    Wire.beginTransmission(AIC3204_ADDR);
+    Wire.write(reg);
+    if (Wire.endTransmission(false) != 0) {
+        return false;
+    }
+    if (Wire.requestFrom(AIC3204_ADDR, (uint8_t)1) != 1) {
+        return false;
+    }
+    out = Wire.read();
+    return true;
+}
+
+} // namespace
+
+bool AudioIo::setOutputMute(bool mute) {
+    // ページ0を選択（DACのミュートと音量はページ0にある）
+    if (!codecWrite(0x00, 0x00)) {
+        Serial.println("[CODEC] 応答がありません (0x18)");
+        return false;
+    }
+
+    // reg 0x41/0x42 = DAC左/右のデジタル音量。0.5dBステップ。
+    //   0x81 = -63.5dB (最小) / 0x00 = 0dB
+    // ミュートビットの解釈を誤っていても、こちらだけで実用上は無音になる。
+    codecWrite(0x41, mute ? 0x81 : 0x00);
+    codecWrite(0x42, mute ? 0x81 : 0x00);
+
+    // reg 0x40 = DACチャンネル設定2。D3=左ミュート, D2=右ミュート。
+    // 他のビット(ソフトステップ等)を壊さないよう読んでから書き戻す。
+    uint8_t v = 0;
+    if (codecRead(0x40, v)) {
+        v = mute ? (v | 0x0C) : (v & ~0x0C);
+        codecWrite(0x40, v);
+    }
+
+    muted_ = mute;
+    Serial.printf("[CODEC] 出力を%sしました\n", mute ? "ミュート" : "ミュート解除");
+    return true;
 }
 
 void AudioIo::setGain(float g) {
@@ -602,6 +656,14 @@ void AudioIo::toneTest(uint32_t durationMs, int freqHz, int amplitude) {
                   freqHz, durationMs / 1000.0f, amplitude);
     Serial.println("[TEST] ※イヤホンを耳に着けたまま試さないでください");
 
+    // スピーカー単独テストなので、ミュート中でも一時的に開けて鳴らす。
+    // （そのため、このコマンドはミュートが効いているかの検証には使えない）
+    const bool wasMuted = muted_;
+    if (wasMuted) {
+        Serial.println("[TEST] ミュート中のため一時的に解除します（終了後に戻します）");
+        setOutputMute(false);
+    }
+
     constexpr size_t CHUNK = 256;
     static int16_t mono[CHUNK];
     uint32_t phase = 0;
@@ -627,6 +689,9 @@ void AudioIo::toneTest(uint32_t durationMs, int freqHz, int amplitude) {
         writeMono(mono, CHUNK, pdMS_TO_TICKS(500));
     }
     i2s_zero_dma_buffer(I2S_PORT);
+    if (wasMuted) {
+        setOutputMute(true); // 元の状態へ戻す（リセット時の轟音対策）
+    }
     Serial.println("[TEST] 出力完了。音が出ましたか？");
 }
 

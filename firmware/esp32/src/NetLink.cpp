@@ -297,6 +297,14 @@ bool NetLink::wifiConnect(uint32_t timeoutMs) {
         Serial.println("[NET] SSIDが未設定です。'ssid <名前>' から設定してください");
         return false;
     }
+
+    // 設定モードのAPが残っているとSTA側の接続が不安定になる。確実にSTAへ戻す。
+    if (WiFi.getMode() != WIFI_STA) {
+        Serial.printf("[NET] WiFiモードを %d から STA へ戻します\n", WiFi.getMode());
+        WiFi.softAPdisconnect(true);
+        WiFi.mode(WIFI_STA);
+        delay(100);
+    }
     if (wifiConnected()) {
         Serial.println("[NET] すでに接続済みです");
         return true;
@@ -336,9 +344,37 @@ bool NetLink::wifiConnect(uint32_t timeoutMs) {
 
 void NetLink::scan() {
     Serial.println("[NET] 2.4GHz帯をスキャンします...");
+
+    // ESP32は WiFi.begin() が失敗すると内部で再接続を繰り返す。その最中は
+    // スキャンを開始できず -2 (SCAN_FAILED) が返る。先に接続試行を止める。
+    if (WiFi.status() != WL_CONNECTED) {
+        WiFi.disconnect(false, false); // 電源は落とさず、保存設定も消さない
+        delay(200);
+    }
+    WiFi.scanDelete(); // 前回の結果が残っていると次のスキャンが失敗することがある
+
     int n = WiFi.scanNetworks();
-    if (n <= 0) {
-        Serial.println("[NET] APが1つも見つかりませんでした");
+    if (n == WIFI_SCAN_FAILED) {
+        // 一度で駄目でも、少し待てば通ることが多い
+        delay(500);
+        WiFi.scanDelete();
+        n = WiFi.scanNetworks();
+    }
+
+    // 負の値は「APが無い」ではなく「スキャンが失敗/実行中」。
+    // ここを 0 と同一視していると、電波の問題と誤診する。
+    if (n < 0) {
+        Serial.printf("[NET] スキャンできませんでした (戻り値 %d: %s)\n", n,
+                      n == WIFI_SCAN_RUNNING ? "実行中" :
+                      n == WIFI_SCAN_FAILED  ? "失敗" : "不明");
+        Serial.printf("[NET]   WiFi.mode=%d  status=%d\n", WiFi.getMode(), WiFi.status());
+        Serial.println("[NET]   APモードが残っている可能性があります。'R' で再起動するか、");
+        Serial.println("[NET]   USBを抜き差しして電源から入れ直してください。");
+        WiFi.scanDelete();
+        return;
+    }
+    if (n == 0) {
+        Serial.println("[NET] APが1つも見つかりませんでした（アンテナの接続を確認してください）");
         WiFi.scanDelete();
         return;
     }
@@ -419,8 +455,10 @@ bool NetLink::wsConnected() const {
 
 void NetLink::printStatus() const {
     Serial.println("--- ネットワーク状態 ---");
-    Serial.printf("  Wi-Fi設定 : %s\n",
-                  hasCredentials() ? ssid_.c_str() : "(未設定)");
+    // パスワードは出さないが、桁数は出す。設定モードで空や誤りを保存してしまった
+    // 場合に「保存されているつもりだった」を見抜けるようにするため。
+    Serial.printf("  Wi-Fi設定 : %s  (パスワード %d文字)\n",
+                  hasCredentials() ? ssid_.c_str() : "(未設定)", pass_.length());
     if (wifiConnected()) {
         Serial.printf("  Wi-Fi     : 接続中  IP=%s  RSSI=%ddBm\n",
                       WiFi.localIP().toString().c_str(), WiFi.RSSI());

@@ -21,6 +21,9 @@
 #include "RobotCore.h"
 #include "NetLink.h"
 #include "AudioIo.h"
+#include "Provisioning.h"
+
+#include <qrcode.h>
 
 // ---------------------------------------------------------------------------
 // ボード設定
@@ -163,6 +166,8 @@ static void onAudio(const int16_t* pcm, size_t samples) {
     if (!speaking) {
         speaking = true;
         turnComplete = false;
+        // 普段はミュートしてある（リセット時の轟音対策）。喋る直前だけ開ける。
+        katanori::audioIo.setOutputMute(false);
         if (streamEndMs != 0) {
             Serial.printf("[TURN] 発話終了 -> 応答開始 %.2f秒\n",
                           (millis() - streamEndMs) / 1000.0f);
@@ -180,6 +185,7 @@ static void onControl(const char* json) {
     if (strstr(json, "\"interrupted\"") != nullptr) {
         Serial.println("[TURN] 割り込み検知 — 再生を中断します");
         katanori::audioIo.stopPlayback();
+        katanori::audioIo.setOutputMute(true);
         speaking = false;
         turnComplete = false;
         robot.injectEvent(katanori::RobotEvent::SPEECH_DONE);
@@ -256,6 +262,8 @@ static void pumpTurnState() {
     if (speaking && turnComplete && !katanori::audioIo.isPlaying()) {
         speaking = false;
         turnComplete = false;
+        // 再生し終わったら必ず閉じる。この状態でリセットされても音が出ない。
+        katanori::audioIo.setOutputMute(true);
         driveTo(katanori::RobotState::IDLE);
         Serial.println("[TURN] 応答の再生が完了しました");
     }
@@ -273,6 +281,50 @@ static const char* stateName(katanori::RobotState s) {
     case katanori::RobotState::SPEAK:  return "SPEAK";
     }
     return "?";
+}
+
+/**
+ * I2Cデバイスの素性を調べる。読み出しのみで書き込みはしない。
+ *
+ * 0x18 は音声コーデック(TLV320AIC3104等)の定番アドレスだが、
+ * 加速度センサー LIS3DH / LIS2DH12 の標準アドレスでもある。
+ * WHO_AM_I を読めば区別できる。加速度センサーなら本体の向きで
+ * 操作する、といった使い方の余地が生まれる。
+ */
+static void identifyI2c(uint8_t addr) {
+    Serial.printf("[ID] 0x%02X のレジスタを読みます（書き込みはしません）\n", addr);
+
+    // よくある「型番レジスタ」を順に読む
+    struct Probe { uint8_t reg; const char* name; };
+    static const Probe probes[] = {
+        { 0x0F, "WHO_AM_I (LIS3DH=0x33 / LIS2DH12=0x33 / LSM6DS3=0x69)" },
+        { 0x00, "reg0x00" },
+        { 0x01, "reg0x01" },
+        { 0x75, "WHO_AM_I (MPU6050=0x68)" },
+    };
+
+    bool any = false;
+    for (const auto& p : probes) {
+        Wire.beginTransmission(addr);
+        Wire.write(p.reg);
+        if (Wire.endTransmission(false) != 0) {
+            continue;
+        }
+        if (Wire.requestFrom(addr, (uint8_t)1) != 1) {
+            continue;
+        }
+        uint8_t v = Wire.read();
+        any = true;
+        Serial.printf("[ID]   0x%02X = 0x%02X   %s\n", p.reg, v, p.name);
+
+        if (p.reg == 0x0F && v == 0x33) {
+            Serial.println("[ID]   ★ LIS3DH系の加速度センサーです");
+        }
+    }
+
+    if (!any) {
+        Serial.println("[ID]   レジスタ読み出しに応答しません（単純なI2Cスレーブではない）");
+    }
 }
 
 /** チップ・メモリ情報。ブート時に取りこぼしても 'i' で再表示できる。 */
@@ -475,6 +527,100 @@ static void runSelfTest() {
     selfTestUntilMs = millis() + 5000;
 }
 
+/**
+ * 設定モードで QR画面 / 文字画面 のどちらを出しているか。
+ *
+ * 時間で自動切り替えしてはいけない。QRの読み取りには数秒かかることがあり、
+ * その最中に画面が変わると失敗する。BOOTボタンの短押しで切り替える
+ * （設定モード中は短押しに他の役目が無い）。
+ */
+static bool provShowQr = true;
+
+/**
+ * 設定モードの画面。QRと文字を横に並べる。
+ *
+ *   QR : Version2(25モジュール) を1モジュール2pxで 50x50px、上下7pxの余白。
+ *        128x64 の左側に置くと右に78px余るので、切り替えなしで文字を併置できる。
+ *   右 : AP名・URL・ステータス。ステータスだけが状況に応じて変わる。
+ */
+static void renderProvisioning() {
+    static char lastPayload[64] = {0};
+    static QRCode qr;
+    // qrcode_getBufferSize() は関数なので配列長に使えない。
+    // Version3 は 29x29 = 841ビット = 106バイト。余裕を見て固定確保する。
+    static uint8_t qrData[160];
+
+    const char* payload = katanori::provisioning.wifiQrPayload();
+    if (strcmp(lastPayload, payload) != 0) {
+        strncpy(lastPayload, payload, sizeof(lastPayload) - 1);
+        // バージョンは自動で上がらないので、収まる最小を明示的に選ぶ
+        if (qrcode_initText(&qr, qrData, 2, ECC_LOW, payload) != 0) {
+            qrcode_initText(&qr, qrData, 3, ECC_LOW, payload);
+        }
+    }
+
+    const auto phase = katanori::provisioning.phase();
+    const bool showQr = provShowQr;
+
+    u8g2.clearBuffer();
+
+    if (showQr) {
+        // --- QR画面: 白地に黒モジュール（SSD1306は点灯=白なので地を点灯させる） ---
+        const int scale = 2;
+        const int qrPx = qr.size * scale;
+        const int quiet = (64 - qrPx) / 2;   // 上下の余白がクワイエットゾーンを兼ねる
+        const int block = qrPx + quiet * 2;
+
+        u8g2.setDrawColor(1);
+        u8g2.drawBox(0, 0, block, 64);
+        u8g2.setDrawColor(0);
+        for (uint8_t y = 0; y < qr.size; ++y) {
+            for (uint8_t x = 0; x < qr.size; ++x) {
+                if (qrcode_getModule(&qr, x, y)) {
+                    u8g2.drawBox(quiet + x * scale, quiet + y * scale, scale, scale);
+                }
+            }
+        }
+
+        // 右の60pxに収まる短い語だけを大きめの字で置く
+        u8g2.setDrawColor(1);
+        const int tx = block + 4;
+        u8g2.setFont(u8g2_font_7x13B_tr);
+        u8g2.drawStr(tx, 20, "WiFi");
+        u8g2.drawStr(tx, 34, "SETUP");
+        u8g2.setFont(u8g2_font_6x12_tr);
+        switch (phase) {
+        case katanori::Provisioning::Phase::WAITING:   u8g2.drawStr(tx, 54, "scan me"); break;
+        case katanori::Provisioning::Phase::CONNECTED: u8g2.drawStr(tx, 54, "connected"); break;
+        case katanori::Provisioning::Phase::SAVED:     u8g2.drawStr(tx, 54, "saved!"); break;
+        }
+    } else {
+        // --- 文字画面: 全幅を使って読める大きさで出す ---
+        // 9x15 なら 128px に14文字。"katanori-setup" がちょうど収まる。
+        u8g2.setDrawColor(1);
+        u8g2.setFont(u8g2_font_9x15B_tr);
+        u8g2.drawStr(0, 14, katanori::provisioning.apSsid());
+        u8g2.drawStr(0, 34, katanori::provisioning.apIp().toString().c_str());
+
+        u8g2.setFont(u8g2_font_7x13B_tr);
+        switch (phase) {
+        case katanori::Provisioning::Phase::WAITING:
+            u8g2.drawStr(0, 52, "waiting...");
+            break;
+        case katanori::Provisioning::Phase::CONNECTED:
+            u8g2.drawStr(0, 52, "connected");
+            break;
+        case katanori::Provisioning::Phase::SAVED:
+            u8g2.drawStr(0, 52, "saved! reboot");
+            break;
+        }
+        u8g2.setFont(u8g2_font_6x12_tr);
+        u8g2.drawStr(0, 64, "[btn] show QR");
+    }
+
+    u8g2.sendBuffer();
+}
+
 static void printHelp() {
     Serial.println("---------------------------------------------");
     Serial.println(" 会話");
@@ -483,6 +629,7 @@ static void printHelp() {
     Serial.println("   au  : 音声の状態を表示");
     Serial.println("   mic : マイク単独テスト(5秒) ch0/ch1のレベルを測る");
     Serial.println("   vol <0-100> : 再生音量（既定35）");
+    Serial.println("   mute/unmute : コーデック出力のミュート（既定はミュート）");
     Serial.println("   beep : スピーカー単独テスト(440Hzを1秒, 振幅600)");
     Serial.println("   beep2: 同上だが振幅4000 ※イヤホンを耳に着けないこと");
     Serial.println("   scan2: I2S設定の総当たり（無音状態で実行）");
@@ -504,6 +651,7 @@ static void printHelp() {
     Serial.println("--- ネットワーク ---------------------------");
     Serial.println("   ssid <名前>       : Wi-Fi の SSID を保存");
     Serial.println("   pass <パスワード> : Wi-Fi のパスワードを保存");
+    Serial.println("   prov / provoff    : Wi-Fi設定モードの開始/終了（BOOT3秒長押しでも可）");
     Serial.println("   forget            : 保存したWi-Fi設定を消去");
     Serial.println("   scan              : 周囲のAPを一覧表示");
     Serial.println("   wifi              : Wi-Fiへ接続");
@@ -519,6 +667,8 @@ static void printHelp() {
  * wrapper.py が使っている "CMD:SPEAK_START" / "CMD:SPEAK_END" も受理しておく。
  * Stage 3 で PC 側ラッパーを実機に向けて動作確認する際にそのまま使えるため。
  */
+static void exitProvisioning(); // 定義は下（handleButton の直前）
+
 static void handleSerial() {
     // SSIDとパスワードを受け取るため余裕を持たせる
     static char line[160];
@@ -582,6 +732,10 @@ static void handleSerial() {
             katanori::audioIo.toneTest(1000, 440, 4000);
         } else if (strncmp(line, "vol ", 4) == 0) {
             katanori::audioIo.setGain(atoi(line + 4) / 100.0f);
+        } else if (strcmp(line, "mute") == 0) {
+            katanori::audioIo.setOutputMute(true);
+        } else if (strcmp(line, "unmute") == 0) {
+            katanori::audioIo.setOutputMute(false);
         } else if (strcmp(line, "scan2") == 0) {
             katanori::audioIo.scanConfigs();
         } else if (strncmp(line, "i2s ", 4) == 0) {
@@ -598,6 +752,14 @@ static void handleSerial() {
             scanI2c();
         } else if (strcmp(line, "a") == 0) {
             sweepI2cPins();
+        } else if (strcmp(line, "id") == 0) {
+            identifyI2c(0x18);
+        } else if (strcmp(line, "prov") == 0) {
+            katanori::netLink.wsDisconnect();
+            katanori::audioIo.stopRecording();
+            katanori::provisioning.begin();
+        } else if (strcmp(line, "provoff") == 0) {
+            exitProvisioning();
         } else if (strcmp(line, "r") == 0) {
             // 起動時にOLEDが繋がっていなかった場合、初期化コマンド列がパネルに
             // 届いていない。配線を直した後にリセットボタンを押さずやり直すための口。
@@ -636,10 +798,27 @@ static void handleSerial() {
     }
 }
 
-/** BOOTボタン: 立ち下がりで WAKE_WORD を注入 (30msデバウンス) */
+/** 設定モードを抜けて通常動作へ戻る。保存済みの設定があれば繋ぎ直す。 */
+static void exitProvisioning() {
+    if (!katanori::provisioning.active()) {
+        return;
+    }
+    katanori::provisioning.stop();
+    if (katanori::netLink.hasCredentials()) {
+        katanori::netLink.wifiConnect();
+    }
+}
+
+/**
+ * BOOTボタン。
+ *   短押し   : 話し始め / 話し終わり を交互に（Stage 4でウェイクワードに置換予定）
+ *   3秒長押し: Wi-Fi設定モードへ入る
+ */
 static void handleButton() {
     static bool lastPressed = false;
+    static uint32_t pressedAtMs = 0;
     static uint32_t lastChangeMs = 0;
+    static bool longFired = false;
 
     bool pressed = (digitalRead(KATANORI_BOOT_BUTTON) == LOW);
     uint32_t now = millis();
@@ -647,16 +826,36 @@ static void handleButton() {
     if (pressed != lastPressed && (now - lastChangeMs) > 30) {
         lastChangeMs = now;
         lastPressed = pressed;
+
         if (pressed) {
-            // 押すたびに 話し始め / 話し終わり を切り替える。
-            // Stage 4 でウェイクワード検出に置き換える。
-            if (katanori::audioIo.isRecording()) {
+            pressedAtMs = now;
+            longFired = false;
+        } else if (!longFired) {
+            // 離した時点で短押し確定
+            if (katanori::provisioning.active()) {
+                provShowQr = !provShowQr;
+                Serial.printf("[BTN] 表示切替 -> %s\n", provShowQr ? "QR" : "文字");
+            } else if (katanori::audioIo.isRecording()) {
                 Serial.println("[BTN] BOOT -> 発話終了");
                 endTurn();
             } else {
                 Serial.println("[BTN] BOOT -> 発話開始");
                 startTurn();
             }
+        }
+    }
+
+    if (pressed && !longFired && (now - pressedAtMs) >= 3000) {
+        longFired = true;
+        if (katanori::provisioning.active()) {
+            // 設定モードから抜ける。保存せずに戻りたいときの逃げ道。
+            Serial.println("[BTN] BOOT長押し -> 設定モードを抜けます");
+            exitProvisioning();
+        } else {
+            Serial.println("[BTN] BOOT長押し -> Wi-Fi設定モードへ");
+            katanori::netLink.wsDisconnect();
+            katanori::audioIo.stopRecording();
+            katanori::provisioning.begin();
         }
     }
 }
@@ -667,6 +866,26 @@ static void handleButton() {
 
 void setup() {
     Serial.begin(115200);
+
+    // 【最優先】I2Sを真っ先に初期化する。
+    //
+    // ESP32-S3 では GPIO43 が UART0 の TX であり、この構成では同じピンが
+    // I2S DOUT（ReSpeaker のオーディオ入力）でもある。リセット直後、
+    // ROMブートローダが 115200bps でブートメッセージを吐くと、そのビット列が
+    // そのままオーディオとして増幅されて轟音になる。
+    // ROM側は止められないが、アプリ側が I2S を握るまでの空白は最短にできる。
+    // （この初期化中のログは、下のシリアル待ちより前なので取りこぼされる。
+    //   結果は後で printStatus() で確認できる）
+    // コーデックのミュートに I2C を使うので、Wire を先に立ち上げておく（即座に終わる）
+    Wire.setPins(KATANORI_I2C_SDA, KATANORI_I2C_SCL);
+    Wire.begin();
+    Wire.setClock(400000);
+
+    bool audioOk = katanori::audioIo.begin();
+
+    // 出力は既定でミュート。この状態が次のリセットまで保持されるので、
+    // 起動時にROMブートログが轟音になるのを防げる。喋る直前だけ解除する。
+    katanori::audioIo.setOutputMute(true);
 
     // ネイティブUSB CDC はホストが開くまで出力が捨てられる。
     // ブートログを取りこぼさないよう最大3秒待つ (未接続でも先へ進む)。
@@ -687,11 +906,7 @@ void setup() {
     pinMode(KATANORI_USER_LED, OUTPUT);
     digitalWrite(KATANORI_USER_LED, HIGH);
 
-    // U8g2 が内部で呼ぶ Wire.begin() は既定ピンを使うため、
-    // 先に setPins() でピンを確定させておく。
-    Wire.setPins(KATANORI_I2C_SDA, KATANORI_I2C_SCL);
-    Wire.begin();
-    Wire.setClock(400000);
+    // Wire は setup() 冒頭で初期化済み（コーデックのミュートに必要なため）
     Serial.printf("[I2C] SDA=GPIO%d SCL=GPIO%d @400kHz\n",
                   KATANORI_I2C_SDA, KATANORI_I2C_SCL);
 
@@ -712,11 +927,22 @@ void setup() {
     katanori::netLink.setAudioSink(onAudio);
     katanori::netLink.setControlSink(onControl);
 
-    if (!katanori::audioIo.begin()) {
+    if (audioOk) {
+        katanori::audioIo.printStatus();
+    } else {
         Serial.println("[I2S] !! 音声の初期化に失敗しました。顔の表示だけ動きます");
     }
 
     printHelp();
+
+    // Wi-Fi未設定なら、いきなり設定モードで立ち上がる（仕様書3章）
+    if (!katanori::netLink.hasCredentials()) {
+        Serial.println("[BOOT] Wi-Fi未設定のため設定モードで起動します");
+        if (katanori::provisioning.begin()) {
+            renderProvisioning();
+            return;
+        }
+    }
 
     // 起動直後は自己診断パターンを出す。ネイティブUSB CDC ではブートログが
     // モニタ接続前に流れてしまうため、「電源を入れたら画面に何か出る」ことを
@@ -729,6 +955,23 @@ void setup() {
 void loop() {
     handleSerial();
     handleButton();
+
+    // Wi-Fi設定モード中は顔も音声も止めて、設定画面だけを回す
+    if (katanori::provisioning.active()) {
+        katanori::provisioning.loop();
+
+        // 変化したときだけ描き直す。QRを読ませている最中に無用な
+        // 全面転送(約29ms)を挟むと読み取りの邪魔になる。
+        static int lastSig = -1;
+        int sig = (provShowQr ? 1 : 0) * 16 + static_cast<int>(katanori::provisioning.phase());
+        if (sig != lastSig) {
+            lastSig = sig;
+            renderProvisioning();
+        }
+        delay(1);
+        return;
+    }
+
     katanori::netLink.loop();
     pumpMic();
     pumpTurnState();

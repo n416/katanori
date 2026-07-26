@@ -98,6 +98,21 @@ public:
     void setGain(float g);
     float gain() const { return gain_; }
 
+    /**
+     * ReSpeaker Lite の音声コーデック (TLV320AIC3204 @ 0x18) を直接ミュートする。
+     *
+     * 【なぜ必要か】ESP32-S3 の GPIO43 は UART0 の TX であり、同時に I2S DOUT
+     * でもある。リセット直後、ROMブートローダが 115200bps で吐くブートログが
+     * そのままオーディオとして増幅され、耳を痛めるレベルの轟音になる。
+     * アプリが走る前の出来事なのでソフトでは防げない。
+     *
+     * ただし ESP32 がリセットされてもコーデックはリセットされない（別電源）。
+     * そこで「普段はミュート、再生するときだけ解除」しておけば、
+     * リセット時にはミュート状態が保持されていて音が出ない。
+     */
+    bool setOutputMute(bool mute);
+    bool outputMuted() const { return muted_; }
+
     void printStatus() const;
 
     /**
@@ -147,6 +162,7 @@ private:
     volatile bool recording_ = false;
     volatile float micLevel_ = 0.0f;
     volatile float gain_ = 0.35f;
+    bool muted_ = true;   // 既定はミュート。起動時の轟音を防ぐため。
 
     // 統計 (デバッグ用)
     volatile uint32_t sentSamples_ = 0;
