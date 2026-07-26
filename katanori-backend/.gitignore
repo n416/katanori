@@ -2,3 +2,7 @@ node_modules/
 .dev.vars
 .wrangler/
 dist/
+
+# 試聴用WAV (tools/preview-*.mjs で再生成できる)
+fillers-preview/
+clips-preview/

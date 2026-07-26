@@ -1,4 +1,5 @@
 import { Downsampler, base64ToInt16, arrayBufferToBase64 } from "./resample";
+import { FILLERS_B64, FILLER_INFO, FILLER_RATE, FILLER_VOICE } from "./fillers";
 
 export interface Env {
   ROBOT_DO: DurableObjectNamespace;
@@ -23,6 +24,34 @@ const GEMINI_INPUT_RATE = 16000;
 const MAX_AUDIO_FRAME_BYTES = 4096;
 
 /**
+ * つなぎ言葉のデコード済みキャッシュ。
+ *
+ * 送信レートごとに1回だけ base64 デコードとリサンプルを済ませて使い回す。
+ * DOインスタンスは接続をまたいで生きるので、モジュール変数に置いておけば
+ * 2回目以降の会話では変換コストが完全に消える。
+ */
+const fillerCache = new Map<number, Int16Array[]>();
+
+/** 指定レートのつなぎ言葉PCMを返す（初回だけ変換する）。 */
+function fillersAt(rate: number): Int16Array[] {
+  let cached = fillerCache.get(rate);
+  if (cached) {
+    return cached;
+  }
+  cached = FILLERS_B64.map((b64) => {
+    const pcm = base64ToInt16(b64);
+    if (rate === FILLER_RATE) {
+      return pcm;
+    }
+    // Downsampler は連続ストリーム用に内部状態を持つ。つなぎ言葉ごとに
+    // 使い捨てにして、前の語の尾が次の語へ混ざらないようにする。
+    return new Downsampler(FILLER_RATE, rate).process(pcm);
+  });
+  fillerCache.set(rate, cached);
+  return cached;
+}
+
+/**
  * 人格と、名前の誤認識を吸収するための指示。
  *
  * Gemini Live API には音声認識のヒント（phrase hints）を渡す手段がないため、
@@ -40,6 +69,52 @@ const SYSTEM_INSTRUCTION = [
   "これらが出てきたら、すべてあなたへの呼びかけだと解釈してください。",
   "聞き間違いを指摘したり名前を訂正したりせず、自然に応答を続けてください。",
 ].join("\n");
+
+/**
+ * 現在時刻を日本時間の読み上げやすい形にする。
+ *
+ * Cloudflare Workers の Date は常に UTC で動く。素の toString() を使うと
+ * 9時間ずれた時刻を自信満々に喋る、注入しないより悪い状態になるので
+ * timeZone を明示すること。
+ *
+ * 例: "2026年7月26日日曜日 14:35"
+ */
+function nowInJapan(): string {
+  return new Intl.DateTimeFormat("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    weekday: "long",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(new Date());
+}
+
+/**
+ * 人格の指示に、接続時点の日時を足したものを組み立てる。
+ *
+ * LLM は時計を持たないため、日付や時刻を聞かれると平然と嘘を答える。
+ * 見守り用途（「お薬の時間だよ」等）では誤答が実害になるので、
+ * セッション開始時に現在時刻を渡しておく。
+ *
+ * 注意: ここで渡した時刻はセッション開始時点で固定される。現状は
+ * 会話が終わればすぐ切断される運用なのでズレは無視できるが、
+ * 常時接続に戻すなら定期的な再注入が必要になる。
+ */
+function buildSystemInstruction(): string {
+  return [
+    SYSTEM_INSTRUCTION,
+    "",
+    "【現在の日時】",
+    `この会話が始まった時点の日本時間は ${nowInJapan()} です。`,
+    "日付・曜日・時刻を聞かれたら、必ずこの情報をもとに答えてください。",
+    "推測で別の日時を答えてはいけません。",
+    "会話中はこの時刻から少しずつ時間が経っていると考えてください。",
+    "挨拶をするときも、この時刻に合ったもの（朝・昼・夜）を選んでください。",
+  ].join("\n");
+}
 
 /** 上限を超えないよう分割して送る。 */
 function sendAudioChunked(ws: WebSocket, pcm: Int16Array) {
@@ -94,6 +169,10 @@ export class RobotDO implements DurableObject {
   env: Env;
   clientWs: WebSocket | null = null;
   geminiWs: WebSocket | null = null;
+  /** 直前に鳴らしたつなぎ言葉。2回続けて同じものを選ばないため。 */
+  lastFiller = -1;
+  /** このセッションで Gemini に喋らせている声。つなぎ言葉の突き合わせに使う。 */
+  voiceName = "";
 
   constructor(state: DurableObjectState, env: Env) {
     this.state = state;
@@ -110,7 +189,10 @@ export class RobotDO implements DurableObject {
       this.clientWs = server;
       
       const requestUrl = new URL(request.url);
-      const voice = requestUrl.searchParams.get("voice") || "Aoede";
+      // 既定値はつなぎ言葉を焼いた声に合わせる。ここを別の声にすると、
+      // ?voice を付けないクライアントだけ本編とつなぎ言葉が別人になる。
+      const voice = requestUrl.searchParams.get("voice") || FILLER_VOICE;
+      this.voiceName = voice;
 
       // ?pcm=<レート> を付けたクライアントは「生PCMバイナリ」でやり取りする。
       // 付けなければ従来どおり Gemini のメッセージを素通しする (wrapper.py 互換)。
@@ -139,6 +221,74 @@ export class RobotDO implements DurableObject {
   dbg(ws: WebSocket, msg: string) {
     console.log("[DO]", msg);
     try { ws.send(JSON.stringify({ _debug: msg })); } catch {}
+  }
+
+  /**
+   * つなぎ言葉を鳴らす。
+   *
+   * 発話終了(audioStreamEnd)から Gemini の応答が返るまでは実測1.3秒あり、
+   * その間ロボットは完全に沈黙する。会話としてはこの無音が一番不自然なので、
+   * 「えーっと」を先に返して間を埋める。
+   *
+   * ここはDOなので、クライアントから audioStreamEnd が届いた時点で
+   * ネットワーク往復ぶん(数十ms)だけで鳴らし始められる。音源は本編と同じ
+   * 声で作ってあるため、別の何かが割り込んだようには聞こえない。
+   *
+   * @param pcmRate PCMモードの送信レート。0 なら素通しモード。
+   */
+  sendFiller(ws: WebSocket, pcmRate: number) {
+    if (FILLERS_B64.length === 0) {
+      return;
+    }
+
+    /*
+     * 声が違うなら鳴らさない。
+     *
+     * 音源は FILLER_VOICE 固定で焼いてあるので、クライアントが ?voice= で別の
+     * 声を指定してくると、つなぎ言葉だけ別人が喋る。沈黙のほうがまだ自然。
+     * tuner.html で声を比べているときにこれが効く。
+     */
+    if (this.voiceName !== FILLER_VOICE) {
+      return;
+    }
+
+    // 同じ語が続くと機械的に聞こえるので、直前と違うものを選ぶ
+    let index = Math.floor(Math.random() * FILLERS_B64.length);
+    if (index === this.lastFiller && FILLERS_B64.length > 1) {
+      index = (index + 1) % FILLERS_B64.length;
+    }
+    this.lastFiller = index;
+
+    const phrase = FILLER_INFO[index]?.phrase ?? "";
+
+    try {
+      if (pcmRate > 0) {
+        // つなぎ言葉であることを先に知らせる。マイコンは今のところ無視するが、
+        // 応答遅延の計測やログでこれを見分けられるようにしておく。
+        ws.send(JSON.stringify({ _filler: phrase }));
+        sendAudioChunked(ws, fillersAt(pcmRate)[index]);
+        return;
+      }
+
+      // 素通しモード(wrapper.py / シミュレーター)は Gemini の生の形しか
+      // 解釈しないので、同じ形に包んで渡す。レート変換も不要。
+      ws.send(JSON.stringify({
+        _filler: phrase,
+        serverContent: {
+          modelTurn: {
+            parts: [{
+              inlineData: {
+                mimeType: `audio/pcm;rate=${FILLER_RATE}`,
+                data: FILLERS_B64[index],
+              },
+            }],
+          },
+        },
+      }));
+    } catch (e) {
+      // つなぎ言葉が出せなくても会話自体は続けられる。落とさない。
+      console.error("Filler send error:", e);
+    }
   }
 
   async connectToGemini(serverWs: WebSocket, voiceName: string, pcmRate: number) {
@@ -299,6 +449,13 @@ export class RobotDO implements DurableObject {
           return;
         }
         geminiWs.send(event.data);
+
+        // 発話終了の合図が通ったら、応答を待たずにつなぎ言葉を返す。
+        // Gemini への転送を先に済ませてから鳴らすこと（応答生成の開始を
+        // 1msでも遅らせない）。
+        if (typeof event.data === "string" && event.data.includes("audioStreamEnd")) {
+          this.sendFiller(serverWs, pcmMode ? pcmRate : 0);
+        }
       } catch (e) {
         console.error("Forward to Gemini error:", e);
       }
@@ -319,7 +476,7 @@ export class RobotDO implements DurableObject {
         // native-audio-latest へ戻すこと(その場合クライアントは旧mediaChunks形式も可)
         model: "models/gemini-3.1-flash-live-preview",
         systemInstruction: {
-          parts: [{ text: SYSTEM_INSTRUCTION }]
+          parts: [{ text: buildSystemInstruction() }]
         },
         generationConfig: {
           responseModalities: ["AUDIO"],
