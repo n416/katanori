@@ -470,6 +470,26 @@ static bool powerNetDown = false;
  */
 static bool powerDownEnabled = true;
 
+/**
+ * 疑似電源OFFで無線を `WIFI_OFF` まで落とすか。シリアル `wifikill` でトグルする。
+ *
+ * **既定は false。true にしてはいけない。**
+ *
+ * 2026-07-30 に再検証して確定した。`WIFI_OFF` にすると**コーデックの設定が初期値へ
+ * 飛ぶ**（`0x1B`=0x00 / `0x3F`=0x14 / P1 `0x09`=0x00 = 全部が初期値）。設定を書いて
+ * いるのはXMOSで、それをやるのは基板の電源投入時だけなので、ESP32を再起動しても
+ * 直らず、USBを抜き差しするまで音が戻らない。
+ *
+ * 当初は「APBクロックの電源管理ロックが外れてI2Sが止まる」と考えていたが、それなら
+ * ESP32の再起動で直るはずで、実際は直らない。壊れているのはI2Sではなくコーデック。
+ *
+ * この検証自体を一度やり直している。最初の観測は配線の短絡が生きていた期間のもので
+ * 交絡していたため。短絡を直したうえで、再起動を挟まない1セッションで再現した。
+ * トグルを残してあるのは、ハードを触った後にまた確かめられるようにするため
+ * （手順は docs/TODO.md 2.5）。
+ */
+static bool powerWifiOff = false;
+
 /** 疑似電源OFFの進行。main loop から毎回呼ぶ。 */
 static void pumpPowerDown() {
     static bool counting = false;
@@ -514,10 +534,14 @@ static void pumpPowerDown() {
         powerNetDown = true;
         katanori::netLink.wsDisconnect();
         // ここで WiFi.mode(WIFI_OFF) まで落としてはいけない。
-        // esp_wifi_stop() はAPBクロックの電源管理ロックを手放すため、I2Sのクロックが
-        // 巻き添えになり、ON位置へ戻しても音が出なくなる（実機で発生 2026-07-29）。
-        // 消費電流のためにここを削りたくなったら、必ずOFF→ON→beep2で確認すること。
-        katanori::netLink.wifiDisconnect();
+        // コーデックの設定が初期値へ飛び、USBを抜き差しするまで音が戻らなくなる
+        // （2026-07-30 に再検証して確定。詳細は powerWifiOff のコメント）。
+        // 消費電流のためにここを削りたくなったら `wifikill` で確かめること。
+        if (powerWifiOff) {
+            katanori::netLink.wifiStop();
+        } else {
+            katanori::netLink.wifiDisconnect();
+        }
         // LEDは「通信中」の表示なので、切り終わってから消す
         digitalWrite(KATANORI_USER_LED, HIGH); // アクティブLOW
         Serial.printf("[PWR] 通信を止めました（OFFから%u秒）\n",
@@ -1919,6 +1943,7 @@ static void printHelp() {
     Serial.println("   vol <0-100> : 再生音量（つまみを動かすと上書きされる）");
     Serial.println("   knob        : 音量つまみの生値と状態を表示");
     Serial.println("   pwr         : 疑似電源OFF(つまみOFF位置の消灯・切断)の有効/無効");
+    Serial.println("   wifikill    : 疑似電源OFFで無線をWIFI_OFFまで落とすか切替（再検証用）");
     Serial.println("   reboot      : ESP32だけ再起動（RSTボタンの代わり。USBは切れない）");
     Serial.println("   creg        : コーデックの主要レジスタをダンプ（正常時と見比べる）");
     Serial.println("   knobdis     : つまみの読み取りを止める/再開（配線を外して切り分ける用）");
@@ -2072,6 +2097,11 @@ static void handleSerial() {
             Serial.printf("[PWR] 疑似電源OFFを%sにしました%s\n",
                           powerDownEnabled ? "有効" : "無効",
                           powerDownEnabled ? "" : "（つまみOFFは会話終了と消音だけになります）");
+        } else if (strcmp(line, "wifikill") == 0) {
+            powerWifiOff = !powerWifiOff;
+            Serial.printf("[PWR] 疑似電源OFFの無線は%s\n",
+                          powerWifiOff ? "WIFI_OFF まで落とします（再検証用）"
+                                       : "切断までに留めます（従来の挙動）");
         } else if (strcmp(line, "reboot") == 0) {
             // RSTボタンが押せない位置にあるため、シリアルから同じことをする。
             // USBの給電は切れないので「ESP32だけ再起動」の切り分けに使える。

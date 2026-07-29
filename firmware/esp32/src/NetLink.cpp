@@ -478,6 +478,13 @@ void NetLink::wifiDisconnect() {
     Serial.println("[NET] Wi-Fiを切断しました");
 }
 
+void NetLink::wifiStop() {
+    wsDisconnect();
+    WiFi.disconnect(false, false); // 電源は落とさず、保存設定も消さない
+    WiFi.mode(WIFI_OFF);           // ここで esp_wifi_stop() が走る
+    Serial.println("[NET] 無線を完全に止めました (WIFI_OFF)");
+}
+
 void NetLink::wsConnect() {
     if (!wifiConnected()) {
         Serial.println("[WS] 先にWi-Fiへ接続してください ('wifi')");

@@ -102,10 +102,21 @@ public:
     /**
      * APから離れる。無線そのもの（STAモード）は生かしたままにする。
      *
-     * WIFI_OFF まで落とすとAPBクロックの電源管理ロックが外れ、I2Sが巻き添えで
-     * 止まる（つまみOFF→ONで音が出なくなる）。ここは disconnect までに留めること。
+     * **WIFI_OFF まで落としてはいけない。** コーデックの設定が初期値へ飛び、
+     * USBを抜き差しするまで音が戻らなくなる（2026-07-30 実測。ESP32の再起動では
+     * 直らない ＝ 壊れているのはI2Sではなくコーデック）。詳細は main.cpp の
+     * `powerWifiOff` と docs/TODO.md 2.5。
      */
     void wifiDisconnect();
+
+    /**
+     * 無線を完全に止める（`esp_wifi_stop()` まで）。消費電流はこちらが小さい。
+     *
+     * これでI2Sが巻き添えになるかどうかを確かめるための口。詳細は
+     * wifiDisconnect() のコメントと docs/TODO.md 2.5。
+     */
+    void wifiStop();
+
     bool wifiConnected() const;
 
     // --- WebSocket ---
