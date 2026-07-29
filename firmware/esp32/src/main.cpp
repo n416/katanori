@@ -86,12 +86,8 @@
 #define KATANORI_KNOB_MAX_GAIN 0.70f
 #endif
 
-// 外側2本が「OFF位置側=3V3」で付いている個体の補正（1で位置を反転）。
-// 現在の機体は逆向きに実装されているため既定を1にしている（2026-07-29 実測:
-// OFF位置直後でADC=3561=90%）。半田をやり直して正向きにしたら0へ戻すこと。
-#ifndef KATANORI_VOL_INVERT
-#define KATANORI_VOL_INVERT 1
-#endif
+// つまみ位置の換算は線形式ではなく実測テーブル kKnobCurve（音量つまみの節）。
+// 外側2本の向きの吸収もテーブルが担う（旧 KATANORI_VOL_INVERT は廃止）。
 
 // 描画レート。128x64 の全面転送は 400kHz I2C で約23ms かかるため、
 // 20FPS(50ms)がこの構成の実用上限。上げたい場合は I2C を 1MHz にする。
@@ -252,6 +248,37 @@ static void applyKnobVolume(int pct) {
     katanori::audioIo.setGain(g);
 }
 
+// ADC実測値 -> つまみ位置(%)。2026-07-29 にこの個体で実測した換算テーブル。
+// B10K（直線）のはずが実際は「3時で22%・4時→5時の区間に全変化の6割」という
+// 極端なカーブで、線形換算では音量調整として使いものにならない。実測点を
+// 区間線形補間して「見た目の回転角 ≒ %」へ戻す。
+// ADCが減少方向なのは左端（OFF側）が3V3に付いている個体だから。向きの吸収も
+// この表が担う。つまみを交換・再半田したら必ず取り直すこと（各位置で `knob` を
+// 読んで下の点を差し替える）。
+static const struct { int adc; int pct; } kKnobCurve[] = {
+    { 4095,   0 },  // 最小（カチッの直後）
+    { 3464,  50 },  // 12時
+    { 3116,  78 },  // 3時
+    { 2619,  88 },  // 4時
+    {   24,  97 },  // 5時
+    {    0, 100 },  // 右端
+};
+
+static int knobAdcToPercent(int adc) {
+    if (adc >= kKnobCurve[0].adc) {
+        return kKnobCurve[0].pct;
+    }
+    for (size_t i = 1; i < sizeof(kKnobCurve) / sizeof(kKnobCurve[0]); ++i) {
+        if (adc >= kKnobCurve[i].adc) {
+            long span = kKnobCurve[i - 1].adc - kKnobCurve[i].adc;
+            long dpct = kKnobCurve[i].pct - kKnobCurve[i - 1].pct;
+            return kKnobCurve[i - 1].pct
+                 + static_cast<int>((kKnobCurve[i - 1].adc - adc) * dpct / span);
+        }
+    }
+    return 100;
+}
+
 /**
  * つまみを読むか。シリアル `knobdis` で止められる。
  *
@@ -304,14 +331,7 @@ static void pumpVolumeKnob() {
     static int avg = -1;
     avg = (avg < 0) ? adc : avg + (adc - avg) / 8;
 
-    // ESP32のADCは両端が素直に伸びない（0V付近の潰れ・約3.1Vでの飽和）ので、
-    // 端に不感帯を置いて 0% と 100% が確実に出るようにする
-    int pct = static_cast<int>((static_cast<long>(avg) - 80) * 100 / (3960 - 80));
-    if (pct < 0) pct = 0;
-    if (pct > 100) pct = 100;
-#if KATANORI_VOL_INVERT
-    pct = 100 - pct; // 外側2本が逆向きの個体をソフトで吸収（定義は上のボード設定）
-#endif
+    int pct = knobAdcToPercent(avg);
 
     // ノイズでコーデック音量を叩き続けないためのデッドバンド(2%≒0.6dB)。
     // ただし両端(0/100)へは即吸着させる（「回し切ったのに無音にならない」を防ぐ）
