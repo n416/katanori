@@ -63,6 +63,36 @@
 #define KATANORI_USER_LED 21
 #endif
 
+// 音量つまみ（スイッチ付き可変抵抗 RV121SF-20-02J-B10K。docs/TODO.md 2.5）
+// 中点 -> D0 = GPIO1 (ADC1_CH0)。外側2本は 3V3 と GND（OFF位置でワイパーが
+// 導通している側の端子がGND。半田付け前にテスターで確認済みであること）。
+#ifndef KATANORI_VOL_ADC
+#define KATANORI_VOL_ADC 1
+#endif
+
+// つまみ連動スイッチ -> D1 = GPIO2 と GND の間。プルアップで読む。
+// 既定は「ON位置(右へ回した領域)で接点が閉じる = LOW」。実機がこの逆に
+// 振る舞う場合はビルドフラグで KATANORI_KNOB_SW_INVERT=1 を定義して反転する。
+#ifndef KATANORI_KNOB_SW
+#define KATANORI_KNOB_SW 2
+#endif
+#ifndef KATANORI_KNOB_SW_INVERT
+#define KATANORI_KNOB_SW_INVERT 0
+#endif
+
+// つまみ最大位置のゲイン。アンプは5Wまで出せるがスピーカーは2W・耳も近いので
+// 上限を切る（既定の再生音量0.35が「実用の中心」になる程度の頭打ち）。
+#ifndef KATANORI_KNOB_MAX_GAIN
+#define KATANORI_KNOB_MAX_GAIN 0.70f
+#endif
+
+// 外側2本が「OFF位置側=3V3」で付いている個体の補正（1で位置を反転）。
+// 現在の機体は逆向きに実装されているため既定を1にしている（2026-07-29 実測:
+// OFF位置直後でADC=3561=90%）。半田をやり直して正向きにしたら0へ戻すこと。
+#ifndef KATANORI_VOL_INVERT
+#define KATANORI_VOL_INVERT 1
+#endif
+
 // 描画レート。128x64 の全面転送は 400kHz I2C で約23ms かかるため、
 // 20FPS(50ms)がこの構成の実用上限。上げたい場合は I2C を 1MHz にする。
 static constexpr uint32_t FRAME_INTERVAL_MS = 50;
@@ -177,6 +207,245 @@ static constexpr uint8_t WIFI_FAILURES_TO_PROVISIONING = 3;
 static bool bootAnnounced = false;
 
 // ---------------------------------------------------------------------------
+// 音量つまみ（スイッチ付き可変抵抗。docs/TODO.md 2.5）
+//
+// 中点をADCで読んで再生ゲインへ反映する。左に回し切るとスイッチが切れ、
+// 将来は昇圧ICのENを落として電源ごと切る（docs/POWER.md）。電源基板が無い今は
+// 「会話を終え、出力ゲートを閉じ、Wi-Fiと画面を畳む」ところまでを担当する
+// （疑似電源OFF。enterKnobOff()）。
+//
+// スイッチは電源線に入れない（定格DC12V 0.5Aでは電池側の約700mAに足りない。
+// GPIOで状態を読むだけなら流れるのは数μAで定格が無関係になる）。
+// ---------------------------------------------------------------------------
+
+// 会話制御は下の方で定義されるため前方宣言
+static bool conversationActive();
+static void endConversation();
+
+/** つまみがOFF位置（連動スイッチが切れている）か。デバウンス済み。 */
+static bool knobOff = false;
+/** ならした後のつまみ位置(0-100)。-1 = まだ一度も読めていない。 */
+static int knobPercent = -1;
+
+/** スイッチの生読み。ON位置=接点が閉じてGNDに落ちる=LOW、が既定の個体。 */
+static bool knobSwitchRawOn() {
+#if KATANORI_KNOB_SW_INVERT
+    return digitalRead(KATANORI_KNOB_SW) == HIGH;
+#else
+    return digitalRead(KATANORI_KNOB_SW) == LOW;
+#endif
+}
+
+/**
+ * つまみ位置(0-100)を再生ゲインへ写す。
+ *
+ * Bカーブ×振幅リニアだと聴感では上半分がほとんど変化しないため、
+ * デシベル直線（1%あたり0.3dB、全域で-30dB..0dB）の指数カーブにする。
+ * 0%は完全な無音。100%で上限ゲイン。
+ */
+static void applyKnobVolume(int pct) {
+    float g = 0.0f;
+    if (pct > 0) {
+        float db = (pct - 100) * 0.30f;
+        g = KATANORI_KNOB_MAX_GAIN * powf(10.0f, db / 20.0f);
+    }
+    katanori::audioIo.setGain(g);
+}
+
+/**
+ * つまみを読むか。シリアル `knobdis` で止められる。
+ *
+ * 配線を外して切り分けるときに使う。外したままだとピンが浮いて「OFF位置」と
+ * 誤認し、ソフト側の理由で無音になるため、電気的な原因と区別がつかなくなる。
+ * 止めているあいだはゲインもOFF判定も固定される。
+ */
+static bool knobEnabled = true;
+
+/** つまみとスイッチの監視。main loop から毎回呼ぶ（実際は20ms間隔で動く）。 */
+static void pumpVolumeKnob() {
+    if (!knobEnabled) {
+        return;
+    }
+    static uint32_t lastPollMs = 0;
+    uint32_t now = millis();
+    if ((now - lastPollMs) < 20) {
+        return;
+    }
+    lastPollMs = now;
+
+    // --- 連動スイッチ（30msデバウンス） ---
+    static bool rawLast = false;
+    static uint32_t rawChangedMs = 0;
+    static bool inited = false;
+    bool raw = knobSwitchRawOn();
+    if (raw != rawLast) {
+        rawLast = raw;
+        rawChangedMs = now;
+    } else if ((now - rawChangedMs) >= 30) {
+        bool off = !raw;
+        if (!inited || off != knobOff) {
+            inited = true;
+            knobOff = off;
+            if (off) {
+                Serial.println("[KNOB] OFF位置 -> 会話を終了し、出力を閉じたままにします");
+                if (conversationActive()) {
+                    endConversation();
+                }
+                // 画面と通信は pumpPowerDown() が遅らせて落とす（すぐ戻されたら
+                // 何も起きなかったことにするため）
+            } else {
+                Serial.println("[KNOB] ON位置");
+            }
+        }
+    }
+
+    // --- 音量（1/8 IIRでならす + デッドバンド） ---
+    int adc = analogRead(KATANORI_VOL_ADC); // 12bit: 0..4095
+    static int avg = -1;
+    avg = (avg < 0) ? adc : avg + (adc - avg) / 8;
+
+    // ESP32のADCは両端が素直に伸びない（0V付近の潰れ・約3.1Vでの飽和）ので、
+    // 端に不感帯を置いて 0% と 100% が確実に出るようにする
+    int pct = static_cast<int>((static_cast<long>(avg) - 80) * 100 / (3960 - 80));
+    if (pct < 0) pct = 0;
+    if (pct > 100) pct = 100;
+#if KATANORI_VOL_INVERT
+    pct = 100 - pct; // 外側2本が逆向きの個体をソフトで吸収（定義は上のボード設定）
+#endif
+
+    // ノイズでコーデック音量を叩き続けないためのデッドバンド(2%≒0.6dB)。
+    // ただし両端(0/100)へは即吸着させる（「回し切ったのに無音にならない」を防ぐ）
+    bool endstop = (pct == 0 || pct == 100) && pct != knobPercent;
+    if (knobPercent < 0 || endstop || abs(pct - knobPercent) >= 2) {
+        knobPercent = pct;
+        applyKnobVolume(pct);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 疑似電源OFF（つまみOFF位置）
+//
+// 電源基板が載るまで、本当に電源を切ることはできない（USBでもXMOSごと生きている）。
+// できるのは「切ったように見せて、ESP32側の消費だけ減らす」ところまで。
+// 昇圧ICのEN制御が載ったら、通信を落とした直後（下の netDown のところ）に
+// EN=LOW を足す。ミュート→切断→電源断の順序がそこで揃う。
+//
+// 一気に落とさず、段階を踏む。つまみは回し切る途中で一瞬OFFを通ることがあるし、
+// 「切ったつもりが違った」とすぐ戻すこともある。落とすのが早いほど、戻したときに
+// Wi-Fiの再接続で十数秒待たされる。落とし切る前に戻れば、何も起きなかったことになる。
+// ---------------------------------------------------------------------------
+
+/** OFF位置になってから画面を消すまで。 */
+static constexpr uint32_t KNOB_OFF_OLED_MS = 2000;
+/** OFF位置になってから通信を止めるまで。 */
+static constexpr uint32_t KNOB_OFF_NET_MS = 5000;
+
+/** 画面を消したか。ONへ戻したとき「消したものだけ」を戻すために持つ。 */
+static bool powerOledDown = false;
+/** 通信を止めたか。 */
+static bool powerNetDown = false;
+
+/**
+ * 疑似電源OFFを働かせるか。シリアル `pwr` でトグルする。
+ *
+ * 無効にすると、つまみOFF位置の挙動はこの機能を足す前と同じ（会話終了と消音だけ）に
+ * なる。「つまみを回したら音が出なくなった」の原因がこの機能かどうかを、焼き直さずに
+ * 切り分けるために置いてある。
+ */
+static bool powerDownEnabled = true;
+
+/** 疑似電源OFFの進行。main loop から毎回呼ぶ。 */
+static void pumpPowerDown() {
+    static bool counting = false;
+    static uint32_t offSinceMs = 0;
+
+    if (!knobOff || !powerDownEnabled) {
+        counting = false;
+        // 落としたものだけを戻す。まだ落ちていない段階には触らない。
+        if (powerOledDown) {
+            powerOledDown = false;
+            u8g2.setPowerSave(0);
+            Serial.println("[PWR] 画面を戻しました");
+        }
+        if (powerNetDown) {
+            powerNetDown = false;
+            // 再試行の待ち時間を捨てて即つなぎにいく。つまみを戻した人を
+            // 最大30秒待たせるのは、故障と区別がつかない。
+            nextWifiTryMs = 0;
+            wifiFailures = 0;
+            Serial.println("[PWR] 通信を戻します（自動接続が動きます）");
+        }
+        return;
+    }
+
+    uint32_t now = millis();
+    if (!counting) {
+        counting = true;
+        offSinceMs = now;
+        return;
+    }
+    uint32_t held = now - offSinceMs;
+
+    if (!powerOledDown && held >= KNOB_OFF_OLED_MS) {
+        powerOledDown = true;
+        u8g2.setPowerSave(1); // 表示だけ止まる。バッファは残るので戻せば同じ絵が出る
+        Serial.printf("[PWR] 画面を消しました（OFFから%u秒）\n",
+                      (unsigned)(KNOB_OFF_OLED_MS / 1000));
+    }
+
+    if (!powerNetDown && held >= KNOB_OFF_NET_MS) {
+        powerNetDown = true;
+        katanori::netLink.wsDisconnect();
+        // ここで WiFi.mode(WIFI_OFF) まで落としてはいけない。
+        // esp_wifi_stop() はAPBクロックの電源管理ロックを手放すため、I2Sのクロックが
+        // 巻き添えになり、ON位置へ戻しても音が出なくなる（実機で発生 2026-07-29）。
+        // 消費電流のためにここを削りたくなったら、必ずOFF→ON→beep2で確認すること。
+        katanori::netLink.wifiDisconnect();
+        // LEDは「通信中」の表示なので、切り終わってから消す
+        digitalWrite(KATANORI_USER_LED, HIGH); // アクティブLOW
+        Serial.printf("[PWR] 通信を止めました（OFFから%u秒）\n",
+                      (unsigned)(KNOB_OFF_NET_MS / 1000));
+        // ここに EN=LOW（電源基板が載ったら）
+    }
+}
+
+// ---------------------------------------------------------------------------
+// コーデックの見張り
+//
+// 3.3Vが一瞬落ちるとコーデック(AIC3204)がリセットされ、設定が初期値へ戻って
+// 音が出なくなる。設定を書いているのはXMOSで、それをやるのは基板の電源投入時
+// だけなので、ESP32を再起動しても直らない（USBを抜き差しするまで戻らない）。
+//
+// I2Cは応答し、I2Sのクロックも来ていて、再生サンプル数も増える。つまり
+// 見ていないと気づけない。ここで気づけるようにしておく。
+// 実機で発生した経緯は firmware/esp32/README.md を参照。
+// ---------------------------------------------------------------------------
+
+static void pumpCodecWatch() {
+    static uint32_t lastPollMs = 0;
+    static bool lastAlive = true;
+
+    uint32_t now = millis();
+    if ((now - lastPollMs) < 200) {
+        return;
+    }
+    lastPollMs = now;
+
+    bool alive = katanori::audioIo.codecOutputAlive();
+    if (alive == lastAlive) {
+        return;
+    }
+    lastAlive = alive;
+    if (!alive) {
+        Serial.println("[CODEC] !! リセットを検出しました（DACの電源が落ちています）");
+        Serial.println("[CODEC]    3.3Vが瞬断しています。ESP32を再起動しても直りません");
+        Serial.println("[CODEC]    USBを抜き差しするとXMOSが設定し直して復旧します");
+    } else {
+        Serial.println("[CODEC] 出力が復帰しました");
+    }
+}
+
+// ---------------------------------------------------------------------------
 // 出力ゲート
 //
 // コーデックの開け閉めは、必ずここ1か所だけで行う。
@@ -211,6 +480,16 @@ static bool outputGateOverride = false;
 /** 出力ゲート。main loop から毎回呼ぶ。 */
 static void pumpOutputGate() {
     static uint32_t emptySinceMs = 0;
+
+    // つまみがOFF位置のあいだは何があっても閉じておく。
+    // 手動 `unmute`（診断用）より物理操作を優先する。
+    if (knobOff) {
+        emptySinceMs = 0;
+        if (!katanori::audioIo.outputMuted()) {
+            katanori::audioIo.setOutputMute(true);
+        }
+        return;
+    }
 
     if (outputGateOverride) {
         return;
@@ -1411,7 +1690,12 @@ static void printHelp() {
     Serial.println("   2 : 話し終わる（audioStreamEnd を送って応答を待つ）");
     Serial.println("   au  : 音声の状態を表示");
     Serial.println("   mic : マイク単独テスト(5秒) ch0/ch1のレベルを測る");
-    Serial.println("   vol <0-100> : 再生音量（既定35）");
+    Serial.println("   vol <0-100> : 再生音量（つまみを動かすと上書きされる）");
+    Serial.println("   knob        : 音量つまみの生値と状態を表示");
+    Serial.println("   pwr         : 疑似電源OFF(つまみOFF位置の消灯・切断)の有効/無効");
+    Serial.println("   reboot      : ESP32だけ再起動（RSTボタンの代わり。USBは切れない）");
+    Serial.println("   creg        : コーデックの主要レジスタをダンプ（正常時と見比べる）");
+    Serial.println("   knobdis     : つまみの読み取りを止める/再開（配線を外して切り分ける用）");
     Serial.println("   mute/unmute : コーデック出力（普段は自動。unmuteは自動制御を止めるので戻すこと）");
     Serial.println("   vad         : VAD計測モードの開始/終了（音声は送らず有声区間だけ数える）");
     Serial.println("   me          : 計測中のラベルを 自分/周囲 で切り替える");
@@ -1519,6 +1803,55 @@ static void handleSerial() {
             katanori::audioIo.toneTest(1000, 440, 4000);
         } else if (strncmp(line, "vol ", 4) == 0) {
             katanori::audioIo.setGain(atoi(line + 4) / 100.0f);
+        } else if (strcmp(line, "knob") == 0) {
+            Serial.printf("[KNOB] ADC=%d 位置=%d%% ゲイン=%.2f SW=%s -> つまみ%s\n",
+                          analogRead(KATANORI_VOL_ADC), knobPercent,
+                          katanori::audioIo.gain(),
+                          digitalRead(KATANORI_KNOB_SW) == LOW ? "LOW(閉)" : "HIGH(開)",
+                          knobOff ? "OFF" : "ON");
+            Serial.printf("[PWR]  疑似電源OFF=%s 画面=%s 通信=%s\n",
+                          powerDownEnabled ? "有効" : "無効",
+                          powerOledDown ? "消灯" : "点灯",
+                          powerNetDown ? "停止" : "動作");
+        } else if (strcmp(line, "knobdis") == 0) {
+            knobEnabled = !knobEnabled;
+            if (!knobEnabled) {
+                knobOff = false; // 浮いたピンでOFFと誤認させない
+                Serial.printf("[KNOB] 読み取りを止めました（ゲイン%.2f固定・OFF判定なし）\n",
+                              katanori::audioIo.gain());
+                Serial.println("[KNOB] 配線を外して切り分けるときはこの状態で行うこと");
+            } else {
+                Serial.println("[KNOB] 読み取りを再開しました");
+            }
+        } else if (strncmp(line, "low ", 4) == 0) {
+            // 指定したDピンを一瞬GNDへ落とす。「このピンをGNDに繋ぐと何が起きるか」を
+            // つまみに触らずに再現するための診断。終わったらINPUT_PULLUPへ戻す。
+            int d = atoi(line + 4);
+            int gpio = gpioForD(d);
+            if (gpio < 0) {
+                Serial.println("[LOW] D0〜D10 で指定してください (例: low 1)");
+            } else {
+                Serial.printf("[LOW] D%d = GPIO%d を300ms LOWにします\n", d, gpio);
+                pinMode(gpio, OUTPUT);
+                digitalWrite(gpio, LOW);
+                delay(300);
+                pinMode(gpio, INPUT_PULLUP);
+                Serial.println("[LOW] 戻しました");
+            }
+        } else if (strcmp(line, "creg") == 0) {
+            katanori::audioIo.dumpCodec();
+        } else if (strcmp(line, "pwr") == 0) {
+            powerDownEnabled = !powerDownEnabled;
+            Serial.printf("[PWR] 疑似電源OFFを%sにしました%s\n",
+                          powerDownEnabled ? "有効" : "無効",
+                          powerDownEnabled ? "" : "（つまみOFFは会話終了と消音だけになります）");
+        } else if (strcmp(line, "reboot") == 0) {
+            // RSTボタンが押せない位置にあるため、シリアルから同じことをする。
+            // USBの給電は切れないので「ESP32だけ再起動」の切り分けに使える。
+            Serial.println("[SYS] 再起動します（USBは抜きません）");
+            Serial.flush();
+            delay(50);
+            ESP.restart();
         } else if (strcmp(line, "mute") == 0) {
             outputGateOverride = false;
             katanori::audioIo.setOutputMute(true);
@@ -1662,6 +1995,9 @@ static void handleButton() {
             } else if (conversationActive()) {
                 Serial.println("[BTN] ボタン -> 会話終了");
                 endConversation();
+            } else if (knobOff) {
+                // OFF位置は「電源を切ったつもり」の状態。勝手に喋り出さない
+                Serial.println("[BTN] つまみがOFF位置です。右へ回してから押してください");
             } else {
                 Serial.println("[BTN] ボタン -> 会話開始");
                 startTurn();
@@ -1727,6 +2063,11 @@ void setup() {
     pinMode(KATANORI_BOOT_BUTTON, INPUT_PULLUP);
     pinMode(KATANORI_USR_BUTTON, INPUT_PULLUP);
 
+    // 音量つまみ。連動スイッチはGNDとの間に入っているのでプルアップで読む。
+    // これを忘れるとOFF位置(接点が開)でピンが浮いて読み値がふらつく
+    pinMode(KATANORI_KNOB_SW, INPUT_PULLUP);
+    analogReadResolution(12);
+
     // ユーザーLEDを消灯 (アクティブLOWなのでHIGHで消える)
     pinMode(KATANORI_USER_LED, OUTPUT);
     digitalWrite(KATANORI_USER_LED, HIGH);
@@ -1781,8 +2122,14 @@ void loop() {
     handleSerial();
     handleButton();
 
+    // つまみは設定モード中も読む（OFF位置の検知が pumpOutputGate の前提になる）
+    pumpVolumeKnob();
+
     // 設定モード中も閉じ忘れが起きてはいけないので、下の early return より前に置く
     pumpOutputGate();
+
+    // 音が出ない原因のうち、これだけは黙って起きるので常に見張る
+    pumpCodecWatch();
 
     // Wi-Fi設定モード中は顔も音声も止めて、設定画面だけを回す
     if (katanori::provisioning.active()) {
@@ -1797,6 +2144,19 @@ void loop() {
             renderProvisioning();
         }
         delay(1);
+        return;
+    }
+
+    // つまみOFF位置は疑似電源OFF。段階的に落とし、戻せば落とした分だけ復帰する。
+    // 設定モードは上で return しているので、ここには来ない（設定中は画面もAPも要る）。
+    pumpPowerDown();
+    if (knobOff && powerDownEnabled) {
+        // 通信を落とすまでの数秒はWebSocketを生かしておく。この間に戻されれば
+        // 繋ぎ直しが要らない。顔とマイクは止める（OFFに見えなければ意味がない）。
+        if (!powerNetDown) {
+            katanori::netLink.loop();
+        }
+        delay(10);
         return;
     }
 

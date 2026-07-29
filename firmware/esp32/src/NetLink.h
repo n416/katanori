@@ -71,6 +71,12 @@ public:
     void scan();
 
     bool wifiConnect(uint32_t timeoutMs = 20000);
+    /**
+     * APから離れる。無線そのもの（STAモード）は生かしたままにする。
+     *
+     * WIFI_OFF まで落とすとAPBクロックの電源管理ロックが外れ、I2Sが巻き添えで
+     * 止まる（つまみOFF→ONで音が出なくなる）。ここは disconnect までに留めること。
+     */
     void wifiDisconnect();
     bool wifiConnected() const;
 

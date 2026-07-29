@@ -331,6 +331,60 @@ bool AudioIo::setOutputMute(bool mute) {
     return true;
 }
 
+bool AudioIo::codecOutputAlive() const {
+    if (!codecWrite(0x00, 0x00)) {
+        return true;
+    }
+    uint8_t v = 0;
+    if (!codecRead(0x3F, v)) {
+        return true;
+    }
+    // P0 0x3F: D7=左DAC電源, D6=右DAC電源。リセット直後は 0x14 で両方0。
+    return (v & 0xC0) != 0;
+}
+
+void AudioIo::dumpCodec() const {
+    // 見るべきレジスタだけに絞る。TLV320AIC3204 のデータシートの並び。
+    struct Reg { uint8_t page; uint8_t reg; const char* what; };
+    static const Reg kRegs[] = {
+        { 0, 0x1B, "I2Sインタフェース設定" },
+        { 0, 0x3F, "DAC電源 (D7=左 D6=右。0なら落ちている)" },
+        { 0, 0x40, "DACミュート (D3=左 D2=右)" },
+        { 0, 0x41, "DAC左デジタル音量" },
+        { 0, 0x42, "DAC右デジタル音量" },
+        { 1, 0x01, "電源設定 (LDO/AVDD)" },
+        { 1, 0x09, "出力ドライバ電源 (0なら出力が死んでいる)" },
+        { 1, 0x0C, "HPL経路" },
+        { 1, 0x0D, "HPR経路" },
+        { 1, 0x0E, "LOL経路" },
+        { 1, 0x0F, "LOR経路" },
+        { 1, 0x10, "HPLゲイン" },
+        { 1, 0x11, "HPRゲイン" },
+        { 1, 0x12, "LOLゲイン" },
+        { 1, 0x13, "LORゲイン" },
+    };
+
+    Serial.println("--- コーデック(0x18)レジスタ ---");
+    uint8_t curPage = 0xFF;
+    for (const Reg& r : kRegs) {
+        if (r.page != curPage) {
+            if (!codecWrite(0x00, r.page)) {
+                Serial.println("  !! 応答がありません (0x18)");
+                return;
+            }
+            curPage = r.page;
+        }
+        uint8_t v = 0;
+        if (codecRead(r.reg, v)) {
+            Serial.printf("  P%u 0x%02X = 0x%02X  %s\n", r.page, r.reg, v, r.what);
+        } else {
+            Serial.printf("  P%u 0x%02X = ??    %s\n", r.page, r.reg, r.what);
+        }
+    }
+    codecWrite(0x00, 0x00); // ページ0へ戻しておく（他の処理の前提）
+    Serial.println("--------------------------------");
+}
+
 void AudioIo::setGain(float g) {
     if (g < 0.0f) g = 0.0f;
     if (g > 1.0f) g = 1.0f;
@@ -656,11 +710,14 @@ void AudioIo::toneTest(uint32_t durationMs, int freqHz, int amplitude) {
                   freqHz, durationMs / 1000.0f, amplitude);
     Serial.println("[TEST] ※イヤホンを耳に着けたまま試さないでください");
 
-    // スピーカー単独テストなので、ミュート中でも一時的に開けて鳴らす。
-    // （そのため、このコマンドはミュートが効いているかの検証には使えない）
-    const bool wasMuted = muted_;
-    if (wasMuted) {
-        Serial.println("[TEST] ミュート中のため一時的に解除します（終了後に戻します）");
+    // 以前はここから writeMono() で I2S へ直接書いていたが、再生タスクが
+    // 「キューが空なら無音を流し続ける」方式になってからは、無音ストリームと
+    // DMAを取り合って負け、ほぼ無音になる（実機で確認 2026-07-29）。
+    // 起動アナウンスと同じ再生キューへ積む方式に変更。音量つまみ(gain_)と
+    // 出力ゲートも通るので、「実際の会話と同じ経路」の試験になった。
+    // 注意: つまみがOFF位置だとゲートが閉じたままなので鳴らない（仕様）。
+    if (muted_) {
+        Serial.println("[TEST] ミュート中のため解除します（再生後は出力ゲートが自動で閉じます）");
         setOutputMute(false);
     }
 
@@ -686,13 +743,17 @@ void AudioIo::toneTest(uint32_t durationMs, int freqHz, int amplitude) {
         }
         phase += CHUNK;
         total += CHUNK;
-        writeMono(mono, CHUNK, pdMS_TO_TICKS(500));
+
+        // play() は満杯だと黙って捨てるので、ここでは送り切るまで待つ
+        const uint8_t* p = reinterpret_cast<const uint8_t*>(mono);
+        size_t remain = sizeof(mono);
+        while (remain > 0) {
+            size_t sent = xStreamBufferSend(playBuf, p, remain, pdMS_TO_TICKS(100));
+            p += sent;
+            remain -= sent;
+        }
     }
-    i2s_zero_dma_buffer(I2S_PORT);
-    if (wasMuted) {
-        setOutputMute(true); // 元の状態へ戻す（リセット時の轟音対策）
-    }
-    Serial.println("[TEST] 出力完了。音が出ましたか？");
+    Serial.println("[TEST] キューへ積みました。再生されて音が出ましたか？");
 }
 
 void AudioIo::printStatus() const {
