@@ -27,7 +27,8 @@ Gemini Live API（音声in / 音声out）
 | 4 | 起動時ノイズ対策 | ✅ 実機確認済み |
 | 4 | 現在時刻の注入 | ✅ デプロイ済み |
 | 4 | つなぎ言葉（応答待ちの間を埋める） | ✅ デプロイ済み |
-| 4 | 起動後のWi-Fi自動接続 | ⏳ ビルド済み・実機未確認 |
+| 4 | 起動後のWi-Fi自動接続 | ✅ 実機確認済み |
+| 4 | 繋がらないことを画面と声で伝える | ✅ 実機確認済み |
 | 4 | 起動アナウンス（焼き込み音声） | ⏳ ビルド済み・実機未確認 |
 | 4 | 音量つまみ（ADC＋連動スイッチでソフトOFF） | ⚠ ソフトは実機確認済み。**スイッチを繋いで回すと音が死ぬ**（[docs/KNOB-TROUBLE.md](docs/KNOB-TROUBLE.md)） |
 | 4 | ウェイクワード / QRペアリング | 未着手 |
@@ -67,8 +68,11 @@ SPEC_SIM.md        同上（詳細）
 ```bash
 cd firmware/esp32
 pio run -e xiao_esp32s3 -t upload
-pio device monitor -e xiao_esp32s3 --port COM4
+pio device monitor -e xiao_esp32s3 --port COM4   # ポートは pio device list で確認
 ```
+
+ポート番号はPCごとに変わります（この機体は環境を移して COM4 → COM3 になりました）。
+USBドライバは不要です（ネイティブUSBなので挿すだけで見えます）。
 
 シリアルで `?` を打つとコマンド一覧が出ます。会話は `wifi` → `c` → `1`（喋る）。
 **詳細・配線・トラブルシューティングは [firmware/esp32/README.md](firmware/esp32/README.md)。**
@@ -109,6 +113,7 @@ python simulator\wrapper.py
 | WebSocketライブラリは **15KB超のフレームで無言切断**（DO側で4KBに刻む） | katanori-backend/README.md |
 | Geminiの応答は**バイナリフレーム**で届く（中身はJSON） | 同上 |
 | プロビジョニングは **STA停止→スキャン→AP起動** の順でないとAPが電波に出ない | firmware/esp32/README.md |
+| **スキャンでSSIDの有無は判定できない**（ステルスAPが1つでもあると「一覧に無い＝無い」が成立しない）。接続の切断理由コードを見るほうが速く確か | firmware/esp32/README.md |
 | **I2Sへの直接書きは鳴らない**。再生タスクが無音を流し続ける方式のため、キュー経由以外はDMAの取り合いに負ける（beepがこれで壊れていた） | AudioIo.cpp の toneTest コメント |
 
 ## 未着手の一覧

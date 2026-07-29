@@ -117,6 +117,55 @@ static uint8_t reverseByte(uint8_t b) {
 }
 #endif
 
+// ---------------------------------------------------------------------------
+// 接続状況の表示（繋がっていない間は、顔をやめてこれを出す）
+//
+// 顔だけを出していると「動いている = 正常」に見える。Wi-Fiに繋がっていなくても
+// 顔は同じように動くので、繋がっていないことに気づけない。
+// 実際、引っ越しで保存済みSSIDが消えた機体が、顔を出したまま1分近く黙って
+// 再試行を続けた（2026-07-29）。繋がっていない間は、必ずここに理由を出す。
+//
+// 【顔の下に10pxの帯で重ねる方式は失敗した】128pxに9文字入れるには1文字10pxしか
+// 使えず、実機では「つ」が潰れて読めなかった。文字を大きくすると顔と同居できない。
+// 伝えるほうが顔より大事なので、繋がっていない間は画面ごと文字に明け渡す。
+// 繋がれば顔に戻る。
+//
+// 文字は日本語。読むのは設置した本人ではなく使う人で、"no WiFi" では伝わらない。
+// 16pxの日本語フォント(b16_t_japanese1)を2行。1行は全角8文字（128px）が上限で、
+// 超えるとシリアルに警告が出る。**漢字は使わない**（japanese1 に無い字は
+// 幅0で消える）。かな＋ASCIIに留めること。
+// ---------------------------------------------------------------------------
+
+/** 2行ぶん。1行目が空なら顔を出す（= 繋がっていて伝えることが無い）。UTF-8。 */
+static char netMsg1[40] = {0};
+static char netMsg2[40] = {0};
+
+static void setNetMessage(const char* line1, const char* line2 = "") {
+    if (line1 == nullptr) line1 = "";
+    if (line2 == nullptr) line2 = "";
+    if (strncmp(netMsg1, line1, sizeof(netMsg1)) == 0 &&
+        strncmp(netMsg2, line2, sizeof(netMsg2)) == 0) {
+        return;
+    }
+    strncpy(netMsg1, line1, sizeof(netMsg1) - 1);
+    netMsg1[sizeof(netMsg1) - 1] = '\0';
+    strncpy(netMsg2, line2, sizeof(netMsg2) - 1);
+    netMsg2[sizeof(netMsg2) - 1] = '\0';
+}
+
+/** 自己診断パターンの表示終了時刻。この間は顔で上書きしない。 */
+static uint32_t selfTestUntilMs = 0;
+
+/**
+ * 接続状況の表示を確かめている最中か（シリアル `bn`）。
+ *
+ * この表示はWi-Fiに繋がっていないときだけ出るので、繋がる機体では見られない。
+ * 文字の大きさ・読みやすさは実物を見ないと判断できない（10pxの帯にしたときは
+ * 実機で「つ」が潰れて読めなかった）ため、繋がったままでも出せる口を用意する。
+ * この間は自動接続が表示を消すのを止める。
+ */
+static bool bannerDemo = false;
+
 class Esp32Hal : public katanori::IHal {
 public:
     uint32_t millis() override {
@@ -127,8 +176,38 @@ public:
         return katanori::audioIo.micLevel();
     }
 
+    /** 1行を中央に置く。幅が足りなければシリアルに出す（黙って切れないように）。 */
+    static void drawCenteredLine(const char* text, int baselineY) {
+        if (text[0] == '\0') {
+            return;
+        }
+        const int w = u8g2.getUTF8Width(text);
+        static int lastWarnedW = -1;
+        if (w > 128 && w != lastWarnedW) {
+            lastWarnedW = w;
+            Serial.printf("[UI] !! \"%s\" は%dpx。128pxに収まりません（右が切れます）\n",
+                          text, w);
+        }
+        int x = (128 - w) / 2;
+        if (x < 0) {
+            x = 0;
+        }
+        u8g2.drawUTF8(x, baselineY, text);
+    }
+
     void flushDisplay(const uint8_t* fb) override {
         u8g2.clearBuffer();
+
+        // 繋がっていないときは顔を出さない。顔と併記できる大きさでは読めなかった。
+        if (netMsg1[0] != '\0') {
+            u8g2.setDrawColor(1);
+            u8g2.setFont(u8g2_font_b16_t_japanese1);
+            drawCenteredLine(netMsg1, 28);
+            drawCenteredLine(netMsg2, 56);
+            u8g2.sendBuffer();
+            return;
+        }
+
 #if KATANORI_DISPLAY_BIT_REVERSE
         static uint8_t xbm[katanori::DisplayBuffer::BUFFER_SIZE];
         for (size_t i = 0; i < katanori::DisplayBuffer::BUFFER_SIZE; ++i) {
@@ -193,6 +272,23 @@ static uint8_t wifiFailures = 0;
 static bool wifiEverConnected = false;
 /** 一度も繋がらないまま何回失敗したら設定モードへ落ちるか。 */
 static constexpr uint8_t WIFI_FAILURES_TO_PROVISIONING = 3;
+
+/**
+ * 直近の失敗が「そのSSIDが電波に出ていない」だったか。
+ *
+ * 画面に出す文言を変えるためと、再試行の間隔を詰めるために持つ。
+ * 「パスワードが違う」と「引っ越してSSIDが消えた」は、利用者から見れば
+ * まったく別の出来事なので、同じ文言で済ませてはいけない。
+ */
+static bool ssidMissing = false;
+/**
+ * SSIDが見当たらないときの再試行の間隔。
+ *
+ * この失敗は約2.5秒で返ってくる（理由コード201が来た時点で打ち切るため）ので、
+ * 間隔も詰めてよい。3回失敗して設定モードへ移るまで、電源投入から約15秒。
+ * 以前は12秒×3回＋広がる待ち時間で約56秒かかっていた。
+ */
+static constexpr uint32_t NO_AP_RETRY_MS = 4000;
 
 // --- 焼き込み音声（VoiceClips.h） ---
 //
@@ -393,6 +489,7 @@ static void pumpPowerDown() {
             // 最大30秒待たせるのは、故障と区別がつかない。
             nextWifiTryMs = 0;
             wifiFailures = 0;
+            ssidMissing = false;
             Serial.println("[PWR] 通信を戻します（自動接続が動きます）");
         }
         return;
@@ -746,43 +843,153 @@ static bool enterProvisioning() {
 }
 
 /**
+ * 画面に今すぐ反映する。この後で main loop が数秒止まる処理の前に呼ぶ。
+ *
+ * 帯を書き換えただけでは、次の描画まで画面は前のままになる。接続やスキャンで
+ * 数秒止まる直前に呼んでおかないと、状況が出るのが常に一手遅れる。
+ */
+static void showNow() {
+    if (static_cast<int32_t>(millis() - selfTestUntilMs) < 0) {
+        return; // 自己診断パターンの表示中は上書きしない
+    }
+    robot.tick();
+}
+
+/**
+ * 表示を順に出す（シリアル `bn`）。
+ *
+ * 実際に使う文言をそのまま出す。テスト用の別文字列にすると、本番の文言が
+ * 読めるか・幅に収まっているかを確かめたことにならない。
+ */
+struct NetMessage { const char* l1; const char* l2; };
+static const NetMessage NET_MESSAGES[] = {
+    { "WiFiに",   "つないでいます" },
+    { "WiFiが",   "みつかりません" },
+    { "WiFiに",   "つながりません" },
+    { "WiFiを",   "せっていして"   },
+};
+static constexpr uint32_t BANNER_DEMO_EACH_MS = 3000;
+static uint8_t bannerDemoIndex = 0;
+static uint32_t bannerDemoNextMs = 0;
+
+static void bannerDemoStart() {
+    bannerDemo = true;
+    bannerDemoIndex = 0;
+    bannerDemoNextMs = millis(); // 次の loop で1つ目を出す
+    Serial.printf("[UI] 接続状況の表示を%u種類、%u秒ずつ画面に出します\n",
+                  (unsigned)(sizeof(NET_MESSAGES) / sizeof(NET_MESSAGES[0])),
+                  (unsigned)(BANNER_DEMO_EACH_MS / 1000));
+}
+
+/** 表示デモの進行。main loop から毎回呼ぶ。 */
+static void pumpBannerDemo() {
+    if (!bannerDemo || (int32_t)(millis() - bannerDemoNextMs) < 0) {
+        return;
+    }
+    constexpr uint8_t count = sizeof(NET_MESSAGES) / sizeof(NET_MESSAGES[0]);
+    if (bannerDemoIndex >= count) {
+        bannerDemo = false;
+        setNetMessage("");
+        Serial.println("[UI] 表示を終わります（顔に戻ります）");
+        return;
+    }
+    const NetMessage& m = NET_MESSAGES[bannerDemoIndex++];
+    Serial.printf("[UI] %s%s\n", m.l1, m.l2);
+    setNetMessage(m.l1, m.l2);
+    bannerDemoNextMs = millis() + BANNER_DEMO_EACH_MS;
+}
+
+/**
+ * Wi-Fiの接続待ちのあいだに呼ばれる。顔を動かし続けるためのもの。
+ *
+ * これが無いと wifiConnect() の十数秒のあいだ main loop ごと止まり、
+ * 顔が固まる。利用者からは故障と区別がつかない。
+ */
+static void wifiWaitTick() {
+    static uint32_t lastMs = 0;
+    uint32_t now = millis();
+    if ((now - lastMs) < FRAME_INTERVAL_MS) {
+        return;
+    }
+    lastMs = now;
+    showNow();
+}
+
+/**
  * Wi-Fiへ自動で繋ぐ。main loop から毎回呼ぶ。
  *
  * 電源の入れ方によっては、ロボットのほうがルーターより先に起きる。一度失敗した
  * ら諦めるのではなく、間隔を広げながら試し続ける。
+ *
+ * ただし「待てば繋がる」ものと「待っても繋がらない」ものは分ける。
+ * 保存済みSSIDが電波に出ていない（引っ越し・ルーター交換）、パスワードが違う、
+ * この2つは何度試しても結果が変わらないので、待たせずに設定モードへ渡す。
  */
 static void pumpAutoConnect() {
     if (katanori::provisioning.active() || !katanori::netLink.hasCredentials()) {
         return;
     }
     if (katanori::netLink.wifiConnected()) {
+        if (!bannerDemo) {
+            setNetMessage("");
+        }
         noteWifiUp();
         return;
     }
     if (nextWifiTryMs != 0 && (int32_t)(millis() - nextWifiTryMs) < 0) {
+        // 待っている間も黙らない。顔だけが動いていると「正常」に見えてしまう。
+        setNetMessage(ssidMissing ? "WiFiが" : "WiFiに",
+                      ssidMissing ? "みつかりません" : "つながりません");
         return;
     }
 
+    // --- 1. 繋ぐ ---
     Serial.printf("[NET] 自動接続を試みます（%u回目）\n", (unsigned)wifiFailures + 1);
-    // 既定の20秒はここでは長い。待っている間 main loop が止まり、顔も止まる。
-    if (katanori::netLink.wifiConnect(12000)) {
+    setNetMessage(ssidMissing ? "WiFiを" : "WiFiに",
+                  ssidMissing ? "さがしています" : "つないでいます");
+    showNow();
+    // 既定の20秒はここでは長い。待っている間は wifiWaitTick が顔を回す。
+    // 結論が出た時点で打ち切られるので、駄目なときは実測2.5秒で戻ってくる。
+    if (katanori::netLink.wifiConnect(12000, wifiWaitTick)) {
+        setNetMessage("");
         noteWifiUp();
         return;
     }
 
     ++wifiFailures;
 
-    if (!wifiEverConnected && wifiFailures >= WIFI_FAILURES_TO_PROVISIONING) {
+    // --- 2. なぜ繋がらなかったのかで分ける ---
+    const bool authBad = katanori::netLink.lastFailureWasAuth();
+    const bool noAp = katanori::netLink.lastFailureWasNoAp();
+    ssidMissing = noAp;
+    setNetMessage(noAp ? "WiFiが" : "WiFiに",
+                  noAp ? "みつかりません" : "つながりません");
+
+    // 一度も繋がっていない機体だけを設定モードへ落とす。一度繋がった後の切断は
+    // ルーターの再起動や電波状況なので、勝手に設定モードへ入れない
+    // （会話の途中で設定画面になるほうが利用者には理不尽）。
+    if (!wifiEverConnected &&
+        (authBad || wifiFailures >= WIFI_FAILURES_TO_PROVISIONING)) {
         // 保存された設定では繋がらない。利用者が自分で直せるよう設定モードへ。
-        Serial.println("[NET] 保存された設定では繋がりませんでした。Wi-Fi設定モードへ移ります");
+        Serial.println(authBad ? "[NET] パスワードが違うようです。Wi-Fi設定モードへ移ります"
+                       : noAp  ? "[NET] 設定されたWi-Fiが見当たりません。"
+                                 "場所か機器が変わったとみて設定モードへ移ります"
+                               : "[NET] 保存された設定では繋がりませんでした。"
+                                 "Wi-Fi設定モードへ移ります");
         wifiFailures = 0;
+        ssidMissing = false;
         nextWifiTryMs = 0;
-        enterProvisioning();
+        setNetMessage("");
+        if (!enterProvisioning()) {
+            setNetMessage("WiFiを", "せっていして");
+        }
         return;
     }
 
     // 5秒, 10秒, 15秒... と広げる。上限30秒。
-    uint32_t waitMs = 5000u * wifiFailures;
+    // ただしSSIDが見当たらないだけなら、失敗そのものが速い（約2.5秒）ので
+    // 間隔も詰める。ルーターの起動待ちなら、そのぶん早く繋がる。
+    uint32_t waitMs = noAp ? NO_AP_RETRY_MS : 5000u * wifiFailures;
     if (waitMs > 30000u) {
         waitMs = 30000u;
     }
@@ -1593,9 +1800,8 @@ static void sweepI2cPins() {
  *   ここで何か見える  -> 配線とOLED初期化はOK。問題は DisplayBuffer の転送側
  *   ここでも真っ暗    -> 配線 / I2Cアドレス / 給電の問題
  * この二分岐が Stage 1 のデバッグで一番効く。
+ * (selfTestUntilMs はファイル先頭で宣言している。描画側からも見るため)
  */
-static uint32_t selfTestUntilMs = 0;
-
 static void runSelfTest() {
     Serial.println("[TEST] 自己診断パターンを5秒表示します (U8g2直描画)");
     u8g2.clearBuffer();
@@ -1736,6 +1942,7 @@ static void printHelp() {
     Serial.println("   r : OLEDを再初期化（配線を直した後に使う）");
     Serial.println("   R : ソフトウェア再起動");
     Serial.println("   t : OLED自己診断パターンを表示");
+    Serial.println("   bn: 接続状況の表示を順に出す（顔の代わりに出る2行）。大きさの確認用");
     Serial.println("   i : ブート情報を再表示");
     Serial.println("   ? : このヘルプ");
     Serial.println(" BOOT/Usrボタン: 短押しで会話の開始/終了、3秒長押しでWi-Fi設定モード");
@@ -1881,6 +2088,8 @@ static void handleSerial() {
             katanori::audioIo.setOutputMute(false);
             Serial.println("[CODEC] !! 手動で開けました。自動の開け閉めは止まります");
             Serial.println("[CODEC]    この状態でリセットすると起動時に轟音が出ます。'mute' で戻してください");
+        } else if (strcmp(line, "bn") == 0) {
+            bannerDemoStart();
         } else if (strcmp(line, "vad") == 0) {
             vadToggle();
         } else if (strcmp(line, "me") == 0) {
@@ -1962,7 +2171,9 @@ static void exitProvisioning() {
     // 自動接続のカウンタを畳む。設定し直した直後に「3回失敗したから設定モード」へ
     // すぐ戻ってしまうのを防ぐ。
     wifiFailures = 0;
+    ssidMissing = false;
     nextWifiTryMs = 0;
+    setNetMessage("");
     if (katanori::netLink.hasCredentials()) {
         katanori::netLink.wifiConnect();
     }
@@ -2182,6 +2393,7 @@ void loop() {
 
     // 電源を入れるだけで会話できる状態まで自力で行き着かせる
     pumpAutoConnect();
+    pumpBannerDemo(); // `bn` のときだけ動く（表示を消す pumpAutoConnect より後）
 
     katanori::netLink.loop();
     pumpPendingTurn(); // setupComplete は netLink.loop() の中で届く

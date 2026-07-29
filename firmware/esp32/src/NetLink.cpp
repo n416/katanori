@@ -73,13 +73,33 @@ const char* disconnectReasonName(uint8_t r) {
     }
 }
 
-uint8_t lastDisconnectReason = 0;
+uint8_t lastReason = 0;
+
+/**
+ * これ以上待っても結果が変わらない切断理由か。
+ *
+ * 接続待ちを打ち切ってよいかの判断だけに使う。「なぜ駄目だったか」の分類は
+ * 呼び出し側（lastFailureWasAuth / lastFailureWasNoAp）が別に行う。
+ */
+bool isConclusiveFailure(uint8_t r) {
+    switch (r) {
+    case 15:  // 4WAY_HANDSHAKE_TIMEOUT
+    case 23:  // 802_1X_AUTH_FAILED
+    case 24:  // CIPHER_SUITE_REJECTED
+    case 201: // NO_AP_FOUND
+    case 202: // AUTH_FAIL
+    case 204: // HANDSHAKE_TIMEOUT
+        return true;
+    default:
+        return false;
+    }
+}
 
 void onWifiEvent(arduino_event_id_t event, arduino_event_info_t info) {
     if (event == ARDUINO_EVENT_WIFI_STA_DISCONNECTED) {
         uint8_t r = info.wifi_sta_disconnected.reason;
-        if (r != lastDisconnectReason) {
-            lastDisconnectReason = r;
+        if (r != lastReason) {
+            lastReason = r;
             Serial.printf("[NET] 切断理由: %u %s\n", r, disconnectReasonName(r));
         }
     }
@@ -304,7 +324,26 @@ bool NetLink::wsReady() const {
     return connected && geminiReady;
 }
 
-bool NetLink::wifiConnect(uint32_t timeoutMs) {
+bool NetLink::lastFailureWasAuth() const {
+    switch (lastReason) {
+    case 15:  // 4WAY_HANDSHAKE_TIMEOUT (ほぼパスワード誤り)
+    case 23:  // 802_1X_AUTH_FAILED
+    case 24:  // CIPHER_SUITE_REJECTED
+    case 202: // AUTH_FAIL
+        return true;
+    // 204 (HANDSHAKE_TIMEOUT) はここに入れない。電波が弱いだけでも出るため、
+    // これで「パスワードが違う」と断じると、繋がるはずの機体を設定モードへ
+    // 落としてしまう。204は普通の再試行に任せる。
+    default:
+        return false;
+    }
+}
+
+bool NetLink::lastFailureWasNoAp() const {
+    return lastReason == 201; // NO_AP_FOUND
+}
+
+bool NetLink::wifiConnect(uint32_t timeoutMs, WaitHook onWait) {
     if (!hasCredentials()) {
         Serial.println("[NET] SSIDが未設定です。'ssid <名前>' から設定してください");
         return false;
@@ -323,12 +362,28 @@ bool NetLink::wifiConnect(uint32_t timeoutMs) {
     }
 
     Serial.printf("[NET] \"%s\" へ接続します...\n", ssid_.c_str());
-    lastDisconnectReason = 0;
+    lastReason = 0;
     WiFi.begin(ssid_.c_str(), pass_.c_str());
 
     uint32_t start = millis();
     while (WiFi.status() != WL_CONNECTED && (millis() - start) < timeoutMs) {
-        delay(200);
+        /*
+         * 結果が変わらないと分かった時点で待つのをやめる。
+         *
+         * 201=APが見つからない / 202,15=認証に失敗 / 204=ハンドシェイク不成立。
+         * どれもタイムアウトまで待ったところで結論は同じで、その十数秒がまるごと
+         * 「顔は出ているのに何も起きない時間」になる。理由コードは数秒で来る。
+         */
+        if (isConclusiveFailure(lastReason)) {
+            Serial.printf("[NET] 待っても変わらないと判断して打ち切ります（理由 %u %s）\n",
+                          lastReason, disconnectReasonName(lastReason));
+            break;
+        }
+        // 待っているあいだも呼び出し側に制御を戻す（顔を止めないため）
+        if (onWait != nullptr) {
+            onWait();
+        }
+        delay(20);
     }
 
     if (!wifiConnected()) {
@@ -339,9 +394,9 @@ bool NetLink::wifiConnect(uint32_t timeoutMs) {
                           pass_.length());
             Serial.println("[NET]    8〜63文字と規格で決まっており、これでは接続できません。");
         }
-        if (lastDisconnectReason != 0) {
+        if (lastReason != 0) {
             Serial.printf("[NET] 切断理由: %u %s\n",
-                          lastDisconnectReason, disconnectReasonName(lastDisconnectReason));
+                          lastReason, disconnectReasonName(lastReason));
         }
         Serial.println("[NET]   'scan' で該当SSIDが見えているか確認してください");
         Serial.println("[NET]   ESP32は2.4GHz帯のみです。5GHz専用のSSIDには繋がりません");
