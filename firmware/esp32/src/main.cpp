@@ -473,20 +473,16 @@ static bool powerDownEnabled = true;
 /**
  * 疑似電源OFFで無線を `WIFI_OFF` まで落とすか。シリアル `wifikill` でトグルする。
  *
- * **既定は false。true にしてはいけない。**
+ * 既定は false（切断まで）。消費電流は WIFI_OFF のほうが小さいので、本当は
+ * true にしたい。実測してから決めること。
  *
- * 2026-07-30 に再検証して確定した。`WIFI_OFF` にすると**コーデックの設定が初期値へ
- * 飛ぶ**（`0x1B`=0x00 / `0x3F`=0x14 / P1 `0x09`=0x00 = 全部が初期値）。設定を書いて
- * いるのはXMOSで、それをやるのは基板の電源投入時だけなので、ESP32を再起動しても
- * 直らず、USBを抜き差しするまで音が戻らない。
- *
- * 当初は「APBクロックの電源管理ロックが外れてI2Sが止まる」と考えていたが、それなら
- * ESP32の再起動で直るはずで、実際は直らない。壊れているのはI2Sではなくコーデック。
- *
- * この検証自体を一度やり直している。最初の観測は配線の短絡が生きていた期間のもので
- * 交絡していたため。短絡を直したうえで、再起動を挟まない1セッションで再現した。
- * トグルを残してあるのは、ハードを触った後にまた確かめられるようにするため
- * （手順は docs/TODO.md 2.5）。
+ * 【この判断を2度間違えている記録】
+ * 「WIFI_OFF にするとI2Sが巻き添えで止まる」(2026-07-29) →
+ * 「I2Sではなくコーデックの設定が飛ぶ」(2026-07-30) → **どちらも誤り**。
+ * 根拠にした試験はどちらも「つまみを回す」操作を含んでいて、そちらが犯人だった。
+ * `wifistop` で WIFI_OFF を15秒保持しても、コーデックは生きたままになる。
+ * コーデックが死ぬのはつまみを回している最中で、スイッチが開くより前
+ * （docs/KNOB-TROUBLE.md）。**一度に1つしか変えないこと。**
  */
 static bool powerWifiOff = false;
 
@@ -533,10 +529,9 @@ static void pumpPowerDown() {
     if (!powerNetDown && held >= KNOB_OFF_NET_MS) {
         powerNetDown = true;
         katanori::netLink.wsDisconnect();
-        // ここで WiFi.mode(WIFI_OFF) まで落としてはいけない。
-        // コーデックの設定が初期値へ飛び、USBを抜き差しするまで音が戻らなくなる
-        // （2026-07-30 に再検証して確定。詳細は powerWifiOff のコメント）。
-        // 消費電流のためにここを削りたくなったら `wifikill` で確かめること。
+        // WIFI_OFF まで落とすかどうかは powerWifiOff で切り替わる（既定 false）。
+        // 「WIFI_OFF がコーデックを殺す」と一度は結論づけたが、それは誤りだった
+        // （詳細は powerWifiOff のコメント）。既定を変えるなら消費電流を実測してから。
         if (powerWifiOff) {
             katanori::netLink.wifiStop();
         } else {
@@ -1944,6 +1939,8 @@ static void printHelp() {
     Serial.println("   knob        : 音量つまみの生値と状態を表示");
     Serial.println("   pwr         : 疑似電源OFF(つまみOFF位置の消灯・切断)の有効/無効");
     Serial.println("   wifikill    : 疑似電源OFFで無線をWIFI_OFFまで落とすか切替（再検証用）");
+    Serial.println("   cpu <MHz>   : CPU周波数を変える(80/160/240)。コーデック死亡の切り分け用");
+    Serial.println("   wifistop    : WIFI_OFFまで落とす ※コーデックが死ぬ。復旧はUSB抜き差し");
     Serial.println("   reboot      : ESP32だけ再起動（RSTボタンの代わり。USBは切れない）");
     Serial.println("   creg        : コーデックの主要レジスタをダンプ（正常時と見比べる）");
     Serial.println("   knobdis     : つまみの読み取りを止める/再開（配線を外して切り分ける用）");
@@ -2097,6 +2094,36 @@ static void handleSerial() {
             Serial.printf("[PWR] 疑似電源OFFを%sにしました%s\n",
                           powerDownEnabled ? "有効" : "無効",
                           powerDownEnabled ? "" : "（つまみOFFは会話終了と消音だけになります）");
+        } else if (strncmp(line, "cpu ", 4) == 0) {
+            /*
+             * CPU周波数を変える。コーデックが死ぬ原因の切り分け用。
+             *
+             * 「WIFI_OFF でAPBクロックの電源管理ロックが外れるから」が本当なら、
+             * WiFiを触らずに周波数を落とすだけでも同じことが起きるはず。起きなければ
+             * その説は捨てられる（ESP32はI2Sスレーブで、コーデックのクロックを
+             * 供給していないので、そもそも筋は良くない）。
+             */
+            int mhz = atoi(line + 4);
+            if (mhz != 80 && mhz != 160 && mhz != 240) {
+                Serial.println("[CPU] 80 / 160 / 240 のどれかにしてください");
+                Serial.println("[CPU]   それ未満はネイティブUSBのシリアルが切れて戻せなくなります");
+            } else {
+                Serial.printf("[CPU] %dMHz -> %dMHz\n", getCpuFrequencyMhz(), mhz);
+                Serial.flush();
+                setCpuFrequencyMhz(mhz);
+                Serial.printf("[CPU] 現在 %dMHz（コーデックの生死は creg で見ること）\n",
+                              getCpuFrequencyMhz());
+            }
+        } else if (strcmp(line, "wifistop") == 0) {
+            // つまみを回さずに WIFI_OFF を再現する。死ぬまでの時間を測るため。
+            // 【注意】これを撃つとコーデックが死に、USBを抜き差しするまで音が戻らない。
+            Serial.println("[NET] WIFI_OFF まで落とします（コーデックが死ぬなら復旧はUSB抜き差し）");
+            Serial.flush();
+            katanori::netLink.wifiStop();
+            // 自動接続を止めておく。止めないと0.2秒後に繋ぎ直してしまい、
+            // 「OFFのまま置く」という条件そのものが作れない（実測でそうなった）。
+            nextWifiTryMs = millis() + 15000;
+            Serial.println("[NET] 15秒は繋ぎ直しません（この間に creg で見ること）");
         } else if (strcmp(line, "wifikill") == 0) {
             powerWifiOff = !powerWifiOff;
             Serial.printf("[PWR] 疑似電源OFFの無線は%s\n",

@@ -102,18 +102,16 @@ public:
     /**
      * APから離れる。無線そのもの（STAモード）は生かしたままにする。
      *
-     * **WIFI_OFF まで落としてはいけない。** コーデックの設定が初期値へ飛び、
-     * USBを抜き差しするまで音が戻らなくなる（2026-07-30 実測。ESP32の再起動では
-     * 直らない ＝ 壊れているのはI2Sではなくコーデック）。詳細は main.cpp の
-     * `powerWifiOff` と docs/TODO.md 2.5。
+     * 完全に止めたい場合は wifiStop()。かつて「WIFI_OFF はI2S/コーデックを殺す」と
+     * 記録していたが誤りで、単独では起きない（main.cpp の `powerWifiOff` を参照）。
      */
     void wifiDisconnect();
 
     /**
      * 無線を完全に止める（`esp_wifi_stop()` まで）。消費電流はこちらが小さい。
      *
-     * これでI2Sが巻き添えになるかどうかを確かめるための口。詳細は
-     * wifiDisconnect() のコメントと docs/TODO.md 2.5。
+     * 疑似電源OFFでここまで落とすかは main.cpp の `powerWifiOff`（既定 false）。
+     * シリアル `wifistop` から直接叩ける（15秒は自動接続を止めて保持する）。
      */
     void wifiStop();
 
