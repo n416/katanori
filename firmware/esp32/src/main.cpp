@@ -1635,6 +1635,98 @@ static void identifyI2c(uint8_t addr) {
     }
 }
 
+// ---------------------------------------------------------------------------
+// AS5600（磁気角度センサ）の診断。つまみの非接触化で使う（docs/KNOB-ENCODER.md）。
+//
+// **読み出ししかしない。** AS5600 は ZPOS/MPOS を OTP に焼けるが回数制限があり、
+// 焼き直しが効かない。ゼロ点はソフト側のオフセットで持つ方針なので、ここから
+// 書き込むことは今後も無い。
+//
+// 組み付けの良否は「なんとなく動かない」では切り分けられないので、磁石の検出状態を
+// 数字で出す。特にこの機体では、電源断用のリードスイッチの磁石が近くに来る
+// （docs/POWER.md）ため、**2つ目の磁石が角度を狂わせていないか**をここで見る。
+// ---------------------------------------------------------------------------
+static const uint8_t kAs5600Addr = 0x36;
+
+/** AS5600 のレジスタを len バイト読む。失敗したら false。 */
+static bool as5600Read(uint8_t reg, uint8_t* out, uint8_t len) {
+    Wire.beginTransmission(kAs5600Addr);
+    Wire.write(reg);
+    if (Wire.endTransmission(false) != 0) {
+        return false;
+    }
+    if (Wire.requestFrom(kAs5600Addr, len) != len) {
+        return false;
+    }
+    for (uint8_t i = 0; i < len; ++i) {
+        out[i] = Wire.read();
+    }
+    return true;
+}
+
+/** 上位バイト+下位バイトの12bit値を組む（AS5600の角度・磁力はこの形）。 */
+static uint16_t as5600Word(const uint8_t* p) {
+    return static_cast<uint16_t>(((p[0] & 0x0F) << 8) | p[1]);
+}
+
+/** `mag` コマンド。磁石の状態と角度を1回だけ表示する。 */
+static void dumpAs5600() {
+    Serial.printf("[MAG] AS5600 (0x%02X) を読みます（書き込みはしません）\n", kAs5600Addr);
+
+    uint8_t status = 0;
+    if (!as5600Read(0x0B, &status, 1)) {
+        Serial.println("[MAG] !! 応答しません。");
+        Serial.println("[MAG]    's' でバスを見て、0x36 が出るか確認してください。");
+        Serial.println("[MAG]    出ないなら VCC/GND/SDA/SCL の配線です（3V3線に抵抗を挟まないこと）。");
+        return;
+    }
+
+    // STATUS(0x0B): bit5=MD(検出) bit4=ML(弱すぎ) bit3=MH(強すぎ)
+    bool md = status & 0x20;
+    bool ml = status & 0x10;
+    bool mh = status & 0x08;
+    Serial.printf("[MAG]   STATUS(0x0B) = 0x%02X   MD=%s ML=%s MH=%s\n",
+                  status, md ? "検出" : "無し", ml ? "弱すぎ" : "-", mh ? "強すぎ" : "-");
+    if (!md) {
+        Serial.println("[MAG]   → ★磁石が見えていません。近づけるか、径方向着磁のものか確認を");
+    } else if (ml) {
+        Serial.println("[MAG]   → ★磁力が足りません。チップ面へ近づける（0.5〜3mmが目安）");
+    } else if (mh) {
+        Serial.println("[MAG]   → ★磁力が強すぎます。離す");
+    } else {
+        Serial.println("[MAG]   → 磁石OK");
+    }
+
+    // AGC(0x1A): 3V3動作では 0..128。中央付近が理想で、端に寄るほど余裕が無い。
+    uint8_t agc = 0;
+    if (as5600Read(0x1A, &agc, 1)) {
+        Serial.printf("[MAG]   AGC(0x1A)    = %u / 128   （3V3動作。64前後が理想）\n", agc);
+        if (agc < 16) {
+            Serial.println("[MAG]   → 磁石が近すぎ／強すぎ。少し離す");
+        } else if (agc > 112) {
+            Serial.println("[MAG]   → 磁石が遠すぎ／弱すぎ。少し近づける");
+        } else {
+            Serial.println("[MAG]   → 良好");
+        }
+    }
+
+    uint8_t buf[2] = {0, 0};
+    if (as5600Read(0x1B, buf, 2)) {
+        Serial.printf("[MAG]   MAGNITUDE    = %u\n", as5600Word(buf));
+    }
+
+    // RAW ANGLE(0x0C): 生の角度。ANGLE(0x0E) は ZPOS/MPOS とフィルタを通った後。
+    // ゼロ点はソフトで持つ方針なので、実際に使うのは RAW ANGLE のほう。
+    if (as5600Read(0x0C, buf, 2)) {
+        uint16_t raw = as5600Word(buf);
+        Serial.printf("[MAG]   RAW ANGLE    = %4u  (%.1f度)\n", raw, raw * 360.0f / 4096.0f);
+    }
+    if (as5600Read(0x0E, buf, 2)) {
+        uint16_t ang = as5600Word(buf);
+        Serial.printf("[MAG]   ANGLE        = %4u  (%.1f度)\n", ang, ang * 360.0f / 4096.0f);
+    }
+}
+
 /** チップ・メモリ情報。ブート時に取りこぼしても 'i' で再表示できる。 */
 static void printBootInfo() {
     Serial.printf("[INFO] chip=%s rev=%d cores=%d cpu=%dMHz\n",
@@ -1957,6 +2049,7 @@ static void printHelp() {
     Serial.println("   3 : RESPONSE_READY (THINK  -> SPEAK)");
     Serial.println("   4 : SPEECH_DONE    (SPEAK  -> IDLE)");
     Serial.println("   s : I2Cバスを再スキャン");
+    Serial.println("   mag : AS5600(0x36)の磁石の状態と角度を表示（読み出しのみ）");
     Serial.println("   a : D0..D10 の全ピン組み合わせでOLEDを探索");
     Serial.println("   vN: D<N>ピンの電圧を測る    (例: v0)  ※入力は3.3Vまで");
     Serial.println("   gN: D<N>ピンのGND導通を見る (例: g1)");
@@ -2175,6 +2268,8 @@ static void handleSerial() {
             sweepI2cPins();
         } else if (strcmp(line, "id") == 0) {
             identifyI2c(0x18);
+        } else if (strcmp(line, "mag") == 0) {
+            dumpAs5600();
         } else if (strcmp(line, "prov") == 0) {
             katanori::netLink.wsDisconnect();
             katanori::audioIo.stopRecording();
