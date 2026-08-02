@@ -15,6 +15,7 @@
 
 #include <Arduino.h>
 #include <Wire.h>
+#include <Preferences.h>
 #include <U8g2lib.h>
 
 #include "IHal.h"
@@ -63,7 +64,21 @@
 #define KATANORI_USER_LED 21
 #endif
 
-// 音量つまみ（スイッチ付き可変抵抗 RV121SF-20-02J-B10K。docs/TODO.md 2.5）
+// 音量つまみ: AS5600 磁気角度センサ (I2C 0x36。docs/KNOB-ENCODER.md)。
+// RAW ANGLE(12bit) を読み、ゼロ点（NVS保存。'knobzero' で設定）からの相対角度を
+// 0-100% へ写す。起動時に 0x36 が応答しなければ下の可変抵抗(ADC)経路へ
+// フォールバックする（机の上で配線を差し替えて切り替えられるように残してある）。
+#ifndef KATANORI_KNOB_SPAN_DEG
+#define KATANORI_KNOB_SPAN_DEG 270  // ゼロ点からこの角度で100%。本番は機構の壁に合わせる
+#endif
+#ifndef KATANORI_KNOB_OFF_DEG
+#define KATANORI_KNOB_OFF_DEG 5    // この角度未満はOFF。リードが閉じる数度手前に置く(docs/POWER.md)
+#endif
+#ifndef KATANORI_KNOB_DIR_INVERT
+#define KATANORI_KNOB_DIR_INVERT 0  // 回して%が逆に動く組み付けはこれを1に (DIR=GNDで時計回り増が既定)
+#endif
+
+// 音量つまみ（旧・フォールバック: スイッチ付き可変抵抗 RV121SF-20-02J-B10K）
 // 中点 -> D0 = GPIO1 (ADC1_CH0)。外側2本は 3V3 と GND（OFF位置でワイパーが
 // 導通している側の端子がGND。半田付け前にテスターで確認済みであること）。
 #ifndef KATANORI_VOL_ADC
@@ -86,8 +101,8 @@
 #define KATANORI_KNOB_MAX_GAIN 0.70f
 #endif
 
-// つまみ位置の換算は線形式ではなく実測テーブル kKnobCurve（音量つまみの節）。
-// 外側2本の向きの吸収もテーブルが担う（旧 KATANORI_VOL_INVERT は廃止）。
+// ADCフォールバック時のつまみ位置の換算は線形式ではなく実測テーブル kKnobCurve
+// （音量つまみの節）。外側2本の向きの吸収もテーブルが担う（旧 KATANORI_VOL_INVERT は廃止）。
 
 // 描画レート。128x64 の全面転送は 400kHz I2C で約23ms かかるため、
 // 20FPS(50ms)がこの構成の実用上限。上げたい場合は I2C を 1MHz にする。
@@ -299,27 +314,52 @@ static constexpr uint32_t NO_AP_RETRY_MS = 4000;
 static bool bootAnnounced = false;
 
 // ---------------------------------------------------------------------------
-// 音量つまみ（スイッチ付き可変抵抗。docs/TODO.md 2.5）
+// 音量つまみ（AS5600 磁気角度センサ。docs/KNOB-ENCODER.md）
 //
-// 中点をADCで読んで再生ゲインへ反映する。左に回し切るとスイッチが切れ、
-// 将来は昇圧ICのENを落として電源ごと切る（docs/POWER.md）。電源基板が無い今は
+// 磁石の絶対角度をI2Cで読んで再生ゲインへ反映する。回るのは磁石だけで、
+// 電気的な接点も配線も動かない（可変抵抗で起きた摩耗・熱劣化・回転中の
+// コーデック死をまとめて消すための移行）。
+//
+// ゼロ点＝OFF位置の RAW ANGLE は NVS に持つ（'knobzero' で保存）。AS5600 の
+// OTP(ZPOS/MPOS) は焼き直しが効かないので一生使わない。OFF判定は角度の閾値で、
+// 左に回し切ると将来はリードスイッチが昇圧ICのENを落として電源ごと切る
+// （docs/POWER.md。ファームはENに触らない）。電源基板が無い今は
 // 「会話を終え、出力ゲートを閉じ、Wi-Fiと画面を畳む」ところまでを担当する
-// （疑似電源OFF。enterKnobOff()）。
+// （疑似電源OFF。pumpPowerDown()）。
 //
-// スイッチは電源線に入れない（定格DC12V 0.5Aでは電池側の約700mAに足りない。
-// GPIOで状態を読むだけなら流れるのは数μAで定格が無関係になる）。
+// 起動時に 0x36 が応答しなければ旧経路（可変抵抗のADC＋連動スイッチ）へ
+// フォールバックする。判定し直しは 'knobsrc'。
 // ---------------------------------------------------------------------------
 
-// 会話制御は下の方で定義されるため前方宣言
+// 会話制御・AS5600の読み出しは下の方で定義されるため前方宣言
 static bool conversationActive();
 static void endConversation();
+static bool as5600Read(uint8_t reg, uint8_t* out, uint8_t len);
+static uint16_t as5600Word(const uint8_t* p);
 
-/** つまみがOFF位置（連動スイッチが切れている）か。デバウンス済み。 */
+/** つまみがOFF位置か。デバウンス済み。 */
 static bool knobOff = false;
 /** ならした後のつまみ位置(0-100)。-1 = まだ一度も読めていない。 */
 static int knobPercent = -1;
 
-/** スイッチの生読み。ON位置=接点が閉じてGNDに落ちる=LOW、が既定の個体。 */
+/** AS5600で角度を読めているか。false のあいだはADC経路で動く。 */
+static bool knobAs5600Ok = false;
+/** ゼロ点（OFF位置のRAW ANGLE値）。NVSの "knob/zero"。 */
+static uint16_t knobZeroRaw = 0;
+/** ゼロ点を一度でも保存したか。未設定のままでは角度が当てにならない。 */
+static bool knobZeroSet = false;
+/** 連続して読めなかった回数。続いたらADCへフォールバックする。 */
+static uint8_t knobReadFailures = 0;
+
+// 角度(度)をRAW ANGLEの刻み(4096/周)へ。閾値の比較はすべてこの単位で行う
+static constexpr uint16_t kKnobSpanRaw =
+    (uint16_t)((uint32_t)KATANORI_KNOB_SPAN_DEG * 4096 / 360);
+static constexpr uint16_t kKnobOffRaw =
+    (uint16_t)((uint32_t)KATANORI_KNOB_OFF_DEG * 4096 / 360);
+/** OFF解除はOFF閾値より3度上（境目でのバタつき防止のヒステリシス）。 */
+static constexpr uint16_t kKnobHystRaw = (uint16_t)(3ul * 4096 / 360);
+
+/** スイッチの生読み（ADCフォールバック用）。ON位置=接点が閉じてGNDに落ちる=LOW。 */
 static bool knobSwitchRawOn() {
 #if KATANORI_KNOB_SW_INVERT
     return digitalRead(KATANORI_KNOB_SW) == HIGH;
@@ -342,6 +382,38 @@ static void applyKnobVolume(int pct) {
         g = KATANORI_KNOB_MAX_GAIN * powf(10.0f, db / 20.0f);
     }
     katanori::audioIo.setGain(g);
+}
+
+/**
+ * RAW ANGLE -> ゼロ点からの相対角度（RAW刻み・0..kKnobSpanRaw）。
+ *
+ * 本番の機構は壁があるので 0..SPAN の外へは行けないが、治具には壁が無い。
+ * 範囲外へ回された値は近いほうの端（ゼロ点の少し手前→0 / 上端超え→SPAN）へ
+ * 倒し、ありえない%が出ないようにする。
+ */
+static uint16_t knobRelAngle(uint16_t raw) {
+#if KATANORI_KNOB_DIR_INVERT
+    uint16_t rel = (uint16_t)((knobZeroRaw - raw) & 0x0FFF);
+#else
+    uint16_t rel = (uint16_t)((raw - knobZeroRaw) & 0x0FFF);
+#endif
+    if (rel > kKnobSpanRaw) {
+        rel = (uint16_t)(rel - kKnobSpanRaw) < (uint16_t)((4096 - kKnobSpanRaw) / 2)
+                  ? kKnobSpanRaw
+                  : 0;
+    }
+    return rel;
+}
+
+/** 相対角度 -> つまみ位置(%)。OFF閾値未満は0、上端で100。 */
+static int knobAngleToPercent(uint16_t rel) {
+    if (rel <= kKnobOffRaw) {
+        return 0;
+    }
+    if (rel >= kKnobSpanRaw) {
+        return 100;
+    }
+    return (int)((uint32_t)(rel - kKnobOffRaw) * 100u / (kKnobSpanRaw - kKnobOffRaw));
 }
 
 // ADC実測値 -> つまみ位置(%)。2026-07-29 にこの個体で実測した換算テーブル。
@@ -384,18 +456,75 @@ static int knobAdcToPercent(int adc) {
  */
 static bool knobEnabled = true;
 
-/** つまみとスイッチの監視。main loop から毎回呼ぶ（実際は20ms間隔で動く）。 */
-static void pumpVolumeKnob() {
-    if (!knobEnabled) {
-        return;
+/**
+ * OFF状態の確定。切り替わったときの後始末は経路（AS5600/ADC）によらず同じ。
+ */
+static void knobSetOffState(bool off) {
+    knobOff = off;
+    if (off) {
+        Serial.println("[KNOB] OFF位置 -> 会話を終了し、出力を閉じたままにします");
+        if (conversationActive()) {
+            endConversation();
+        }
+        // 画面と通信は pumpPowerDown() が遅らせて落とす（すぐ戻されたら
+        // 何も起きなかったことにするため）
+    } else {
+        Serial.println("[KNOB] ON位置");
     }
-    static uint32_t lastPollMs = 0;
-    uint32_t now = millis();
-    if ((now - lastPollMs) < 20) {
-        return;
-    }
-    lastPollMs = now;
+}
 
+/**
+ * 位置(%)の確定。ノイズでコーデック音量を叩き続けないためのデッドバンド(2%≒0.6dB)。
+ * ただし両端(0/100)へは即吸着させる（「回し切ったのに無音にならない」を防ぐ）。
+ */
+static void knobSetPercent(int pct) {
+    bool endstop = (pct == 0 || pct == 100) && pct != knobPercent;
+    if (knobPercent < 0 || endstop || abs(pct - knobPercent) >= 2) {
+        knobPercent = pct;
+        applyKnobVolume(pct);
+    }
+}
+
+/** AS5600経路。RAW ANGLE -> 相対角度 -> % と、角度閾値でのOFF判定。 */
+static void pumpKnobAs5600(uint32_t now) {
+    uint8_t buf[2];
+    if (!as5600Read(0x0C, buf, 2)) {
+        // 1回の失敗では騒がない（バスはOLEDの全面転送と共用で混んでいる）。
+        // 続くようなら配線が抜けたと判断してADC経路へ落とす。
+        if (++knobReadFailures >= 5) {
+            knobAs5600Ok = false;
+            knobReadFailures = 0;
+            Serial.println("[KNOB] !! AS5600が応答しません。可変抵抗(ADC)の読みへ切り替えます");
+            Serial.println("[KNOB]    配線を確認して 'knobsrc' で再判定（'mag' で詳細が見えます）");
+        }
+        return;
+    }
+    knobReadFailures = 0;
+
+    uint16_t rel = knobRelAngle(as5600Word(buf));
+
+    // --- OFF判定（角度の閾値。3度のヒステリシス + 30msデバウンス） ---
+    static bool rawLast = false;
+    static uint32_t rawChangedMs = 0;
+    static bool inited = false;
+    bool rawOff = knobOff ? (rel < kKnobOffRaw + kKnobHystRaw)
+                          : (rel < kKnobOffRaw);
+    if (rawOff != rawLast) {
+        rawLast = rawOff;
+        rawChangedMs = now;
+    } else if ((now - rawChangedMs) >= 30) {
+        if (!inited || rawOff != knobOff) {
+            inited = true;
+            knobSetOffState(rawOff);
+        }
+    }
+
+    // 12bitの角度はADCと違ってほぼ揺れないので、IIRは掛けずそのまま%へ
+    knobSetPercent(knobAngleToPercent(rel));
+}
+
+/** 旧経路（可変抵抗のADC＋連動スイッチ）。AS5600が応答しないときのフォールバック。 */
+static void pumpKnobAdc(uint32_t now) {
     // --- 連動スイッチ（30msデバウンス） ---
     static bool rawLast = false;
     static uint32_t rawChangedMs = 0;
@@ -408,34 +537,89 @@ static void pumpVolumeKnob() {
         bool off = !raw;
         if (!inited || off != knobOff) {
             inited = true;
-            knobOff = off;
-            if (off) {
-                Serial.println("[KNOB] OFF位置 -> 会話を終了し、出力を閉じたままにします");
-                if (conversationActive()) {
-                    endConversation();
-                }
-                // 画面と通信は pumpPowerDown() が遅らせて落とす（すぐ戻されたら
-                // 何も起きなかったことにするため）
-            } else {
-                Serial.println("[KNOB] ON位置");
-            }
+            knobSetOffState(off);
         }
     }
 
-    // --- 音量（1/8 IIRでならす + デッドバンド） ---
+    // --- 音量（1/8 IIRでならす） ---
     int adc = analogRead(KATANORI_VOL_ADC); // 12bit: 0..4095
     static int avg = -1;
     avg = (avg < 0) ? adc : avg + (adc - avg) / 8;
 
-    int pct = knobAdcToPercent(avg);
+    knobSetPercent(knobAdcToPercent(avg));
+}
 
-    // ノイズでコーデック音量を叩き続けないためのデッドバンド(2%≒0.6dB)。
-    // ただし両端(0/100)へは即吸着させる（「回し切ったのに無音にならない」を防ぐ）
-    bool endstop = (pct == 0 || pct == 100) && pct != knobPercent;
-    if (knobPercent < 0 || endstop || abs(pct - knobPercent) >= 2) {
-        knobPercent = pct;
-        applyKnobVolume(pct);
+/** つまみの監視。main loop から毎回呼ぶ（実際は20ms間隔で動く）。 */
+static void pumpVolumeKnob() {
+    if (!knobEnabled) {
+        return;
     }
+    static uint32_t lastPollMs = 0;
+    uint32_t now = millis();
+    if ((now - lastPollMs) < 20) {
+        return;
+    }
+    lastPollMs = now;
+
+    if (knobAs5600Ok) {
+        pumpKnobAs5600(now);
+    } else {
+        pumpKnobAdc(now);
+    }
+}
+
+/**
+ * ゼロ点（OFF位置）の保存。つまみを左の壁（OFF位置）に当てて 'knobzero' を打つ。
+ *
+ * OTPには焼かない。NVSなら何度でもやり直せるし、機構を刷り直したら
+ * ゼロ点も変わるのが当たり前なので、書き換えられる場所に持つのが正しい。
+ */
+static void knobSaveZero() {
+    if (!knobAs5600Ok) {
+        Serial.println("[KNOB] AS5600が使えません（ADC経路で動作中。'knobsrc' で再判定）");
+        return;
+    }
+    uint8_t buf[2];
+    if (!as5600Read(0x0C, buf, 2)) {
+        Serial.println("[KNOB] RAW ANGLE が読めませんでした。'mag' で状態を見てください");
+        return;
+    }
+    knobZeroRaw = as5600Word(buf);
+    knobZeroSet = true;
+    Preferences prefs;
+    prefs.begin("knob", false);
+    prefs.putUShort("zero", knobZeroRaw);
+    prefs.end();
+    Serial.printf("[KNOB] ゼロ点を保存しました RAW=%u (%.1f度)\n",
+                  knobZeroRaw, knobZeroRaw * 360.0f / 4096.0f);
+    Serial.printf("[KNOB] ここから右へ%d度でOFF解除、%d度で100%%になります\n",
+                  KATANORI_KNOB_OFF_DEG, KATANORI_KNOB_SPAN_DEG);
+}
+
+/** つまみの読み元の判定。起動時と 'knobsrc' で呼ぶ。 */
+static void knobProbeSource(bool verbose) {
+    uint8_t status = 0;
+    knobAs5600Ok = as5600Read(0x0B, &status, 1);
+    knobReadFailures = 0;
+    if (knobAs5600Ok) {
+        Serial.printf("[KNOB] AS5600で角度を読みます（ゼロ点 RAW=%u%s）\n",
+                      knobZeroRaw, knobZeroSet ? "" : " ※未設定");
+        if (!knobZeroSet) {
+            Serial.println("[KNOB] ★ つまみをOFF位置にして 'knobzero' でゼロ点を保存してください");
+        }
+    } else if (verbose) {
+        Serial.println("[KNOB] AS5600(0x36)が応答しないため可変抵抗(ADC)の読みで動きます");
+    }
+}
+
+/** つまみの初期化。NVSからゼロ点を読み、読み元を判定する。setup() から1回。 */
+static void knobInit() {
+    Preferences prefs;
+    prefs.begin("knob", false);
+    knobZeroSet = prefs.isKey("zero");
+    knobZeroRaw = prefs.getUShort("zero", 0);
+    prefs.end();
+    knobProbeSource(true);
 }
 
 // ---------------------------------------------------------------------------
@@ -2028,7 +2212,9 @@ static void printHelp() {
     Serial.println("   au  : 音声の状態を表示");
     Serial.println("   mic : マイク単独テスト(5秒) ch0/ch1のレベルを測る");
     Serial.println("   vol <0-100> : 再生音量（つまみを動かすと上書きされる）");
-    Serial.println("   knob        : 音量つまみの生値と状態を表示");
+    Serial.println("   knob        : 音量つまみの生値と状態を表示（AS5600は磁石の数字も出る）");
+    Serial.println("   knobzero    : 今の位置をゼロ点(OFF位置)としてNVSへ保存");
+    Serial.println("   knobsrc     : つまみの読み元を再判定（AS5600が応答すればAS5600、駄目ならADC）");
     Serial.println("   pwr         : 疑似電源OFF(つまみOFF位置の消灯・切断)の有効/無効");
     Serial.println("   wifikill    : 疑似電源OFFで無線をWIFI_OFFまで落とすか切替（再検証用）");
     Serial.println("   cpu <MHz>   : CPU周波数を変える(80/160/240)。コーデック死亡の切り分け用");
@@ -2146,15 +2332,51 @@ static void handleSerial() {
         } else if (strncmp(line, "vol ", 4) == 0) {
             katanori::audioIo.setGain(atoi(line + 4) / 100.0f);
         } else if (strcmp(line, "knob") == 0) {
-            Serial.printf("[KNOB] ADC=%d 位置=%d%% ゲイン=%.2f SW=%s -> つまみ%s\n",
-                          analogRead(KATANORI_VOL_ADC), knobPercent,
-                          katanori::audioIo.gain(),
-                          digitalRead(KATANORI_KNOB_SW) == LOW ? "LOW(閉)" : "HIGH(開)",
-                          knobOff ? "OFF" : "ON");
+            if (knobAs5600Ok) {
+                uint8_t buf[2];
+                uint16_t raw = 0;
+                if (as5600Read(0x0C, buf, 2)) {
+                    raw = as5600Word(buf);
+                }
+                uint16_t rel = knobRelAngle(raw);
+                Serial.printf("[KNOB] AS5600 RAW=%u (%.1f度) ゼロ点=%u%s 相対=%.1f度 "
+                              "位置=%d%% ゲイン=%.2f -> つまみ%s\n",
+                              raw, raw * 360.0f / 4096.0f,
+                              knobZeroRaw, knobZeroSet ? "" : "(未設定!)",
+                              rel * 360.0f / 4096.0f,
+                              knobPercent, katanori::audioIo.gain(),
+                              knobOff ? "OFF" : "ON");
+                // 組み付けの良否は磁石の数字で見る。出さないと
+                // 「なんとなく動かない」で詰まる（docs/KNOB-ENCODER.md）
+                uint8_t status = 0;
+                uint8_t agc = 0;
+                uint16_t magnitude = 0;
+                as5600Read(0x0B, &status, 1);
+                as5600Read(0x1A, &agc, 1);
+                if (as5600Read(0x1B, buf, 2)) {
+                    magnitude = as5600Word(buf);
+                }
+                Serial.printf("[KNOB] 磁石 MD=%s ML=%s MH=%s AGC=%u/128 MAGNITUDE=%u\n",
+                              (status & 0x20) ? "検出" : "★無し",
+                              (status & 0x10) ? "★弱すぎ" : "-",
+                              (status & 0x08) ? "★強すぎ" : "-",
+                              agc, magnitude);
+            } else {
+                Serial.printf("[KNOB] (ADCフォールバック) ADC=%d 位置=%d%% ゲイン=%.2f "
+                              "SW=%s -> つまみ%s\n",
+                              analogRead(KATANORI_VOL_ADC), knobPercent,
+                              katanori::audioIo.gain(),
+                              digitalRead(KATANORI_KNOB_SW) == LOW ? "LOW(閉)" : "HIGH(開)",
+                              knobOff ? "OFF" : "ON");
+            }
             Serial.printf("[PWR]  疑似電源OFF=%s 画面=%s 通信=%s\n",
                           powerDownEnabled ? "有効" : "無効",
                           powerOledDown ? "消灯" : "点灯",
                           powerNetDown ? "停止" : "動作");
+        } else if (strcmp(line, "knobzero") == 0) {
+            knobSaveZero();
+        } else if (strcmp(line, "knobsrc") == 0) {
+            knobProbeSource(true);
         } else if (strcmp(line, "knobdis") == 0) {
             knobEnabled = !knobEnabled;
             if (!knobEnabled) {
@@ -2446,10 +2668,12 @@ void setup() {
     pinMode(KATANORI_BOOT_BUTTON, INPUT_PULLUP);
     pinMode(KATANORI_USR_BUTTON, INPUT_PULLUP);
 
-    // 音量つまみ。連動スイッチはGNDとの間に入っているのでプルアップで読む。
-    // これを忘れるとOFF位置(接点が開)でピンが浮いて読み値がふらつく
+    // 音量つまみ。ADCフォールバック用のピンも従来どおり構えておく
+    // （連動スイッチはGNDとの間に入っているのでプルアップで読む。
+    //   これを忘れるとOFF位置(接点が開)でピンが浮いて読み値がふらつく）
     pinMode(KATANORI_KNOB_SW, INPUT_PULLUP);
     analogReadResolution(12);
+    knobInit(); // AS5600が応答すれば角度読み、しなければADC（Wireは初期化済み）
 
     // ユーザーLEDを消灯 (アクティブLOWなのでHIGHで消える)
     pinMode(KATANORI_USER_LED, OUTPUT);
