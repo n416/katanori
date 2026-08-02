@@ -31,10 +31,16 @@ MAG_D = 4.10;           // ポケット内径。ゲージで確定した値そ�
 MAG_POCKET_DEPTH = 2.2; // 磁石厚み2mm想定＋0.2
 
 // 軸と軸受け
-SHAFT_D = 6.0;          // 軸の外径（凸側は縮み補正しない）
+SHAFT_D = 6.0;          // 軸の外径
 SHAFT_LEN = 10.0;
-BORE_CLEAR = 0.25;      // 軸受けの遊び（直径）。ガタつくなら-0.1、渋いなら+0.1で刷り直す
+// 2026-08-02: 0.25 で刷ったら軸が通らなかった。凸は光のにじみで約0.1mm太るので、
+// 実効の隙間は 0.25 - 0.1 = 0.15mm しか無かった。回る嵌合には狭すぎる。
+BORE_CLEAR = 0.40;      // 軸受けの遊び（直径）。ガタつくなら-0.1、渋いなら+0.1で刷り直す
 BORE_D = SHAFT_D + SHRINK + BORE_CLEAR;
+// 印刷でプレートに接する面（デッキ上面）はボトム層35秒×5層＝0.25mmが過硬化して
+// 穴が縮む。そこだけ逃がす。全体のクリアランスを増やすとガタが出るので、入口だけ。
+BORE_RELIEF_D = BORE_D + 1.2;
+BORE_RELIEF_H = 0.6;    // ボトム層0.25mmより深く取る
 
 // つまみ
 KNOB_D = 25.0;          // docs/KNOB-ENCODER.md 段階1の想定
@@ -49,14 +55,27 @@ M2_D = 2.0 + SHRINK + 0.3;
 SLOT_LEN = 2.0;         // 長穴の遊び（±1mm）。AGC を見ながら追い込む
 PCB_T = 1.6;
 CHIP_H = 1.1;           // SOICパッケージ高さ
-CHIP_GAP = 1.5;         // 磁石面とチップ上面の隙間。許容0.5〜3mmの中央寄り
+// 2026-08-02: 1.5 で組んだら AGC 振り切り（この磁石はφ4と小さく、磁力も弱い）。
+// 基板側を紙4枚（約0.4mm）嵩上げして AGC 43〜67 の適正圏に入った。実測値を採る。
+CHIP_GAP = 1.1;         // 磁石面とチップ上面の隙間。データシートの0.5〜3mmは標準磁石の話
 
 // ベースとブリッジ
 BASE_T = 4.0;
 BASE_W = 56.0;          // X: ブリッジの脚まで含む
 BASE_L = 36.0;
 STANDOFF_H = 6.0;       // 基板を浮かせる高さ。裏に出たヘッダの逃げ＋鉄ピンを磁石から離す
-STANDOFF_D = 5.0;
+// 2026-08-02: φ5.0の丸柱で刷ったら、4本中2本が折れた。原因は長穴の向き（X）の肉厚で、
+// (5.0 - (M2_D + SLOT_LEN)) / 2 = 0.3mm しか無かった。長穴と同じ小判形にして、
+// どの向きも肉厚 1.8mm を確保する。外形は X で 12.5mm までに収める（脚の内面が 13.0）。
+STANDOFF_D = 6.0;       // 小判形の幅（＝端の円の径）。長穴と同じく X に SLOT_LEN 伸ばす
+
+// 2026-08-02: コネクタ（Dupont・ハウジング約14mm）を挿す空間を忘れていた。
+// スタンドオフ6mmは「ピンの逃げ」でしかなく、コネクタが入らない。
+// ピン列の位置を推定してスロットを置いたら外した（実物は縁より内側だった）ので、
+// 位置を当てにいくのをやめ、基板の下を丸ごと窓にする。ピンがどこに生えていても通る。
+// 使うときはベースの下に10mm程度の台を噛ませる（コネクタが下面から約4mm出る）
+CONN_WIN_X = 25.0;      // 窓のX全幅。座（小判形・|x| 4.5〜12.5）の内側の縁いっぱいまで
+CONN_WIN_Y = 10.8;      // 窓のY全幅。座（|y| 5.5〜11.5）と干渉しない上限。ハウジング10.2が通る
 
 DECK_T = 6.0;           // 軸受けの厚み＝軸の掛かり
 DECK_W = 14.0;
@@ -109,6 +128,9 @@ module bridge() {
         // 軸受けの穴
         translate([0, 0, LEG_H - 1])
             cylinder(d = BORE_D, h = DECK_T + 2);
+        // 入口の逃がし（デッキ上面＝印刷時にプレートへ接する面）
+        translate([0, 0, LEG_H + DECK_T - BORE_RELIEF_H])
+            cylinder(d = BORE_RELIEF_D, h = BORE_RELIEF_H + 1);
     }
 }
 
@@ -118,10 +140,13 @@ module base() {
         union() {
             translate([-BASE_W / 2, -BASE_L / 2, -BASE_T])
                 cube([BASE_W, BASE_L, BASE_T]);
-            // 基板の座
+            // 基板の座（長穴と同じ小判形。丸柱だと長穴の向きの肉が薄くなって折れる）
             for (x = [-1, 1], y = [-1, 1])
                 translate([x * HOLE_PITCH / 2, y * HOLE_PITCH / 2, 0])
-                    cylinder(d = STANDOFF_D, h = STANDOFF_H);
+                    hull() {
+                        translate([-SLOT_LEN / 2, 0, 0]) cylinder(d = STANDOFF_D, h = STANDOFF_H);
+                        translate([ SLOT_LEN / 2, 0, 0]) cylinder(d = STANDOFF_D, h = STANDOFF_H);
+                    }
         }
         // M2 長穴（X方向±1mm）
         for (x = [-1, 1], y = [-1, 1])
@@ -134,6 +159,9 @@ module base() {
         for (s = [-1, 1])
             translate([s * LEG_CX, 0, -PEG_H - 0.3])
                 cylinder(d = PEG_HOLE_D, h = PEG_H + 1);
+        // コネクタの貫通窓（基板の下を丸ごと開ける）
+        translate([-CONN_WIN_X / 2, -CONN_WIN_Y / 2, -BASE_T - 1])
+            cube([CONN_WIN_X, CONN_WIN_Y, BASE_T + 2]);
     }
 }
 
