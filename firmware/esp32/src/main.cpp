@@ -17,6 +17,8 @@
 #include <Wire.h>
 #include <Preferences.h>
 #include <U8g2lib.h>
+#include <WiFi.h>
+#include <ArduinoOTA.h>
 
 #include "IHal.h"
 #include "RobotCore.h"
@@ -50,11 +52,22 @@
 #define KATANORI_BOOT_BUTTON 0
 #endif
 
-// ReSpeaker Lite 裏の Usr ボタン。基板の Usr-D2 穴をはんだブリッジ済み。
+// ReSpeaker Lite 裏の Usr ボタン。基板の Usr-D2 穴にジャンパーピンを通して
+// 導通させている（はんだ付けは一切していない。ピンはぶら下がっているだけ）。
 // D2 = GPIO3。XMOS側は未使用なので、押下でGNDに落ちる普通のボタンとして読める。
 // (GPIO3はストラッピングピンだが INPUT_PULLUP で読むだけなら影響しない)
 #ifndef KATANORI_USR_BUTTON
 #define KATANORI_USR_BUTTON 3
+#endif
+
+// OTA (Wi-Fi経由のファーム更新)。筐体に封入した後もファームを直せるようにする。
+// パスワードは「LAN内の他人が勝手に書き込めない」ための合言葉で、秘匿情報ではない
+// (Wi-Fi資格情報と違いNVSではなくビルドフラグで差し替える)。
+#ifndef KATANORI_OTA_HOSTNAME
+#define KATANORI_OTA_HOSTNAME "katanori"
+#endif
+#ifndef KATANORI_OTA_PASSWORD
+#define KATANORI_OTA_PASSWORD "katanori"
 #endif
 
 // XIAO ESP32S3 のユーザーLED (GPIO21)。アクティブLOW = LOWで点灯。
@@ -2204,6 +2217,86 @@ static void renderProvisioning() {
     u8g2.sendBuffer();
 }
 
+// ---------------------------------------------------------------------------
+// OTA (Wi-Fi経由のファーム更新)
+//
+// 「筐体に封入したらUSBを挿せない」への備え (docs/TODO.md の優先2位)。
+// Wi-Fiが繋がった時点で待受を自動開始し、PC側は
+//   pio run -e xiao_esp32s3_ota -t upload
+// で書き込む。転送はMD5検証つきで反対側のOTAスロットへ書かれ、検証に通って
+// 初めて起動先が切り替わる (途中で切れても現行ファームのまま起動する)。
+// ---------------------------------------------------------------------------
+
+static bool otaEnabled = true;  // `otadis` で切れる (更新中の誤爆を避けたい計測時用)
+static bool otaBegun = false;   // begin() は Wi-Fi 接続後に一度だけ
+
+/** OTA進捗画面。転送中は ArduinoOTA.handle() の中に居続けるので顔とは競合しない。 */
+static void renderOtaProgress(unsigned int pct) {
+    u8g2.clearBuffer();
+    u8g2.setFont(u8g2_font_7x13B_tr);
+    u8g2.drawStr(33, 22, "UPDATING");
+    u8g2.drawFrame(14, 32, 100, 12);
+    if (pct > 100) pct = 100;
+    u8g2.drawBox(14, 32, pct, 12);
+    char buf[8];
+    snprintf(buf, sizeof(buf), "%u%%", pct);
+    u8g2.setFont(u8g2_font_6x12_tr);
+    u8g2.drawStr(58, 58, buf);
+    u8g2.sendBuffer();
+}
+
+static void pumpOta() {
+    if (!otaEnabled) {
+        return;
+    }
+    if (!otaBegun) {
+        if (!katanori::netLink.wifiConnected()) {
+            return; // Wi-Fiが繋がるまで待つ (切断→再接続しても待受は生きている)
+        }
+        ArduinoOTA.setHostname(KATANORI_OTA_HOSTNAME);
+        ArduinoOTA.setPassword(KATANORI_OTA_PASSWORD);
+        ArduinoOTA.onStart([]() {
+            // 転送中はこの loop() に戻ってこない。音と通信は先に畳んでおく
+            Serial.println("[OTA] 更新開始。音声と通信を止めます");
+            katanori::netLink.wsDisconnect();
+            katanori::audioIo.stopRecording();
+            katanori::audioIo.setOutputMute(true);
+            renderOtaProgress(0);
+        });
+        ArduinoOTA.onProgress([](unsigned int done, unsigned int total) {
+            // OLED全面転送は約29ms。毎回描くと転送を遅くするので5%刻みに間引く
+            static unsigned int lastPct = 200;
+            unsigned int pct = total ? done * 100u / total : 0;
+            if (pct != lastPct && pct % 5 == 0) {
+                lastPct = pct;
+                renderOtaProgress(pct);
+                Serial.printf("[OTA] %u%%\n", pct);
+            }
+        });
+        ArduinoOTA.onEnd([]() {
+            Serial.println("[OTA] 書き込み完了。検証OKなら再起動します");
+        });
+        ArduinoOTA.onError([](ota_error_t error) {
+            // 失敗しても現行ファームは無傷 (起動先の切替は検証通過後のため)
+            const char* msg = "不明";
+            switch (error) {
+                case OTA_AUTH_ERROR:    msg = "認証失敗 (--auth の値が違う)"; break;
+                case OTA_BEGIN_ERROR:   msg = "開始失敗 (OTAスロット確保できず)"; break;
+                case OTA_CONNECT_ERROR: msg = "接続失敗"; break;
+                case OTA_RECEIVE_ERROR: msg = "受信失敗 (Wi-Fiが不安定)"; break;
+                case OTA_END_ERROR:     msg = "検証失敗 (イメージ破損)"; break;
+            }
+            Serial.printf("[OTA] !! 失敗: %s。現行ファームのまま動き続けます\n", msg);
+            runSelfTest(); // 顔の描画に戻ったことを目視できるように
+        });
+        ArduinoOTA.begin();
+        otaBegun = true;
+        Serial.printf("[OTA] 待受開始: %s.local (%s) port 3232\n",
+                      KATANORI_OTA_HOSTNAME, WiFi.localIP().toString().c_str());
+    }
+    ArduinoOTA.handle();
+}
+
 static void printHelp() {
     Serial.println("---------------------------------------------");
     Serial.println(" 会話");
@@ -2258,6 +2351,8 @@ static void printHelp() {
     Serial.println("   c                 : Durable Object へ WebSocket 接続");
     Serial.println("   d                 : WebSocket を切断");
     Serial.println("   n                 : ネットワーク状態を表示");
+    Serial.println("   ota               : OTA(Wi-Fi書き込み)の状態を表示");
+    Serial.println("   otadis            : OTA待受の無効/有効を切替");
     Serial.println("---------------------------------------------");
 }
 
@@ -2321,6 +2416,21 @@ static void handleSerial() {
             katanori::netLink.wsDisconnect();
         } else if (strcmp(line, "n") == 0) {
             katanori::netLink.printStatus();
+        } else if (strcmp(line, "ota") == 0) {
+            Serial.printf("[OTA] %s / 待受%s",
+                          otaEnabled ? "有効" : "無効(otadisで切替)",
+                          otaBegun ? "中" : "前(Wi-Fi接続後に自動開始)");
+            if (otaBegun) {
+                Serial.printf(" %s.local (%s) port 3232",
+                              KATANORI_OTA_HOSTNAME,
+                              WiFi.localIP().toString().c_str());
+            }
+            Serial.println();
+            Serial.println("[OTA] 書き込みは: pio run -e xiao_esp32s3_ota -t upload");
+        } else if (strcmp(line, "otadis") == 0) {
+            otaEnabled = !otaEnabled;
+            Serial.printf("[OTA] %s\n", otaEnabled ? "有効化しました"
+                                                   : "無効化しました（再起動でも有効に戻ります）");
         } else if (strcmp(line, "au") == 0) {
             katanori::audioIo.printStatus();
         } else if (strcmp(line, "mic") == 0) {
@@ -2737,6 +2847,10 @@ void loop() {
 
     // 音が出ない原因のうち、これだけは黙って起きるので常に見張る
     pumpCodecWatch();
+
+    // OTA待受。疑似電源OFFや設定モードの early return より前に置く
+    // (Wi-Fiが生きている限り、どの状態からでも更新を受けられるように)
+    pumpOta();
 
     // Wi-Fi設定モード中は顔も音声も止めて、設定画面だけを回す
     if (katanori::provisioning.active()) {
