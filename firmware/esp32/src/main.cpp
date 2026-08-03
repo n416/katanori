@@ -87,6 +87,9 @@
 #ifndef KATANORI_KNOB_OFF_DEG
 #define KATANORI_KNOB_OFF_DEG 5    // この角度未満はOFF。リードが閉じる数度手前に置く(docs/POWER.md)
 #endif
+#ifndef KATANORI_KNOB_FULL_DEG
+#define KATANORI_KNOB_FULL_DEG 10  // 上端からこの角度以内は100%。回し切りを点で当てずに済む
+#endif
 #ifndef KATANORI_KNOB_DIR_INVERT
 #define KATANORI_KNOB_DIR_INVERT 0  // 回して%が逆に動く組み付けはこれを1に (DIR=GNDで時計回り増が既定)
 #endif
@@ -419,6 +422,12 @@ static constexpr uint16_t kKnobSpanRaw =
     (uint16_t)((uint32_t)KATANORI_KNOB_SPAN_DEG * 4096 / 360);
 static constexpr uint16_t kKnobOffRaw =
     (uint16_t)((uint32_t)KATANORI_KNOB_OFF_DEG * 4096 / 360);
+static constexpr uint16_t kKnobFullRaw =
+    (uint16_t)((uint32_t)KATANORI_KNOB_FULL_DEG * 4096 / 360);
+/** 100%に吸着し始める相対角度。ここから上端までは全部100%。 */
+static constexpr uint16_t kKnobFullFromRaw =
+    (kKnobSpanRaw > kKnobFullRaw + kKnobOffRaw) ? (uint16_t)(kKnobSpanRaw - kKnobFullRaw)
+                                                : kKnobSpanRaw;
 /** OFF解除はOFF閾値より3度上（境目でのバタつき防止のヒステリシス）。 */
 static constexpr uint16_t kKnobHystRaw = (uint16_t)(3ul * 4096 / 360);
 
@@ -468,15 +477,25 @@ static uint16_t knobRelAngle(uint16_t raw) {
     return rel;
 }
 
-/** 相対角度 -> つまみ位置(%)。OFF閾値未満は0、上端で100。 */
+/**
+ * 相対角度 -> つまみ位置(%)。OFF閾値以下は0、上端で100。
+ *
+ * **0% は「OFF判定と同じ意味」でなければならない。** 素直に按分すると整数の
+ * 切り捨てで OFF閾値の少し上（5.0〜7.6度）まで0%になり、「画面と音量は0%なのに
+ * 疑似電源OFFに入らない」帯ができる（2026-08-03に実機で再現）。
+ * OFF閾値を超えたら最低でも1%を返して、0%を OFF専用の値にしておく。
+ */
 static int knobAngleToPercent(uint16_t rel) {
     if (rel <= kKnobOffRaw) {
         return 0;
     }
-    if (rel >= kKnobSpanRaw) {
+    // 上端も帯にする。OFF側が5度の帯を持つのに100%だけ点で当てるのは非対称で、
+    // 壁の無い治具では回し切っても100%に届かない（ユーザー指摘 2026-08-03）
+    if (rel >= kKnobFullFromRaw) {
         return 100;
     }
-    return (int)((uint32_t)(rel - kKnobOffRaw) * 100u / (kKnobSpanRaw - kKnobOffRaw));
+    int pct = 1 + (int)((uint32_t)(rel - kKnobOffRaw) * 99u / (kKnobFullFromRaw - kKnobOffRaw));
+    return pct > 100 ? 100 : pct;
 }
 
 // ADC実測値 -> つまみ位置(%)。2026-07-29 にこの個体で実測した換算テーブル。
@@ -522,17 +541,98 @@ static bool knobEnabled = true;
 /**
  * OFF状態の確定。切り替わったときの後始末は経路（AS5600/ADC）によらず同じ。
  */
+/**
+ * ブラウン管が消えるときの演出。中央の横線につぶれ、点になって消える。
+ *
+ * つまみをOFFへ回した瞬間に出す。画面が黙って消えると「壊れた」と見えるが、
+ * この2/3秒があるだけで「自分が消した」になる（ユーザー要望 2026-08-03）。
+ * 描画を止めて一気に描く（OLEDの全面転送が約29msなので、これで約0.4秒）。
+ */
+static void playCrtOffAnimation() {
+    const int cx = 64;
+    const int cy = 32;
+
+    // 1) 画面が中央の横線へつぶれる
+    for (int h = 64; h >= 2; h -= 10) {
+        u8g2.clearBuffer();
+        u8g2.setDrawColor(1);
+        u8g2.drawBox(0, cy - h / 2, 128, h);
+        u8g2.sendBuffer();
+    }
+    // 2) 横線が中央の点へ縮む
+    for (int w = 128; w >= 4; w -= 20) {
+        u8g2.clearBuffer();
+        u8g2.drawBox(cx - w / 2, cy - 1, w, 2);
+        u8g2.sendBuffer();
+    }
+    // 3) 残光
+    u8g2.clearBuffer();
+    u8g2.drawBox(cx - 1, cy - 1, 3, 3);
+    u8g2.sendBuffer();
+    delay(80);
+    u8g2.clearBuffer();
+    u8g2.sendBuffer();
+}
+
+static void powerWakeOled(); // 定義は疑似電源OFFの節（powerOledDown の直後）
+
+/** 上の逆再生。点が灯り、横に伸び、画面が開く。つまみをONへ回した瞬間に出す。 */
+static void playCrtOnAnimation() {
+    // 疑似電源OFF中は表示が止まっている。戻すのは pumpPowerDown だが
+    // それはこの後の処理なので、ここで自分で起こさないとアニメが見えない
+    powerWakeOled();
+
+    const int cx = 64;
+    const int cy = 32;
+
+    // 1) 点が灯る
+    u8g2.clearBuffer();
+    u8g2.setDrawColor(1);
+    u8g2.drawBox(cx - 1, cy - 1, 3, 3);
+    u8g2.sendBuffer();
+    delay(80);
+
+    // 2) 横線が伸びる
+    for (int w = 4; w <= 128; w += 20) {
+        u8g2.clearBuffer();
+        u8g2.drawBox(cx - w / 2, cy - 1, w, 2);
+        u8g2.sendBuffer();
+    }
+    // 3) 画面が開く
+    for (int h = 2; h <= 64; h += 10) {
+        u8g2.clearBuffer();
+        u8g2.drawBox(0, cy - h / 2, 128, h);
+        u8g2.sendBuffer();
+    }
+    u8g2.clearBuffer();
+    u8g2.sendBuffer();
+}
+
 static void knobSetOffState(bool off) {
+    // 起動直後の初回同期では鳴らさない（自己診断パターンを潰さないため）
+    static bool inited = false;
+    bool animate = inited;
+    inited = true;
+
     knobOff = off;
     if (off) {
         Serial.println("[KNOB] OFF位置 -> 会話を終了し、出力を閉じたままにします");
         if (conversationActive()) {
             endConversation();
         }
+        // Wi-Fi設定モード中はQRを消してはいけない（読み取り中の可能性がある）
+        if (animate && !katanori::provisioning.active()) {
+            playCrtOffAnimation();
+            // 消えた直後に音量表示が出ないよう、余韻を残さず切る
+            volOverlayUntilMs = millis();
+        }
         // 画面と通信は pumpPowerDown() が遅らせて落とす（すぐ戻されたら
         // 何も起きなかったことにするため）
     } else {
         Serial.println("[KNOB] ON位置");
+        if (animate && !katanori::provisioning.active()) {
+            playCrtOnAnimation();
+        }
     }
 }
 
@@ -573,8 +673,10 @@ static void pumpKnobAs5600(uint32_t now) {
     static bool rawLast = false;
     static uint32_t rawChangedMs = 0;
     static bool inited = false;
+    // 入るときは「OFF閾値以下」。knobAngleToPercent の0%と同じ条件にしておく
+    // （< と <= がずれていると、境目の1カウントで0%とOFFが食い違う）
     bool rawOff = knobOff ? (rel < kKnobOffRaw + kKnobHystRaw)
-                          : (rel < kKnobOffRaw);
+                          : (rel <= kKnobOffRaw);
     if (rawOff != rawLast) {
         rawLast = rawOff;
         rawChangedMs = now;
@@ -585,8 +687,10 @@ static void pumpKnobAs5600(uint32_t now) {
         }
     }
 
-    // 12bitの角度はADCと違ってほぼ揺れないので、IIRは掛けずそのまま%へ
-    knobSetPercent(knobAngleToPercent(rel));
+    // 12bitの角度はADCと違ってほぼ揺れないので、IIRは掛けずそのまま%へ。
+    // OFF中は必ず0%（ヒステリシスの戻り帯5〜8度で「2%なのに疑似電源OFF」に
+    // なるのを防ぐ。表示と実際の状態を常に一致させる）
+    knobSetPercent(knobOff ? 0 : knobAngleToPercent(rel));
 }
 
 /** 旧経路（可変抵抗のADC＋連動スイッチ）。AS5600が応答しないときのフォールバック。 */
@@ -710,6 +814,14 @@ static constexpr uint32_t KNOB_OFF_NET_MS = 5000;
 static bool powerOledDown = false;
 /** 通信を止めたか。 */
 static bool powerNetDown = false;
+
+/** 消えている画面を先に起こす。ON復帰アニメを見せるために使う。 */
+static void powerWakeOled() {
+    if (powerOledDown) {
+        powerOledDown = false;
+        u8g2.setPowerSave(0);
+    }
+}
 
 /**
  * 疑似電源OFFを働かせるか。シリアル `pwr` でトグルする。
