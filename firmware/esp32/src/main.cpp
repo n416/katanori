@@ -190,6 +190,49 @@ static uint32_t selfTestUntilMs = 0;
 /** 音量オーバーレイ（つまみを回した直後だけ顔に重ねる）の表示終了時刻と値。 */
 static uint32_t volOverlayUntilMs = 0;
 static int volOverlayPct = 0;
+/**
+ * この時刻まで音量表示を出さない。
+ *
+ * ONへ戻した瞬間は必ず%が変わるため、そのままだとブラウン管が開いた直後に
+ * 音量画面が割り込み、顔より先に数字が出てしまう（違和感の正体）。
+ */
+static uint32_t volOverlaySuppressUntilMs = 0;
+
+/**
+ * 音量の画面（数字を大きく＋下にインジケーター）を1枚描く。
+ *
+ * **顔は出さない。** 顔に小さく重ねる案は読みにくかった（ユーザー判断
+ * 2026-08-03）。治具には壁が無く「今どこまで回ったか・100%はどこか・
+ * 折返し帯に入ったか」が手の感触では分からないため、回している間はこれだけを見せる。
+ * OFFへ倒した瞬間にも直接呼ぶ（ブラウン管アニメの前に「OFF」を見せるため）。
+ */
+static void drawVolumeScreen(int pct) {
+    char buf[8];
+    if (pct <= 0) {
+        snprintf(buf, sizeof(buf), "OFF");
+    } else {
+        snprintf(buf, sizeof(buf), "%d%%", pct);
+    }
+
+    u8g2.clearBuffer();
+    u8g2.setDrawColor(1);
+    u8g2.setFont(u8g2_font_fub25_tr);
+    int w = u8g2.getStrWidth(buf);
+    int x = (128 - w) / 2;
+    if (x < 0) {
+        x = 0;
+    }
+    u8g2.drawStr(x, 36, buf);
+
+    // 下のインジケーター。枠を常に出して「あとどれだけ回せるか」を見せる
+    const int bx = 4, bw = 120, by = 48, bh = 12;
+    u8g2.drawFrame(bx, by, bw, bh);
+    int fill = pct * (bw - 4) / 100;
+    if (fill > 0) {
+        u8g2.drawBox(bx + 2, by + 2, fill, bh - 4);
+    }
+    u8g2.sendBuffer();
+}
 /** オーバーレイの表示時間。回している最中は指を止めるたびに延長される。 */
 static constexpr uint32_t kVolOverlayMs = 1500;
 
@@ -213,41 +256,12 @@ public:
         return katanori::audioIo.micLevel();
     }
 
-    /**
-     * つまみを回している間の音量表示。描いたら true。
-     *
-     * **顔は出さない。** 顔に小さく重ねる案は読みにくかった（ユーザー判断
-     * 2026-08-03）。数字を全画面で大きく、下にインジケーターを1本。
-     * 治具には壁が無く「今どこまで回ったか・100%はどこか・折返し帯に入ったか」が
-     * 手の感触では分からないため、回している最中はこれだけを見せる。
-     */
-    static bool drawVolumeScreen() {
+    /** 音量表示の期間中なら1枚描いて true。描画の実体は drawVolumeScreen()。 */
+    static bool drawVolumeScreenIfActive() {
         if (static_cast<int32_t>(::millis() - volOverlayUntilMs) >= 0) {
             return false;
         }
-        char buf[8];
-        if (volOverlayPct <= 0) {
-            snprintf(buf, sizeof(buf), "OFF");
-        } else {
-            snprintf(buf, sizeof(buf), "%d%%", volOverlayPct);
-        }
-
-        u8g2.setDrawColor(1);
-        u8g2.setFont(u8g2_font_fub25_tr);
-        int w = u8g2.getStrWidth(buf);
-        int x = (128 - w) / 2;
-        if (x < 0) {
-            x = 0;
-        }
-        u8g2.drawStr(x, 36, buf);
-
-        // 下のインジケーター。枠を常に出して「あとどれだけ回せるか」を見せる
-        const int bx = 4, bw = 120, by = 48, bh = 12;
-        u8g2.drawFrame(bx, by, bw, bh);
-        int fill = volOverlayPct * (bw - 4) / 100;
-        if (fill > 0) {
-            u8g2.drawBox(bx + 2, by + 2, fill, bh - 4);
-        }
+        drawVolumeScreen(volOverlayPct);
         return true;
     }
 
@@ -274,9 +288,8 @@ public:
         u8g2.clearBuffer();
 
         // つまみを回している間は音量だけ。顔も接続表示も出さない（最優先）
-        if (drawVolumeScreen()) {
-            u8g2.sendBuffer();
-            return;
+        if (drawVolumeScreenIfActive()) {
+            return; // 描画と転送は drawVolumeScreen() の中で済んでいる
         }
 
         // 繋がっていないときは顔を出さない。顔と併記できる大きさでは読めなかった。
@@ -552,11 +565,14 @@ static void playCrtOffAnimation() {
     const int cx = 64;
     const int cy = 32;
 
-    // 1) 画面が中央の横線へつぶれる
+    // 1) 上下の縁が中央へ寄り、映像が横線へつぶれる
+    //    白ベタで塗らないこと。OLEDでは白=全画素点灯で、ブラウン管とは逆の
+    //    印象になる（実物で光っているのは縁の走査線で、中は黒）
     for (int h = 64; h >= 2; h -= 10) {
         u8g2.clearBuffer();
         u8g2.setDrawColor(1);
-        u8g2.drawBox(0, cy - h / 2, 128, h);
+        u8g2.drawBox(0, cy - h / 2, 128, 2);
+        u8g2.drawBox(0, cy + h / 2 - 2, 128, 2);
         u8g2.sendBuffer();
     }
     // 2) 横線が中央の点へ縮む
@@ -565,11 +581,15 @@ static void playCrtOffAnimation() {
         u8g2.drawBox(cx - w / 2, cy - 1, w, 2);
         u8g2.sendBuffer();
     }
-    // 3) 残光
+    // 3) 残光。3px -> 1px と細めてから消す（いきなり消すと角が立つ）
     u8g2.clearBuffer();
     u8g2.drawBox(cx - 1, cy - 1, 3, 3);
     u8g2.sendBuffer();
     delay(80);
+    u8g2.clearBuffer();
+    u8g2.drawPixel(cx, cy);
+    u8g2.sendBuffer();
+    delay(60);
     u8g2.clearBuffer();
     u8g2.sendBuffer();
 }
@@ -598,14 +618,30 @@ static void playCrtOnAnimation() {
         u8g2.drawBox(cx - w / 2, cy - 1, w, 2);
         u8g2.sendBuffer();
     }
-    // 3) 画面が開く
+    // 3) 縁が上下へ開く。中は黒のままなので、開き切ると自然に真っ黒で終わる
+    //    （白ベタで開くと、真っ白から顔が出ることになって違和感が出る）
     for (int h = 2; h <= 64; h += 10) {
         u8g2.clearBuffer();
-        u8g2.drawBox(0, cy - h / 2, 128, h);
+        u8g2.drawBox(0, cy - h / 2, 128, 2);
+        u8g2.drawBox(0, cy + h / 2 - 2, 128, 2);
         u8g2.sendBuffer();
     }
+    // 4) 消え際を柔らかく。縁を1pxに細めてから消す（2pxのまま消すと角が立つ）
+    u8g2.clearBuffer();
+    u8g2.drawBox(0, 0, 128, 1);
+    u8g2.drawBox(0, 63, 128, 1);
+    u8g2.sendBuffer();
+
+    // 5) 黒のまま少し置いてから顔へ渡す。開き切った次のフレームで顔が出ると
+    //    「開く」と「映る」が重なって忙しく見える
     u8g2.clearBuffer();
     u8g2.sendBuffer();
+    delay(120);
+
+    // 6) 開いた直後は音量表示を抑える。ONに戻すと必ず%が変わるので、
+    //    抑えないと顔ではなく数字が先に出てしまう
+    volOverlayUntilMs = millis();
+    volOverlaySuppressUntilMs = millis() + 900;
 }
 
 static void knobSetOffState(bool off) {
@@ -622,8 +658,12 @@ static void knobSetOffState(bool off) {
         }
         // Wi-Fi設定モード中はQRを消してはいけない（読み取り中の可能性がある）
         if (animate && !katanori::provisioning.active()) {
+            // 先に「OFF」を見せる。いきなり消えると、自分がOFFにしたのか
+            // 勝手に落ちたのかが分からない（ユーザー要望 2026-08-03）
+            drawVolumeScreen(0);
+            delay(700);
             playCrtOffAnimation();
-            // 消えた直後に音量表示が出ないよう、余韻を残さず切る
+            // 消えた後に音量表示が蒸し返さないよう、余韻を残さず切る
             volOverlayUntilMs = millis();
         }
         // 画面と通信は pumpPowerDown() が遅らせて落とす（すぐ戻されたら
@@ -645,9 +685,12 @@ static void knobSetPercent(int pct) {
     if (knobPercent < 0 || endstop || abs(pct - knobPercent) >= 2) {
         knobPercent = pct;
         applyKnobVolume(pct);
-        // 回した本人に見えるように画面へ出す（顔の上に数秒だけ重ねる）
-        volOverlayPct = pct;
-        volOverlayUntilMs = millis() + kVolOverlayMs;
+        // 回した本人に見えるように画面へ出す。ただし復帰アニメの直後は出さない
+        // （顔が戻るのを先に見せる。抑制が明けてから回せば普通に出る）
+        if (static_cast<int32_t>(millis() - volOverlaySuppressUntilMs) >= 0) {
+            volOverlayPct = pct;
+            volOverlayUntilMs = millis() + kVolOverlayMs;
+        }
     }
 }
 
