@@ -184,6 +184,12 @@ static void setNetMessage(const char* line1, const char* line2 = "") {
 /** 自己診断パターンの表示終了時刻。この間は顔で上書きしない。 */
 static uint32_t selfTestUntilMs = 0;
 
+/** 音量オーバーレイ（つまみを回した直後だけ顔に重ねる）の表示終了時刻と値。 */
+static uint32_t volOverlayUntilMs = 0;
+static int volOverlayPct = 0;
+/** オーバーレイの表示時間。回している最中は指を止めるたびに延長される。 */
+static constexpr uint32_t kVolOverlayMs = 1500;
+
 /**
  * 接続状況の表示を確かめている最中か（シリアル `bn`）。
  *
@@ -202,6 +208,44 @@ public:
 
     float getMicLevel() override {
         return katanori::audioIo.micLevel();
+    }
+
+    /**
+     * つまみを回している間の音量表示。描いたら true。
+     *
+     * **顔は出さない。** 顔に小さく重ねる案は読みにくかった（ユーザー判断
+     * 2026-08-03）。数字を全画面で大きく、下にインジケーターを1本。
+     * 治具には壁が無く「今どこまで回ったか・100%はどこか・折返し帯に入ったか」が
+     * 手の感触では分からないため、回している最中はこれだけを見せる。
+     */
+    static bool drawVolumeScreen() {
+        if (static_cast<int32_t>(::millis() - volOverlayUntilMs) >= 0) {
+            return false;
+        }
+        char buf[8];
+        if (volOverlayPct <= 0) {
+            snprintf(buf, sizeof(buf), "OFF");
+        } else {
+            snprintf(buf, sizeof(buf), "%d%%", volOverlayPct);
+        }
+
+        u8g2.setDrawColor(1);
+        u8g2.setFont(u8g2_font_fub25_tr);
+        int w = u8g2.getStrWidth(buf);
+        int x = (128 - w) / 2;
+        if (x < 0) {
+            x = 0;
+        }
+        u8g2.drawStr(x, 36, buf);
+
+        // 下のインジケーター。枠を常に出して「あとどれだけ回せるか」を見せる
+        const int bx = 4, bw = 120, by = 48, bh = 12;
+        u8g2.drawFrame(bx, by, bw, bh);
+        int fill = volOverlayPct * (bw - 4) / 100;
+        if (fill > 0) {
+            u8g2.drawBox(bx + 2, by + 2, fill, bh - 4);
+        }
+        return true;
     }
 
     /** 1行を中央に置く。幅が足りなければシリアルに出す（黙って切れないように）。 */
@@ -225,6 +269,12 @@ public:
 
     void flushDisplay(const uint8_t* fb) override {
         u8g2.clearBuffer();
+
+        // つまみを回している間は音量だけ。顔も接続表示も出さない（最優先）
+        if (drawVolumeScreen()) {
+            u8g2.sendBuffer();
+            return;
+        }
 
         // 繋がっていないときは顔を出さない。顔と併記できる大きさでは読めなかった。
         if (netMsg1[0] != '\0') {
@@ -495,6 +545,9 @@ static void knobSetPercent(int pct) {
     if (knobPercent < 0 || endstop || abs(pct - knobPercent) >= 2) {
         knobPercent = pct;
         applyKnobVolume(pct);
+        // 回した本人に見えるように画面へ出す（顔の上に数秒だけ重ねる）
+        volOverlayPct = pct;
+        volOverlayUntilMs = millis() + kVolOverlayMs;
     }
 }
 
@@ -846,6 +899,19 @@ static void pumpOutputGate() {
     if (millis() - emptySinceMs >= OUTPUT_TAIL_MS) {
         emptySinceMs = 0;
         katanori::audioIo.setOutputMute(true);
+    }
+}
+
+/**
+ * こちらから再起動する前にコーデックを閉じる。
+ *
+ * 開いたままESP32だけがリセットされると、次の起動でROMブートログが増幅される。
+ * クラッシュ・電池切れ・ブラウンアウトによるリセットはここを通らないので塞げないが、
+ * 意図して落とすときは必ず閉じてから落とす（OTAの onStart も同じことをしている）。
+ */
+static void muteBeforeRestart() {
+    if (!katanori::audioIo.setOutputMute(true)) {
+        Serial.println("[CODEC] !! ミュートに失敗しました。スピーカーを耳から離してください");
     }
 }
 
@@ -2557,6 +2623,7 @@ static void handleSerial() {
         } else if (strcmp(line, "reboot") == 0) {
             // RSTボタンが押せない位置にあるため、シリアルから同じことをする。
             // USBの給電は切れないので「ESP32だけ再起動」の切り分けに使える。
+            muteBeforeRestart();
             Serial.println("[SYS] 再起動します（USBは抜きません）");
             Serial.flush();
             delay(50);
@@ -2620,6 +2687,7 @@ static void handleSerial() {
             u8g2.setBusClock(400000);
             runSelfTest();
         } else if (strcmp(line, "R") == 0) {
+            muteBeforeRestart();
             Serial.println("[SYS] 再起動します");
             Serial.flush();
             delay(50);
