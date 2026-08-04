@@ -101,11 +101,16 @@
 #define KATANORI_VOL_ADC 1
 #endif
 
-// つまみ連動スイッチ -> D1 = GPIO2 と GND の間。プルアップで読む。
-// 既定は「ON位置(右へ回した領域)で接点が閉じる = LOW」。実機がこの逆に
-// 振る舞う場合はビルドフラグで KATANORI_KNOB_SW_INVERT=1 を定義して反転する。
+// つまみ連動スイッチ。⚠ 旧設計では D1 = GPIO2 を使っていたが、**D1(GPIO2)は
+// 基板内でXMOSのリセット線（アクティブHIGH）に繋がっている**（2026-08-05確定。
+// ESPHome公式構成の reset_pin: GPIO2 と、この1行の有無で mic 0フレームが
+// 再現/解消することの両方で確認）。INPUT_PULLUP にした瞬間、XMOSはリセットに
+// 押さえ込まれてI2Sが止まる。**GPIO2には二度と pinMode しないこと。**
+// 旧ボードで「つまみを回すとコーデックが死ぬ」ように見えたのもこれ
+// （スイッチがGNDに落としている間だけXMOSが動けていた）。
+// -1 = スイッチ無し（常にON扱い。OFF判定はAS5600の角度閾値が担う）
 #ifndef KATANORI_KNOB_SW
-#define KATANORI_KNOB_SW 2
+#define KATANORI_KNOB_SW -1
 #endif
 #ifndef KATANORI_KNOB_SW_INVERT
 #define KATANORI_KNOB_SW_INVERT 0
@@ -131,6 +136,23 @@ static constexpr uint32_t FRAME_INTERVAL_SLOW_MS = 120;
 // この定義を 1 にして XBM(LSB-first)へ変換する経路へ切り替える。
 #ifndef KATANORI_DISPLAY_BIT_REVERSE
 #define KATANORI_DISPLAY_BIT_REVERSE 0
+#endif
+
+// 診断用: I2Cバスに一切触らないビルド（-DKATANORI_I2C_SILENCE=1）。
+//
+// このI2CバスはXMOSとESP32の2マスター構成（コーデックを設定するのはXMOS。
+// そこへESP32もミュート書き込み・スキャン・OLED転送を撃ち込む）。起動直後の
+// 同時アクセスがXMOSを飛ばし、I2Sクロック停止（mic 0フレーム）を起こしている
+// 疑いがある（2026-08-05・⚠推定）。このフラグはその切り分け専用で、
+// コーデック・OLED・AS5600への全I2Cを黙らせる。顔は表示されない。
+// ⚠ コーデックのミュートもしないので、スピーカー線を外して使うこと。
+#ifndef KATANORI_I2C_SILENCE
+#define KATANORI_I2C_SILENCE 0
+#endif
+
+// 診断用: audioIo.begin() 直後で setup を打ち切り、micだけ回す（-DKATANORI_MIN_BOOT=1）
+#ifndef KATANORI_MIN_BOOT
+#define KATANORI_MIN_BOOT 0
 #endif
 
 // ---------------------------------------------------------------------------
@@ -191,12 +213,24 @@ static uint32_t selfTestUntilMs = 0;
 static uint32_t volOverlayUntilMs = 0;
 static int volOverlayPct = 0;
 /**
- * この時刻まで音量表示を出さない。
+ * 次の1回だけ音量表示を出さない。
  *
- * ONへ戻した瞬間は必ず%が変わるため、そのままだとブラウン管が開いた直後に
- * 音量画面が割り込み、顔より先に数字が出てしまう（違和感の正体）。
+ * ONへ戻すとしきい値を跨いだぶんで必ず%が変わるため、そのままだと
+ * ブラウン管が開いた直後に音量画面が割り込み、顔より先に数字が出る。
+ *
+ * **時間で抑えてはいけない**（一度そうして直した）。抑えている間に回しても
+ * 数字が動かず、「OFF直後にひねっても%が変わらない」という別の不満になる。
+ * 跨いだ1回ぶんだけ捨てれば、手を止めれば顔・回し続ければ%と両立する。
  */
-static uint32_t volOverlaySuppressUntilMs = 0;
+static bool volOverlaySuppressOnce = false;
+/**
+ * この時刻まで画面を黒のままにする（顔も接続表示も描かない）。
+ *
+ * ブラウン管が開いた直後に顔を描くと、まだ回している人には
+ * 「顔が一瞬出てから数字に差し替わる」ちらつきになる。開いた後を少し黒で
+ * 持たせれば、その間に回していれば数字へ・止まっていれば顔へ、直接分岐できる。
+ */
+static uint32_t uiBlankUntilMs = 0;
 
 /**
  * 音量の画面（数字を大きく＋下にインジケーター）を1枚描く。
@@ -207,6 +241,9 @@ static uint32_t volOverlaySuppressUntilMs = 0;
  * OFFへ倒した瞬間にも直接呼ぶ（ブラウン管アニメの前に「OFF」を見せるため）。
  */
 static void drawVolumeScreen(int pct) {
+    if (KATANORI_I2C_SILENCE) {
+        return;
+    }
     char buf[8];
     if (pct <= 0) {
         snprintf(buf, sizeof(buf), "OFF");
@@ -285,11 +322,21 @@ public:
     }
 
     void flushDisplay(const uint8_t* fb) override {
+        if (KATANORI_I2C_SILENCE) {
+            return;
+        }
         u8g2.clearBuffer();
 
         // つまみを回している間は音量だけ。顔も接続表示も出さない（最優先）
         if (drawVolumeScreenIfActive()) {
             return; // 描画と転送は drawVolumeScreen() の中で済んでいる
+        }
+
+        // 復帰アニメ直後の黒。ここで顔を描くと、まだ回している人には
+        // 顔が一瞬出てから数字へ差し替わるちらつきになる
+        if (static_cast<int32_t>(::millis() - uiBlankUntilMs) < 0) {
+            u8g2.sendBuffer(); // clearBuffer 済み = 黒
+            return;
         }
 
         // 繋がっていないときは顔を出さない。顔と併記できる大きさでは読めなかった。
@@ -446,7 +493,9 @@ static constexpr uint16_t kKnobHystRaw = (uint16_t)(3ul * 4096 / 360);
 
 /** スイッチの生読み（ADCフォールバック用）。ON位置=接点が閉じてGNDに落ちる=LOW。 */
 static bool knobSwitchRawOn() {
-#if KATANORI_KNOB_SW_INVERT
+#if KATANORI_KNOB_SW < 0
+    return true;  // スイッチ無し構成: 常にON。OFFはAS5600の角度閾値で判定する
+#elif KATANORI_KNOB_SW_INVERT
     return digitalRead(KATANORI_KNOB_SW) == HIGH;
 #else
     return digitalRead(KATANORI_KNOB_SW) == LOW;
@@ -549,7 +598,9 @@ static int knobAdcToPercent(int adc) {
  * 誤認し、ソフト側の理由で無音になるため、電気的な原因と区別がつかなくなる。
  * 止めているあいだはゲインもOFF判定も固定される。
  */
-static bool knobEnabled = true;
+// I2C_SILENCEビルドでは最初から止める。つまみ未接続のADC浮きが「OFF位置」に
+// 化けて疑似電源OFFへ落ち、micテストを邪魔するのを防ぐ。
+static bool knobEnabled = KATANORI_I2C_SILENCE == 0;
 
 /**
  * OFF状態の確定。切り替わったときの後始末は経路（AS5600/ADC）によらず同じ。
@@ -561,6 +612,8 @@ static bool knobEnabled = true;
  * この2/3秒があるだけで「自分が消した」になる（ユーザー要望 2026-08-03）。
  * 描画を止めて一気に描く（OLEDの全面転送が約29msなので、これで約0.4秒）。
  */
+static void powerSleepOled(); // 定義は疑似電源OFFの節（powerOledDown の直後）
+
 static void playCrtOffAnimation() {
     const int cx = 64;
     const int cy = 32;
@@ -582,6 +635,7 @@ static void playCrtOffAnimation() {
         u8g2.sendBuffer();
     }
     // 3) 残光。3px -> 1px と細めてから消す（いきなり消すと角が立つ）
+    //    ※ 最後に画面そのものを落とす。演出の後に顔が戻らないようにするため
     u8g2.clearBuffer();
     u8g2.drawBox(cx - 1, cy - 1, 3, 3);
     u8g2.sendBuffer();
@@ -592,6 +646,15 @@ static void playCrtOffAnimation() {
     delay(60);
     u8g2.clearBuffer();
     u8g2.sendBuffer();
+
+    /*
+     * 画面を落とすところまでが演出。
+     *
+     * 疑似電源OFFが画面を消すのは「OFF判定から2秒後」だが、演出は約1.2秒で
+     * 終わる。その差の約0.8秒で通常の描画が動き、**消えた直後に顔が戻る**
+     * （2026-08-03に実機で発生）。演出まで出したならもう確定でよい。
+     */
+    powerSleepOled();
 }
 
 static void powerWakeOled(); // 定義は疑似電源OFFの節（powerOledDown の直後）
@@ -638,10 +701,14 @@ static void playCrtOnAnimation() {
     u8g2.sendBuffer();
     delay(120);
 
-    // 6) 開いた直後は音量表示を抑える。ONに戻すと必ず%が変わるので、
-    //    抑えないと顔ではなく数字が先に出てしまう
+    // 6) しきい値を跨いだぶんの%変化は1回だけ捨てる。捨てないと顔ではなく
+    //    数字が先に出てしまう（回し続けたときは2回目以降が出るので邪魔しない）
     volOverlayUntilMs = millis();
-    volOverlaySuppressUntilMs = millis() + 900;
+    volOverlaySuppressOnce = true;
+
+    // 7) その後しばらく黒で持たせる。この間に回していれば数字へ、
+    //    止まっていれば顔へ直接入る（顔をちらっと見せない）
+    uiBlankUntilMs = millis() + 250;
 }
 
 static void knobSetOffState(bool off) {
@@ -685,9 +752,11 @@ static void knobSetPercent(int pct) {
     if (knobPercent < 0 || endstop || abs(pct - knobPercent) >= 2) {
         knobPercent = pct;
         applyKnobVolume(pct);
-        // 回した本人に見えるように画面へ出す。ただし復帰アニメの直後は出さない
-        // （顔が戻るのを先に見せる。抑制が明けてから回せば普通に出る）
-        if (static_cast<int32_t>(millis() - volOverlaySuppressUntilMs) >= 0) {
+        // 回した本人に見えるように画面へ出す。ただし復帰アニメ直後の1回だけは
+        // 捨てる（顔が戻るのを先に見せる。回し続ければ次からは普通に出る）
+        if (volOverlaySuppressOnce) {
+            volOverlaySuppressOnce = false;
+        } else {
             volOverlayPct = pct;
             volOverlayUntilMs = millis() + kVolOverlayMs;
         }
@@ -811,6 +880,13 @@ static void knobSaveZero() {
 
 /** つまみの読み元の判定。起動時と 'knobsrc' で呼ぶ。 */
 static void knobProbeSource(bool verbose) {
+    if (KATANORI_I2C_SILENCE) {
+        knobAs5600Ok = false;
+        if (verbose) {
+            Serial.println("[KNOB] I2C_SILENCE: AS5600を探しません（ADC経路）");
+        }
+        return;
+    }
     uint8_t status = 0;
     knobAs5600Ok = as5600Read(0x0B, &status, 1);
     knobReadFailures = 0;
@@ -833,6 +909,15 @@ static void knobInit() {
     knobZeroRaw = prefs.getUShort("zero", 0);
     prefs.end();
     knobProbeSource(true);
+
+    // AS5600が居らず連動スイッチも無い＝つまみのハードが丸ごと未接続。
+    // そのままADCフォールバックに落とすと、浮いたD0の読みが音量に化けて
+    // 予測不能な大音量になり得る（2026-08-05: 30%でも驚かせた）。読みを止めて
+    // 既定ゲインで動く。AS5600を繋げば次回起動から自動で有効になる。
+    if (!knobAs5600Ok && KATANORI_KNOB_SW < 0) {
+        knobEnabled = false;
+        Serial.println("[KNOB] つまみ未接続（AS5600なし・スイッチなし）: 読み取りを止め、既定音量で動きます");
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -863,6 +948,21 @@ static void powerWakeOled() {
     if (powerOledDown) {
         powerOledDown = false;
         u8g2.setPowerSave(0);
+    }
+}
+
+/**
+ * 画面を落とす。OFF演出の最後に呼ぶ。
+ *
+ * pumpPowerDown() の2秒待ちを待たずに落とすのは、演出が終わってから
+ * 待ち時間が明けるまでの隙間で顔が描き直されてしまうため。
+ * 段階の管理は powerOledDown が持つので、ここで立てておけば
+ * pumpPowerDown() は二重に落とさず、ONへ戻せば正しく戻る。
+ */
+static void powerSleepOled() {
+    if (!powerOledDown) {
+        powerOledDown = true;
+        u8g2.setPowerSave(1);
     }
 }
 
@@ -963,6 +1063,9 @@ static void pumpPowerDown() {
 // ---------------------------------------------------------------------------
 
 static void pumpCodecWatch() {
+    if (KATANORI_I2C_SILENCE) {
+        return;
+    }
     static uint32_t lastPollMs = 0;
     static bool lastAlive = true;
 
@@ -1020,6 +1123,9 @@ static bool outputGateOverride = false;
 
 /** 出力ゲート。main loop から毎回呼ぶ。 */
 static void pumpOutputGate() {
+    if (KATANORI_I2C_SILENCE) {
+        return;
+    }
     static uint32_t emptySinceMs = 0;
 
     // つまみがOFF位置のあいだは何があっても閉じておく。
@@ -2332,6 +2438,9 @@ static void sweepI2cPins() {
  * (selfTestUntilMs はファイル先頭で宣言している。描画側からも見るため)
  */
 static void runSelfTest() {
+    if (KATANORI_I2C_SILENCE) {
+        return;
+    }
     Serial.println("[TEST] 自己診断パターンを5秒表示します (U8g2直描画)");
     u8g2.clearBuffer();
     u8g2.drawFrame(0, 0, 128, 64);
@@ -2361,6 +2470,9 @@ static bool provShowQr = true;
  *   右 : AP名・URL・ステータス。ステータスだけが状況に応じて変わる。
  */
 static void renderProvisioning() {
+    if (KATANORI_I2C_SILENCE) {
+        return;
+    }
     static char lastPayload[64] = {0};
     static QRCode qr;
     // qrcode_getBufferSize() は関数なので配列長に使えない。
@@ -2697,7 +2809,8 @@ static void handleSerial() {
                               "SW=%s -> つまみ%s\n",
                               analogRead(KATANORI_VOL_ADC), knobPercent,
                               katanori::audioIo.gain(),
-                              digitalRead(KATANORI_KNOB_SW) == LOW ? "LOW(閉)" : "HIGH(開)",
+                              KATANORI_KNOB_SW < 0 ? "無し(常時ON)"
+                                  : (knobSwitchRawOn() ? "閉" : "開"),
                               knobOff ? "OFF" : "ON");
             }
             Serial.printf("[PWR]  疑似電源OFF=%s 画面=%s 通信=%s\n",
@@ -2983,7 +3096,11 @@ void setup() {
 
     // 出力は既定でミュート。この状態が次のリセットまで保持されるので、
     // 起動時にROMブートログが轟音になるのを防げる。喋る直前だけ解除する。
-    katanori::audioIo.setOutputMute(true);
+    // I2C_SILENCE中はこの書き込みもしない（XMOSのコーデック初期化と重なる、
+    // まさに疑っているタイミングのため）。スピーカー線は外しておくこと。
+    if (!KATANORI_I2C_SILENCE) {
+        katanori::audioIo.setOutputMute(true);
+    }
 
     // ネイティブUSB CDC はホストが開くまで出力が捨てられる。
     // ブートログを取りこぼさないよう最大3秒待つ (未接続でも先へ進む)。
@@ -2991,6 +3108,14 @@ void setup() {
     while (!Serial && (millis() - t0) < 3000) {
         delay(10);
     }
+
+#if KATANORI_MIN_BOOT == 1
+    // 診断: audioIo.begin() の直後で setup を打ち切る。これで mic が読めれば
+    // 犯人はこの下の初期化のどれか。読めなければ begin() 内部かビルド構成。
+    // → 結果(2026-08-05): ★読めた(16384fps)。犯人はこの下にいる
+    Serial.printf("[MINBOOT] audioOk=%d ここでsetupを打ち切ります\n", audioOk ? 1 : 0);
+    return;
+#endif
 
     Serial.println();
     Serial.println("=============================================");
@@ -3001,11 +3126,33 @@ void setup() {
     pinMode(KATANORI_BOOT_BUTTON, INPUT_PULLUP);
     pinMode(KATANORI_USR_BUTTON, INPUT_PULLUP);
 
-    // 音量つまみ。ADCフォールバック用のピンも従来どおり構えておく
-    // （連動スイッチはGNDとの間に入っているのでプルアップで読む。
-    //   これを忘れるとOFF位置(接点が開)でピンが浮いて読み値がふらつく）
+#if KATANORI_MIN_BOOT == 4
+    // 診断: prints + BOOT/USRボタンのpinModeまで通して打ち切る
+    Serial.println("[MINBOOT4] BOOT/USR pinMode 後に打ち切ります");
+    return;
+#endif
+
+    // 音量つまみ。ADCフォールバック用のピンも従来どおり構えておく。
+    // ⚠ KATANORI_KNOB_SW は既定 -1（スイッチ無し）。GPIO2はXMOSのリセット線
+    //   なので、正の値を入れる場合でも 2 は絶対に指定しないこと（上の定義の注記）。
+#if KATANORI_KNOB_SW >= 0
     pinMode(KATANORI_KNOB_SW, INPUT_PULLUP);
+#endif
+
+#if KATANORI_MIN_BOOT == 6
+    // 診断: pinMode(KNOB_SW=GPIO2/D1) だけ通して打ち切る
+    Serial.println("[MINBOOT6] pinMode(KNOB_SW) 後に打ち切ります");
+    return;
+#endif
+
     analogReadResolution(12);
+
+#if KATANORI_MIN_BOOT == 5
+    // 診断: pinMode(KNOB_SW) + analogReadResolution まで通して打ち切る
+    Serial.println("[MINBOOT5] analogReadResolution 後に打ち切ります");
+    return;
+#endif
+
     knobInit(); // AS5600が応答すれば角度読み、しなければADC（Wireは初期化済み）
 
     // ユーザーLEDを消灯 (アクティブLOWなのでHIGHで消える)
@@ -3016,22 +3163,39 @@ void setup() {
     Serial.printf("[I2C] SDA=GPIO%d SCL=GPIO%d @400kHz\n",
                   KATANORI_I2C_SDA, KATANORI_I2C_SCL);
 
-    bool oledOk = scanI2c();
-
-    u8g2.setI2CAddress(KATANORI_OLED_ADDR << 1);
-    u8g2.setBusClock(400000);
-    if (u8g2.begin()) {
-        Serial.println("[OLED] SSD1306 init ok");
+    bool oledOk = false;
+    if (KATANORI_I2C_SILENCE) {
+        Serial.println("[I2C] SILENCEビルド: スキャン・OLED・コーデックに一切触りません");
     } else {
-        Serial.println("[OLED] !! init failed");
+        oledOk = scanI2c();
+
+        u8g2.setI2CAddress(KATANORI_OLED_ADDR << 1);
+        u8g2.setBusClock(400000);
+        if (u8g2.begin()) {
+            Serial.println("[OLED] SSD1306 init ok");
+        } else {
+            Serial.println("[OLED] !! init failed");
+        }
+        if (!oledOk) {
+            Serial.println("[OLED] (I2Cスキャンで見つからなかったため描画されない可能性があります)");
+        }
     }
-    if (!oledOk) {
-        Serial.println("[OLED] (I2Cスキャンで見つからなかったため描画されない可能性があります)");
-    }
+
+#if KATANORI_MIN_BOOT == 3
+    // 診断: pinMode/knobInit までは通し、netLink.begin() の手前で打ち切る
+    Serial.println("[MINBOOT3] netLink.begin() の手前で打ち切ります");
+    return;
+#endif
 
     katanori::netLink.begin();
     katanori::netLink.setAudioSink(onAudio);
     katanori::netLink.setControlSink(onControl);
+
+#if KATANORI_MIN_BOOT == 2
+    // 診断: netLink.begin() まで通してから打ち切る
+    Serial.println("[MINBOOT2] netLink.begin() 後に打ち切ります");
+    return;
+#endif
 
     if (audioOk) {
         katanori::audioIo.printStatus();
@@ -3059,6 +3223,16 @@ void setup() {
 }
 
 void loop() {
+#if KATANORI_MIN_BOOT
+    // 診断: 5秒ごとに1秒だけマイクを読む。それ以外は何もしない。
+    static uint32_t lastMicMs = 0;
+    if (millis() - lastMicMs >= 5000) {
+        lastMicMs = millis();
+        katanori::audioIo.micTest(1000);
+    }
+    delay(10);
+    return;
+#endif
     handleSerial();
     handleButton();
 

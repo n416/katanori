@@ -182,7 +182,9 @@ private:
     int curBits_ = 16;
     volatile bool recording_ = false;
     volatile float micLevel_ = 0.0f;
-    volatile float gain_ = 0.35f;
+    // 既定音量。0.30で「大きすぎてびっくりした」（2026-08-05・実機で本人）ため
+    // 控えめに置く。肩＝耳元数cmの装着位置が基準。上げるのは `vol` かつまみで。
+    volatile float gain_ = 0.15f;
     bool muted_ = true;   // 既定はミュート。起動時の轟音を防ぐため。
 
     // 統計 (デバッグ用)
