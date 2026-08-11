@@ -1375,11 +1375,29 @@ static void noteWifiUp() {
     wifiEverConnected = true;
     if (!bootAnnounced) {
         bootAnnounced = true;
-        // ここが「使える状態になった」の合図。シリアルを持たない相手には
-        // これが唯一の手がかりになる。
-        announce(katanori::clips::BOOT_READY,
-                 katanori::clips::BOOT_READY_SAMPLES,
-                 "カタノリ、起動しました！");
+
+        // 設定モードで保存した直後の接続なら「つながりました」を優先する。
+        // 「起動しました」では、いま入れたパスワードが合っていたのかが
+        // 伝わらない（設定の保存後は再起動を挟むので、印はNVS越しに届く）。
+        Preferences p;
+        p.begin("katanori", false);
+        bool justProvisioned = p.getBool("provok", false);
+        if (justProvisioned) {
+            p.remove("provok");
+        }
+        p.end();
+
+        if (justProvisioned) {
+            announce(katanori::clips::WIFI_OK,
+                     katanori::clips::WIFI_OK_SAMPLES,
+                     "ワイファイにつながりました！");
+        } else {
+            // ここが「使える状態になった」の合図。シリアルを持たない相手には
+            // これが唯一の手がかりになる。
+            announce(katanori::clips::BOOT_READY,
+                     katanori::clips::BOOT_READY_SAMPLES,
+                     "カタノリ、起動しました！");
+        }
     }
 }
 
@@ -1521,8 +1539,13 @@ static void pumpAutoConnect() {
     // 一度も繋がっていない機体だけを設定モードへ落とす。一度繋がった後の切断は
     // ルーターの再起動や電波状況なので、勝手に設定モードへ入れない
     // （会話の途中で設定画面になるほうが利用者には理不尽）。
+    //
+    // authBad は1回では信じない。再起動直後の初回接続は、正しいパスワードでも
+    // ハンドシェイク不成立(理由15)で落ちることがある（実機で確認。設定を保存→
+    // 再起動→即「設定してください」に戻るループの正体がこれだった）。
     if (!wifiEverConnected &&
-        (authBad || wifiFailures >= WIFI_FAILURES_TO_PROVISIONING)) {
+        ((authBad && wifiFailures >= 2) ||
+         wifiFailures >= WIFI_FAILURES_TO_PROVISIONING)) {
         // 保存された設定では繋がらない。利用者が自分で直せるよう設定モードへ。
         Serial.println(authBad ? "[NET] パスワードが違うようです。Wi-Fi設定モードへ移ります"
                        : noAp  ? "[NET] 設定されたWi-Fiが見当たりません。"
@@ -2687,10 +2710,10 @@ static void printHelp() {
     Serial.println("   ? : このヘルプ");
     Serial.println(" BOOT/Usrボタン: 短押しで会話の開始/終了、3秒長押しでWi-Fi設定モード");
     Serial.println("--- ネットワーク ---------------------------");
-    Serial.println("   ssid <名前>       : Wi-Fi の SSID を保存");
-    Serial.println("   pass <パスワード> : Wi-Fi のパスワードを保存");
+    Serial.println("   ssid <名前>       : Wi-Fi の SSID を追加（最新5件まで保存）");
+    Serial.println("   pass <パスワード> : 直前の ssid のパスワードを保存");
     Serial.println("   prov / provoff    : Wi-Fi設定モードの開始/終了（BOOT3秒長押しでも可）");
-    Serial.println("   forget            : 保存したWi-Fi設定を消去");
+    Serial.println("   forget [名前]     : Wi-Fi設定を消去（名前省略で全消去）");
     Serial.println("   scan              : 周囲のAPを一覧表示");
     Serial.println("   wifi              : Wi-Fiへ接続");
     Serial.println("   wifioff           : Wi-Fiを切断");
@@ -2748,6 +2771,8 @@ static void handleSerial() {
             katanori::netLink.setSsid(line + 5);
         } else if (strncmp(line, "pass ", 5) == 0) {
             katanori::netLink.setPassword(line + 5);
+        } else if (strncmp(line, "forget ", 7) == 0) {
+            katanori::netLink.removeCredential(line + 7);
         } else if (strcmp(line, "forget") == 0) {
             katanori::netLink.clearCredentials();
         } else if (strcmp(line, "scan") == 0) {

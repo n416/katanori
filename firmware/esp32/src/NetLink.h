@@ -61,8 +61,20 @@ public:
     void loop();
 
     // --- Wi-Fi 資格情報 (NVSへ永続化) ---
+    //
+    // 最新5件まで保存する（自宅とスマホテザリングの併用のため）。
+    // 一覧は「新しい順」で持ち、6件目を登録すると最も古い1件が押し出される。
+    // 接続に成功したSSIDも先頭へ繰り上がる（=よく使うものが残る）。
+
+    /** SSIDを一覧の先頭に追加する。既存の同名SSIDは先頭へ移動（パスワード維持）。 */
     void setSsid(const char* ssid);
+    /** 直前に setSsid したSSID（一覧の先頭）にパスワードを設定する。 */
     void setPassword(const char* pass);
+    /** SSIDとパスワードをまとめて登録する（設定ポータル用）。 */
+    void addCredential(const char* ssid, const char* pass);
+    /** 指定SSIDを一覧から削除する。無ければ false。 */
+    bool removeCredential(const char* ssid);
+    /** 保存したWi-Fi設定を全て消す。 */
     void clearCredentials();
     bool hasCredentials() const;
 
@@ -78,6 +90,14 @@ public:
      */
     using WaitHook = void (*)();
 
+    /**
+     * 保存済みのWi-Fiへ接続する。
+     *
+     * 2件以上あるときは先にスキャンし、見えている保存済みSSIDを電波の強い順に
+     * 試す。スキャンに映らなかった保存分（名前を隠したAP）も最後に試す。
+     * timeoutMs は「1候補あたり」の上限。駄目な候補は理由コードで数秒で
+     * 打ち切られるので、全滅でも timeoutMs×件数 まで待つことは普通はない。
+     */
     bool wifiConnect(uint32_t timeoutMs = 20000, WaitHook onWait = nullptr);
 
     /*
@@ -88,10 +108,10 @@ public:
      * ので、設定モードへ渡す判断と、画面に出す文言の選択に使う。
      */
 
-    /** 直近の切断理由が「パスワードが違う」を指しているか。 */
+    /** 直近の wifiConnect() で「パスワードが違う」候補が1つでもあったか。 */
     bool lastFailureWasAuth() const;
     /**
-     * 直近の切断理由が「そのSSIDが電波に出ていない」を指しているか。
+     * 直近の wifiConnect() で試した全候補が「電波に出ていない」だったか。
      *
      * 引っ越し・ルーター交換で保存済みSSIDが消えた場合がこれ。スキャンで
      * 一覧を取って判断する手もあるが、名前を隠したAPが1つでも近くにあると
@@ -133,8 +153,27 @@ public:
     void printStatus() const;
 
 private:
-    String ssid_;
-    String pass_;
+    static constexpr int kMaxCreds = 5;
+
+    struct Cred {
+        String ssid;
+        String pass;
+    };
+
+    /** 一覧全体をNVSへ書き戻す。 */
+    void persist();
+    /** 同名SSIDを先頭へ移動（無ければ先頭へ追加、あふれた最古は削除）。 */
+    void upsertFront(const char* ssid);
+    /** creds_[idx] へ1回だけ接続を試す。 */
+    bool tryConnectOne(int idx, uint32_t timeoutMs, WaitHook onWait);
+
+    Cred creds_[kMaxCreds]; // 新しい順
+    int credCount_ = 0;
+
+    // 直近の wifiConnect() の失敗内容の集計。候補が複数になったので、
+    // 「どれか1つでパスワード誤り」「全候補が圏外」を区別して持つ。
+    bool anyAuthFail_ = false;
+    bool allNoAp_ = false;
 };
 
 extern NetLink netLink;
