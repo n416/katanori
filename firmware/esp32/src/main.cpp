@@ -94,26 +94,32 @@
 #define KATANORI_KNOB_DIR_INVERT 0  // 回して%が逆に動く組み付けはこれを1に (DIR=GNDで時計回り増が既定)
 #endif
 
-// 音量つまみ（旧・フォールバック: スイッチ付き可変抵抗 RV121SF-20-02J-B10K）
-// 中点 -> D0 = GPIO1 (ADC1_CH0)。外側2本は 3V3 と GND（OFF位置でワイパーが
-// 導通している側の端子がGND。半田付け前にテスターで確認済みであること）。
-#ifndef KATANORI_VOL_ADC
-#define KATANORI_VOL_ADC 1
-#endif
-
-// つまみ連動スイッチ。⚠ 旧設計では D1 = GPIO2 を使っていたが、**D1(GPIO2)は
-// 基板内でXMOSのリセット線（アクティブHIGH）に繋がっている**（2026-08-05確定。
-// ESPHome公式構成の reset_pin: GPIO2 と、この1行の有無で mic 0フレームが
-// 再現/解消することの両方で確認）。INPUT_PULLUP にした瞬間、XMOSはリセットに
-// 押さえ込まれてI2Sが止まる。**GPIO2には二度と pinMode しないこと。**
+// 音量つまみはAS5600（I2C・非接触絶対角度）のみ。可変抵抗のADCフォールバックは
+// 2026-08-11 に削除した（ポットを二度と戻さない方針が確定したため。旧経路の記録は
+// docs/KNOB-ENCODER.md）。これによりファームは **D0(GPIO1) に一切触らない**。
+// ただしD0を空きピンとして使うのは、ワイパー線を外した独立テストで生死を
+// 確認してから（「high 0 で3Vが出ない」はポット接続下の測定で、証拠不成立）。
+//
+// ⚠ 旧つまみ連動スイッチが繋がっていた **D1(GPIO2) は、基板内でXMOSのリセット線
+// （アクティブHIGH）に直結している**（2026-08-05確定。ESPHome公式構成の
+// reset_pin: GPIO2 と、pinMode 1行の有無で mic 0フレームが再現/解消することの
+// 両方で確認）。INPUT_PULLUP にした瞬間、XMOSはリセットに押さえ込まれて
+// I2Sが止まる。**GPIO2には二度と pinMode しないこと。**
 // 旧ボードで「つまみを回すとコーデックが死ぬ」ように見えたのもこれ
 // （スイッチがGNDに落としている間だけXMOSが動けていた）。
-// -1 = スイッチ無し（常にON扱い。OFF判定はAS5600の角度閾値が担う）
-#ifndef KATANORI_KNOB_SW
-#define KATANORI_KNOB_SW -1
-#endif
-#ifndef KATANORI_KNOB_SW_INVERT
-#define KATANORI_KNOB_SW_INVERT 0
+
+// スピーカーのミュートリレー (docs/POWER.md)。HIGHでコイルが吸着し、接点が閉じて
+// スピーカーが繋がる。アンプ出力とスピーカーの間に接点が入っている。
+//
+// ⚠ **D10(GPIO9) は使えない。** ファームでは未使用だが ReSpeaker Lite 側が握っていて、
+// 線を挿すだけで電源投入時にリレーが閉じっぱなしになった（2026-08-08 実測。テスターで
+// 1.49V ＝ クロックの平均値と見られる）。「ファームで未使用」は「ピンが空いている」ではない。
+//
+// リレー基板側のベースに 10kΩ のプルダウンが入っているので、リセット・書き込み中・
+// クラッシュでこのピンが浮けば**接点は必ず開く**。耳を守っているのはソフトではなく、
+// この「電気が来ていなければ開く」という配線そのもの。
+#ifndef KATANORI_MUTE_RELAY_PIN
+#define KATANORI_MUTE_RELAY_PIN 4  // D3 = GPIO4
 #endif
 
 // つまみ最大位置のゲイン。アンプは5Wまで出せるがスピーカーは2W・耳も近いので
@@ -121,9 +127,6 @@
 #ifndef KATANORI_KNOB_MAX_GAIN
 #define KATANORI_KNOB_MAX_GAIN 0.70f
 #endif
-
-// ADCフォールバック時のつまみ位置の換算は線形式ではなく実測テーブル kKnobCurve
-// （音量つまみの節）。外側2本の向きの吸収もテーブルが担う（旧 KATANORI_VOL_INVERT は廃止）。
 
 // 描画レート。128x64 の全面転送は 400kHz I2C で約23ms かかるため、
 // 20FPS(50ms)がこの構成の実用上限。上げたい場合は I2C を 1MHz にする。
@@ -468,13 +471,13 @@ static bool knobOff = false;
 /** ならした後のつまみ位置(0-100)。-1 = まだ一度も読めていない。 */
 static int knobPercent = -1;
 
-/** AS5600で角度を読めているか。false のあいだはADC経路で動く。 */
+/** AS5600で角度を読めているか。false のあいだは音量もOFF状態も最後の値で固定。 */
 static bool knobAs5600Ok = false;
 /** ゼロ点（OFF位置のRAW ANGLE値）。NVSの "knob/zero"。 */
 static uint16_t knobZeroRaw = 0;
 /** ゼロ点を一度でも保存したか。未設定のままでは角度が当てにならない。 */
 static bool knobZeroSet = false;
-/** 連続して読めなかった回数。続いたらADCへフォールバックする。 */
+/** 連続して読めなかった回数。続いたら knobAs5600Ok を落として知らせる。 */
 static uint8_t knobReadFailures = 0;
 
 // 角度(度)をRAW ANGLEの刻み(4096/周)へ。閾値の比較はすべてこの単位で行う
@@ -490,17 +493,6 @@ static constexpr uint16_t kKnobFullFromRaw =
                                                 : kKnobSpanRaw;
 /** OFF解除はOFF閾値より3度上（境目でのバタつき防止のヒステリシス）。 */
 static constexpr uint16_t kKnobHystRaw = (uint16_t)(3ul * 4096 / 360);
-
-/** スイッチの生読み（ADCフォールバック用）。ON位置=接点が閉じてGNDに落ちる=LOW。 */
-static bool knobSwitchRawOn() {
-#if KATANORI_KNOB_SW < 0
-    return true;  // スイッチ無し構成: 常にON。OFFはAS5600の角度閾値で判定する
-#elif KATANORI_KNOB_SW_INVERT
-    return digitalRead(KATANORI_KNOB_SW) == HIGH;
-#else
-    return digitalRead(KATANORI_KNOB_SW) == LOW;
-#endif
-}
 
 /**
  * つまみ位置(0-100)を再生ゲインへ写す。
@@ -560,46 +552,13 @@ static int knobAngleToPercent(uint16_t rel) {
     return pct > 100 ? 100 : pct;
 }
 
-// ADC実測値 -> つまみ位置(%)。2026-07-29 にこの個体で実測した換算テーブル。
-// B10K（直線）のはずが実際は「3時で22%・4時→5時の区間に全変化の6割」という
-// 極端なカーブで、線形換算では音量調整として使いものにならない。実測点を
-// 区間線形補間して「見た目の回転角 ≒ %」へ戻す。
-// ADCが減少方向なのは左端（OFF側）が3V3に付いている個体だから。向きの吸収も
-// この表が担う。つまみを交換・再半田したら必ず取り直すこと（各位置で `knob` を
-// 読んで下の点を差し替える）。
-static const struct { int adc; int pct; } kKnobCurve[] = {
-    { 4095,   0 },  // 最小（カチッの直後）
-    { 3464,  50 },  // 12時
-    { 3116,  78 },  // 3時
-    { 2619,  88 },  // 4時
-    {   24,  97 },  // 5時
-    {    0, 100 },  // 右端
-};
-
-static int knobAdcToPercent(int adc) {
-    if (adc >= kKnobCurve[0].adc) {
-        return kKnobCurve[0].pct;
-    }
-    for (size_t i = 1; i < sizeof(kKnobCurve) / sizeof(kKnobCurve[0]); ++i) {
-        if (adc >= kKnobCurve[i].adc) {
-            long span = kKnobCurve[i - 1].adc - kKnobCurve[i].adc;
-            long dpct = kKnobCurve[i].pct - kKnobCurve[i - 1].pct;
-            return kKnobCurve[i - 1].pct
-                 + static_cast<int>((kKnobCurve[i - 1].adc - adc) * dpct / span);
-        }
-    }
-    return 100;
-}
-
 /**
  * つまみを読むか。シリアル `knobdis` で止められる。
  *
- * 配線を外して切り分けるときに使う。外したままだとピンが浮いて「OFF位置」と
- * 誤認し、ソフト側の理由で無音になるため、電気的な原因と区別がつかなくなる。
- * 止めているあいだはゲインもOFF判定も固定される。
+ * 配線を外して切り分けるときに使う。止めているあいだはゲインもOFF判定も
+ * 固定される。
  */
-// I2C_SILENCEビルドでは最初から止める。つまみ未接続のADC浮きが「OFF位置」に
-// 化けて疑似電源OFFへ落ち、micテストを邪魔するのを防ぐ。
+// I2C_SILENCEビルドは「I2Cに一切触らない」縛りなので最初から止める。
 static bool knobEnabled = KATANORI_I2C_SILENCE == 0;
 
 /**
@@ -711,6 +670,42 @@ static void playCrtOnAnimation() {
     uiBlankUntilMs = millis() + 250;
 }
 
+// ---------------------------------------------------------------------------
+// スピーカーのミュートリレー
+//
+// 耳を守る仕組みをソフトに依存させない、というのがこの部品の趣旨（docs/POWER.md）。
+// ここのコードは「普段どおり動いているときに接点を閉じる」だけを担当していて、
+// 異常時の保証はしていない。異常時に守っているのは基板側の 10kΩ プルダウンで、
+// リセット・書き込み中・クラッシュ・ブラウンアウトでピンが浮けば接点は勝手に開く。
+// ---------------------------------------------------------------------------
+
+/** 接点が閉じている（＝スピーカーが繋がっている）か。 */
+static bool muteRelayClosed = false;
+
+/**
+ * 接点を開閉する。
+ *
+ * ⚠ **順序が要る。** 閉じるのはコーデックがミュートされている状態で、開くのは
+ * コーデックをミュートした後。電流が流れている最中に接点を切るとポップが出るし、
+ * 接点にもアークが出る。呼ぶ側でこの順序を守ること。
+ *
+ * 開くときは出力LOWで能動的に落とす。10kΩ のプルダウンは残しておいて、
+ * 「ファームが動いていないとき」の担保に専念させる。
+ */
+static void muteRelaySet(bool closed) {
+    if (KATANORI_MUTE_RELAY_PIN < 0) {
+        return;
+    }
+    if (closed == muteRelayClosed) {
+        return;
+    }
+    pinMode(KATANORI_MUTE_RELAY_PIN, OUTPUT);
+    digitalWrite(KATANORI_MUTE_RELAY_PIN, closed ? HIGH : LOW);
+    muteRelayClosed = closed;
+    Serial.printf("[RELAY] 接点を%s\n", closed ? "閉じました（スピーカー接続）"
+                                               : "開きました（スピーカー切離）");
+}
+
 static void knobSetOffState(bool off) {
     // 起動直後の初回同期では鳴らさない（自己診断パターンを潰さないため）
     static bool inited = false;
@@ -723,6 +718,14 @@ static void knobSetOffState(bool off) {
         if (conversationActive()) {
             endConversation();
         }
+        // 順序を守る: コーデックをミュート -> 接点を開く。
+        // 逆にすると鳴っている最中に接点が切れてポップが出る。
+        // ⚠ pumpOutputGate() も knobOff を見てミュートするが、あちらは次の周回まで
+        //    走らない。接点をここで開ける以上、ミュートもここで済ませておく。
+        if (!KATANORI_I2C_SILENCE) {
+            katanori::audioIo.setOutputMute(true);
+        }
+        muteRelaySet(false);
         // Wi-Fi設定モード中はQRを消してはいけない（読み取り中の可能性がある）
         if (animate && !katanori::provisioning.active()) {
             // 先に「OFF」を見せる。いきなり消えると、自分がOFFにしたのか
@@ -737,6 +740,9 @@ static void knobSetOffState(bool off) {
         // 何も起きなかったことにするため）
     } else {
         Serial.println("[KNOB] ON位置");
+        // 上りは逆順。コーデックがミュートされているうちに接点を閉じる（乾いた開閉）。
+        // 解除は pumpOutputGate() が、鳴らすものがキューに入った時点でやる。
+        muteRelaySet(true);
         if (animate && !katanori::provisioning.active()) {
             playCrtOnAnimation();
         }
@@ -768,11 +774,12 @@ static void pumpKnobAs5600(uint32_t now) {
     uint8_t buf[2];
     if (!as5600Read(0x0C, buf, 2)) {
         // 1回の失敗では騒がない（バスはOLEDの全面転送と共用で混んでいる）。
-        // 続くようなら配線が抜けたと判断してADC経路へ落とす。
+        // 続くようなら配線が抜けたと判断して読みを止める。音量とOFF状態は
+        // 最後の値のまま固定（勝手に0%や大音量へ飛ばさない）。
         if (++knobReadFailures >= 5) {
             knobAs5600Ok = false;
             knobReadFailures = 0;
-            Serial.println("[KNOB] !! AS5600が応答しません。可変抵抗(ADC)の読みへ切り替えます");
+            Serial.println("[KNOB] !! AS5600が応答しません。音量は最後の値のまま固定します");
             Serial.println("[KNOB]    配線を確認して 'knobsrc' で再判定（'mag' で詳細が見えます）");
         }
         return;
@@ -805,32 +812,6 @@ static void pumpKnobAs5600(uint32_t now) {
     knobSetPercent(knobOff ? 0 : knobAngleToPercent(rel));
 }
 
-/** 旧経路（可変抵抗のADC＋連動スイッチ）。AS5600が応答しないときのフォールバック。 */
-static void pumpKnobAdc(uint32_t now) {
-    // --- 連動スイッチ（30msデバウンス） ---
-    static bool rawLast = false;
-    static uint32_t rawChangedMs = 0;
-    static bool inited = false;
-    bool raw = knobSwitchRawOn();
-    if (raw != rawLast) {
-        rawLast = raw;
-        rawChangedMs = now;
-    } else if ((now - rawChangedMs) >= 30) {
-        bool off = !raw;
-        if (!inited || off != knobOff) {
-            inited = true;
-            knobSetOffState(off);
-        }
-    }
-
-    // --- 音量（1/8 IIRでならす） ---
-    int adc = analogRead(KATANORI_VOL_ADC); // 12bit: 0..4095
-    static int avg = -1;
-    avg = (avg < 0) ? adc : avg + (adc - avg) / 8;
-
-    knobSetPercent(knobAdcToPercent(avg));
-}
-
 /** つまみの監視。main loop から毎回呼ぶ（実際は20ms間隔で動く）。 */
 static void pumpVolumeKnob() {
     if (!knobEnabled) {
@@ -843,10 +824,10 @@ static void pumpVolumeKnob() {
     }
     lastPollMs = now;
 
+    // AS5600が落ちているあいだは何もしない（音量・OFF状態とも最後の値を保持。
+    // 復帰は 'knobsrc'）。旧・可変抵抗のADCフォールバックは 2026-08-11 に廃止。
     if (knobAs5600Ok) {
         pumpKnobAs5600(now);
-    } else {
-        pumpKnobAdc(now);
     }
 }
 
@@ -858,7 +839,7 @@ static void pumpVolumeKnob() {
  */
 static void knobSaveZero() {
     if (!knobAs5600Ok) {
-        Serial.println("[KNOB] AS5600が使えません（ADC経路で動作中。'knobsrc' で再判定）");
+        Serial.println("[KNOB] AS5600が使えません（'knobsrc' で再判定）");
         return;
     }
     uint8_t buf[2];
@@ -883,7 +864,7 @@ static void knobProbeSource(bool verbose) {
     if (KATANORI_I2C_SILENCE) {
         knobAs5600Ok = false;
         if (verbose) {
-            Serial.println("[KNOB] I2C_SILENCE: AS5600を探しません（ADC経路）");
+            Serial.println("[KNOB] I2C_SILENCE: AS5600を探しません（つまみ無効）");
         }
         return;
     }
@@ -897,7 +878,7 @@ static void knobProbeSource(bool verbose) {
             Serial.println("[KNOB] ★ つまみをOFF位置にして 'knobzero' でゼロ点を保存してください");
         }
     } else if (verbose) {
-        Serial.println("[KNOB] AS5600(0x36)が応答しないため可変抵抗(ADC)の読みで動きます");
+        Serial.println("[KNOB] AS5600(0x36)が応答しません。読めるようになるまで音量は動きません");
     }
 }
 
@@ -910,13 +891,11 @@ static void knobInit() {
     prefs.end();
     knobProbeSource(true);
 
-    // AS5600が居らず連動スイッチも無い＝つまみのハードが丸ごと未接続。
-    // そのままADCフォールバックに落とすと、浮いたD0の読みが音量に化けて
-    // 予測不能な大音量になり得る（2026-08-05: 30%でも驚かせた）。読みを止めて
-    // 既定ゲインで動く。AS5600を繋げば次回起動から自動で有効になる。
-    if (!knobAs5600Ok && KATANORI_KNOB_SW < 0) {
+    // AS5600が居ない＝つまみ未接続。読みを止めて既定ゲインで動く。
+    // AS5600を繋げば次回起動から自動で有効になる。
+    if (!knobAs5600Ok) {
         knobEnabled = false;
-        Serial.println("[KNOB] つまみ未接続（AS5600なし・スイッチなし）: 読み取りを止め、既定音量で動きます");
+        Serial.println("[KNOB] つまみ未接続（AS5600なし）: 読み取りを止め、既定音量で動きます");
     }
 }
 
@@ -1174,6 +1153,9 @@ static void muteBeforeRestart() {
     if (!katanori::audioIo.setOutputMute(true)) {
         Serial.println("[CODEC] !! ミュートに失敗しました。スピーカーを耳から離してください");
     }
+    // ミュートの後に接点を開く。コーデックのミュートが効かなかった場合、
+    // 耳を守れるのはこちらだけになる。
+    muteRelaySet(false);
 }
 
 /** ボタンが押されたが、まだサーバーに繋がっていない状態か。 */
@@ -2665,6 +2647,9 @@ static void printHelp() {
     Serial.println("   a : D0..D10 の全ピン組み合わせでOLEDを探索");
     Serial.println("   vN: D<N>ピンの電圧を測る    (例: v0)  ※入力は3.3Vまで");
     Serial.println("   gN: D<N>ピンのGND導通を見る (例: g1)");
+    Serial.println("   high N: D<N>をHIGHにして保持 (例: high 3) ※ミュートリレーの駆動");
+    Serial.println("   hiz  N: high で保持したピンを入力(Hi-Z)に戻す (例: hiz 3)");
+    Serial.println("   knoboff / knobon : つまみを繋がずにOFF/ONの処理を通す（要 knobdis）");
     Serial.println("   l : ユーザーLEDの点灯/消灯を切り替え");
     Serial.println("   r : OLEDを再初期化（配線を直した後に使う）");
     Serial.println("   R : ソフトウェア再起動");
@@ -2805,12 +2790,9 @@ static void handleSerial() {
                               (status & 0x08) ? "★強すぎ" : "-",
                               agc, magnitude);
             } else {
-                Serial.printf("[KNOB] (ADCフォールバック) ADC=%d 位置=%d%% ゲイン=%.2f "
-                              "SW=%s -> つまみ%s\n",
-                              analogRead(KATANORI_VOL_ADC), knobPercent,
-                              katanori::audioIo.gain(),
-                              KATANORI_KNOB_SW < 0 ? "無し(常時ON)"
-                                  : (knobSwitchRawOn() ? "閉" : "開"),
+                Serial.printf("[KNOB] AS5600なし（読み取り停止中） 位置=%d%% ゲイン=%.2f "
+                              "-> つまみ%s\n",
+                              knobPercent, katanori::audioIo.gain(),
                               knobOff ? "OFF" : "ON");
             }
             Serial.printf("[PWR]  疑似電源OFF=%s 画面=%s 通信=%s\n",
@@ -2821,10 +2803,27 @@ static void handleSerial() {
             knobSaveZero();
         } else if (strcmp(line, "knobsrc") == 0) {
             knobProbeSource(true);
+        } else if (strcmp(line, "knoboff") == 0 || strcmp(line, "knobon") == 0) {
+            /*
+             * つまみを繋がずに OFF/ON の処理だけを通す。
+             *
+             * ミュートリレーの開閉順序（OFF = ミュート→開く / ON = 閉じる）を
+             * 実機で確かめるために足した。AS5600 は「ボードを壊した犯人が未特定」の
+             * 封印で新ボードに繋げないので、つまみを回して試すことができない
+             * （2026-08-08）。診断専用で、製品の動作には関係しない。
+             */
+            bool off = (strcmp(line, "knoboff") == 0);
+            if (knobEnabled) {
+                // 読み取りが生きていると次の周回で本物の位置に戻される
+                Serial.println("[KNOB] ⚠ 読み取りが生きています。先に knobdis で止めてください");
+            } else {
+                Serial.printf("[KNOB] 疑似的に%s位置にします（診断）\n", off ? "OFF" : "ON");
+                knobSetOffState(off);
+            }
         } else if (strcmp(line, "knobdis") == 0) {
             knobEnabled = !knobEnabled;
             if (!knobEnabled) {
-                knobOff = false; // 浮いたピンでOFFと誤認させない
+                knobOff = false; // 切り分け中にOFF状態のまま固まらないようにする
                 Serial.printf("[KNOB] 読み取りを止めました（ゲイン%.2f固定・OFF判定なし）\n",
                               katanori::audioIo.gain());
                 Serial.println("[KNOB] 配線を外して切り分けるときはこの状態で行うこと");
@@ -2845,6 +2844,35 @@ static void handleSerial() {
                 delay(300);
                 pinMode(gpio, INPUT_PULLUP);
                 Serial.println("[LOW] 戻しました");
+            }
+        } else if (strncmp(line, "high ", 5) == 0) {
+            /*
+             * 指定したDピンをHIGHにして、そのまま保持する。ミュートリレーの駆動を
+             * 手で3V3を押し当てずに試すための診断。押し当てる方法だと手が3本要り、
+             * 駆動しながらテスターを当てられない（2026-08-08 に実際に詰まった）。
+             * 解除は hiz。低いレベルへ戻すのではなく Hi-Z に戻すのは、リレー基板側の
+             * 10kΩ プルダウンに判断を任せるため。内部プルアップへ戻すと 10kΩ と
+             * 分圧して 0.6V 前後の中途半端な電圧が残る。
+             */
+            int d = atoi(line + 5);
+            int gpio = gpioForD(d);
+            if (gpio < 0) {
+                Serial.println("[HIGH] D0〜D10 で指定してください (例: high 10)");
+            } else {
+                pinMode(gpio, OUTPUT);
+                digitalWrite(gpio, HIGH);
+                Serial.printf("[HIGH] D%d = GPIO%d をHIGHにしました。解除するまで保持します\n", d, gpio);
+                Serial.printf("[HIGH] 戻すときは hiz %d\n", d);
+            }
+        } else if (strncmp(line, "hiz ", 4) == 0) {
+            // high で保持したピンを解放する。プルアップは付けない（上のコメント）。
+            int d = atoi(line + 4);
+            int gpio = gpioForD(d);
+            if (gpio < 0) {
+                Serial.println("[HIZ] D0〜D10 で指定してください (例: hiz 10)");
+            } else {
+                pinMode(gpio, INPUT);
+                Serial.printf("[HIZ] D%d = GPIO%d を入力（Hi-Z）に戻しました\n", d, gpio);
             }
         } else if (strcmp(line, "creg") == 0) {
             katanori::audioIo.dumpCodec();
@@ -3102,6 +3130,18 @@ void setup() {
         katanori::audioIo.setOutputMute(true);
     }
 
+    // ここでスピーカーの接点を閉じる。docs/POWER.md は「setup()の最後」と書いているが、
+    // 意味は「コーデックをミュートし、I2Sを初期化し終えた後」であって行の位置ではない。
+    // 実際に最終行へ置くと、Wi-Fi未設定で設定モードへ入る経路が手前で return するため、
+    // **設定モードだけ音が出ない**機体になる。条件が揃うこの位置が正しい。
+    //
+    // 音声の初期化に失敗しているときは閉じない。鳴らせないのに接点だけ繋ぐ理由が無く、
+    // 開けておくほうが安全側に倒れる。
+    // つまみがOFF位置で起動したときも閉じない（閉じた直後に開いて二度鳴るのを避ける）。
+    if (!KATANORI_I2C_SILENCE && audioOk && !knobOff) {
+        muteRelaySet(true);
+    }
+
     // ネイティブUSB CDC はホストが開くまで出力が捨てられる。
     // ブートログを取りこぼさないよう最大3秒待つ (未接続でも先へ進む)。
     uint32_t t0 = millis();
@@ -3132,23 +3172,21 @@ void setup() {
     return;
 #endif
 
-    // 音量つまみ。ADCフォールバック用のピンも従来どおり構えておく。
-    // ⚠ KATANORI_KNOB_SW は既定 -1（スイッチ無し）。GPIO2はXMOSのリセット線
-    //   なので、正の値を入れる場合でも 2 は絶対に指定しないこと（上の定義の注記）。
-#if KATANORI_KNOB_SW >= 0
-    pinMode(KATANORI_KNOB_SW, INPUT_PULLUP);
-#endif
-
+    // 音量つまみはAS5600(I2C)のみ。旧・可変抵抗のピン設定（KNOB_SWのpinMode）は
+    // 2026-08-11 に廃止した。ファームはここで何のピンにも触らない。
+    // ⚠ GPIO2(D1)はXMOSのリセット線。今後ここに何か足すときも 2 だけは
+    //   絶対に pinMode しないこと（冒頭の定義の注記）。
 #if KATANORI_MIN_BOOT == 6
-    // 診断: pinMode(KNOB_SW=GPIO2/D1) だけ通して打ち切る
-    Serial.println("[MINBOOT6] pinMode(KNOB_SW) 後に打ち切ります");
+    // 診断: 旧 pinMode(KNOB_SW) のあった位置。カットラインとして残している
+    Serial.println("[MINBOOT6] （旧 pinMode(KNOB_SW) 位置）で打ち切ります");
     return;
 #endif
 
+    // vN/gN 診断コマンドの analogReadMilliVolts 用（つまみとは無関係）
     analogReadResolution(12);
 
 #if KATANORI_MIN_BOOT == 5
-    // 診断: pinMode(KNOB_SW) + analogReadResolution まで通して打ち切る
+    // 診断: analogReadResolution まで通して打ち切る
     Serial.println("[MINBOOT5] analogReadResolution 後に打ち切ります");
     return;
 #endif

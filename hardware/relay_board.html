@@ -1,0 +1,786 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ミュートリレー基板の穴割り</title>
+<!--
+  スピーカーのミュートリレー駆動回路 / ユニバーサル基板(2.54mm)の穴割り。
+  回路図・定数の根拠・切り分けは docs/POWER.md が正。ここは「図」と「組む順番」だけ。
+
+  ▸ 直したいときは LAYOUT の各定数（RAILS / PARTS / JUMPERS …）だけ触れば絵が変わる。
+  ▸ 部品は実寸(mm)で描かれる。穴割りが物理的に成立しない箇所は自動で印が付く:
+      赤 = 1つの穴に導線2本以上 ／ 別ネットのレールが同居 ／ 足の折り返し不足 ／ コネクタ不在
+      黄 = レールが通る穴への挿し込み ／ レールの継ぎ目 ／ 曲げしろの無い1穴区間 ／ 胴の張り出し
+-->
+<style>
+  :root{
+    --bg:#f7f6f3; --fg:#22201d; --sub:#6f6a63; --line:#cfc9c0;
+    --board:#e8e2d6; --hole:#8c8578; --panel:#fffefb;
+    --v5:#d1453b; --gnd:#3f3f3f; --in:#b57200; --base:#2e7d32; --col:#1565c0;
+    --jump:#7b4bbd; --err:#c62828; --amber:#b57200;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#191817; --fg:#eae6df; --sub:#a09a91; --line:#3d3a35;
+      --board:#2b2823; --hole:#6b655c; --panel:#211f1d;
+      --v5:#ff6b5e; --gnd:#b9b4ab; --in:#e0a02a; --base:#5cc46a; --col:#5aa9f0;
+      --jump:#b085f5; --err:#ff6b5e; --amber:#e0a02a;
+    }
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; padding:20px; background:var(--bg); color:var(--fg);
+    font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,system-ui,sans-serif;
+    line-height:1.7;
+  }
+  .wrap{max-width:1100px;margin:0 auto}
+  h1{font-size:1.25rem;margin:0 0 4px}
+  h2{font-size:.92rem;margin:0 0 10px}
+  .lead{color:var(--sub);font-size:.86rem;margin:0 0 12px}
+  .lead code{background:var(--panel);border:1px solid var(--line);padding:1px 5px;border-radius:4px}
+  .banner{
+    background:color-mix(in srgb,var(--err) 10%,transparent);
+    border-left:3px solid var(--err);padding:8px 12px;border-radius:0 7px 7px 0;
+    font-size:.82rem;margin:0 0 14px;
+  }
+  .bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+  button{
+    font:inherit;font-size:.82rem;padding:6px 13px;border-radius:7px;cursor:pointer;
+    background:var(--panel);color:var(--fg);border:1px solid var(--line);
+  }
+  button:hover{border-color:var(--sub)}
+  button.on{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+  .side{font-size:.82rem;color:var(--sub);margin-left:4px}
+  .boardbox{overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px}
+  svg{display:block}
+  .nets{display:flex;gap:6px;flex-wrap:wrap;margin:14px 0}
+  .chip{
+    font-size:.78rem;padding:4px 11px;border-radius:20px;cursor:pointer;
+    border:1px solid var(--line);background:var(--panel);display:flex;align-items:center;gap:6px;
+  }
+  .chip .dot{width:9px;height:9px;border-radius:50%}
+  .chip.on{border-color:currentColor;font-weight:700}
+  section{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-top:16px}
+  #warns{margin:0;padding-left:1.3em;font-size:.8rem}
+  #warns li{margin-bottom:4px}
+  #warns li.err{color:var(--err)}
+  #warns li.warn{color:var(--amber)}
+  #warns code{font-family:ui-monospace,Menlo,Consolas,monospace}
+  #steps{margin:0;padding-left:0;list-style:none;font-size:.84rem;counter-reset:step}
+  #steps li{
+    margin-bottom:8px;display:flex;gap:9px;align-items:baseline;counter-increment:step;
+  }
+  #steps li::before{content:counter(step) ".";color:var(--sub);min-width:1.4em;text-align:right}
+  #steps li.done .txt{opacity:.4;text-decoration:line-through}
+  #steps input{transform:translateY(2px)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>ミュートリレー基板の穴割り</h1>
+  <p class="lead">
+    この図が正。回路図・定数の根拠・切り分けは <code>docs/POWER.md</code> にある。ここにあるのは図と組む順番だけ。
+  </p>
+  <p class="banner" id="banner"></p>
+
+  <div class="bar">
+    <button id="flip">半田面に裏返す</button>
+    <button id="clear">選択を解除</button>
+    <span class="side" id="sideLabel">いま見ているのは <b>部品面</b>（部品を挿す側）</span>
+  </div>
+
+  <div class="boardbox"><svg id="svg"></svg></div>
+
+  <div class="nets" id="nets"></div>
+
+  <section>
+    <h2>この穴割りが物理で成立しない箇所（図から自動検出）</h2>
+    <ul id="warns"></ul>
+  </section>
+
+  <section>
+    <h2>組む順番</h2>
+    <ol id="steps"></ol>
+  </section>
+
+</div>
+
+<script>
+/* ===========================================================
+   LAYOUT — ここだけ直せば絵が変わる
+   =========================================================== */
+/* 実物のユニバーサル基板は 25穴 × 15穴（2026-08-07 ユーザー実測 ≒ 63.5 × 38.1mm） */
+const ROWS = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O'];
+const NCOL = 25;
+
+const NETS = {
+  V5:   { label:'+5V',       css:'--v5'  },
+  GND:  { label:'GND',       css:'--gnd' },
+  IN:   { label:'D3入力',     css:'--in'  },
+  BASE: { label:'ベース節点',  css:'--base'},
+  COL:  { label:'コレクタ',    css:'--col' },
+  CONT: { label:'接点側（COM / NC / NO）', css:'--fg' },
+  V33:  { label:'3V3',       css:'--in'  },
+  SDA:  { label:'SDA',       css:'--base'},
+  SCL:  { label:'SCL',       css:'--col' },
+  BTN:  { label:'会話ボタン (D2)', css:'--jump'},
+};
+
+/* 横のレール(row/c0/c1) と 縦のレール(col/r0/r1)。裸のスズメッキ線・半田面 */
+const RAILS = [
+  { col:1,  net:'V5',  r0:'A', r1:'M' },
+  { col:7,  net:'GND', r0:'B', r1:'I' },
+  { col:16, net:'V33', r0:'A', r1:'I' },
+  { col:17, net:'GND', r0:'A', r1:'H' },
+  { col:18, net:'SCL', r0:'A', r1:'G' },
+  { col:19, net:'SDA', r0:'A', r1:'F' },
+  { row:'I', net:'V33', c0:16, c1:25 },
+  { row:'H', net:'GND', c0:17, c1:25 },
+  { row:'G', net:'SCL', c0:18, c1:25 },
+  { row:'F', net:'SDA', c0:19, c1:25 },
+];
+
+/* AS5600 は右辺（列25）に縦4本。XIAO は上辺（行A）に横7本 */
+const AS5600 = { col:25, rows:['F','G','H','I'], labels:['SDA','SCL','GND+DIR','VCC'] };
+const STRIP = { row:'A', c0:13, c1:19,
+  labels:{ 13:'5V', 14:'D2', 15:'D3', 16:'3V3', 17:'GND', 18:'SCL', 19:'SDA' } };
+
+/* OLED 0.96" I2C。4ピンを 行D の 列16〜19 に直挿し。本体はピン列から下へ垂れる。
+   シルクは VCC GND SCL SDA（一般的な並びと SCL/SDA が逆）。電源は 3V3 で確定 */
+const OLED = { pinRow:'D', cols:[16,17,18,19], labels:['VCC','GND','SCL','SDA'],
+               bodyW:30, bodyH:27 };
+
+/* 部品。body は実寸(mm)。L=足の並び方向 / W=それに直交 */
+const PARTS = [
+  { id:'R1', name:'1kΩ',    kind:'res',   a:'H3', b:'E3', body:{L:6.2, W:2.3} },
+  { id:'R2', name:'10kΩ',   kind:'res',   a:'E3', b:'B3', body:{L:6.2, W:2.3} },
+  { id:'D1', name:'1N4148', kind:'diode', a:'M3', b:'M5', cathode:'M3', under:true,
+    body:{L:3.4, W:1.75} },
+  { id:'C1', name:'0.1µF',  kind:'cap',   a:'C6', b:'C7', body:{L:4.5, W:2.8} },
+  { id:'Q1', name:'2SC1815-GR', kind:'tr', pins:{ B:'E5', C:'E6', E:'E7' },
+    body:{L:4.6, W:3.9} },
+];
+
+/* 会話ボタン（マイクロスイッチ・端子ピッチ5.08）。C=レバーの根本側 */
+const BUTTON = {
+  name:'会話ボタン', bodyW:12, bodyH:5,
+  pins:[
+    { hole:'J9', fn:'C'  },
+    { hole:'L9', fn:'NO' },
+    { hole:'N9', fn:'NC' },
+  ],
+};
+
+/* リレー Y14H-1C-5DS。本体 12.6 × 7.6 × 10mm。ピンは 2列×3本・全部グリッドに乗る */
+const RELAY = {
+  name:'リレー Y14H-1C-5DS', bodyL:12.6, bodyW:7.6,
+  pins:[
+    { hole:'J3', fn:'COM'    },
+    { hole:'M3', fn:'コイル' },
+    { hole:'N3', fn:'NO'     },
+    { hole:'J5', fn:'COM'    },
+    { hole:'M5', fn:'コイル' },
+    { hole:'N5', fn:'NC'     },
+  ],
+};
+
+/* 部品面に通す被覆線。直角のみ */
+const JUMPERS = [
+  { id:'①', path:['E3','E5'],                    net:'BASE' },
+  { id:'②', path:['C6','C1'],                    net:'V5'   },
+  { id:'③', path:['M3','M1'],                    net:'V5'   },
+  { id:'④', path:['E6','G6','M6','M5'],          net:'COL'  },
+  { id:'⑤', path:['B3','B7'],                    net:'GND'  },
+  { id:'⑥', path:['F7','F17'],                   net:'GND'  },
+  { id:'⑦', path:['A15','H15','H3'],             net:'IN'   },
+  { id:'⑧', path:['I7','I9','J9'],               net:'GND'  },
+  { id:'⑨', path:['A14','B14','B10','L10','L9'], net:'BTN'  },
+  { id:'⑩', path:['A13','A1'],                   net:'V5'   },
+];
+
+/* 基板の外へ出る線。⚠ 受けるコネクタがまだ図に無い（PH2.0 IN/OUT・購入待ち） */
+const EXITS = {
+  stubs: [
+    { hole:'J3', side:'left', label:'COM → アンプ出力(+)' },
+    { hole:'N3', side:'left', label:'NO → スピーカー(+)' },
+  ],
+};
+
+/* レール以外の穴 → 節点（ハイライト用） */
+const HOLE_NETS = {
+  H3:'IN',    A15:'IN',  H15:'IN',
+  L9:'BTN',   A14:'BTN', B14:'BTN', B10:'BTN', L10:'BTN',
+  I9:'GND',   J9:'GND',
+  E3:'BASE',  E5:'BASE',
+  E6:'COL',   G6:'COL',  M6:'COL',  M5:'COL',
+  B3:'GND',
+  M3:'V5',    C6:'V5',   A13:'V5',
+  J3:'CONT',  J5:'CONT', N3:'CONT', N5:'CONT',
+  F25:'SDA',  G25:'SCL', H25:'GND', I25:'V33',
+};
+
+const STEPS = [
+  '<b>【裏】レール10本</b>を、裸のスズメッキ線で這わせる。'
+    + '縦は <b>列1 A〜M=+5V</b> / <b>列7 B〜I=GND</b> / <b>列16 A〜I=3V3</b> / '
+    + '<b>列17 A〜H=GND</b> / <b>列18 A〜G=SCL</b> / <b>列19 A〜F=SDA</b>。'
+    + '横は <b>行I 16〜25=3V3</b> / <b>行H 17〜25=GND</b> / <b>行G 18〜25=SCL</b> / <b>行F 19〜25=SDA</b>。'
+    + '縦と横は <b>I16 / H17 / G18 / F19</b> の4点でL字に繋ぐ。',
+  '<b>【表】1kΩ・10kΩ・0.1µF・2SC1815</b> を挿す。'
+    + '🔴 2SC1815 は<b>平らな印字面を奥（行A側）</b>に向ける。E7＝GNDレールの穴にエミッタが載っていれば正しい。',
+  'ジャンパの <b>①②⑤</b> を張る。3本とも駆動側（列1〜7）に収まる。',
+  '<b>【表】リレー</b>を <b>J3/M3/N3 と J5/M5/N5</b> に挿す。近い2本の対（コイル—NO/NC）が手前（行M・N側）。',
+  '<b>【裏】1N4148 を M3–M5</b>（コイルの2本）にまたがせる。<b>帯は M3（+5V側）</b>。'
+    + '⚠ N3/N5 は接点なので、そちらに架けると接点をショートさせる。',
+  'ジャンパの <b>③④⑥</b> を張る。④は列6を真っ直ぐ下ろす。',
+  '<b>【表】ピンヘッダを2つ立てる</b>。着地列 <b>A13〜A19</b> に7本、AS5600用 <b>F25〜I25</b> に4本。',
+  'ジャンパの <b>⑦⑧⑨⑩</b> を張る。⑨は F10 で⑥を、H10 で⑦を跨ぐ（被覆線どうし・短絡しない）。',
+  '<b>【表】会話ボタンのマイクロスイッチ</b>を <b>J9/L9/N9</b> に縦置きで挿す。'
+    + '<b>レバーの根本側が J9（上）</b>。⚠ N9＝NC には何も繋がない。',
+  '通電前に目視してから +5V と GND を繋ぐ。<b>何も起きないのが正常</b>（D3 は浮いていて 10kΩ が LOW に保つ）。',
+  '<b>H3</b> に 3V3 を当てて（線が繋がっていればシリアルで <code>high 3</code>）、<b>カチッと鳴るか</b>確かめる。',
+  '接点の検証（POWER.md）を通してから、はじめてスピーカー線を繋ぐ。⚠ 繋ぐ前に必ず声をかける。',
+  '🔴 <b>一番最後に OLED を D16〜D19 に挿す。</b>本体の下にバスの半田点が隠れるため、先に挿すと二度と触れない。',
+];
+
+/* ===========================================================
+   以下は描画と検査。触らなくてよい
+   =========================================================== */
+const PITCH = 32, PADX = 46, PADY = 40, GUTTER = 150;
+const MM = PITCH / 2.54;               /* 1mm が画面で何pxか。部品は全部この縮尺で描く */
+let mirrored = false;
+let activeNet = null;
+
+const svg = document.getElementById('svg');
+const NS = 'http://www.w3.org/2000/svg';
+
+function colOf(h){ return parseInt(h.slice(1),10); }
+function rowOf(h){ return h[0]; }
+function xOf(col){
+  const c = mirrored ? (NCOL + 1 - col) : col;
+  return PADX + (c - 1) * PITCH;
+}
+function yOf(row){ return PADY + ROWS.indexOf(row) * PITCH; }
+function pt(h){ return { x: xOf(colOf(h)), y: yOf(rowOf(h)) }; }
+function cssVar(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+function holeDistMM(a,b){
+  return (Math.abs(colOf(a)-colOf(b)) + Math.abs(ROWS.indexOf(rowOf(a))-ROWS.indexOf(rowOf(b)))) * 2.54;
+}
+
+/* ---- 穴の使われ方の台帳 ---- */
+
+/* 穴 → その穴に「挿さる」導線（部品の足・ジャンパの端・ピン・外へ出る線） */
+function buildInsertions(){
+  const ins = {};
+  const add = (h, label) => { (ins[h] = ins[h] || []).push(label); };
+  for (const p of PARTS){
+    if (p.kind === 'tr'){ for (const k in p.pins) add(p.pins[k], `${p.name}の${k}`); }
+    else { add(p.a, p.name); add(p.b, p.name); }
+  }
+  for (const j of JUMPERS){
+    add(j.path[0], `ジャンパ${j.id}`);
+    add(j.path[j.path.length-1], `ジャンパ${j.id}`);
+  }
+  for (const p of RELAY.pins) add(p.hole, `リレー(${p.fn})`);
+  for (const p of BUTTON.pins) add(p.hole, `スイッチ(${p.fn})`);
+  OLED.cols.forEach((c,i) => add(OLED.pinRow + c, `OLED(${OLED.labels[i]})`));
+  for (let c = STRIP.c0; c <= STRIP.c1; c++) add(STRIP.row + c, `ヘッダ(${STRIP.labels[c]})`);
+  AS5600.rows.forEach((r,i) => add(r + AS5600.col, `ヘッダ(${AS5600.labels[i]})`));
+  for (const e of EXITS.stubs) add(e.hole, '外へ出る線');
+  return ins;
+}
+
+/* 穴 → その穴を通るレールのネット名の配列 */
+function buildRailHoles(){
+  const m = {};
+  for (const r of RAILS){
+    const holes = [];
+    if (r.row){
+      for (let c = Math.min(r.c0,r.c1); c <= Math.max(r.c0,r.c1); c++) holes.push(r.row + c);
+    } else {
+      const i0 = ROWS.indexOf(r.r0), i1 = ROWS.indexOf(r.r1);
+      for (let i = Math.min(i0,i1); i <= Math.max(i0,i1); i++) holes.push(ROWS[i] + r.col);
+    }
+    for (const h of holes) (m[h] = m[h] || []).push(r.net);
+  }
+  return m;
+}
+
+const INS = buildInsertions();
+const RAILH = buildRailHoles();
+
+/* 穴 → 節点（ハイライト用。レールを展開して合成） */
+function buildHoleNets(){
+  const map = Object.assign({}, HOLE_NETS);
+  for (const h in RAILH) map[h] = RAILH[h][0];
+  return map;
+}
+const holeNet = buildHoleNets();
+
+/* ---- 物理検査 ---- */
+function computeWarnings(){
+  const W = [];
+  /* 1穴1本 */
+  for (const h in INS){
+    if (INS[h].length >= 2){
+      W.push({ hole:h, sev:'err',
+               msg:`<code>${h}</code>: 導線${INS[h].length}本（${INS[h].join('・')}）— 1穴に入るのは1本` });
+    }
+  }
+  /* レールが通る穴への挿し込み（レールを先に張ると半田で塞がる） */
+  for (const h in INS){
+    if (RAILH[h]){
+      W.push({ hole:h, sev:'warn',
+               msg:`<code>${h}</code>: レール（${RAILH[h].join('・')}）が通る穴に ${INS[h].join('・')} を挿す — レールを先に張ると穴が塞がる` });
+    }
+  }
+  /* レールどうしの同居（別ネットなら短絡・同ネットなら継ぎ目） */
+  for (const h in RAILH){
+    if (RAILH[h].length >= 2){
+      const uniq = new Set(RAILH[h]);
+      if (uniq.size > 1){
+        W.push({ hole:h, sev:'err',
+                 msg:`<code>${h}</code>: 別ネットのレールが同じ穴（${RAILH[h].join('・')}）— 短絡` });
+      } else {
+        W.push({ hole:h, sev:'warn',
+                 msg:`<code>${h}</code>: レール2本の継ぎ目（${RAILH[h][0]}）— 裸線2本を1点で半田する` });
+      }
+    }
+  }
+  /* 曲げた直後に挿す1穴区間（曲げしろが無い） */
+  for (const j of JUMPERS){
+    if (j.path.length < 3) continue;
+    for (let i = 0; i < j.path.length - 1; i++){
+      const a = j.path[i], b = j.path[i+1];
+      if (holeDistMM(a,b) <= 2.54 + 0.01){
+        W.push({ hole:b, sev:'warn',
+                 msg:`ジャンパ${j.id} <code>${a}→${b}</code>: 折れてから1穴（2.54mm）で挿す — 曲げしろが無い` });
+      }
+    }
+  }
+  /* 胴の実寸と足の折り返し */
+  for (const p of PARTS){
+    if (!p.body || p.kind === 'tr') continue;
+    const span = holeDistMM(p.a, p.b);
+    const gap = span - p.body.L;
+    if (p.kind === 'res' && gap < 2){
+      W.push({ sev:'err',
+               msg:`${p.name}（<code>${p.a}–${p.b}</code>）: 胴${p.body.L}mm・穴間${span.toFixed(1)}mm — 足の折り返しに残るのが${gap.toFixed(1)}mmしか無い` });
+    }
+    if (p.kind === 'cap' && p.body.L > span){
+      W.push({ sev:'warn',
+               msg:`${p.name}（<code>${p.a}–${p.b}</code>）: 胴${p.body.L}mmが穴間${span.toFixed(1)}mmより広い — 隣の列に被り、隣に節点を置けない` });
+    }
+  }
+  /* 外へ出る線の受け口が無い */
+  W.push({ sev:'err',
+           msg:`<code>J3 / N3</code>: 行き先のスピーカー <b>IN/OUT コネクタ（PH2.0）が図に存在しない</b> — 引き直しで基板上に配置する（docs/POWER.md 2026-08-10 決定）` });
+  return W;
+}
+const WARNINGS = computeWarnings();
+
+/* 穴ごとの最悪重要度（印の描画用） */
+const holeSev = {};
+for (const w of WARNINGS){
+  if (!w.hole) continue;
+  if (w.sev === 'err' || !holeSev[w.hole]) holeSev[w.hole] = w.sev;
+}
+
+/* ---- 描画 ---- */
+function el(tag, attrs, parent){
+  const n = document.createElementNS(NS, tag);
+  for (const k in attrs) n.setAttribute(k, attrs[k]);
+  (parent || svg).appendChild(n);
+  return n;
+}
+function tip(node, text){
+  const t = document.createElementNS(NS, 'title');
+  t.textContent = text;
+  node.appendChild(t);
+}
+function dimmed(net){ return activeNet && net !== activeNet; }
+function op(net){ return dimmed(net) ? 0.16 : 1; }
+
+function draw(){
+  svg.innerHTML = '';
+  const W = PADX * 2 + (NCOL - 1) * PITCH;
+  const H = PADY * 2 + (ROWS.length - 1) * PITCH;
+  svg.setAttribute('width', W + GUTTER * 2);
+  svg.setAttribute('height', H);
+  svg.setAttribute('viewBox', `${-GUTTER} 0 ${W + GUTTER * 2} ${H}`);
+
+  el('rect', { x:16, y:14, width:W-32, height:H-28, rx:10,
+               fill:cssVar('--board'), stroke:cssVar('--line') });
+
+  drawRelay();
+  drawRails();
+  drawStrip();
+  drawAS5600();
+  drawOLED();
+  drawButton();
+  drawAxisLabels();
+  drawHoles();
+  drawJumpers();
+  drawExits();
+  for (const p of PARTS) drawPart(p);
+  drawWarnMarks();
+}
+
+function drawRelay(){
+  const xs = RELAY.pins.map(p => pt(p.hole).x);
+  const ys = RELAY.pins.map(p => pt(p.hole).y);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs);
+  const y0 = Math.min(...ys), y1 = Math.max(...ys);
+  /* 本体はピンの範囲より実寸で張り出す: 縦(12.6mm-10.16mm)/2, 横(7.6mm-5.08mm)/2 */
+  const exY = (RELAY.bodyL*MM - (y1-y0)) / 2;
+  const exX = (RELAY.bodyW*MM - (x1-x0)) / 2;
+  const g = el('rect', { x:x0-exX, y:y0-exY, width:(x1-x0)+exX*2, height:(y1-y0)+exY*2,
+               rx:6, fill:cssVar('--in'), 'fill-opacity':.08,
+               stroke:cssVar('--in'), 'stroke-width':1.5, 'stroke-dasharray':'6 4',
+               opacity: activeNet ? .25 : .9 });
+  tip(g, `${RELAY.name} 本体 ${RELAY.bodyW} × ${RELAY.bodyL}mm（実寸）`);
+  const lab = el('text', { x:(x0+x1)/2, y:y0-exY-6, 'text-anchor':'middle',
+                           fill:cssVar('--in'), 'font-size':11, opacity: activeNet ? .3 : 1 });
+  lab.textContent = `${RELAY.name}（12.6 × 7.6mm 実寸）`;
+  for (const p of RELAY.pins){
+    const q = pt(p.hole);
+    el('circle', { cx:q.x, cy:q.y, r:6.5, fill:'none', stroke:cssVar('--fg'),
+                   'stroke-width':2, opacity: activeNet ? .18 : 1 });
+    const t = el('text', { x:q.x, y:q.y-11, 'text-anchor':'middle', fill:cssVar('--fg'),
+                           'font-size':10, 'font-weight':700, opacity: activeNet ? .18 : 1 });
+    t.textContent = p.fn;
+  }
+}
+
+function drawRails(){
+  for (const r of RAILS){
+    const c = cssVar(NETS[r.net].css);
+    let x1, y1, x2, y2, tx, ty, anchor;
+    if (r.row){
+      y1 = y2 = yOf(r.row);
+      x1 = Math.min(xOf(r.c0), xOf(r.c1));
+      x2 = Math.max(xOf(r.c0), xOf(r.c1));
+      tx = x1 - 12; ty = y1 + 4; anchor = 'end';
+    } else {
+      x1 = x2 = xOf(r.col);
+      y1 = yOf(r.r0); y2 = yOf(r.r1);
+      tx = x1; ty = Math.max(y1, y2) + 18; anchor = 'middle';
+    }
+    el('line', { x1, y1, x2, y2, stroke:c, 'stroke-width':7,
+                 'stroke-linecap':'round', opacity:op(r.net) });
+    const t = el('text', { x:tx, y:ty, 'text-anchor':anchor, fill:c,
+                           'font-size':11, 'font-weight':700, opacity:op(r.net) });
+    t.textContent = NETS[r.net].label;
+  }
+}
+
+function drawStrip(){
+  const a = pt(STRIP.row + STRIP.c0), b = pt(STRIP.row + STRIP.c1);
+  const x0 = Math.min(a.x, b.x), x1 = Math.max(a.x, b.x);
+  /* ピンヘッダの樹脂は 2.54mm/ピン × 奥行2.5mm（実寸） */
+  const g = el('rect', { x:x0-1.27*MM, y:a.y-1.25*MM, width:x1-x0+2.54*MM, height:2.5*MM,
+               rx:3, fill:cssVar('--fg'), 'fill-opacity':.08,
+               stroke:cssVar('--fg'), 'stroke-width':1.5, opacity: activeNet ? .2 : 1 });
+  tip(g, 'ピンヘッダ 7本（XIAO からの束の着地列）');
+  for (let c = STRIP.c0; c <= STRIP.c1; c++){
+    const q = pt(STRIP.row + c);
+    const t = el('text', { x:q.x, y:q.y+26, 'text-anchor':'middle', fill:cssVar('--fg'),
+                           'font-size':10, 'font-weight':700, opacity: activeNet ? .2 : 1 });
+    t.textContent = STRIP.labels[c];
+  }
+  const lab = el('text', { x:(x0+x1)/2, y:a.y-19, 'text-anchor':'middle', fill:cssVar('--fg'),
+                           'font-size':11, 'font-weight':700, opacity: activeNet ? .2 : 1 });
+  lab.textContent = '着地列 — XIAO からの7本';
+}
+
+function drawAS5600(){
+  const a = pt(AS5600.rows[0] + AS5600.col), b = pt(AS5600.rows[3] + AS5600.col);
+  const y0 = Math.min(a.y, b.y), y1 = Math.max(a.y, b.y);
+  const g = el('rect', { x:a.x-1.25*MM, y:y0-1.27*MM, width:2.5*MM, height:y1-y0+2.54*MM,
+               rx:3, fill:cssVar('--sub'), 'fill-opacity':.08,
+               stroke:cssVar('--sub'), 'stroke-width':1.5, opacity: activeNet ? .2 : 1 });
+  tip(g, 'ピンヘッダ 4本（AS5600 は治具側・線で出す）');
+  AS5600.rows.forEach((rr, i) => {
+    const q = pt(rr + AS5600.col);
+    const t = el('text', { x:q.x+15, y:q.y+4, 'text-anchor':'start', fill:cssVar('--sub'),
+                           'font-size':9, 'font-weight':700, opacity: activeNet ? .2 : 1 });
+    t.textContent = AS5600.labels[i];
+  });
+  const lab = el('text', { x:a.x, y:y0-17, 'text-anchor':'middle', fill:cssVar('--sub'),
+                           'font-size':10, 'font-weight':700, opacity: activeNet ? .2 : 1 });
+  lab.textContent = 'AS5600';
+}
+
+function drawOLED(){
+  OLED.cols.forEach((cc, i) => {
+    const q = pt(OLED.pinRow + cc);
+    el('rect', { x:q.x-8, y:q.y-8, width:16, height:16, rx:3, fill:'none',
+                 stroke:cssVar('--fg'), 'stroke-width':2, opacity: activeNet ? .2 : 1 });
+    const t = el('text', { x:q.x, y:q.y-14, 'text-anchor':'middle', fill:cssVar('--fg'),
+                           'font-size':10, 'font-weight':700, opacity: activeNet ? .2 : 1 });
+    t.textContent = OLED.labels[i];
+  });
+  /* 本体はピン列から下へ垂れる（実寸 30 × 27mm） */
+  const cx = (xOf(OLED.cols[0]) + xOf(OLED.cols[3])) / 2;
+  const by = yOf(OLED.pinRow) - 1.5*MM;
+  const g = el('rect', { x:cx - OLED.bodyW/2*MM, y:by, width:OLED.bodyW*MM, height:OLED.bodyH*MM,
+               rx:6, fill:'none', stroke:cssVar('--fg'), 'stroke-width':1.5,
+               'stroke-dasharray':'5 4', opacity: activeNet ? .12 : .5 });
+  tip(g, `OLED 本体 ${OLED.bodyW} × ${OLED.bodyH}mm（実寸）。この下の半田点は挿した後は触れない`);
+  const t = el('text', { x:cx, y:by + OLED.bodyH*MM + 14, 'text-anchor':'middle',
+                         fill:cssVar('--fg'), 'font-size':11, 'font-weight':700,
+                         opacity: activeNet ? .2 : 1 });
+  t.textContent = 'OLED 30 × 27mm（4ピン直挿し・一番最後に挿す）';
+}
+
+function drawButton(){
+  const mid = pt(BUTTON.pins[1].hole);
+  const vert = BUTTON.pins.every(p => colOf(p.hole) === colOf(BUTTON.pins[0].hole));
+  const w = (vert ? BUTTON.bodyH : BUTTON.bodyW) * MM;
+  const h = (vert ? BUTTON.bodyW : BUTTON.bodyH) * MM;
+  const c = cssVar('--jump');
+  const g = el('rect', { x:mid.x-w/2, y:mid.y-h/2, width:w, height:h, rx:5,
+               fill:c, 'fill-opacity':.06, stroke:c, 'stroke-width':1.5,
+               'stroke-dasharray':'5 4', opacity: activeNet ? .15 : .9 });
+  tip(g, `${BUTTON.name} 本体 ${BUTTON.bodyW} × ${BUTTON.bodyH}mm（実寸）`);
+  for (const p of BUTTON.pins){
+    const q = pt(p.hole);
+    el('circle', { cx:q.x, cy:q.y, r:6.5, fill:'none', stroke:c,
+                   'stroke-width':2, opacity: activeNet ? .18 : 1 });
+    const t = el('text', { x: vert ? q.x-13 : q.x, y: vert ? q.y+4 : q.y-11,
+                           'text-anchor': vert ? 'end' : 'middle', fill:c,
+                           'font-size':10, 'font-weight':700, opacity: activeNet ? .18 : 1 });
+    t.textContent = p.fn;
+  }
+  const lab = el('text', { x: vert ? mid.x + w/2 + 10 : mid.x - w/2,
+                           y: vert ? mid.y + 4          : mid.y + h/2 + 13,
+                           'text-anchor':'start', fill:c,
+                           'font-size':10, 'font-weight':700, opacity: activeNet ? .2 : 1 });
+  lab.textContent = '会話ボタン 12 × 5mm（縦置き・NCは繋がない）';
+}
+
+function drawAxisLabels(){
+  for (let i = 0; i < ROWS.length; i++){
+    const t = el('text', { x:22, y:PADY + i*PITCH + 4, fill:cssVar('--sub'), 'font-size':11 });
+    t.textContent = ROWS[i];
+  }
+  for (let c = 1; c <= NCOL; c++){
+    const t = el('text', { x:xOf(c), y:26, 'text-anchor':'middle', fill:cssVar('--sub'), 'font-size':11 });
+    t.textContent = c;
+  }
+}
+
+function drawHoles(){
+  for (const row of ROWS){
+    for (let c = 1; c <= NCOL; c++){
+      const h = row + c, net = holeNet[h];
+      const p = pt(h);
+      const used = !!net;
+      el('circle', { cx:p.x, cy:p.y, r: used ? 5.5 : 3,
+                     fill: used ? cssVar(NETS[net].css) : cssVar('--hole'),
+                     opacity: used ? op(net) : (activeNet ? .12 : .45) });
+    }
+  }
+}
+
+function drawJumpers(){
+  for (const j of JUMPERS){
+    const c = cssVar(NETS[j.net].css);
+    const ps = j.path.map(pt);
+    const pl = el('polyline', { points: ps.map(p => `${p.x},${p.y}`).join(' '),
+                     fill:'none', stroke:c, 'stroke-width':2.5,
+                     'stroke-linecap':'round', 'stroke-linejoin':'round',
+                     'stroke-dasharray':'7 4', opacity:op(j.net) });
+    tip(pl, `ジャンパ${j.id}（${NETS[j.net].label}）: ${j.path.join(' → ')}`);
+    for (let i = 1; i < ps.length - 1; i++){
+      el('circle', { cx:ps[i].x, cy:ps[i].y, r:3, fill:c, opacity:op(j.net) });
+    }
+    const mid = ps[Math.floor((ps.length - 1) / 2)];
+    const nxt = ps[Math.floor((ps.length - 1) / 2) + 1] || ps[ps.length - 1];
+    const t = el('text', { x:(mid.x + nxt.x) / 2, y:(mid.y + nxt.y) / 2 - 7,
+                           'text-anchor':'middle', fill:c,
+                           'font-size':12, 'font-weight':700, opacity:op(j.net) });
+    t.textContent = j.id;
+  }
+}
+
+function drawExits(){
+  for (const e of EXITS.stubs){
+    const p = pt(e.hole);
+    let dir = e.side === 'left' ? -1 : 1;
+    if (mirrored) dir = -dir;
+    const x2 = p.x + dir * 26;
+    el('line', { x1:p.x, y1:p.y, x2:x2, y2:p.y, stroke:cssVar('--sub'),
+                 'stroke-width':2, opacity: activeNet ? .15 : .9 });
+    el('path', { d:`M ${x2} ${p.y} l ${-dir*6} -4 l 0 8 Z`,
+                 fill:cssVar('--sub'), opacity: activeNet ? .15 : .9 });
+    if (e.label){
+      const t = el('text', { x:x2 + dir*7, y:p.y + 3.5, fill:cssVar('--sub'),
+                             'text-anchor': dir < 0 ? 'end' : 'start',
+                             'font-size':10, opacity: activeNet ? .15 : .95 });
+      t.textContent = e.label;
+    }
+  }
+}
+
+function drawPart(p){
+  if (p.kind === 'tr'){
+    const holes = Object.entries(p.pins).map(([k,h]) => ({ k, h, ...pt(h) }));
+    const xs = holes.map(o => o.x);
+    const x0 = Math.min(...xs), x1 = Math.max(...xs), y = holes[0].y;
+    const netsHere = holes.map(o => holeNet[o.h]).filter(Boolean);
+    const o = activeNet && !netsHere.includes(activeNet) ? .18 : 1;
+    const cx = (x0 + x1) / 2;
+    const bw = p.body.L * MM, dp = p.body.W * MM;
+    /* 🔴 平らな面は【上＝行A側】に描く。真上から見て、フラットな辺が上・丸い背が下。
+       これを手前に向けて挿すと E と B が入れ替わる（2026-08-08 に実際に起きた） */
+    const top = y - dp/2;
+    /* TO-92 の幅 4.6mm はピンの広がり 5.08mm より狭い。足は胴の下端へすぼまる */
+    for (const o2 of holes){
+      el('line', { x1:o2.x, y1:o2.y, x2:cx + (o2.x-cx)*(bw/ (x1-x0+0.001))*.7, y2:y,
+                   stroke:cssVar('--fg'), 'stroke-width':1.4, opacity:o*.7 });
+    }
+    const body = el('path', {
+      d:`M ${cx-bw/2} ${top} L ${cx+bw/2} ${top} A ${bw/2} ${dp/2} 0 0 1 ${cx-bw/2} ${top} Z`,
+      fill:cssVar('--fg'), opacity:o*.82 });
+    tip(body, `${p.name} TO-92 実寸 ${p.body.L} × ${p.body.W}mm。平らな面は行A側`);
+    const fl = el('text', { x:cx-bw/2-6, y:top+4, 'text-anchor':'end',
+                            fill:cssVar('--fg'), 'font-size':10, 'font-weight':700, opacity:o });
+    fl.textContent = '平らな面 →';
+    const nm = el('text', { x:cx, y:top-7, 'text-anchor':'middle',
+                            fill:cssVar('--fg'), 'font-size':11, 'font-weight':700, opacity:o });
+    nm.textContent = p.name;
+    for (const o2 of holes){
+      const t = el('text', { x:o2.x, y:o2.y+20, 'text-anchor':'middle',
+                             fill:cssVar('--fg'), 'font-size':11, 'font-weight':700, opacity:o });
+      t.textContent = o2.k;
+    }
+    return;
+  }
+
+  const a = pt(p.a), b = pt(p.b);
+  const netsHere = [holeNet[p.a], holeNet[p.b]].filter(Boolean);
+  const o = activeNet && !netsHere.includes(activeNet) ? .18 : 1;
+  const mx = (a.x+b.x)/2, my = (a.y+b.y)/2;
+  const vert = Math.abs(a.x-b.x) < 1;
+  const L = p.body.L * MM, Wd = p.body.W * MM;
+
+  el('line', { x1:a.x, y1:a.y, x2:b.x, y2:b.y, stroke:cssVar('--fg'),
+               'stroke-width':1.6, opacity:o*.75 });
+
+  if (p.kind === 'res'){
+    const w = vert ? Wd : L, h = vert ? L : Wd;
+    const body = el('rect', { x:mx-w/2, y:my-h/2, width:w, height:h, rx:3,
+                 fill:cssVar('--panel'), stroke:cssVar('--fg'), 'stroke-width':1.6, opacity:o });
+    tip(body, `${p.name} 1/4W 実寸 ${p.body.L} × ${p.body.W}mm`);
+  } else if (p.kind === 'diode'){
+    /* 実寸の胴＋カソード帯。カソードの向きは実座標から決める（裏返しで自動反転） */
+    const ca = pt(p.cathode);
+    const w = vert ? Wd : L, h = vert ? L : Wd;
+    const body = el('rect', { x:mx-w/2, y:my-h/2, width:w, height:h, rx:2,
+                 fill:cssVar('--panel'), stroke:cssVar('--fg'), 'stroke-width':1.6, opacity:o });
+    tip(body, `${p.name} 実寸 ${p.body.L} × ${p.body.W}mm。帯（カソード）は ${p.cathode} 側`);
+    const s = vert ? (ca.y > my ? 1 : -1) : (ca.x > mx ? 1 : -1);
+    if (vert){
+      el('rect', { x:mx-w/2, y:my+s*(h/2) - (s>0?4:0), width:w, height:4, fill:cssVar('--fg'), opacity:o });
+    } else {
+      el('rect', { x:mx+s*(w/2) - (s>0?4:0), y:my-h/2, width:4, height:h, fill:cssVar('--fg'), opacity:o });
+    }
+  } else if (p.kind === 'cap'){
+    const w = vert ? Wd : L, h = vert ? L : Wd;
+    const body = el('ellipse', { cx:mx, cy:my, rx:w/2, ry:h/2,
+                 fill:cssVar('--panel'), stroke:cssVar('--fg'), 'stroke-width':1.6, opacity:o });
+    tip(body, `${p.name} 積層セラミック 実寸 胴${p.body.L}mm（穴間 2.54mm より広い）`);
+  }
+
+  if (p.under && !vert){
+    el('line', { x1:mx, y1:my+Wd/2, x2:mx, y2:my+44, stroke:cssVar('--sub'),
+                 'stroke-width':1, 'stroke-dasharray':'2 2', opacity:o*.8 });
+  }
+  const ly = vert ? my+4 : (p.under ? my+56 : my-Wd/2-8);
+  const t = el('text', { x: vert ? mx+22 : mx, y: ly,
+                         'text-anchor': vert ? 'start' : 'middle',
+                         fill:cssVar('--fg'), 'font-size':11, 'font-weight':700, opacity:o });
+  t.textContent = p.under ? `${p.name}（裏）` : p.name;
+}
+
+function drawWarnMarks(){
+  for (const h in holeSev){
+    const q = pt(h);
+    const c = cssVar(holeSev[h] === 'err' ? '--err' : '--amber');
+    el('circle', { cx:q.x, cy:q.y, r:10, fill:'none', stroke:c, 'stroke-width':2.5,
+                   'stroke-dasharray': holeSev[h] === 'err' ? 'none' : '4 3',
+                   opacity: activeNet ? .35 : .95 });
+    if (holeSev[h] === 'err'){
+      el('circle', { cx:q.x, cy:q.y, r:14, fill:'none', stroke:c, 'stroke-width':1,
+                     opacity: activeNet ? .25 : .6 });
+    }
+  }
+}
+
+/* ---- 節点チップ・警告リスト・組む順番 ---- */
+function drawNets(){
+  const box = document.getElementById('nets');
+  box.innerHTML = '';
+  for (const key in NETS){
+    const n = NETS[key], c = cssVar(n.css);
+    const b = document.createElement('button');
+    b.className = 'chip' + (activeNet === key ? ' on' : '');
+    b.style.color = c;
+    b.innerHTML = `<span class="dot" style="background:${c}"></span>${n.label}`;
+    b.onclick = () => { activeNet = (activeNet === key) ? null : key; render(); };
+    box.appendChild(b);
+  }
+}
+
+function drawWarnList(){
+  const errs = WARNINGS.filter(w => w.sev === 'err');
+  const warns = WARNINGS.filter(w => w.sev === 'warn');
+  document.getElementById('warns').innerHTML =
+    [...errs, ...warns].map(w => `<li class="${w.sev}">${w.msg}</li>`).join('');
+  document.getElementById('banner').innerHTML =
+    `⚠ <b>この穴割りは旧設計のまま。</b>部品を実寸で描き直した結果、`
+    + `赤 <b>${errs.length}件</b>・黄 <b>${warns.length}件</b> の破綻が出ている。`
+    + `引き直しの作業はこの印を全部消すこと（板は375穴・使うのは一部。詰める理由が無い）。`;
+}
+
+const STEP_KEY = 'relay_board_steps_v2';
+function drawSteps(){
+  const saved = JSON.parse(localStorage.getItem(STEP_KEY) || '[]');
+  const ol = document.getElementById('steps');
+  ol.innerHTML = '';
+  STEPS.forEach((s, i) => {
+    const li = document.createElement('li');
+    li.innerHTML = `<input type="checkbox" ${saved[i] ? 'checked' : ''}><span class="txt">${s}</span>`;
+    if (saved[i]) li.classList.add('done');
+    li.querySelector('input').onchange = e => {
+      li.classList.toggle('done', e.target.checked);
+      const st = JSON.parse(localStorage.getItem(STEP_KEY) || '[]');
+      st[i] = e.target.checked;
+      localStorage.setItem(STEP_KEY, JSON.stringify(st));
+    };
+    ol.appendChild(li);
+  });
+}
+
+function render(){ draw(); drawNets(); }
+
+document.getElementById('flip').onclick = e => {
+  mirrored = !mirrored;
+  e.target.classList.toggle('on', mirrored);
+  e.target.textContent = mirrored ? '部品面に戻す' : '半田面に裏返す';
+  document.getElementById('sideLabel').innerHTML = mirrored
+    ? 'いま見ているのは <b>半田面</b>（裏返した状態。左右が反転している）'
+    : 'いま見ているのは <b>部品面</b>（部品を挿す側）';
+  render();
+};
+document.getElementById('clear').onclick = () => { activeNet = null; render(); };
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', render);
+
+render();
+drawWarnList();
+drawSteps();
+</script>
+</body>
+</html>
