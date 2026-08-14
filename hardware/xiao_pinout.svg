@@ -1,0 +1,106 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 620" width="940" height="620" font-family="sans-serif">
+  <rect x="0" y="0" width="940" height="620" fill="#f7f6f3"/>
+
+  <text x="30" y="38" font-size="19" font-weight="700" fill="#22201d">XIAO ESP32S3 ピン割り当て（2026-08-14 時点）</text>
+  <text x="30" y="60" font-size="13" fill="#c62828" font-weight="700">🔴 空きピンはゼロ。D0 も 2026-08-14 の実測で「使えない」と確定した。</text>
+
+  <!-- board -->
+  <rect x="380" y="100" width="180" height="410" rx="10" fill="#2f3a43" stroke="#1b2227" stroke-width="2"/>
+  <rect x="440" y="86" width="60" height="26" rx="6" fill="#9aa5ad" stroke="#6b7780" stroke-width="2"/>
+  <text x="470" y="104" font-size="11" font-weight="700" fill="#1b2227" text-anchor="middle">USB-C</text>
+  <text x="470" y="330" font-size="13" font-weight="700" fill="#9aa5ad" text-anchor="middle">XIAO</text>
+  <text x="470" y="350" font-size="13" font-weight="700" fill="#9aa5ad" text-anchor="middle">ESP32S3</text>
+
+  <!-- ================= LEFT ================= -->
+  <!-- D0 -->
+  <rect x="360" y="140" width="20" height="14" fill="#e8b64c"/>
+  <text x="330" y="152" font-size="15" font-weight="700" fill="#c62828" text-anchor="end">D0</text>
+  <text x="286" y="152" font-size="12" fill="#6f6a63" text-anchor="end">GPIO1</text>
+  <text x="238" y="152" font-size="13" font-weight="700" fill="#c62828" text-anchor="end">3.3Vに固定されている</text>
+
+  <!-- D1 -->
+  <rect x="360" y="190" width="20" height="14" fill="#e8b64c"/>
+  <text x="330" y="202" font-size="15" font-weight="700" fill="#c62828" text-anchor="end">D1</text>
+  <text x="286" y="202" font-size="12" fill="#6f6a63" text-anchor="end">GPIO2</text>
+  <text x="238" y="202" font-size="13" font-weight="700" fill="#c62828" text-anchor="end">XMOS リセット線</text>
+
+  <!-- D2 -->
+  <rect x="360" y="240" width="20" height="14" fill="#e8b64c"/>
+  <text x="330" y="252" font-size="15" font-weight="700" fill="#37474f" text-anchor="end">D2</text>
+  <text x="286" y="252" font-size="12" fill="#6f6a63" text-anchor="end">GPIO3</text>
+  <text x="238" y="252" font-size="13" fill="#37474f" text-anchor="end">会話ボタン</text>
+
+  <!-- D3 -->
+  <rect x="360" y="290" width="20" height="14" fill="#e8b64c"/>
+  <text x="330" y="302" font-size="15" font-weight="700" fill="#37474f" text-anchor="end">D3</text>
+  <text x="286" y="302" font-size="12" fill="#6f6a63" text-anchor="end">GPIO4</text>
+  <text x="238" y="302" font-size="13" fill="#37474f" text-anchor="end">ミュートリレー</text>
+
+  <!-- D4 -->
+  <rect x="360" y="340" width="20" height="14" fill="#e8b64c"/>
+  <text x="330" y="352" font-size="15" font-weight="700" fill="#37474f" text-anchor="end">D4</text>
+  <text x="286" y="352" font-size="12" fill="#6f6a63" text-anchor="end">GPIO5</text>
+  <text x="238" y="352" font-size="13" fill="#37474f" text-anchor="end">I2C SDA</text>
+
+  <!-- D5 -->
+  <rect x="360" y="390" width="20" height="14" fill="#e8b64c"/>
+  <text x="330" y="402" font-size="15" font-weight="700" fill="#37474f" text-anchor="end">D5</text>
+  <text x="286" y="402" font-size="12" fill="#6f6a63" text-anchor="end">GPIO6</text>
+  <text x="238" y="402" font-size="13" fill="#37474f" text-anchor="end">I2C SCL</text>
+
+  <!-- D6 -->
+  <rect x="360" y="440" width="20" height="14" fill="#e8b64c"/>
+  <text x="330" y="452" font-size="15" font-weight="700" fill="#37474f" text-anchor="end">D6</text>
+  <text x="286" y="452" font-size="12" fill="#6f6a63" text-anchor="end">GPIO43</text>
+  <text x="238" y="452" font-size="13" fill="#1565c0" text-anchor="end">I2S DOUT（スピーカー）</text>
+
+  <!-- ================= RIGHT ================= -->
+  <!-- 5V -->
+  <rect x="560" y="140" width="20" height="14" fill="#e8b64c"/>
+  <text x="610" y="152" font-size="15" font-weight="700" fill="#37474f">5V</text>
+  <text x="654" y="152" font-size="12" fill="#6f6a63">—</text>
+  <text x="700" y="152" font-size="13" fill="#37474f">電源入力（リレーのコイルもここから）</text>
+
+  <!-- GND -->
+  <rect x="560" y="190" width="20" height="14" fill="#e8b64c"/>
+  <circle cx="588" cy="197" r="9" fill="none" stroke="#212121" stroke-width="3"/>
+  <text x="610" y="202" font-size="15" font-weight="700" fill="#37474f">GND</text>
+  <text x="670" y="202" font-size="12" fill="#6f6a63">—</text>
+  <text x="700" y="202" font-size="13" fill="#37474f">共通 GND</text>
+
+  <!-- 3V3 -->
+  <rect x="560" y="240" width="20" height="14" fill="#e8b64c"/>
+  <text x="610" y="252" font-size="15" font-weight="700" fill="#37474f">3V3</text>
+  <text x="670" y="252" font-size="12" fill="#6f6a63">—</text>
+  <text x="700" y="252" font-size="13" fill="#37474f">OLED / AS5600</text>
+
+  <!-- D10 -->
+  <rect x="560" y="290" width="20" height="14" fill="#e8b64c"/>
+  <text x="610" y="302" font-size="15" font-weight="700" fill="#c62828">D10</text>
+  <text x="670" y="302" font-size="12" fill="#6f6a63">GPIO9</text>
+  <text x="730" y="302" font-size="13" font-weight="700" fill="#c62828">ReSpeaker 側が握っている</text>
+
+  <!-- D9 -->
+  <rect x="560" y="340" width="20" height="14" fill="#e8b64c"/>
+  <text x="610" y="352" font-size="15" font-weight="700" fill="#37474f">D9</text>
+  <text x="670" y="352" font-size="12" fill="#6f6a63">GPIO8</text>
+  <text x="730" y="352" font-size="13" fill="#1565c0">I2S BCLK</text>
+
+  <!-- D8 -->
+  <rect x="560" y="390" width="20" height="14" fill="#e8b64c"/>
+  <text x="610" y="402" font-size="15" font-weight="700" fill="#37474f">D8</text>
+  <text x="670" y="402" font-size="12" fill="#6f6a63">GPIO7</text>
+  <text x="730" y="402" font-size="13" fill="#1565c0">I2S WS / LRCLK</text>
+
+  <!-- D7 -->
+  <rect x="560" y="440" width="20" height="14" fill="#e8b64c"/>
+  <text x="610" y="452" font-size="15" font-weight="700" fill="#37474f">D7</text>
+  <text x="670" y="452" font-size="12" fill="#6f6a63">GPIO44</text>
+  <text x="730" y="452" font-size="13" fill="#1565c0">I2S DIN（マイク）</text>
+
+  <!-- ================= callouts ================= -->
+  <rect x="30" y="510" width="880" height="86" rx="8" fill="#fff5f5" stroke="#c62828" stroke-width="2"/>
+  <text x="46" y="534" font-size="14" font-weight="700" fill="#c62828">🔴 D0 の判定結果（2026-08-14・テスターによる独立測定）</text>
+  <text x="46" y="558" font-size="13" fill="#22201d">D0 に何も繋がない状態で <tspan font-family="monospace">hiz 0</tspan>（内部プルアップ無し）にし、テスター約10MΩを D0–GND に当てても <tspan font-weight="700">3.3V が動かない</tspan>。</text>
+  <text x="46" y="580" font-size="13" fill="#22201d">浮いているだけなら 0V 側へ落ちるはず。<tspan font-weight="700">10MΩ より低いインピーダンスで何かが固定している</tspan>＝ D10 と同じ穴。空きピンは無い。</text>
+</svg>

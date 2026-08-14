@@ -3,29 +3,28 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ミュートリレー基板の穴割り</title>
+<title>ハブ基板の穴割り（編集できる版）</title>
 <!--
-  スピーカーのミュートリレー駆動回路 / ユニバーサル基板(2.54mm)の穴割り。
-  回路図・定数の根拠・切り分けは docs/POWER.md が正。ここは「図」と「組む順番」だけ。
+  ハブ基板（ミュートリレー駆動 + コネクタ集約）の穴割り。
+  対象は 両面スルーホール C基板（72×47mm・25列×15行・2.54mm）。
+  回路と定数の根拠は docs/POWER.md。ここは図と組む順番だけ。
 
-  ▸ 直したいときは LAYOUT の各定数（RAILS / PARTS / JUMPERS …）だけ触れば絵が変わる。
-  ▸ 部品は実寸(mm)で描かれる。穴割りが物理的に成立しない箇所は自動で印が付く:
-      赤 = 1つの穴に導線2本以上 ／ 別ネットのレールが同居 ／ 足の折り返し不足 ／ コネクタ不在
-      黄 = レールが通る穴への挿し込み ／ レールの継ぎ目 ／ 曲げしろの無い1穴区間 ／ 胴の張り出し
+  ▸ 部品面では【線も部品もマウスで動かせる】。動かすたびに物理検査が走る。
+  ▸ 直した結果は「エクスポート」でテキストにして渡せる。
 -->
 <style>
   :root{
     --bg:#f7f6f3; --fg:#22201d; --sub:#6f6a63; --line:#cfc9c0;
     --board:#e8e2d6; --hole:#8c8578; --panel:#fffefb;
     --v5:#d1453b; --gnd:#3f3f3f; --in:#b57200; --base:#2e7d32; --col:#1565c0;
-    --jump:#7b4bbd; --err:#c62828; --amber:#b57200;
+    --jump:#7b4bbd; --err:#c62828; --amber:#b57200; --spk:#00695c; --sel:#0b84ff;
   }
   @media (prefers-color-scheme: dark){
     :root{
       --bg:#191817; --fg:#eae6df; --sub:#a09a91; --line:#3d3a35;
       --board:#2b2823; --hole:#6b655c; --panel:#211f1d;
       --v5:#ff6b5e; --gnd:#b9b4ab; --in:#e0a02a; --base:#5cc46a; --col:#5aa9f0;
-      --jump:#b085f5; --err:#ff6b5e; --amber:#e0a02a;
+      --jump:#b085f5; --err:#ff6b5e; --amber:#e0a02a; --spk:#4db6ac; --sel:#4da6ff;
     }
   }
   *{box-sizing:border-box}
@@ -34,26 +33,27 @@
     font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,system-ui,sans-serif;
     line-height:1.7;
   }
-  .wrap{max-width:1100px;margin:0 auto}
+  .wrap{max-width:1180px;margin:0 auto}
   h1{font-size:1.25rem;margin:0 0 4px}
   h2{font-size:.92rem;margin:0 0 10px}
   .lead{color:var(--sub);font-size:.86rem;margin:0 0 12px}
-  .lead code{background:var(--panel);border:1px solid var(--line);padding:1px 5px;border-radius:4px}
-  .banner{
-    background:color-mix(in srgb,var(--err) 10%,transparent);
-    border-left:3px solid var(--err);padding:8px 12px;border-radius:0 7px 7px 0;
-    font-size:.82rem;margin:0 0 14px;
-  }
-  .bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+  .lead code,#exp code{background:var(--panel);border:1px solid var(--line);padding:1px 5px;border-radius:4px}
+  .bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
   button{
     font:inherit;font-size:.82rem;padding:6px 13px;border-radius:7px;cursor:pointer;
     background:var(--panel);color:var(--fg);border:1px solid var(--line);
   }
   button:hover{border-color:var(--sub)}
   button.on{background:var(--fg);color:var(--bg);border-color:var(--fg)}
-  .side{font-size:.82rem;color:var(--sub);margin-left:4px}
+  button:disabled{opacity:.4;cursor:default}
+  .side{font-size:.8rem;color:var(--sub)}
+  .hint{font-size:.78rem;color:var(--sub);margin:0 0 10px}
+  .hint b{color:var(--fg)}
   .boardbox{overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px}
-  svg{display:block}
+  /* 図の上でドラッグしたときに、ラベルの文字や周りの説明文が選択されないようにする */
+  svg{display:block;touch-action:none;user-select:none;-webkit-user-select:none}
+  svg text{user-select:none;-webkit-user-select:none}
+  body.dragging{user-select:none;-webkit-user-select:none;cursor:move}
   .nets{display:flex;gap:6px;flex-wrap:wrap;margin:14px 0}
   .chip{
     font-size:.78rem;padding:4px 11px;border-radius:20px;cursor:pointer;
@@ -66,38 +66,85 @@
   #warns li{margin-bottom:4px}
   #warns li.err{color:var(--err)}
   #warns li.warn{color:var(--amber)}
+  #warns li.ok{color:var(--base)}
+  #warns li.clickable{cursor:pointer;text-decoration:underline dotted}
   #warns code{font-family:ui-monospace,Menlo,Consolas,monospace}
   #steps{margin:0;padding-left:0;list-style:none;font-size:.84rem;counter-reset:step}
-  #steps li{
-    margin-bottom:8px;display:flex;gap:9px;align-items:baseline;counter-increment:step;
-  }
+  #steps li{margin-bottom:8px;display:flex;gap:9px;align-items:baseline;counter-increment:step}
   #steps li::before{content:counter(step) ".";color:var(--sub);min-width:1.4em;text-align:right}
   #steps li.done .txt{opacity:.4;text-decoration:line-through}
   #steps input{transform:translateY(2px)}
+  #expbox{display:none}
+  #expbox.open{display:block}
+  textarea{
+    width:100%;height:320px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.72rem;
+    background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:7px;padding:10px;
+  }
+  .count{font-size:.78rem;color:var(--sub)}
+  .count b.bad{color:var(--err)}
+  .count b.good{color:var(--base)}
 </style>
 </head>
 <body>
 <div class="wrap">
 
-  <h1>ミュートリレー基板の穴割り</h1>
+  <h1>ハブ基板の穴割り（編集できる版）</h1>
   <p class="lead">
-    この図が正。回路図・定数の根拠・切り分けは <code>docs/POWER.md</code> にある。ここにあるのは図と組む順番だけ。
+    両面スルーホール C基板（72×47mm・25列×15行）。回路と定数の根拠は <code>docs/POWER.md</code>。
   </p>
-  <p class="banner" id="banner"></p>
+
+  <p class="hint">
+    <b>操作</b>　線（<b>表の被覆線＝破線</b> / <b>裏のブリッジ＝太い実線</b>）か部品を
+    <b>クリックで選択</b>、そのまま<b>ドラッグで移動</b>（穴に吸着）。
+    選択済みの線をもう一度クリックすると<b>点の編集</b>になり、四角いハンドルを掴めば1点だけ動く。
+    <b>線を曲げるには、そのとき区間の真ん中に出る「＋」を掴んで引っぱる</b>（折れ点ができる）。
+    線の途中の<b>ダブルクリックでも点を追加</b>できる。<b>Delete</b> は、点を選んでいれば点を、
+    線ぜんぶを選んでいれば線を消す。新しい線は<b>「線を引く」をONにしてから空き地をドラッグ</b>
+    （引いた線のネットは<b>未割り当て</b>で出るので、プルダウンで決める）。
+    <b>Ctrl+Z</b> で元に戻す。<b>Esc</b> で選択解除。
+    ⚠ <b>レールという別枠は無い</b>。裏の線はすべてブリッジで、そのうち
+    <b>足の入っていない穴が4つ以上つづく区間</b>だけを、1本の裸線＝レールとして太線＋ネット名で描く。
+    足の出ているパッドの上は裸線を通せないので、そこはブリッジで渡す。
+    ⚠ <b>半田面に裏返している間は編集できない</b>（左右が反転して操作を誤るため）。
+    ⚠ ブリッジは隣り合う穴の連鎖なので、折れ点を動かすと間は自動で埋まる。
+  </p>
 
   <div class="bar">
     <button id="flip">半田面に裏返す</button>
-    <button id="clear">選択を解除</button>
-    <span class="side" id="sideLabel">いま見ているのは <b>部品面</b>（部品を挿す側）</span>
+    <button id="undo">元に戻す (Ctrl+Z)</button>
+    <button id="reset">初期状態に戻す</button>
+    <button id="export">エクスポート</button>
+    <span class="side" id="sideLabel">いま見ているのは <b>部品面</b>（編集できます）</span>
   </div>
+  <div class="bar" id="selbar">
+    <button id="drawmode">線を引く</button>
+    <span class="side" id="selLabel">選択なし</span>
+    <button id="rot">部品を回転 (R)</button>
+    <button id="pside">この部品を表 ⇔ 裏</button>
+    <button id="conv">表の被覆線 ⇔ 裏のブリッジ</button>
+    <button id="del">この線を削除</button>
+    <label class="side">ネット
+      <select id="netsel"></select>
+    </label>
+  </div>
+  <p class="count" id="count"></p>
 
   <div class="boardbox"><svg id="svg"></svg></div>
 
   <div class="nets" id="nets"></div>
 
   <section>
-    <h2>この穴割りが物理で成立しない箇所（図から自動検出）</h2>
+    <h2>物理検査（動かすたびに走る）</h2>
     <ul id="warns"></ul>
+  </section>
+
+  <section id="expbox">
+    <h2>エクスポート — これを丸ごと渡してください</h2>
+    <p class="lead" style="margin:0 0 8px">
+      <button id="copy">クリップボードにコピー</button>
+      <button id="dl">ファイルに保存</button>
+    </p>
+    <textarea id="exp" readonly></textarea>
   </section>
 
   <section>
@@ -109,285 +156,502 @@
 
 <script>
 /* ===========================================================
-   LAYOUT — ここだけ直せば絵が変わる
+   LAYOUT — 初期状態。編集結果はエクスポートで取り出す
    =========================================================== */
-/* 実物のユニバーサル基板は 25穴 × 15穴（2026-08-07 ユーザー実測 ≒ 63.5 × 38.1mm） */
-const ROWS = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O'];
-const NCOL = 25;
+/* 🔴 実物の基板は DAISEN PU52X74（A8サイズ）。2026-08-14 にメーカー図面で確定した。
+   外形 52 × 74mm・FR-4 ガラエポ・両面スルー・板厚 1.6mm・角R1・パッドφ1.0。
+   穴の並ぶ範囲は 66.04 × 45.72mm で、どちらも 2.54 で割り切れる（26 と 18）ので
+   長辺 27穴 × 短辺 19穴。長辺を横、短辺を縦に置く。
+   取り付け穴は 4-φ3.2、中心間隔 68 × 46mm。
+   ⚠ 四隅は取り付け穴に食われて縦2穴ずつ欠けている（ユーザーが実物で確認）。 */
+const ROWS = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S'];
+const NCOL = 27;
+const NOTCH = new Set(['A1','B1','R1','S1','A27','B27','R27','S27']);
 
 const NETS = {
-  V5:   { label:'+5V',       css:'--v5'  },
-  GND:  { label:'GND',       css:'--gnd' },
-  IN:   { label:'D3入力',     css:'--in'  },
-  BASE: { label:'ベース節点',  css:'--base'},
-  COL:  { label:'コレクタ',    css:'--col' },
-  CONT: { label:'接点側（COM / NC / NO）', css:'--fg' },
-  V33:  { label:'3V3',       css:'--in'  },
-  SDA:  { label:'SDA',       css:'--base'},
-  SCL:  { label:'SCL',       css:'--col' },
+  V5:   { label:'+5V',        css:'--v5'  },
+  GND:  { label:'GND',        css:'--gnd' },
+  IN:   { label:'D3入力',      css:'--in'  },
+  BASE: { label:'ベース節点',   css:'--base'},
+  COL:  { label:'コレクタ',     css:'--col' },
+  V33:  { label:'3V3',        css:'--in'  },
+  SCL:  { label:'SCL',        css:'--col' },
+  SDA:  { label:'SDA',        css:'--base'},
   BTN:  { label:'会話ボタン (D2)', css:'--jump'},
+  SPKP: { label:'スピーカー IN+ / COM', css:'--spk'},
+  SPKO: { label:'スピーカー NO / OUT+', css:'--spk'},
+  SPKM: { label:'スピーカー −（素通し）', css:'--spk'},
+  /* 新しく引いた線の既定。何のネットか決まっていないことを目に見えるようにする */
+  NONE: { label:'未割り当て', css:'--sub' },
 };
 
-/* 横のレール(row/c0/c1) と 縦のレール(col/r0/r1)。裸のスズメッキ線・半田面 */
-const RAILS = [
-  { col:1,  net:'V5',  r0:'A', r1:'M' },
-  { col:7,  net:'GND', r0:'B', r1:'I' },
-  { col:16, net:'V33', r0:'A', r1:'I' },
-  { col:17, net:'GND', r0:'A', r1:'H' },
-  { col:18, net:'SCL', r0:'A', r1:'G' },
-  { col:19, net:'SDA', r0:'A', r1:'F' },
-  { row:'I', net:'V33', c0:16, c1:25 },
-  { row:'H', net:'GND', c0:17, c1:25 },
-  { row:'G', net:'SCL', c0:18, c1:25 },
-  { row:'F', net:'SDA', c0:19, c1:25 },
-];
-
-/* AS5600 は右辺（列25）に縦4本。XIAO は上辺（行A）に横7本 */
-const AS5600 = { col:25, rows:['F','G','H','I'], labels:['SDA','SCL','GND+DIR','VCC'] };
-const STRIP = { row:'A', c0:13, c1:19,
-  labels:{ 13:'5V', 14:'D2', 15:'D3', 16:'3V3', 17:'GND', 18:'SCL', 19:'SDA' } };
-
-/* OLED 0.96" I2C。4ピンを 行D の 列16〜19 に直挿し。本体はピン列から下へ垂れる。
-   シルクは VCC GND SCL SDA（一般的な並びと SCL/SDA が逆）。電源は 3V3 で確定 */
-const OLED = { pinRow:'D', cols:[16,17,18,19], labels:['VCC','GND','SCL','SDA'],
-               bodyW:30, bodyH:27 };
-
-/* 部品。body は実寸(mm)。L=足の並び方向 / W=それに直交 */
-const PARTS = [
-  { id:'R1', name:'1kΩ',    kind:'res',   a:'H3', b:'E3', body:{L:6.2, W:2.3} },
-  { id:'R2', name:'10kΩ',   kind:'res',   a:'E3', b:'B3', body:{L:6.2, W:2.3} },
-  { id:'D1', name:'1N4148', kind:'diode', a:'M3', b:'M5', cathode:'M3', under:true,
-    body:{L:3.4, W:1.75} },
-  { id:'C1', name:'0.1µF',  kind:'cap',   a:'C6', b:'C7', body:{L:4.5, W:2.8} },
-  { id:'Q1', name:'2SC1815-GR', kind:'tr', pins:{ B:'E5', C:'E6', E:'E7' },
-    body:{L:4.6, W:3.9} },
-];
-
-/* 会話ボタン（マイクロスイッチ・端子ピッチ5.08）。C=レバーの根本側 */
-const BUTTON = {
-  name:'会話ボタン', bodyW:12, bodyH:5,
-  pins:[
-    { hole:'J9', fn:'C'  },
-    { hole:'L9', fn:'NO' },
-    { hole:'N9', fn:'NC' },
+/* 🔴 +5V のレールは廃止した（2026-08-11 ユーザー指摘）。
+   行き先はコイルと 0.1µF の2点だけで、バスにする意味が無い。
+   🔒 2026-08-14、ユーザーのエクスポートをそのまま初期レイアウトにした（赤0／黄11）。
+   GND のレールもここで無くなり、レールは1本も使っていない。ここが正。 */
+function initialLayout(){ return {
+  /* body は実寸(mm)。nets は端子が属する節点。under=半田面に付ける */
+  PARTS: [
+    { id:'R1', name:'1kΩ',    kind:'res',   a:'C8',  b:'C4',
+      nets:{a:'IN', b:'BASE'}, body:{L:6.2, W:2.3} },
+    { id:'R2', name:'10kΩ',   kind:'res',   a:'D4',  b:'D8',
+      nets:{a:'BASE', b:'GND'}, body:{L:6.2, W:2.3} },
+    /* 🔴 2026-08-14: 部品面に出した。K5–K7 でリレーのコイルの足にまたがせていた頃の
+       名残で under:true が貼り付いていたが、I4–I6 は空き穴なので表から普通に挿せる。
+       ここを裏に戻さないこと（ユーザーが苦労して外した場所） */
+    { id:'D1', name:'1N4148', kind:'diode', a:'I4',  b:'I6', cath:'a',
+      nets:{a:'V5', b:'COL'}, body:{L:3.4, W:1.75} },
+    { id:'C1', name:'0.1µF',  kind:'cap',   a:'E11', b:'F11',
+      nets:{a:'V5', b:'GND'}, body:{L:4.5, W:2.8} },
+    { id:'Q1', name:'2SC1815-GR', kind:'tr', pins:{ B:'G5', C:'G6', E:'G7' },
+      nets:{B:'BASE', C:'COL', E:'GND'}, body:{L:4.6, W:3.9} },
   ],
-};
-
-/* リレー Y14H-1C-5DS。本体 12.6 × 7.6 × 10mm。ピンは 2列×3本・全部グリッドに乗る */
-const RELAY = {
-  name:'リレー Y14H-1C-5DS', bodyL:12.6, bodyW:7.6,
-  pins:[
-    { hole:'J3', fn:'COM'    },
-    { hole:'M3', fn:'コイル' },
-    { hole:'N3', fn:'NO'     },
-    { hole:'J5', fn:'COM'    },
-    { hole:'M5', fn:'コイル' },
-    { hole:'N5', fn:'NC'     },
+  /* ⚠ COM 2本が内部で繋がっていることは、穴の名前ではなく fn:'COM' で判定している
+     （solveNets）。穴で持つと動かした瞬間に取り残される */
+  RELAY: { id:'RELAY', name:'リレー Y14H-1C-5DS', bodyL:12.6, bodyW:7.6,
+    pins:[
+      { hole:'K5', fn:'COM',    net:'SPKP' },
+      { hole:'K7', fn:'COM',    net:'SPKP' },
+      { hole:'N5', fn:'コイル', net:'V5'   },
+      { hole:'N7', fn:'コイル', net:'COL'  },
+      { hole:'O5', fn:'NO',     net:'SPKO' },
+      { hole:'O7', fn:'NC',     net:null   },
+    ] },
+  BUTTON: { id:'BUTTON', name:'会話ボタン', bodyW:12, bodyH:5,
+    pins:[
+      { hole:'K20', fn:'C',  net:'GND' },
+      { hole:'M20', fn:'NO', net:'BTN' },
+      { hole:'O20', fn:'NC', net:null  },
+    ] },
+  /* PH2.0 2P。⬜ トップ型かサイド型かは現物合わせ */
+  PHCONN: [
+    { id:'PHIN',  name:'IN（ReSpeakerから）', body:{L:5.9, W:4.5}, exit:'left',
+      pins:[ {hole:'K1', fn:'+', net:'SPKP'}, {hole:'L1', fn:'−', net:'SPKM'} ] },
+    { id:'PHOUT', name:'OUT（スピーカーへ）', body:{L:5.9, W:4.5}, exit:'left',
+      pins:[ {hole:'N1', fn:'−', net:'SPKM'}, {hole:'O1', fn:'+', net:'SPKO'} ] },
   ],
-};
-
-/* 部品面に通す被覆線。直角のみ */
-const JUMPERS = [
-  { id:'①', path:['E3','E5'],                    net:'BASE' },
-  { id:'②', path:['C6','C1'],                    net:'V5'   },
-  { id:'③', path:['M3','M1'],                    net:'V5'   },
-  { id:'④', path:['E6','G6','M6','M5'],          net:'COL'  },
-  { id:'⑤', path:['B3','B7'],                    net:'GND'  },
-  { id:'⑥', path:['F7','F17'],                   net:'GND'  },
-  { id:'⑦', path:['A15','H15','H3'],             net:'IN'   },
-  { id:'⑧', path:['I7','I9','J9'],               net:'GND'  },
-  { id:'⑨', path:['A14','B14','B10','L10','L9'], net:'BTN'  },
-  { id:'⑩', path:['A13','A1'],                   net:'V5'   },
-];
-
-/* 基板の外へ出る線。⚠ 受けるコネクタがまだ図に無い（PH2.0 IN/OUT・購入待ち） */
-const EXITS = {
-  stubs: [
-    { hole:'J3', side:'left', label:'COM → アンプ出力(+)' },
-    { hole:'N3', side:'left', label:'NO → スピーカー(+)' },
+  HEADERS: [
+    { id:'XIAO', label:'XIAO からの7本', exit:'up',
+      pins:[ {hole:'A11', fn:'5V',  net:'V5'},
+             {hole:'A12', fn:'D2',  net:'BTN'},
+             {hole:'A13', fn:'D3',  net:'IN'},
+             {hole:'A14', fn:'GND', net:'GND'},
+             {hole:'A15', fn:'3V3', net:'V33'},
+             {hole:'A16', fn:'SCL', net:'SCL'},
+             {hole:'A17', fn:'SDA', net:'SDA'} ] },
+    { id:'OLED', label:'OLED 2.42" へ4本 ⬜並び要確認', exit:'down',
+      pins:[ {hole:'O14', fn:'GND', net:'GND'},
+             {hole:'O15', fn:'VDD', net:'V33'},
+             {hole:'O16', fn:'SCL', net:'SCL'},
+             {hole:'O17', fn:'SDA', net:'SDA'} ] },
+    /* 🔴 4本。DIR は基板側に穴を作らず、ハーネス側を二股にして GND に相乗りさせる
+       （2026-08-11 ユーザー指摘。基板の穴とジャンパが1本ぶん減る） */
+    { id:'AS5600', label:'AS5600 へ4本（GNDは二股ケーブルでDIRへ）', exit:'right',
+      pins:[ {hole:'E25', fn:'SDA', net:'SDA'},
+             {hole:'F25', fn:'SCL', net:'SCL'},
+             {hole:'G25', fn:'3V3', net:'V33'},
+             {hole:'H25', fn:'GND', net:'GND'} ] },
   ],
-};
-
-/* レール以外の穴 → 節点（ハイライト用） */
-const HOLE_NETS = {
-  H3:'IN',    A15:'IN',  H15:'IN',
-  L9:'BTN',   A14:'BTN', B14:'BTN', B10:'BTN', L10:'BTN',
-  I9:'GND',   J9:'GND',
-  E3:'BASE',  E5:'BASE',
-  E6:'COL',   G6:'COL',  M6:'COL',  M5:'COL',
-  B3:'GND',
-  M3:'V5',    C6:'V5',   A13:'V5',
-  J3:'CONT',  J5:'CONT', N3:'CONT', N5:'CONT',
-  F25:'SDA',  G25:'SCL', H25:'GND', I25:'V33',
-};
-
-const STEPS = [
-  '<b>【裏】レール10本</b>を、裸のスズメッキ線で這わせる。'
-    + '縦は <b>列1 A〜M=+5V</b> / <b>列7 B〜I=GND</b> / <b>列16 A〜I=3V3</b> / '
-    + '<b>列17 A〜H=GND</b> / <b>列18 A〜G=SCL</b> / <b>列19 A〜F=SDA</b>。'
-    + '横は <b>行I 16〜25=3V3</b> / <b>行H 17〜25=GND</b> / <b>行G 18〜25=SCL</b> / <b>行F 19〜25=SDA</b>。'
-    + '縦と横は <b>I16 / H17 / G18 / F19</b> の4点でL字に繋ぐ。',
-  '<b>【表】1kΩ・10kΩ・0.1µF・2SC1815</b> を挿す。'
-    + '🔴 2SC1815 は<b>平らな印字面を奥（行A側）</b>に向ける。E7＝GNDレールの穴にエミッタが載っていれば正しい。',
-  'ジャンパの <b>①②⑤</b> を張る。3本とも駆動側（列1〜7）に収まる。',
-  '<b>【表】リレー</b>を <b>J3/M3/N3 と J5/M5/N5</b> に挿す。近い2本の対（コイル—NO/NC）が手前（行M・N側）。',
-  '<b>【裏】1N4148 を M3–M5</b>（コイルの2本）にまたがせる。<b>帯は M3（+5V側）</b>。'
-    + '⚠ N3/N5 は接点なので、そちらに架けると接点をショートさせる。',
-  'ジャンパの <b>③④⑥</b> を張る。④は列6を真っ直ぐ下ろす。',
-  '<b>【表】ピンヘッダを2つ立てる</b>。着地列 <b>A13〜A19</b> に7本、AS5600用 <b>F25〜I25</b> に4本。',
-  'ジャンパの <b>⑦⑧⑨⑩</b> を張る。⑨は F10 で⑥を、H10 で⑦を跨ぐ（被覆線どうし・短絡しない）。',
-  '<b>【表】会話ボタンのマイクロスイッチ</b>を <b>J9/L9/N9</b> に縦置きで挿す。'
-    + '<b>レバーの根本側が J9（上）</b>。⚠ N9＝NC には何も繋がない。',
-  '通電前に目視してから +5V と GND を繋ぐ。<b>何も起きないのが正常</b>（D3 は浮いていて 10kΩ が LOW に保つ）。',
-  '<b>H3</b> に 3V3 を当てて（線が繋がっていればシリアルで <code>high 3</code>）、<b>カチッと鳴るか</b>確かめる。',
-  '接点の検証（POWER.md）を通してから、はじめてスピーカー線を繋ぐ。⚠ 繋ぐ前に必ず声をかける。',
-  '🔴 <b>一番最後に OLED を D16〜D19 に挿す。</b>本体の下にバスの半田点が隠れるため、先に挿すと二度と触れない。',
-];
+  /* 部品面の被覆線。直角のみ。
+     🔒 2026-08-14、ユーザーのエクスポートそのまま（赤0／黄11）。ここが正。 */
+  JUMPERS: [
+    { id:'①', path:['A10','A3','H3'],       net:'V5',  what:'5V をコイルへ（列2を下る）' },
+    { id:'②', path:['B13','D13','D10','C10','C9'], net:'IN', what:'D3 を 1kΩ へ' },
+    { id:'③', path:['I8','I9','N9','N8'],   net:'COL', what:'コレクタをコイルへ（列8を下る）' },
+    { id:'④', path:['B14','I14'],           net:'GND', what:'GND を分配レールへ' },
+    { id:'⑦', path:['I15','M15'],           net:'V33', what:'3V3 幹線・下 → OLED' },
+    { id:'⑨', path:['F17','F23'],           net:'SCL', what:'SCL を AS5600 へ' },
+    { id:'⑩', path:['G16','M16'],           net:'SCL', what:'SCL 幹線・下 → OLED' },
+    { id:'⑪', path:['D18','D23'],           net:'SDA', what:'SDA を AS5600 へ' },
+    { id:'⑫', path:['D17','M17'],           net:'SDA', what:'SDA 幹線・下 → OLED' },
+    { id:'⑬', path:['B12','C12','C22','M22'], net:'BTN', what:'D2 を会話ボタンへ' },
+    { id:'⑥', path:['I3','N3','N4'],        net:'V5',  what:'（新規）' },
+    { id:'⑧', path:['F16','B16'],           net:'SCL', what:'（新規）' },
+    { id:'⑤', path:['H15','H23','G23'],     net:'V33', what:'（新規）' },
+    { id:'⑭', path:['J20','J14'],           net:'GND', what:'（裏から表へ）' },
+  ],
+  /* 半田面のブリッジ（隣り合うパッドを裏で繋ぐ）。2026-08-14 のユーザー最終版。
+     ⚠ ユーザーのエクスポートでは GND の幹線が
+     G7…I14 → I13 → … → G11 → F11 と同じ穴を逆走していたが、
+     実際に作りたいのは T字なので、幹線と F11 への枝の2本に分けてある。
+     穴とネットの対応は逆走版と完全に一致することを確認済み。 */
+  BRIDGES: [
+    { path:['A11','A10'], net:'V5' },
+    { path:['A11','B11'], net:'V5' },
+    { path:['B11','C11','D11','E11'], net:'V5' },
+    { path:['N4','N5'], net:'V5' },
+    { path:['A14','B14'], net:'GND' },
+    { path:['G7','G8','G9','G10','G11','H11','I11','I12','I13','I14'], net:'GND' },
+    { path:['F11','G11'], net:'GND' },
+    { path:['D8','D9','E9','F9','G9'], net:'GND' },
+    { path:['I14','J14','K14','L14','M14','N14','O14'], net:'GND' },
+    { path:['I25','H25'], net:'GND' },
+    { path:['A13','B13'], net:'IN' },
+    { path:['C8'], net:'IN' },
+    { path:['G5','G4','F4','E4','D4','C4'], net:'BASE' },
+    { path:['G6'], net:'COL' },
+    { path:['N8','N7'], net:'COL' },
+    { path:['A12','B12'], net:'BTN' },
+    { path:['M22','M21','M20'], net:'BTN' },
+    { path:['A15','B15','C15','D15','E15','F15','G15'], net:'V33' },
+    { path:['G15','H15','I15'], net:'V33' },
+    { path:['M15','N15','O15'], net:'V33' },
+    { path:['G23','G24','G25'], net:'V33' },
+    { path:['A16','B16'], net:'SCL' },
+    { path:['M16','N16','O16'], net:'SCL' },
+    { path:['F23','F24','F25'], net:'SCL' },
+    { path:['A17','B17','C17','D17','D18'], net:'SDA' },
+    { path:['M17','N17','O17'], net:'SDA' },
+    { path:['D23','D24','D25','E25'], net:'SDA' },
+    { path:['K1','K2','K3','K4','K5'], net:'SPKP' },
+    { path:['L1','M1','N1'], net:'SPKM' },
+    { path:['O1','O2','O3','O4','O5'], net:'SPKO' },
+    { path:['C8','C9'], net:'IN' },
+    { path:['I8','I7','I6','H6','G6'], net:'COL' },
+    { path:['I20','I21','I22','I23','I24','I25','H25'], net:'GND' },
+    { path:['I20','J20','K20'], net:'GND' },
+    { path:['H3','I3'], net:'V5' },
+    { path:['I3','I4'], net:'V5' },
+    { path:['G16','F16','F17'], net:'SCL' },
+  ],
+}; }
 
 /* ===========================================================
-   以下は描画と検査。触らなくてよい
+   状態
    =========================================================== */
-const PITCH = 32, PADX = 46, PADY = 40, GUTTER = 150;
-const MM = PITCH / 2.54;               /* 1mm が画面で何pxか。部品は全部この縮尺で描く */
+/* ⚠ 初期レイアウトを書き換えたら、この番号を上げること。
+   上げないと、前に開いたときの保存内容が読み込まれて新しい初期値が出ない */
+const SAVE_KEY = 'hub_board_layout_v6';
+let L = load() || initialLayout();
+let undoStack = [];
 let mirrored = false;
 let activeNet = null;
+let sel = null;          /* {kind:'jumper'|'bridge'|'block', id, vi:null|number} */
+let drag = null;
+let drawing = false;     /* 「線を引く」モード */
 
+function clone(o){ return JSON.parse(JSON.stringify(o)); }
+/* localStorage は環境によって読み書きが禁止される（data: で開いた等）ので必ず包む */
+function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
+function lsSet(k,v){ try { localStorage.setItem(k,v); } catch(e){} }
+function load(){ const s = lsGet(SAVE_KEY); try { return s ? JSON.parse(s) : null; } catch(e){ return null; } }
+function save(){ lsSet(SAVE_KEY, JSON.stringify(L)); }
+function pushUndo(){ undoStack.push(clone(L)); if (undoStack.length > 60) undoStack.shift(); }
+
+/* ===========================================================
+   穴の座標ヘルパ
+   =========================================================== */
+const PITCH = 32, PADX = 46, PADY = 46, GUTTER = 160;
+const MM = PITCH / 2.54;
 const svg = document.getElementById('svg');
 const NS = 'http://www.w3.org/2000/svg';
 
-function colOf(h){ return parseInt(h.slice(1),10); }
-function rowOf(h){ return h[0]; }
-function xOf(col){
-  const c = mirrored ? (NCOL + 1 - col) : col;
-  return PADX + (c - 1) * PITCH;
-}
-function yOf(row){ return PADY + ROWS.indexOf(row) * PITCH; }
-function pt(h){ return { x: xOf(colOf(h)), y: yOf(rowOf(h)) }; }
-function cssVar(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
-function holeDistMM(a,b){
-  return (Math.abs(colOf(a)-colOf(b)) + Math.abs(ROWS.indexOf(rowOf(a))-ROWS.indexOf(rowOf(b)))) * 2.54;
+function C(h){ return parseInt(h.slice(1),10); }
+function R(h){ return ROWS.indexOf(h[0]); }
+function H(c, r){ return ROWS[r] + c; }
+function xOf(col){ return PADX + ((mirrored ? (NCOL + 1 - col) : col) - 1) * PITCH; }
+function yOf(r){ return PADY + r * PITCH; }
+function pt(h){ return { x: xOf(C(h)), y: yOf(R(h)) }; }
+function cssVar(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+function distMM(a,b){ return (Math.abs(C(a)-C(b)) + Math.abs(R(a)-R(b))) * 2.54; }
+function adjacent(a,b){ return Math.abs(C(a)-C(b)) + Math.abs(R(a)-R(b)) === 1; }
+/* 盤の中にあり、かつ四隅の欠けに当たっていないこと。
+   欠けは穴が存在しないので、部品も線もそこへは動かせない */
+function inBoard(c,r){
+  if (!(c >= 1 && c <= NCOL && r >= 0 && r < ROWS.length)) return false;
+  return !NOTCH.has(ROWS[r] + c);
 }
 
-/* ---- 穴の使われ方の台帳 ---- */
+/* ===========================================================
+   台帳（毎回 L から組み直す）
+   =========================================================== */
+function blockList(){
+  const bs = [];
+  for (const p of L.PARTS){
+    bs.push({
+      id:'part:'+p.id, name:p.name, ref:p,
+      holes: () => p.kind === 'tr' ? Object.keys(p.pins).map(k => p.pins[k]) : [p.a, p.b],
+      set: hs => { if (p.kind === 'tr'){ Object.keys(p.pins).forEach((k,i) => p.pins[k] = hs[i]); }
+                   else { p.a = hs[0]; p.b = hs[1]; } },
+      seeds: () => p.kind === 'tr'
+        ? Object.keys(p.pins).map(k => ({ hole:p.pins[k], net:p.nets[k] }))
+        : [{ hole:p.a, net:p.nets.a }, { hole:p.b, net:p.nets.b }],
+      under: !!p.under,
+    });
+  }
+  const pinBlock = (o, name) => ({
+    id:'blk:'+o.id, name, ref:o,
+    holes: () => o.pins.map(p => p.hole),
+    set: hs => o.pins.forEach((p,i) => p.hole = hs[i]),
+    seeds: () => o.pins.filter(p => p.net).map(p => ({ hole:p.hole, net:p.net })),
+    under: false,
+  });
+  bs.push(pinBlock(L.RELAY, L.RELAY.name));
+  bs.push(pinBlock(L.BUTTON, L.BUTTON.name));
+  for (const c of L.PHCONN) bs.push(pinBlock(c, c.name));
+  for (const hd of L.HEADERS) bs.push(pinBlock(hd, hd.label));
+  return bs;
+}
 
-/* 穴 → その穴に「挿さる」導線（部品の足・ジャンパの端・ピン・外へ出る線） */
-function buildInsertions(){
+/* 穴 → 挿さる導線 */
+function insertions(){
   const ins = {};
   const add = (h, label) => { (ins[h] = ins[h] || []).push(label); };
-  for (const p of PARTS){
-    if (p.kind === 'tr'){ for (const k in p.pins) add(p.pins[k], `${p.name}の${k}`); }
-    else { add(p.a, p.name); add(p.b, p.name); }
+  for (const b of blockList()) for (const h of b.holes()) add(h, b.name);
+  for (const j of L.JUMPERS){
+    add(j.path[0], 'ジャンパ'+j.id);
+    add(j.path[j.path.length-1], 'ジャンパ'+j.id);
   }
-  for (const j of JUMPERS){
-    add(j.path[0], `ジャンパ${j.id}`);
-    add(j.path[j.path.length-1], `ジャンパ${j.id}`);
-  }
-  for (const p of RELAY.pins) add(p.hole, `リレー(${p.fn})`);
-  for (const p of BUTTON.pins) add(p.hole, `スイッチ(${p.fn})`);
-  OLED.cols.forEach((c,i) => add(OLED.pinRow + c, `OLED(${OLED.labels[i]})`));
-  for (let c = STRIP.c0; c <= STRIP.c1; c++) add(STRIP.row + c, `ヘッダ(${STRIP.labels[c]})`);
-  AS5600.rows.forEach((r,i) => add(r + AS5600.col, `ヘッダ(${AS5600.labels[i]})`));
-  for (const e of EXITS.stubs) add(e.hole, '外へ出る線');
   return ins;
 }
 
-/* 穴 → その穴を通るレールのネット名の配列 */
-function buildRailHoles(){
-  const m = {};
-  for (const r of RAILS){
-    const holes = [];
-    if (r.row){
-      for (let c = Math.min(r.c0,r.c1); c <= Math.max(r.c0,r.c1); c++) holes.push(r.row + c);
-    } else {
-      const i0 = ROWS.indexOf(r.r0), i1 = ROWS.indexOf(r.r1);
-      for (let i = Math.min(i0,i1); i <= Math.max(i0,i1); i++) holes.push(ROWS[i] + r.col);
-    }
-    for (const h of holes) (m[h] = m[h] || []).push(r.net);
+/* union-find で、ブリッジ・ジャンパ・部品内部結線から
+   電気的に繋がった穴のかたまりを作る。ネットは端子の宣言から伝播させる。 */
+function solveNets(){
+  const parent = {};
+  const find = a => { if (parent[a] === undefined) parent[a] = a;
+                      while (parent[a] !== a){ parent[a] = parent[parent[a]]; a = parent[a]; } return a; };
+  const uni = (a,b) => { const ra = find(a), rb = find(b); if (ra !== rb) parent[ra] = rb; };
+  const touch = h => { find(h); };
+
+  for (const b of L.BRIDGES){
+    for (let i = 1; i < b.path.length; i++) uni(b.path[i-1], b.path[i]);
+    b.path.forEach(touch);
   }
-  return m;
+  for (const j of L.JUMPERS){ uni(j.path[0], j.path[j.path.length-1]); j.path.forEach(touch); }
+  /* リレーの COM は内部で2本に振り出されている。
+     ⚠ 穴の名前で持つと、リレーを動かした瞬間に取り残されて「断線」の誤検出になる
+     （2026-08-11 に実際に踏んだ）。役割（fn）で引くこと。 */
+  const coms = L.RELAY.pins.filter(p => p.fn === 'COM');
+  for (let i = 1; i < coms.length; i++) uni(coms[0].hole, coms[i].hole);
+
+  /* 端子の宣言をシードにしてネットを配る */
+  const seeds = [];
+  for (const b of blockList()) for (const s of b.seeds()){ touch(s.hole); seeds.push(s); }
+
+  const groupNet = {}, conflicts = [];
+  for (const s of seeds){
+    const g = find(s.hole);
+    if (groupNet[g] && groupNet[g] !== s.net){
+      conflicts.push({ a:groupNet[g], b:s.net, hole:s.hole });
+    } else groupNet[g] = s.net;
+  }
+  const holeNet = {};
+  for (const h in parent){ const g = find(h); if (groupNet[g]) holeNet[h] = groupNet[g]; }
+
+  /* ネットごとの島の数 */
+  const islands = {};
+  for (const h in holeNet){
+    const n = holeNet[h], g = find(h);
+    (islands[n] = islands[n] || new Set()).add(g);
+  }
+  return { holeNet, conflicts, islands, find };
 }
 
-const INS = buildInsertions();
-const RAILH = buildRailHoles();
-
-/* 穴 → 節点（ハイライト用。レールを展開して合成） */
-function buildHoleNets(){
-  const map = Object.assign({}, HOLE_NETS);
-  for (const h in RAILH) map[h] = RAILH[h][0];
-  return map;
+/* 部品の胴の bbox（論理座標・列は1起点、行は1起点） */
+/* 部品の胴が占める箱。すべて orientedBox で出すので、回しても追従する */
+function bodyBoxes(){
+  const out = [];
+  const add = (name, hs, longMM, shortMM) =>
+    out.push(Object.assign({ name, own:new Set(hs) }, orientedBox(hs, longMM, shortMM)));
+  for (const p of L.PARTS){
+    if (p.under) continue;
+    const hs = p.kind === 'tr' ? Object.keys(p.pins).map(k=>p.pins[k]) : [p.a, p.b];
+    add(p.name, hs, p.body.L, p.body.W);
+  }
+  add(L.RELAY.name, L.RELAY.pins.map(p=>p.hole), L.RELAY.bodyL, L.RELAY.bodyW);
+  add(L.BUTTON.name, L.BUTTON.pins.map(p=>p.hole), L.BUTTON.bodyW, L.BUTTON.bodyH);
+  for (const c of L.PHCONN) add('PH '+c.id, c.pins.map(p=>p.hole), c.body.L, c.body.W);
+  for (const hd of L.HEADERS)
+    add(hd.label, hd.pins.map(p=>p.hole), hd.pins.length * 2.54, 2.5);
+  return out;
 }
-const holeNet = buildHoleNets();
 
-/* ---- 物理検査 ---- */
-function computeWarnings(){
+/* ジャンパの経路が通る穴（両端を含む） */
+function jumperCells(j){
+  const seq = [j.path[0]];
+  for (let i = 0; i < j.path.length-1; i++){
+    const a = j.path[i], b = j.path[i+1];
+    const dc = Math.sign(C(b)-C(a)), dr = Math.sign(R(b)-R(a));
+    let c = C(a), r = R(a);
+    while (c !== C(b) || r !== R(b)){ c += dc; r += dr; seq.push(H(c,r)); }
+  }
+  return seq;
+}
+
+/* ===========================================================
+   物理検査
+   =========================================================== */
+let NET = solveNets();
+let WARN = [];
+
+function check(){
+  NET = solveNets();
   const W = [];
+  const INS = insertions();
+  const hn = NET.holeNet;
+
   /* 1穴1本 */
-  for (const h in INS){
-    if (INS[h].length >= 2){
-      W.push({ hole:h, sev:'err',
-               msg:`<code>${h}</code>: 導線${INS[h].length}本（${INS[h].join('・')}）— 1穴に入るのは1本` });
+  for (const h in INS) if (INS[h].length >= 2)
+    W.push({ hole:h, sev:'err', msg:`<code>${h}</code>: 導線${INS[h].length}本（${INS[h].join('・')}）— 1穴に入るのは1本` });
+
+  /* ブリッジの隣接 */
+  for (const b of L.BRIDGES) for (let i = 0; i < b.path.length-1; i++)
+    if (!adjacent(b.path[i], b.path[i+1]))
+      W.push({ sev:'err', hole:b.path[i+1], msg:`ブリッジ <code>${b.path.join('–')}</code>: ${b.path[i]}→${b.path[i+1]} が隣接していない` });
+
+  /* 短絡（別ネットが1つのかたまりに入った） */
+  for (const c of NET.conflicts)
+    W.push({ sev:'err', hole:c.hole, msg:`🔴 短絡: <code>${c.hole}</code> で <b>${NETS[c.a]?.label||c.a}</b> と <b>${NETS[c.b]?.label||c.b}</b> が繋がっている` });
+
+  /* 断線（同じネットが2つ以上の島に分かれた） */
+  for (const n in NET.islands) if (NET.islands[n].size > 1)
+    W.push({ sev:'err', msg:`⚠ 断線: <b>${NETS[n]?.label||n}</b> が ${NET.islands[n].size} つの島に分かれている（繋がっていない）` });
+
+  /* 🔴 +5V と GND が隣り合うパッドに来ていないか（2026-08-14 ユーザー指摘で追加）。
+     ほかのネットどうしのはんだブリッジは動作不良で済むが、この2つが繋がると
+     電源が落ちるか部品が焼ける。このレイアウトが守ってきた一番の性質なので、
+     崩れた瞬間に鳴るようにしておく。
+     ⚠ 同じ部品・同じコネクタの足どうしは除く。デカップリングコンデンサは必ず
+     +5V と GND にまたがるし、ヘッダのピンの並びはこちらでは選べない。
+     ⚠ 見るのは「真隣」だけでよい。はんだが渡るのは隣り合うパッドどうしで、
+     1つ飛ばし（5.08mm）は距離が違う。 */
+  {
+    const blocks = blockList().map(b => new Set(b.holes()));
+    const samePart = (a, b) => blocks.some(s => s.has(a) && s.has(b));
+    const v5 = [], gnd = [];
+    for (const h in hn){
+      if (hn[h] === 'V5') v5.push(h); else if (hn[h] === 'GND') gnd.push(h);
+    }
+    for (const a of v5) for (const b of gnd)
+      if (adjacent(a, b) && !samePart(a, b))
+        W.push({ hole:a, sev:'err',
+          msg:`🔴 電源短絡のリスク: <code>${a}</code>（+5V）と <code>${b}</code>（GND）が隣り合うパッド — はんだが渡ると電源が落ちる` });
+  }
+
+  /* ネットが未割り当ての線（新しく引いたまま放置） */
+  for (const j of L.JUMPERS) if (j.net === 'NONE')
+    W.push({ jid:j.id, hole:j.path[0], sev:'warn',
+             msg:`ジャンパ${j.id} <code>${j.path[0]}→${j.path[j.path.length-1]}</code>: ネットが未割り当て — 選んでプルダウンで決める` });
+  for (const b of L.BRIDGES) if (b.net === 'NONE')
+    W.push({ hole:b.path[0], sev:'warn',
+             msg:`ブリッジ <code>${b.path.join('–')}</code>: ネットが未割り当て` });
+
+  /* 宣言したネットと、実際に繋がった先のネットが食い違う（色だけ合っている状態） */
+  for (const j of L.JUMPERS){
+    if (j.net === 'NONE') continue;
+    const a = hn[j.path[0]], b = hn[j.path[j.path.length-1]];
+    for (const [h, n] of [[j.path[0], a], [j.path[j.path.length-1], b]])
+      if (n && n !== j.net)
+        W.push({ jid:j.id, hole:h, sev:'warn',
+          msg:`ジャンパ${j.id}: <b>${NETS[j.net]?NETS[j.net].label:j.net}</b> と書いてあるが、<code>${h}</code> は実際には <b>${NETS[n]?NETS[n].label:n}</b> に繋がっている` });
+  }
+
+  /* 被覆線の長さ。両端の剥き代を引くと絶縁が残らない */
+  for (const j of L.JUMPERS){
+    let len = 0;
+    for (let i = 0; i < j.path.length-1; i++) len += distMM(j.path[i], j.path[i+1]);
+    if (len < 4*2.54 - 0.01)
+      W.push({ jid:j.id, hole:j.path[0], sev:'err',
+        msg:`ジャンパ${j.id} <code>${j.path.join('→')}</code>: 全長${len.toFixed(1)}mm — 剥き代を引くと絶縁が残らない（裏のブリッジにするか10mm以上に）` });
+  }
+
+  /* ジャンパの区間（重なり・交差） */
+  const segs = [];
+  for (const j of L.JUMPERS) for (let i = 0; i < j.path.length-1; i++){
+    const a = j.path[i], b = j.path[i+1], vert = C(a) === C(b);
+    segs.push({ id:j.id, vert, fix: vert ? C(a) : R(a),
+                lo: Math.min(vert?R(a):C(a), vert?R(b):C(b)),
+                hi: Math.max(vert?R(a):C(a), vert?R(b):C(b)) });
+  }
+  for (let i = 0; i < segs.length; i++) for (let k = i+1; k < segs.length; k++){
+    const s = segs[i], t = segs[k];
+    if (s.id === t.id) continue;
+    if (s.vert === t.vert && s.fix === t.fix && s.lo < t.hi && t.lo < s.hi)
+      W.push({ jid:s.id, sev:'err', msg:`ジャンパ${s.id} と ${t.id} が同じ${s.vert?'列':'行'}で重なる` });
+    /* 直交する交差は【黄】。被覆線どうしなので短絡はしないが、
+       増えるほど組みにくくなるので数として見せる（2026-08-11 ユーザー:
+       「構造的に交差は仕方がない」）。物理的に不可能なのは上の同一線上の重なりだけ */
+    if (s.vert !== t.vert){
+      const v = s.vert?s:t, hz = s.vert?t:s;
+      if (v.fix > hz.lo && v.fix < hz.hi && hz.fix > v.lo && hz.fix < v.hi)
+        W.push({ jid:s.id, sev:'warn', msg:`ジャンパ${s.id} と ${t.id} が交差する（被覆線どうしなので短絡はしない）` });
     }
   }
-  /* レールが通る穴への挿し込み（レールを先に張ると半田で塞がる） */
-  for (const h in INS){
-    if (RAILH[h]){
+
+  /* 端の剥き線が別ネットのライブパッドに近い */
+  const live = new Set(Object.keys(INS));
+  for (const b of L.BRIDGES) for (const h of b.path) live.add(h);
+  for (const j of L.JUMPERS){
+    const cells = jumperCells(j), inner = cells.slice(1, -1);
+    inner.forEach((h, idx) => {
+      if (!live.has(h)) return;
+      if (hn[h] && hn[h] === j.net) return;
+      const dS = idx + 1, dE = inner.length - idx;
+      if (dS < 2 || dE < 2)
+        W.push({ jid:j.id, hole:h, sev:'err',
+          msg:`ジャンパ${j.id}: 端の剥き線の範囲にライブパッド <code>${h}</code>${hn[h]?`（${NETS[hn[h]]?.label||hn[h]}）`:''} — 短絡リスク` });
+    });
+  }
+
+  /* 胴と使用穴の当たり。穴の中心が胴の箱の中なら【赤】、
+     覆ってはいないが縁が CLEAR より近ければ【黄】。
+     ⚠ ここで見るのは INS（部品の足とジャンパの端）だけでよい。ブリッジとレールは
+     半田面を這うので、部品面に立つ胴とは面が違って当たらない。
+     CLEAR=1.0mm は「隣の穴から立ち上がる足が胴に当たり始める」目安。ピッチ2.54で
+     隣の穴にふつうに並ぶ部品（ピンヘッダ1.29mm・0.1µF 1.56mm）はこれで鳴らない */
+  const under = new Set();
+  for (const p of L.PARTS) if (p.under){ under.add(p.a); under.add(p.b); }
+  const BX = bodyBoxes();
+  const CLEAR = 1.0;
+  for (const bx of BX) for (const h in INS){
+    if (bx.own.has(h) || under.has(h)) continue;
+    const c = C(h), r = R(h)+1;
+    if (c > bx.c0 && c < bx.c1 && r > bx.r0 && r < bx.r1){
+      W.push({ hole:h, sev:'err', msg:`${bx.name} の胴が <code>${h}</code>（${INS[h].join('・')}）を覆う` });
+      continue;
+    }
+    const dc = Math.max(bx.c0 - c, c - bx.c1, 0), dr = Math.max(bx.r0 - r, r - bx.r1, 0);
+    const gap = Math.hypot(dc, dr) * 2.54;
+    if (gap < CLEAR)
       W.push({ hole:h, sev:'warn',
-               msg:`<code>${h}</code>: レール（${RAILH[h].join('・')}）が通る穴に ${INS[h].join('・')} を挿す — レールを先に張ると穴が塞がる` });
-    }
+        msg:`${bx.name} の胴が <code>${h}</code>（${INS[h].join('・')}）に ${gap.toFixed(2)}mm まで迫る — 足を立てる隙間がない` });
   }
-  /* レールどうしの同居（別ネットなら短絡・同ネットなら継ぎ目） */
-  for (const h in RAILH){
-    if (RAILH[h].length >= 2){
-      const uniq = new Set(RAILH[h]);
-      if (uniq.size > 1){
-        W.push({ hole:h, sev:'err',
-                 msg:`<code>${h}</code>: 別ネットのレールが同じ穴（${RAILH[h].join('・')}）— 短絡` });
-      } else {
-        W.push({ hole:h, sev:'warn',
-                 msg:`<code>${h}</code>: レール2本の継ぎ目（${RAILH[h][0]}）— 裸線2本を1点で半田する` });
-      }
-    }
-  }
-  /* 曲げた直後に挿す1穴区間（曲げしろが無い） */
-  for (const j of JUMPERS){
-    if (j.path.length < 3) continue;
-    for (let i = 0; i < j.path.length - 1; i++){
-      const a = j.path[i], b = j.path[i+1];
-      if (holeDistMM(a,b) <= 2.54 + 0.01){
-        W.push({ hole:b, sev:'warn',
-                 msg:`ジャンパ${j.id} <code>${a}→${b}</code>: 折れてから1穴（2.54mm）で挿す — 曲げしろが無い` });
-      }
-    }
-  }
-  /* 胴の実寸と足の折り返し */
-  for (const p of PARTS){
-    if (!p.body || p.kind === 'tr') continue;
-    const span = holeDistMM(p.a, p.b);
-    const gap = span - p.body.L;
-    if (p.kind === 'res' && gap < 2){
-      W.push({ sev:'err',
-               msg:`${p.name}（<code>${p.a}–${p.b}</code>）: 胴${p.body.L}mm・穴間${span.toFixed(1)}mm — 足の折り返しに残るのが${gap.toFixed(1)}mmしか無い` });
-    }
-    if (p.kind === 'cap' && p.body.L > span){
-      W.push({ sev:'warn',
-               msg:`${p.name}（<code>${p.a}–${p.b}</code>）: 胴${p.body.L}mmが穴間${span.toFixed(1)}mmより広い — 隣の列に被り、隣に節点を置けない` });
-    }
-  }
-  /* 外へ出る線の受け口が無い */
-  W.push({ sev:'err',
-           msg:`<code>J3 / N3</code>: 行き先のスピーカー <b>IN/OUT コネクタ（PH2.0）が図に存在しない</b> — 引き直しで基板上に配置する（docs/POWER.md 2026-08-10 決定）` });
-  return W;
-}
-const WARNINGS = computeWarnings();
 
-/* 穴ごとの最悪重要度（印の描画用） */
-const holeSev = {};
-for (const w of WARNINGS){
-  if (!w.hole) continue;
-  if (w.sev === 'err' || !holeSev[w.hole]) holeSev[w.hole] = w.sev;
+  /* ジャンパが胴の上を通る */
+  for (const j of L.JUMPERS) for (let i = 0; i < j.path.length-1; i++){
+    const a = j.path[i], b = j.path[i+1], vert = C(a) === C(b);
+    const fix = vert ? C(a) : R(a)+1;
+    const lo = Math.min(vert?R(a)+1:C(a), vert?R(b)+1:C(b));
+    const hi = Math.max(vert?R(a)+1:C(a), vert?R(b)+1:C(b));
+    for (const bx of BX){
+      const fLo = vert?bx.c0:bx.r0, fHi = vert?bx.c1:bx.r1;
+      const sLo = vert?bx.r0:bx.c0, sHi = vert?bx.r1:bx.c1;
+      if (fix > fLo && fix < fHi && lo < sHi && hi > sLo)
+        W.push({ jid:j.id, sev:'err', msg:`ジャンパ${j.id} の <code>${a}→${b}</code> が ${bx.name} の胴の上を通る` });
+    }
+  }
+
+  /* 抵抗の足の折り返し */
+  for (const p of L.PARTS){
+    if (p.kind !== 'res') continue;
+    const span = distMM(p.a, p.b), gap = span - p.body.L;
+    if (gap < 2)
+      W.push({ sev:'err', msg:`${p.name}（<code>${p.a}–${p.b}</code>）: 胴${p.body.L}mm・穴間${span.toFixed(1)}mm — 折り返し余裕${gap.toFixed(1)}mm` });
+  }
+  /* 🔴 「コンデンサの胴が穴間より広い」の黄色は廃止した（2026-08-13）。
+     セラコンは足ピッチ2.54・胴4.5が普通の形なので、置いた瞬間に必ず鳴る常時点灯だった。
+     本当に当たるかどうかは上の「胴と使用穴の当たり」が距離で見ているので、そちらに任せる */
+  /* 板からはみ出す */
+  for (const b of blockList()) for (const h of b.holes())
+    if (!inBoard(C(h), R(h))) W.push({ sev:'err', msg:`${b.name} が板の外（<code>${h}</code>）` });
+
+  WARN = W;
 }
 
-/* ---- 描画 ---- */
+/* ===========================================================
+   描画
+   =========================================================== */
 function el(tag, attrs, parent){
   const n = document.createElementNS(NS, tag);
   for (const k in attrs) n.setAttribute(k, attrs[k]);
@@ -395,392 +659,1110 @@ function el(tag, attrs, parent){
   return n;
 }
 function tip(node, text){
-  const t = document.createElementNS(NS, 'title');
-  t.textContent = text;
-  node.appendChild(t);
+  const t = document.createElementNS(NS, 'title'); t.textContent = text; node.appendChild(t);
 }
-function dimmed(net){ return activeNet && net !== activeNet; }
-function op(net){ return dimmed(net) ? 0.16 : 1; }
+function op(net){ return activeNet && net !== activeNet ? 0.14 : 1; }
+function netColor(n){ return cssVar(NETS[n] ? NETS[n].css : '--sub'); }
 
 function draw(){
   svg.innerHTML = '';
-  const W = PADX * 2 + (NCOL - 1) * PITCH;
-  const H = PADY * 2 + (ROWS.length - 1) * PITCH;
-  svg.setAttribute('width', W + GUTTER * 2);
-  svg.setAttribute('height', H);
-  svg.setAttribute('viewBox', `${-GUTTER} 0 ${W + GUTTER * 2} ${H}`);
-
-  el('rect', { x:16, y:14, width:W-32, height:H-28, rx:10,
+  const W = PADX*2 + (NCOL-1)*PITCH, Hh = PADY*2 + (ROWS.length-1)*PITCH;
+  svg.setAttribute('width', W + GUTTER*2);
+  svg.setAttribute('height', Hh + 24);
+  svg.setAttribute('viewBox', `${-GUTTER} 0 ${W + GUTTER*2} ${Hh + 24}`);
+  el('rect', { x:16, y:18, width:W-32, height:Hh-36, rx:10,
                fill:cssVar('--board'), stroke:cssVar('--line') });
 
-  drawRelay();
-  drawRails();
-  drawStrip();
-  drawAS5600();
-  drawOLED();
-  drawButton();
-  drawAxisLabels();
-  drawHoles();
-  drawJumpers();
-  drawExits();
-  for (const p of PARTS) drawPart(p);
-  drawWarnMarks();
+  drawBridges(); drawBlocks(); drawBridgeHits();
+  drawAxis(); drawHoles();
+  drawJumpers(); drawParts(); drawMarks(); drawNewWire(); drawSelection();
 }
 
-function drawRelay(){
-  const xs = RELAY.pins.map(p => pt(p.hole).x);
-  const ys = RELAY.pins.map(p => pt(p.hole).y);
-  const x0 = Math.min(...xs), x1 = Math.max(...xs);
-  const y0 = Math.min(...ys), y1 = Math.max(...ys);
-  /* 本体はピンの範囲より実寸で張り出す: 縦(12.6mm-10.16mm)/2, 横(7.6mm-5.08mm)/2 */
-  const exY = (RELAY.bodyL*MM - (y1-y0)) / 2;
-  const exX = (RELAY.bodyW*MM - (x1-x0)) / 2;
-  const g = el('rect', { x:x0-exX, y:y0-exY, width:(x1-x0)+exX*2, height:(y1-y0)+exY*2,
-               rx:6, fill:cssVar('--in'), 'fill-opacity':.08,
-               stroke:cssVar('--in'), 'stroke-width':1.5, 'stroke-dasharray':'6 4',
-               opacity: activeNet ? .25 : .9 });
-  tip(g, `${RELAY.name} 本体 ${RELAY.bodyW} × ${RELAY.bodyL}mm（実寸）`);
-  const lab = el('text', { x:(x0+x1)/2, y:y0-exY-6, 'text-anchor':'middle',
-                           fill:cssVar('--in'), 'font-size':11, opacity: activeNet ? .3 : 1 });
-  lab.textContent = `${RELAY.name}（12.6 × 7.6mm 実寸）`;
-  for (const p of RELAY.pins){
-    const q = pt(p.hole);
-    el('circle', { cx:q.x, cy:q.y, r:6.5, fill:'none', stroke:cssVar('--fg'),
-                   'stroke-width':2, opacity: activeNet ? .18 : 1 });
-    const t = el('text', { x:q.x, y:q.y-11, 'text-anchor':'middle', fill:cssVar('--fg'),
-                           'font-size':10, 'font-weight':700, opacity: activeNet ? .18 : 1 });
-    t.textContent = p.fn;
-  }
-}
+/* 裏の裸線。
+   🔒 2026-08-14 ユーザー決定「配線ブリッジにして自動的にレールで見せる」。
+   レールを別の型で持っていた頃は、画面から作れず・曲げられず・ブリッジと二重に
+   管理することになっていた。データはブリッジ1本に統一して、レールは見せ方だけにした。
 
-function drawRails(){
-  for (const r of RAILS){
-    const c = cssVar(NETS[r.net].css);
-    let x1, y1, x2, y2, tx, ty, anchor;
-    if (r.row){
-      y1 = y2 = yOf(r.row);
-      x1 = Math.min(xOf(r.c0), xOf(r.c1));
-      x2 = Math.max(xOf(r.c0), xOf(r.c1));
-      tx = x1 - 12; ty = y1 + 4; anchor = 'end';
-    } else {
-      x1 = x2 = xOf(r.col);
-      y1 = yOf(r.r0); y2 = yOf(r.r1);
-      tx = x1; ty = Math.max(y1, y2) + 18; anchor = 'middle';
+   🔴 レールかどうかは「長さ」では決まらない。レールは1本の連続した裸線なので、
+   足の出ているパッドの上は通れない（通したらその穴がつぶれる）。
+   ⚠ 端も空き穴で終わらせて、足へはブリッジで渡す。これはユーザーの工作方法で、
+   工作精度を要求しないための決め事なので、ここを緩めないこと（2026-08-14）。
+   例: ベース節点 G5–G4–F4–E4–D4–C4 は 6穴あるが、D4 に 10kΩ の足が入っているので
+   1本の裸線では通せない。レールになるのは G4〜E4 の空き区間だけ。
+
+   したがって、足の入っていない穴が RAIL_MIN 個以上つづく区間だけを
+   太線＋ネット名で描き、残りはブリッジとして細く描く。 */
+const RAIL_MIN = 4;
+function railRuns(path, INS){
+  const runs = [];
+  let cur = [];
+  const flush = () => { if (cur.length >= RAIL_MIN) runs.push(cur); cur = []; };
+  for (const h of path){ if (INS[h]) flush(); else cur.push(h); }
+  flush();
+  return runs;
+}
+function drawBridges(){
+  const INS = insertions();
+  for (const b of L.BRIDGES){
+    const ps = b.path.map(pt), c = netColor(b.net);
+    el('polyline', { points: ps.map(p=>`${p.x},${p.y}`).join(' '), fill:'none',
+                     stroke:c, 'stroke-width':5, 'stroke-linecap':'round',
+                     'stroke-linejoin':'round', opacity: op(b.net)*.5, 'pointer-events':'none' });
+    for (const run of railRuns(b.path, INS)){
+      const qs = run.map(pt);
+      el('polyline', { points: qs.map(p=>`${p.x},${p.y}`).join(' '), fill:'none',
+                       stroke:c, 'stroke-width':7, 'stroke-linecap':'round',
+                       'stroke-linejoin':'round', opacity: op(b.net), 'pointer-events':'none' });
+      /* ラベルは真ん中の区間の脇。縦に走っていれば右へ、横なら下へ逃がす */
+      const i = Math.floor((qs.length-1)/2), a = qs[i], z = qs[i+1];
+      const vert = Math.abs(a.x - z.x) < 1;
+      const t = el('text', { x:(a.x+z.x)/2 + (vert?13:0), y:(a.y+z.y)/2 + (vert?4:18),
+        'text-anchor': vert?'start':'middle', fill:c, 'font-size':11, 'font-weight':700,
+        opacity:op(b.net), 'pointer-events':'none' });
+      t.textContent = NETS[b.net] ? NETS[b.net].label : b.net;
     }
-    el('line', { x1, y1, x2, y2, stroke:c, 'stroke-width':7,
-                 'stroke-linecap':'round', opacity:op(r.net) });
-    const t = el('text', { x:tx, y:ty, 'text-anchor':anchor, fill:c,
-                           'font-size':11, 'font-weight':700, opacity:op(r.net) });
-    t.textContent = NETS[r.net].label;
   }
 }
 
-function drawStrip(){
-  const a = pt(STRIP.row + STRIP.c0), b = pt(STRIP.row + STRIP.c1);
-  const x0 = Math.min(a.x, b.x), x1 = Math.max(a.x, b.x);
-  /* ピンヘッダの樹脂は 2.54mm/ピン × 奥行2.5mm（実寸） */
-  const g = el('rect', { x:x0-1.27*MM, y:a.y-1.25*MM, width:x1-x0+2.54*MM, height:2.5*MM,
-               rx:3, fill:cssVar('--fg'), 'fill-opacity':.08,
-               stroke:cssVar('--fg'), 'stroke-width':1.5, opacity: activeNet ? .2 : 1 });
-  tip(g, 'ピンヘッダ 7本（XIAO からの束の着地列）');
-  for (let c = STRIP.c0; c <= STRIP.c1; c++){
-    const q = pt(STRIP.row + c);
-    const t = el('text', { x:q.x, y:q.y+26, 'text-anchor':'middle', fill:cssVar('--fg'),
-                           'font-size':10, 'font-weight':700, opacity: activeNet ? .2 : 1 });
-    t.textContent = STRIP.labels[c];
-  }
-  const lab = el('text', { x:(x0+x1)/2, y:a.y-19, 'text-anchor':'middle', fill:cssVar('--fg'),
-                           'font-size':11, 'font-weight':700, opacity: activeNet ? .2 : 1 });
-  lab.textContent = '着地列 — XIAO からの7本';
-}
-
-function drawAS5600(){
-  const a = pt(AS5600.rows[0] + AS5600.col), b = pt(AS5600.rows[3] + AS5600.col);
-  const y0 = Math.min(a.y, b.y), y1 = Math.max(a.y, b.y);
-  const g = el('rect', { x:a.x-1.25*MM, y:y0-1.27*MM, width:2.5*MM, height:y1-y0+2.54*MM,
-               rx:3, fill:cssVar('--sub'), 'fill-opacity':.08,
-               stroke:cssVar('--sub'), 'stroke-width':1.5, opacity: activeNet ? .2 : 1 });
-  tip(g, 'ピンヘッダ 4本（AS5600 は治具側・線で出す）');
-  AS5600.rows.forEach((rr, i) => {
-    const q = pt(rr + AS5600.col);
-    const t = el('text', { x:q.x+15, y:q.y+4, 'text-anchor':'start', fill:cssVar('--sub'),
-                           'font-size':9, 'font-weight':700, opacity: activeNet ? .2 : 1 });
-    t.textContent = AS5600.labels[i];
+/* ブリッジの当たり判定は、部品の枠より上に置く（下に敷くと掴めない） */
+function drawBridgeHits(){
+  L.BRIDGES.forEach((b,i) => {
+    const ps = b.path.map(pt);
+    const hit = el('polyline', { points: ps.map(p=>`${p.x},${p.y}`).join(' '), fill:'none',
+      stroke:'transparent', 'stroke-width':11, 'stroke-linejoin':'round',
+      cursor: mirrored ? 'default' : 'move' });
+    hit.dataset.bridge = i;
+    tip(hit, `ブリッジ（${NETS[b.net] ? NETS[b.net].label : b.net}・裏）: ${b.path.join('–')}`);
   });
-  const lab = el('text', { x:a.x, y:y0-17, 'text-anchor':'middle', fill:cssVar('--sub'),
-                           'font-size':10, 'font-weight':700, opacity: activeNet ? .2 : 1 });
-  lab.textContent = 'AS5600';
 }
 
-function drawOLED(){
-  OLED.cols.forEach((cc, i) => {
-    const q = pt(OLED.pinRow + cc);
-    el('rect', { x:q.x-8, y:q.y-8, width:16, height:16, rx:3, fill:'none',
-                 stroke:cssVar('--fg'), 'stroke-width':2, opacity: activeNet ? .2 : 1 });
-    const t = el('text', { x:q.x, y:q.y-14, 'text-anchor':'middle', fill:cssVar('--fg'),
-                           'font-size':10, 'font-weight':700, opacity: activeNet ? .2 : 1 });
-    t.textContent = OLED.labels[i];
-  });
-  /* 本体はピン列から下へ垂れる（実寸 30 × 27mm） */
-  const cx = (xOf(OLED.cols[0]) + xOf(OLED.cols[3])) / 2;
-  const by = yOf(OLED.pinRow) - 1.5*MM;
-  const g = el('rect', { x:cx - OLED.bodyW/2*MM, y:by, width:OLED.bodyW*MM, height:OLED.bodyH*MM,
-               rx:6, fill:'none', stroke:cssVar('--fg'), 'stroke-width':1.5,
-               'stroke-dasharray':'5 4', opacity: activeNet ? .12 : .5 });
-  tip(g, `OLED 本体 ${OLED.bodyW} × ${OLED.bodyH}mm（実寸）。この下の半田点は挿した後は触れない`);
-  const t = el('text', { x:cx, y:by + OLED.bodyH*MM + 14, 'text-anchor':'middle',
-                         fill:cssVar('--fg'), 'font-size':11, 'font-weight':700,
-                         opacity: activeNet ? .2 : 1 });
-  t.textContent = 'OLED 30 × 27mm（4ピン直挿し・一番最後に挿す）';
+function drawNewWire(){
+  if (!drag || drag.mode !== 'new') return;
+  const a = pt(H(drag.from.c, drag.from.r)), b = pt(H(drag.to.c, drag.to.r));
+  const corner = pt(H(drag.to.c, drag.from.r));
+  el('polyline', { points:`${a.x},${a.y} ${corner.x},${corner.y} ${b.x},${b.y}`, fill:'none',
+    stroke:cssVar('--sel'), 'stroke-width':3, 'stroke-dasharray':'6 4',
+    'stroke-linejoin':'round', opacity:.8, 'pointer-events':'none' });
 }
 
-function drawButton(){
-  const mid = pt(BUTTON.pins[1].hole);
-  const vert = BUTTON.pins.every(p => colOf(p.hole) === colOf(BUTTON.pins[0].hole));
-  const w = (vert ? BUTTON.bodyH : BUTTON.bodyW) * MM;
-  const h = (vert ? BUTTON.bodyW : BUTTON.bodyH) * MM;
-  const c = cssVar('--jump');
-  const g = el('rect', { x:mid.x-w/2, y:mid.y-h/2, width:w, height:h, rx:5,
-               fill:c, 'fill-opacity':.06, stroke:c, 'stroke-width':1.5,
-               'stroke-dasharray':'5 4', opacity: activeNet ? .15 : .9 });
-  tip(g, `${BUTTON.name} 本体 ${BUTTON.bodyW} × ${BUTTON.bodyH}mm（実寸）`);
-  for (const p of BUTTON.pins){
-    const q = pt(p.hole);
-    el('circle', { cx:q.x, cy:q.y, r:6.5, fill:'none', stroke:c,
-                   'stroke-width':2, opacity: activeNet ? .18 : 1 });
-    const t = el('text', { x: vert ? q.x-13 : q.x, y: vert ? q.y+4 : q.y-11,
-                           'text-anchor': vert ? 'end' : 'middle', fill:c,
-                           'font-size':10, 'font-weight':700, opacity: activeNet ? .18 : 1 });
-    t.textContent = p.fn;
+function drawBlocks(){
+  /* リレー */
+  const rHoles = L.RELAY.pins.map(p=>p.hole);
+  const rb = boxPx(orientedBox(rHoles, L.RELAY.bodyL, L.RELAY.bodyW));
+  const rg = el('rect', { x:rb.x, y:rb.y, width:rb.w, height:rb.h,
+    rx:6, fill:cssVar('--in'), 'fill-opacity':.09, stroke:cssVar('--in'), 'stroke-width':1.5,
+    'stroke-dasharray':'6 4', opacity: activeNet?.3:.95, cursor:'move' });
+  rg.dataset.block = 'blk:RELAY';
+  tip(rg, `${L.RELAY.name} 本体 ${L.RELAY.bodyW} × ${L.RELAY.bodyL}mm（実寸）`);
+  const rl = el('text', { x:rb.x+rb.w/2, y:rb.y-6, 'text-anchor':'middle',
+    fill:cssVar('--in'), 'font-size':11, opacity: activeNet?.3:1 });
+  rl.textContent = L.RELAY.name;
+  for (const p of L.RELAY.pins) pinMark(p.hole, p.fn, cssVar('--fg'), 'up');
+
+  /* ボタン */
+  const bHoles = L.BUTTON.pins.map(p=>p.hole);
+  const bb = boxPx(orientedBox(bHoles, L.BUTTON.bodyW, L.BUTTON.bodyH));
+  const bg = el('rect', { x:bb.x, y:bb.y, width:bb.w, height:bb.h, rx:5,
+    fill:cssVar('--jump'), 'fill-opacity':.07, stroke:cssVar('--jump'), 'stroke-width':1.5,
+    'stroke-dasharray':'5 4', opacity: activeNet?.2:.95, cursor:'move' });
+  bg.dataset.block = 'blk:BUTTON';
+  tip(bg, `${L.BUTTON.name} 本体 ${L.BUTTON.bodyW} × ${L.BUTTON.bodyH}mm。レバー根本=${L.BUTTON.pins[0].hole}`);
+  for (const p of L.BUTTON.pins) pinMark(p.hole, p.fn, cssVar('--jump'), 'right');
+  const blab = el('text', { x:bb.x+bb.w/2, y:bb.y+bb.h+16, 'text-anchor':'middle',
+    fill:cssVar('--jump'), 'font-size':10, 'font-weight':700, opacity: activeNet?.2:1 });
+  blab.textContent = '会話ボタン（NCは繋がない）';
+
+  /* PH */
+  for (const c of L.PHCONN){
+    const hs = c.pins.map(p=>p.hole);
+    const box = boxPx(orientedBox(hs, c.body.L, c.body.W));
+    const g = el('rect', { x:box.x, y:box.y, width:box.w, height:box.h, rx:4,
+      fill:cssVar('--spk'), 'fill-opacity':.09, stroke:cssVar('--spk'), 'stroke-width':1.5,
+      opacity: activeNet?.2:.95, cursor:'move' });
+    g.dataset.block = 'blk:'+c.id;
+    tip(g, `PH2.0 2P ${c.name}（実寸 ${c.body.W} × ${c.body.L}mm）⬜トップ/サイドは現物合わせ`);
+    for (const p of c.pins) pinMark(p.hole, p.fn, cssVar('--spk'), 'right');
+    exitArrow(box, c.exit, c.name, cssVar('--spk'));
   }
-  const lab = el('text', { x: vert ? mid.x + w/2 + 10 : mid.x - w/2,
-                           y: vert ? mid.y + 4          : mid.y + h/2 + 13,
-                           'text-anchor':'start', fill:c,
-                           'font-size':10, 'font-weight':700, opacity: activeNet ? .2 : 1 });
-  lab.textContent = '会話ボタン 12 × 5mm（縦置き・NCは繋がない）';
+
+  /* ヘッダ */
+  for (const hd of L.HEADERS){
+    const hs = hd.pins.map(p=>p.hole);
+    const box = boxPx(orientedBox(hs, hd.pins.length * 2.54, 2.5));
+    const g = el('rect', { x:box.x, y:box.y, width:box.w, height:box.h, rx:3,
+      fill:cssVar('--fg'), 'fill-opacity':.09, stroke:cssVar('--fg'), 'stroke-width':1.5,
+      opacity: activeNet?.2:1, cursor:'move' });
+    g.dataset.block = 'blk:'+hd.id;
+    tip(g, hd.label);
+    const vert = hd.pins.length>1 && C(hd.pins[0].hole) === C(hd.pins[1].hole);
+    for (const p of hd.pins) pinMark(p.hole, p.fn, cssVar('--fg'),
+      vert ? (hd.exit==='right'?'right':'left') : (hd.exit==='down'?'down':'downtext'));
+    const lab = el('text', { x:box.x+box.w/2, y: hd.exit==='down' ? box.y+box.h+30 : box.y-9,
+      'text-anchor':'middle', fill:cssVar('--fg'), 'font-size':11, 'font-weight':700,
+      opacity: activeNet?.2:1 });
+    lab.textContent = hd.label;
+  }
 }
 
-function drawAxisLabels(){
+/* 線が外へ抜けていく向きの矢印。回転すると exit も回る */
+function exitArrow(box, exit, label, color){
+  const cx = box.x + box.w/2, cy = box.y + box.h/2;
+  let dx = 0, dy = 0;
+  if (exit === 'left') dx = -1; else if (exit === 'right') dx = 1;
+  else if (exit === 'up') dy = -1; else dy = 1;
+  if (mirrored) dx = -dx;
+  const sx = cx + dx*(box.w/2), sy = cy + dy*(box.h/2);
+  const ex = sx + dx*22, ey = sy + dy*22;
+  el('line', { x1:sx, y1:sy, x2:ex, y2:ey, stroke:color, 'stroke-width':2,
+               opacity: activeNet?.15:.9 });
+  el('path', { d: dx ? `M ${ex} ${ey} l ${-dx*6} -4 l 0 8 Z`
+                     : `M ${ex} ${ey} l -4 ${-dy*6} l 8 0 Z`,
+               fill:color, opacity: activeNet?.15:.9 });
+  const t = el('text', { x: ex + dx*7, y: ey + (dy>0 ? 12 : dy<0 ? -6 : 3.5),
+    fill:color, 'text-anchor': dx<0 ? 'end' : dx>0 ? 'start' : 'middle',
+    'font-size':10, 'font-weight':700, opacity: activeNet?.15:.95 });
+  t.textContent = label;
+}
+
+function pinMark(hole, fn, color, where){
+  const q = pt(hole);
+  el('circle', { cx:q.x, cy:q.y, r:6.5, fill:'none', stroke:color, 'stroke-width':2,
+                 opacity: activeNet?.18:1, 'pointer-events':'none' });
+  if (!fn) return;
+  let x=q.x, y=q.y-11, anchor='middle';
+  if (where === 'right'){ x=q.x+13; y=q.y+4; anchor='start'; }
+  else if (where === 'left'){ x=q.x-13; y=q.y+4; anchor='end'; }
+  else if (where === 'down'){ y=q.y+24; }
+  else if (where === 'downtext'){ y=q.y+26; }
+  const t = el('text', { x, y, 'text-anchor':anchor, fill:color, 'font-size':10,
+                         'font-weight':700, opacity: activeNet?.18:1, 'pointer-events':'none' });
+  t.textContent = fn;
+}
+
+function drawAxis(){
   for (let i = 0; i < ROWS.length; i++){
-    const t = el('text', { x:22, y:PADY + i*PITCH + 4, fill:cssVar('--sub'), 'font-size':11 });
+    const t = el('text', { x:22, y:PADY+i*PITCH+4, fill:cssVar('--sub'), 'font-size':11 });
     t.textContent = ROWS[i];
   }
   for (let c = 1; c <= NCOL; c++){
-    const t = el('text', { x:xOf(c), y:26, 'text-anchor':'middle', fill:cssVar('--sub'), 'font-size':11 });
+    const t = el('text', { x:xOf(c), y:30, 'text-anchor':'middle', fill:cssVar('--sub'), 'font-size':11 });
     t.textContent = c;
   }
 }
 
 function drawHoles(){
-  for (const row of ROWS){
-    for (let c = 1; c <= NCOL; c++){
-      const h = row + c, net = holeNet[h];
-      const p = pt(h);
-      const used = !!net;
-      el('circle', { cx:p.x, cy:p.y, r: used ? 5.5 : 3,
-                     fill: used ? cssVar(NETS[net].css) : cssVar('--hole'),
-                     opacity: used ? op(net) : (activeNet ? .12 : .45) });
-    }
+  const hn = NET.holeNet;
+  for (let ri = 0; ri < ROWS.length; ri++) for (let c = 1; c <= NCOL; c++){
+    const h = H(c,ri);
+    if (NOTCH.has(h)) continue;                 /* 四隅の欠け。穴が無い */
+    const net = hn[h], p = pt(h);
+    el('circle', { cx:p.x, cy:p.y, r: net?5.5:3,
+      fill: net ? netColor(net) : cssVar('--hole'),
+      opacity: net ? op(net) : (activeNet?.12:.45), 'pointer-events':'none' });
+  }
+  /* 取り付け穴（4-φ3.2）。欠けた2穴の真ん中あたりに開いている */
+  for (const [a,b] of [['A1','B1'],['R1','S1'],['A27','B27'],['R27','S27']]){
+    const p = pt(a), q = pt(b);
+    el('circle', { cx:(p.x+q.x)/2, cy:(p.y+q.y)/2, r:9, fill:cssVar('--bg'),
+      stroke:cssVar('--sub'), 'stroke-width':1.5, opacity:.7, 'pointer-events':'none' });
   }
 }
 
 function drawJumpers(){
-  for (const j of JUMPERS){
-    const c = cssVar(NETS[j.net].css);
-    const ps = j.path.map(pt);
-    const pl = el('polyline', { points: ps.map(p => `${p.x},${p.y}`).join(' '),
-                     fill:'none', stroke:c, 'stroke-width':2.5,
-                     'stroke-linecap':'round', 'stroke-linejoin':'round',
-                     'stroke-dasharray':'7 4', opacity:op(j.net) });
-    tip(pl, `ジャンパ${j.id}（${NETS[j.net].label}）: ${j.path.join(' → ')}`);
-    for (let i = 1; i < ps.length - 1; i++){
-      el('circle', { cx:ps[i].x, cy:ps[i].y, r:3, fill:c, opacity:op(j.net) });
-    }
-    const mid = ps[Math.floor((ps.length - 1) / 2)];
-    const nxt = ps[Math.floor((ps.length - 1) / 2) + 1] || ps[ps.length - 1];
-    const t = el('text', { x:(mid.x + nxt.x) / 2, y:(mid.y + nxt.y) / 2 - 7,
-                           'text-anchor':'middle', fill:c,
-                           'font-size':12, 'font-weight':700, opacity:op(j.net) });
+  for (const j of L.JUMPERS){
+    const c = netColor(j.net), ps = j.path.map(pt);
+    const pts = ps.map(p=>`${p.x},${p.y}`).join(' ');
+    /* 当たり判定用の太い透明線 */
+    const hit = el('polyline', { points:pts, fill:'none', stroke:'transparent',
+      'stroke-width':16, 'stroke-linejoin':'round', cursor: mirrored?'default':'move' });
+    hit.dataset.jumper = j.id;
+    tip(hit, `ジャンパ${j.id}（${NETS[j.net].label}）: ${j.path.join(' → ')}${j.what?' — '+j.what:''}`);
+    el('polyline', { points:pts, fill:'none', stroke:c, 'stroke-width':2.5,
+      'stroke-linecap':'round', 'stroke-linejoin':'round', 'stroke-dasharray':'7 4',
+      opacity:op(j.net), 'pointer-events':'none' });
+    for (let i = 1; i < ps.length-1; i++)
+      el('circle', { cx:ps[i].x, cy:ps[i].y, r:3, fill:c, opacity:op(j.net), 'pointer-events':'none' });
+    const mi = Math.floor((ps.length-1)/2), a = ps[mi], b = ps[mi+1] || ps[ps.length-1];
+    const t = el('text', { x:(a.x+b.x)/2, y:(a.y+b.y)/2-8, 'text-anchor':'middle', fill:c,
+      'font-size':12, 'font-weight':700, opacity:op(j.net), 'pointer-events':'none' });
     t.textContent = j.id;
   }
 }
 
-function drawExits(){
-  for (const e of EXITS.stubs){
-    const p = pt(e.hole);
-    let dir = e.side === 'left' ? -1 : 1;
-    if (mirrored) dir = -dir;
-    const x2 = p.x + dir * 26;
-    el('line', { x1:p.x, y1:p.y, x2:x2, y2:p.y, stroke:cssVar('--sub'),
-                 'stroke-width':2, opacity: activeNet ? .15 : .9 });
-    el('path', { d:`M ${x2} ${p.y} l ${-dir*6} -4 l 0 8 Z`,
-                 fill:cssVar('--sub'), opacity: activeNet ? .15 : .9 });
-    if (e.label){
-      const t = el('text', { x:x2 + dir*7, y:p.y + 3.5, fill:cssVar('--sub'),
-                             'text-anchor': dir < 0 ? 'end' : 'start',
-                             'font-size':10, opacity: activeNet ? .15 : .95 });
-      t.textContent = e.label;
+function drawParts(){
+  for (const p of L.PARTS){
+    if (p.kind === 'tr'){ drawTr(p); continue; }
+    const a = pt(p.a), b = pt(p.b);
+    const mx=(a.x+b.x)/2, my=(a.y+b.y)/2, vert = Math.abs(a.x-b.x) < 1;
+    const Lp = p.body.L*MM, Wp = p.body.W*MM;
+    const o = activeNet && ![p.nets.a,p.nets.b].includes(activeNet) ? .18 : 1;
+    el('line', { x1:a.x, y1:a.y, x2:b.x, y2:b.y, stroke:cssVar('--fg'),
+                 'stroke-width':1.6, opacity:o*.75, 'pointer-events':'none' });
+    const w = vert?Wp:Lp, h = vert?Lp:Wp;
+    /* 胴はどれも角の丸い四角。0.1µF は積層セラミックで実物も平たい四角なので、
+       楕円はやめた（2026-08-13 ユーザー指摘）。種類の見分けは中の回路記号が受け持つ */
+    const body = el('rect', { x:mx-w/2, y:my-h/2, width:w, height:h,
+      rx: p.kind==='cap' ? Math.min(w,h)*0.28 : (p.kind==='res'?3:2),
+      fill:cssVar('--panel'), stroke:cssVar('--fg'), 'stroke-width':1.6, opacity:o,
+      cursor: mirrored?'default':'move' });
+    body.dataset.block = 'part:'+p.id;
+    tip(body, `${p.name} 実寸 ${p.body.L} × ${p.body.W}mm${p.under?'（半田面）':''}`);
+    let cs = 1;                    /* ダイオードの向き。足の軸の正方向がカソードなら +1 */
+    if (p.kind === 'diode'){
+      const ca = pt(p.cath === 'a' ? p.a : p.b);
+      cs = vert ? (ca.y>my?1:-1) : (ca.x>mx?1:-1);
+      if (vert) el('rect', { x:mx-w/2, y:my+cs*(h/2)-(cs>0?4:0), width:w, height:4,
+                             fill:cssVar('--fg'), opacity:o, 'pointer-events':'none' });
+      else      el('rect', { x:mx+cs*(w/2)-(cs>0?4:0), y:my-h/2, width:4, height:h,
+                             fill:cssVar('--fg'), opacity:o, 'pointer-events':'none' });
     }
+    drawSym(p.kind, mx, my, Lp, Wp, vert, o, cs);
+    const ly = vert ? my+4 : (p.under ? my+Wp/2+34 : my-Wp/2-8);
+    if (p.under && !vert)
+      el('line', { x1:mx, y1:my+Wp/2, x2:mx, y2:my+Wp/2+24, stroke:cssVar('--sub'),
+                   'stroke-width':1, 'stroke-dasharray':'2 2', opacity:o*.8, 'pointer-events':'none' });
+    const t = el('text', { x: vert?mx+20:mx, y:ly, 'text-anchor': vert?'start':'middle',
+      fill:cssVar('--fg'), 'font-size':11, 'font-weight':700, opacity:o, 'pointer-events':'none' });
+    t.textContent = p.under ? `${p.name}（裏）` : p.name;
   }
 }
 
-function drawPart(p){
-  if (p.kind === 'tr'){
-    const holes = Object.entries(p.pins).map(([k,h]) => ({ k, h, ...pt(h) }));
-    const xs = holes.map(o => o.x);
-    const x0 = Math.min(...xs), x1 = Math.max(...xs), y = holes[0].y;
-    const netsHere = holes.map(o => holeNet[o.h]).filter(Boolean);
-    const o = activeNet && !netsHere.includes(activeNet) ? .18 : 1;
-    const cx = (x0 + x1) / 2;
-    const bw = p.body.L * MM, dp = p.body.W * MM;
-    /* 🔴 平らな面は【上＝行A側】に描く。真上から見て、フラットな辺が上・丸い背が下。
-       これを手前に向けて挿すと E と B が入れ替わる（2026-08-08 に実際に起きた） */
-    const top = y - dp/2;
-    /* TO-92 の幅 4.6mm はピンの広がり 5.08mm より狭い。足は胴の下端へすぼまる */
-    for (const o2 of holes){
-      el('line', { x1:o2.x, y1:o2.y, x2:cx + (o2.x-cx)*(bw/ (x1-x0+0.001))*.7, y2:y,
-                   stroke:cssVar('--fg'), 'stroke-width':1.4, opacity:o*.7 });
+/* 胴の中に回路記号を描く。足の並ぶ方向を x とした水平の姿で描いてから、
+   縦置きならまとめて 90° 回す（トランジスタの胴と同じやり方）。
+   ax は足の並ぶ方向の長さ、cw はそれに直交する幅。どちらも px。
+   cs はダイオードの向きで、+1 なら x の正方向がカソード */
+function drawSym(kind, mx, my, ax, cw, vert, o, cs){
+  const g = el('g', Object.assign({ opacity:o, 'pointer-events':'none' },
+    vert ? { transform:`rotate(90, ${mx}, ${my})` } : {}));
+  const stroke = (d, sw) => el('path', { d, fill:'none', stroke:cssVar('--fg'),
+    'stroke-width':sw, 'stroke-linejoin':'round', 'stroke-linecap':'round' }, g);
+
+  if (kind === 'res'){
+    /* ギザギザ。JIS の箱記号は胴の四角そのものと見分けが付かないので折れ線で描く */
+    const zx = ax*0.40, zy = cw*0.30, N = 6;
+    let d = `M ${mx-zx} ${my}`;
+    for (let i = 0; i < N; i++) d += ` L ${mx - zx + (i+0.5)*(2*zx/N)} ${my + (i%2?zy:-zy)}`;
+    stroke(d + ` L ${mx+zx} ${my}`, 1.8);
+
+  } else if (kind === 'cap'){
+    /* 向かい合う2枚の極板と、そこへ入る引き出し線 */
+    const gp = ax*0.11, py = cw*0.34;
+    stroke(`M ${mx-gp} ${my-py} L ${mx-gp} ${my+py}`, 2.4);
+    stroke(`M ${mx+gp} ${my-py} L ${mx+gp} ${my+py}`, 2.4);
+    stroke(`M ${mx-ax*0.42} ${my} L ${mx-gp} ${my}`, 1.6);
+    stroke(`M ${mx+gp} ${my} L ${mx+ax*0.42} ${my}`, 1.6);
+
+  } else if (kind === 'diode'){
+    /* 三角だけ。記号のバーの役は、胴の端に描いてある帯（カソードの実物の印）が務める */
+    const tx = ax*0.24, ty = cw*0.30;
+    el('path', { d:`M ${mx-cs*tx} ${my-ty} L ${mx-cs*tx} ${my+ty} L ${mx+cs*tx} ${my} Z`,
+      fill:cssVar('--fg') }, g);
+  }
+}
+
+function drawTr(p){
+  const ks = Object.keys(p.pins);
+  const hs = ks.map(k => ({ k, h:p.pins[k], ...pt(p.pins[k]) }));
+  const o = activeNet && !ks.map(k=>p.nets[k]).includes(activeNet) ? .18 : 1;
+  const cx = (Math.min(...hs.map(q=>q.x)) + Math.max(...hs.map(q=>q.x))) / 2;
+  const cy = (Math.min(...hs.map(q=>q.y)) + Math.max(...hs.map(q=>q.y))) / 2;
+  const flat = trFlat(p);
+  /* 回転角。平らな面の法線が上(0,-1)なら0°、右なら90°… */
+  let deg = 0;
+  if (flat.dx === 1) deg = 90; else if (flat.dy === 1) deg = 180; else if (flat.dx === -1) deg = 270;
+  if (mirrored) deg = -deg;                       /* 裏返すと左右が反転する */
+
+  for (const q of hs)
+    el('line', { x1:q.x, y1:q.y, x2:cx+(q.x-cx)*.6, y2:cy+(q.y-cy)*.6, stroke:cssVar('--fg'),
+                 'stroke-width':1.4, opacity:o*.7, 'pointer-events':'none' });
+
+  /* 胴は「平らな辺＋丸い背」を水平の姿で描いてから、まとめて回す */
+  const g = el('g', { transform:`rotate(${deg}, ${cx}, ${cy})`, opacity:o });
+  const bw = p.body.L*MM, dp = p.body.W*MM, top = cy - dp/2;
+  const body = el('path', { d:`M ${cx-bw/2} ${top} L ${cx+bw/2} ${top} A ${bw/2} ${dp/2} 0 0 1 ${cx-bw/2} ${top} Z`,
+    fill:cssVar('--fg'), 'fill-opacity':.82, cursor: mirrored?'default':'move' }, g);
+  body.dataset.block = 'part:'+p.id;
+  tip(body, `${p.name} TO-92 実寸 ${p.body.L} × ${p.body.W}mm。平らな面は${flat.name}`);
+  /* 平らな辺を太線で強調（回転しても必ず正しい側に乗る） */
+  el('line', { x1:cx-bw/2, y1:top, x2:cx+bw/2, y2:top, stroke:cssVar('--fg'),
+               'stroke-width':3.5, 'pointer-events':'none' }, g);
+
+  const nm = el('text', { x:cx, y:cy - dp/2 - 8 - (deg%180 ? 6 : 0), 'text-anchor':'middle',
+    fill:cssVar('--fg'), 'font-size':11, 'font-weight':700, opacity:o, 'pointer-events':'none' });
+  nm.textContent = `${p.name}（平らな面＝${flat.name}）`;
+  for (const q of hs){
+    const t = el('text', { x:q.x + flat.dx*15, y:q.y + flat.dy*15 + 4, 'text-anchor':'middle',
+      fill:cssVar('--fg'), 'font-size':11, 'font-weight':700, opacity:o, 'pointer-events':'none' });
+    t.textContent = q.k;
+  }
+}
+
+function drawMarks(){
+  const sev = {};
+  for (const w of WARN){ if (!w.hole) continue; if (w.sev==='err' || !sev[w.hole]) sev[w.hole] = w.sev; }
+  for (const h in sev){
+    const q = pt(h), c = cssVar(sev[h]==='err' ? '--err' : '--amber');
+    el('circle', { cx:q.x, cy:q.y, r:10, fill:'none', stroke:c, 'stroke-width':2.5,
+      'stroke-dasharray': sev[h]==='err' ? 'none' : '4 3',
+      opacity: activeNet?.35:.95, 'pointer-events':'none' });
+    if (sev[h]==='err')
+      el('circle', { cx:q.x, cy:q.y, r:14, fill:'none', stroke:c, 'stroke-width':1,
+                     opacity: activeNet?.25:.6, 'pointer-events':'none' });
+  }
+}
+
+function drawSelection(){
+  if (!sel) return;
+  const col = cssVar('--sel');
+  if (sel.kind === 'jumper' || sel.kind === 'bridge'){
+    const o = selPath(); if (!o) return;
+    const ps = o.path.map(pt);
+    el('polyline', { points: ps.map(p=>`${p.x},${p.y}`).join(' '), fill:'none', stroke:col,
+      'stroke-width':6, 'stroke-linecap':'round', 'stroke-linejoin':'round',
+      opacity:.32, 'pointer-events':'none' });
+    if (sel.vi !== null && sel.vi !== undefined){
+      const hs = selHandles();
+      /* 区間の真ん中に「＋」を出す。掴んで引っぱると、そこに折れ点ができて曲がる */
+      for (let i = 0; i < hs.length-1; i++){
+        const a = hs[i], b = hs[i+1];
+        if (Math.abs(C(a)-C(b)) + Math.abs(R(a)-R(b)) < 2) continue;
+        const q = pt(H(Math.round((C(a)+C(b))/2), Math.round((R(a)+R(b))/2)));
+        const add = el('circle', { cx:q.x, cy:q.y, r:8, fill:cssVar('--panel'),
+          stroke:col, 'stroke-width':2, opacity:.95, cursor:'crosshair' });
+        add.dataset.addvertex = i;
+        const t = el('text', { x:q.x, y:q.y+4.5, 'text-anchor':'middle', fill:col,
+          'font-size':13, 'font-weight':700, 'pointer-events':'none' });
+        t.textContent = '+';
+      }
+      hs.map(pt).forEach((p,i) => {
+        const g2 = el('rect', { x:p.x-7, y:p.y-7, width:14, height:14, rx:2,
+          fill: i===sel.vi ? col : cssVar('--panel'), stroke:col, 'stroke-width':2,
+          cursor:'move' });
+        g2.dataset.vertex = i;
+      });
     }
-    const body = el('path', {
-      d:`M ${cx-bw/2} ${top} L ${cx+bw/2} ${top} A ${bw/2} ${dp/2} 0 0 1 ${cx-bw/2} ${top} Z`,
-      fill:cssVar('--fg'), opacity:o*.82 });
-    tip(body, `${p.name} TO-92 実寸 ${p.body.L} × ${p.body.W}mm。平らな面は行A側`);
-    const fl = el('text', { x:cx-bw/2-6, y:top+4, 'text-anchor':'end',
-                            fill:cssVar('--fg'), 'font-size':10, 'font-weight':700, opacity:o });
-    fl.textContent = '平らな面 →';
-    const nm = el('text', { x:cx, y:top-7, 'text-anchor':'middle',
-                            fill:cssVar('--fg'), 'font-size':11, 'font-weight':700, opacity:o });
-    nm.textContent = p.name;
-    for (const o2 of holes){
-      const t = el('text', { x:o2.x, y:o2.y+20, 'text-anchor':'middle',
-                             fill:cssVar('--fg'), 'font-size':11, 'font-weight':700, opacity:o });
-      t.textContent = o2.k;
+  } else {
+    const b = blockList().find(x=>x.id===sel.id); if (!b) return;
+    const ps = b.holes().map(pt);
+    const x0=Math.min(...ps.map(p=>p.x))-13, x1=Math.max(...ps.map(p=>p.x))+13;
+    const y0=Math.min(...ps.map(p=>p.y))-13, y1=Math.max(...ps.map(p=>p.y))+13;
+    el('rect', { x:x0, y:y0, width:x1-x0, height:y1-y0, rx:6, fill:'none', stroke:col,
+      'stroke-width':2.5, 'stroke-dasharray':'3 3', opacity:.9, 'pointer-events':'none' });
+  }
+}
+
+/* ===========================================================
+   編集
+   =========================================================== */
+function capture(ev){ try { svg.setPointerCapture(ev.pointerId); } catch(e){} }
+function svgPoint(ev){
+  const m = svg.getScreenCTM().inverse();
+  const p = new DOMPoint(ev.clientX, ev.clientY).matrixTransform(m);
+  return p;
+}
+function nearestHole(p){
+  let c = Math.round((p.x - PADX)/PITCH) + 1;
+  if (mirrored) c = NCOL + 1 - c;
+  const r = Math.round((p.y - PADY)/PITCH);
+  return { c: Math.max(1, Math.min(NCOL, c)), r: Math.max(0, Math.min(ROWS.length-1, r)) };
+}
+
+svg.addEventListener('pointerdown', ev => {
+  if (mirrored) return;
+  rotSession = null;          /* 図に触ったら回転の連続扱いを打ち切る */
+  /* ⚠ ここで preventDefault() してはいけない。マウス互換イベントごと潰れて
+     dblclick が発火しなくなる（2026-08-11・折れ点を追加できなくなった）。
+     文字の選択は body.dragging の user-select と selectstart で止める */
+  document.body.classList.add('dragging');
+  const ds = ev.target.dataset || {};
+
+  /* 「＋」を掴む＝その区間に折り目を入れて、そのまま引っぱる（両端は動かない） */
+  if (ds.addvertex !== undefined && sel && (sel.kind==='jumper' || sel.kind==='bridge')){
+    if (selPath()){
+      pushUndo();
+      const i = +ds.addvertex;
+      drag = { mode:'jog', si:i };
+      const j = insertJog(i);
+      if (j){ drag.A = j.A; drag.B = j.B; drag.vertSeg = j.vertSeg; sel.vi = i+1; }
+      capture(ev); render(); return;
     }
+  }
+  if (ds.vertex !== undefined && sel
+      && (sel.kind==='jumper' || sel.kind==='bridge')){
+    pushUndo();
+    sel.vi = +ds.vertex;
+    drag = { mode:'vertex' };
+    if (sel.kind === 'bridge'){ const o = selPath(); if (o) drag.corners = cornersOf(o.path); }
+    capture(ev); render(); return;
+  }
+  if (ds.jumper !== undefined || ds.bridge !== undefined){
+    const kind = ds.jumper !== undefined ? 'jumper' : 'bridge';
+    const id = kind === 'jumper' ? ds.jumper : +ds.bridge;
+    const same = sel && sel.kind === kind && sel.id === id;
+    /* 1回目のクリックで線ぜんぶ、選択済みをもう一度で点の編集へ */
+    if (!same) sel = { kind, id, vi:null };
+    else if (sel.vi === null || sel.vi === undefined) sel = { kind, id, vi:0 };
+    pushUndo();
+    drag = { mode:'path', grab: nearestHole(svgPoint(ev)), orig: selPath().path.slice() };
+    capture(ev); render(); return;
+  }
+  if (ds.block !== undefined){
+    sel = { kind:'block', id:ds.block };
+    pushUndo();
+    const b = blockList().find(x=>x.id===ds.block);
+    /* ⚠ snap（ドラッグ開始時の全体）を持つ。これが無いと、動かすたびに
+       「そのときの位置」から差分を当ててしまい、周りの線が置いていかれる
+       （2026-08-11 ユーザー報告「バラバラになっちゃった」） */
+    drag = { mode:'block', id:ds.block, grab: nearestHole(svgPoint(ev)),
+             orig: b.holes().slice(), snap: clone(L) };
+    capture(ev); render(); return;
+  }
+  /* 空き地。「線を引く」がONのときだけ新しい被覆線を引く。
+     ⚠ 常時ONにしていたら、選択解除のつもりの操作で線が量産された（2026-08-11 ユーザー指摘） */
+  sel = null;
+  if (drawing){
+    const g = nearestHole(svgPoint(ev));
+    drag = { mode:'new', from:g, to:g };
+    capture(ev);
+  }
+  render();
+});
+
+svg.addEventListener('pointermove', ev => {
+  if (!drag) return;
+  const g = nearestHole(svgPoint(ev));
+  if (drag.mode === 'new'){ drag.to = g; render(); return; }
+  if (drag.mode === 'path'){
+    const o = selPath(); if (!o) return;
+    const dc = g.c - drag.grab.c, dr = g.r - drag.grab.r;
+    const np = drag.orig.map(h => H(C(h)+dc, R(h)+dr));
+    if (np.every(h => inBoard(C(h), R(h)))) o.path = np;
+  } else if (drag.mode === 'block'){
+    /* 毎回スナップショットへ戻してから、開始位置からの差分を1回だけ当てる */
+    L = clone(drag.snap);
+    const b = blockList().find(x=>x.id===drag.id);
+    const dc = g.c - drag.grab.c, dr = g.r - drag.grab.r;
+    const nh = drag.orig.map(h => H(C(h)+dc, R(h)+dr));
+    if (nh.every(h => inBoard(C(h), R(h)))){
+      const map = {}; drag.orig.forEach((h,i) => map[h] = nh[i]);
+      b.set(nh);
+      remapHoles(map, drag.orig);
+    }
+  } else if (drag.mode === 'jog'){
+    moveJog(g.c, g.r);
+  } else if (drag.mode === 'vertex'){
+    moveVertex(g.c, g.r);
+  }
+  render();
+});
+
+function endDrag(){
+  document.body.classList.remove('dragging');
+  if (!drag) return;
+  /* 動かし終えたら、重なった点と直線上の余分な点を掃除する */
+  if ((drag.mode === 'jog' || drag.mode === 'vertex') && sel
+      && (sel.kind === 'jumper' || sel.kind === 'bridge')){
+    const o = selPath();
+    if (o){
+      const p = cleanPath(sel.kind === 'bridge' ? cornersOf(o.path) : o.path);
+      o.path = sel.kind === 'bridge' ? expandPath(p) : p;
+      const n = (sel.kind === 'bridge' ? cornersOf(o.path) : o.path).length;
+      if (sel.vi != null) sel.vi = Math.max(0, Math.min(sel.vi, n-1));
+    }
+  }
+  if (drag.mode === 'new'){
+    const a = H(drag.from.c, drag.from.r), b = H(drag.to.c, drag.to.r);
+    if (a !== b){
+      pushUndo();
+      const id = nextJumperId();
+      const cs = (C(a)===C(b) || R(a)===R(b)) ? [a,b] : [a, H(C(b), R(a)), b];
+      /* ⚠ 既定を実在のネット（GND等）にしない。決めていないものは決めていないと出す */
+      const net = NET.holeNet[a] || NET.holeNet[b] || 'NONE';
+      L.JUMPERS.push({ id, path:cs, net, what:'（新規）' });
+      sel = { kind:'jumper', id, vi:null };
+    }
+  }
+  drag = null; check(); save(); render();
+}
+svg.addEventListener('pointerup', endDrag);
+svg.addEventListener('pointercancel', endDrag);
+/* 図の外で指を離したときの取りこぼし対策（掴んだ状態が残ると文字が選択され続ける） */
+window.addEventListener('pointerup', endDrag);
+window.addEventListener('pointercancel', endDrag);
+/* 掴んでいる間だけ、文字の選択と画像ドラッグを止める。
+   pointerdown の preventDefault() でやると dblclick が死ぬので、こちらで止める */
+document.addEventListener('selectstart', ev => { if (drag) ev.preventDefault(); });
+svg.addEventListener('dragstart', ev => ev.preventDefault());
+
+/* 部品を動かしたら、その足を指していたブリッジ・ジャンパ端も一緒に動かす。
+   ブリッジは「隣り合うパッドの連鎖」でなければならないので、端が動いたら経路を張り直す */
+function remapHoles(map, oldHoles){
+  const old = new Set(oldHoles);
+  for (const b of L.BRIDGES){
+    if (!b.path.some(h => old.has(h))) continue;
+    b.path = b.path.map(h => old.has(h) ? map[h] : h);
+    b.path = rebuildChain(b.path[0], b.path[b.path.length-1]);
+  }
+  for (const j of L.JUMPERS){
+    const n = j.path.length;
+    let moved = false;
+    if (old.has(j.path[0])){ j.path[0] = map[j.path[0]]; moved = true; }
+    if (old.has(j.path[n-1])){ j.path[n-1] = map[j.path[n-1]]; moved = true; }
+    /* 端が斜めにずれた分はL字で吸収する（直角しか許さないため） */
+    if (moved) fixDiagonals(j.path);
+  }
+}
+
+/* 2点を、隣り合う穴だけを通るL字の連鎖で結ぶ（列 → 行の順） */
+function rebuildChain(a, b){
+  const out = [a];
+  let c = C(a), r = R(a);
+  const dc = Math.sign(C(b)-c);
+  while (c !== C(b)){ c += dc; out.push(H(c,r)); }
+  const dr = Math.sign(R(b)-r);
+  while (r !== R(b)){ r += dr; out.push(H(c,r)); }
+  return out;
+}
+
+/* ブリッジは「隣り合う穴の連鎖」で持つが、掴んで動かすのは折れ点だけでよい。
+   連鎖 ⇔ 折れ点 を往復する */
+function dirOf(a,b){ return Math.sign(C(b)-C(a)) + ',' + Math.sign(R(b)-R(a)); }
+function cornersOf(path){
+  if (path.length <= 2) return path.slice();
+  const out = [path[0]];
+  for (let i = 1; i < path.length-1; i++)
+    if (dirOf(path[i-1], path[i]) !== dirOf(path[i], path[i+1])) out.push(path[i]);
+  out.push(path[path.length-1]);
+  return out;
+}
+function expandPath(cs){
+  let out = [cs[0]];
+  for (let i = 0; i < cs.length-1; i++) out = out.concat(rebuildChain(cs[i], cs[i+1]).slice(1));
+  return out;
+}
+
+const CIRCLED = '①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳㉑㉒㉓㉔㉕㉖㉗㉘㉙㉚'.split('');
+function nextJumperId(){
+  const used = new Set(L.JUMPERS.map(j=>j.id));
+  for (const ch of CIRCLED) if (!used.has(ch)) return ch;
+  return 'J' + (L.JUMPERS.length + 1);
+}
+function selPath(){
+  if (!sel) return null;
+  if (sel.kind === 'jumper') return L.JUMPERS.find(x=>x.id===sel.id);
+  if (sel.kind === 'bridge') return L.BRIDGES[sel.id];
+  return null;
+}
+/* ── 部品の向き ──
+   穴の並びから胴の向きを決める。longMM は足の並ぶ方向、shortMM はそれに直交する幅。
+   これで回転しても胴の描き方と当たり判定が自動で追従する */
+function orientedBox(holes, longMM, shortMM){
+  const cs = holes.map(C), rs = holes.map(h => R(h) + 1);
+  const c0 = Math.min(...cs), c1 = Math.max(...cs);
+  const r0 = Math.min(...rs), r1 = Math.max(...rs);
+  const horiz = (c1 - c0) >= (r1 - r0);
+  const wC = (horiz ? longMM : shortMM) / 2.54;
+  const hR = (horiz ? shortMM : longMM) / 2.54;
+  const exC = (wC - (c1 - c0)) / 2, exR = (hR - (r1 - r0)) / 2;
+  return { c0:c0-exC, c1:c1+exC, r0:r0-exR, r1:r1+exR, horiz };
+}
+/* 論理の箱 → 画面の矩形 */
+function boxPx(b){
+  const xa = xOf(b.c0), xb = xOf(b.c1);
+  return { x: Math.min(xa,xb), y: PADY + (b.r0 - 1) * PITCH,
+           w: Math.abs(xb - xa), h: (b.r1 - b.r0) * PITCH };
+}
+
+/* 90°ずつ回す。軸は最初の足。盤外へ出る回転はしない */
+const EXIT_CW = { up:'right', right:'down', down:'left', left:'up' };
+function rotateBlockHoles(holes){
+  const pc = C(holes[0]), pr = R(holes[0]);
+  return holes.map(h => {
+    const dc = C(h) - pc, dr = R(h) - pr;      /* 画面座標(yは下向き)での時計回り */
+    return H(pc - dr, pr + dc);
+  });
+}
+/* ⚠ 回すたびにブリッジを引き直すので、素直に繰り返すと1周しても元に戻らない。
+   同じ部品を続けて回している間は「最初の状態から n×90°」として計算し直す。
+   こうすれば4回で必ず元通りになる（2026-08-11） */
+let rotSession = null;
+
+/* 部品を部品面 ⇔ 半田面に付け替える。
+   🔴 2026-08-14 追加。ダイオードのように、置き場所しだいで表にも裏にもなる部品がある。
+   これが画面から変えられなかったので、リレーのコイルから離れた場所へ移したあとも
+   「（裏）」と描かれ続け、胴の隙間の検査からも外れ、組む順番の文も古いままだった。 */
+function selectedPart(){
+  if (!sel || sel.kind !== 'block' || !/^part:/.test(sel.id)) return null;
+  return L.PARTS.find(p => 'part:' + p.id === sel.id) || null;
+}
+function flipPartSide(){
+  const p = selectedPart();
+  if (!p) return;
+  pushUndo();
+  if (p.under) delete p.under; else p.under = true;
+}
+
+function rotateSelectedBlock(){
+  if (!sel || sel.kind !== 'block') return;
+  if (!rotSession || rotSession.id !== sel.id)
+    rotSession = { id: sel.id, snap: clone(L), turns: 0 };
+  const before = clone(L);
+  L = clone(rotSession.snap);
+  const b = blockList().find(x => x.id === sel.id);
+  if (!b){ L = before; return; }
+  const orig = b.holes().slice();
+  /* 盤外に出る向きは飛ばす。⚠ 飛ばさないと、行き止まりの向きで詰まって
+     元の向きにも戻れなくなる（0回転＝元の状態は必ず成立するので、必ずどれかに当たる） */
+  let turns = null, nh = null;
+  for (let k = 1; k <= 4; k++){
+    const tt = (rotSession.turns + k) % 4;
+    let cand = orig;
+    for (let i = 0; i < tt; i++) cand = rotateBlockHoles(cand);
+    if (cand.every(h => inBoard(C(h), R(h)))){ turns = tt; nh = cand; break; }
+  }
+  if (turns === null){ L = before; return; }
+  undoStack.push(before);
+  if (undoStack.length > 60) undoStack.shift();
+  const map = {}; orig.forEach((h,i) => map[h] = nh[i]);
+  b.set(nh);
+  if (b.ref && b.ref.exit){
+    let e = b.ref.exit;
+    for (let i = 0; i < turns; i++) e = EXIT_CW[e] || e;
+    b.ref.exit = e;
+  }
+  remapHoles(map, orig);
+  rotSession.turns = turns;
+}
+
+/* 2SC1815 の平らな面の向きは、B→E の並びから決まる
+   （POWER.md: 平らな面を行A側へ向けると、基板の上で左から B–C–E） */
+function trFlat(p){
+  const b = p.pins.B, e = p.pins.E;
+  const dc = Math.sign(C(e) - C(b)), dr = Math.sign(R(e) - R(b));
+  if (dc ===  1) return { dx:0,  dy:-1, name:'行A側（上）' };
+  if (dr ===  1) return { dx:1,  dy:0,  name:'列25側（右）' };
+  if (dc === -1) return { dx:0,  dy:1,  name:'行O側（下）' };
+  return                { dx:-1, dy:0,  name:'列1側（左）' };
+}
+
+/* 選択中の線の、掴める点（ジャンパは全点・ブリッジは折れ点だけ） */
+function selHandles(){
+  const o = selPath(); if (!o) return [];
+  return sel.kind === 'bridge' ? cornersOf(o.path) : o.path;
+}
+
+/* 編集中の点の配列。ブリッジは折れ点で編集するが、真っ直ぐな途中に足した点は
+   cornersOf() だと消えてしまうので、掴んでいる間だけ drag 側で保持する */
+function workingPoints(){
+  const o = selPath(); if (!o) return null;
+  if (sel.kind !== 'bridge') return o.path;
+  return (drag && drag.corners) ? drag.corners : cornersOf(o.path);
+}
+function commitPoints(p){
+  const o = selPath(); if (!o) return;
+  o.path = sel.kind === 'bridge' ? expandPath(p) : p;
+}
+
+/* 重なった点と、直線上に乗っているだけの点を落とす */
+function cleanPath(p){
+  const out = [];
+  for (const h of p) if (!out.length || out[out.length-1] !== h) out.push(h);
+  for (let i = 1; i < out.length-1; ){
+    if (dirOf(out[i-1], out[i]) === dirOf(out[i], out[i+1])) out.splice(i, 1);
+    else i++;
+  }
+  return out;
+}
+
+/* 選択中の点を1つ動かす。直角を保つため隣の点を追従させるが、
+   🔴 両端は穴に挿さっているので動かさない。端が斜めになる場合は間に点を足して吸収する */
+function moveVertex(c, r){
+  const o = selPath(); if (!o) return;
+  let i = sel.vi;
+  const p = workingPoints();
+  const oldH = p[i];
+  if (!oldH) return;
+  p[i] = H(c, r);
+
+  /* 後ろ側を先に。前側で splice すると添字がずれるため */
+  if (i < p.length-1){
+    const next = p[i+1], wasVert = C(next) === C(oldH);
+    if (i+1 === p.length-1){
+      if (C(next) !== c && R(next) !== r)
+        p.splice(i+1, 0, wasVert ? H(C(next), r) : H(c, R(next)));
+    } else {
+      p[i+1] = wasVert ? H(c, R(next)) : H(C(next), r);
+    }
+  }
+  if (i > 0){
+    const prev = p[i-1], wasVert = C(prev) === C(oldH);
+    if (i-1 === 0){
+      if (C(prev) !== c && R(prev) !== r){
+        p.splice(i, 0, wasVert ? H(C(prev), r) : H(c, R(prev)));
+        i++; sel.vi = i;
+      }
+    } else {
+      p[i-1] = wasVert ? H(c, R(prev)) : H(C(prev), r);
+    }
+  }
+  commitPoints(p);
+}
+
+/* 区間に「折り目」を入れる。両端を動かさずに曲げるには点が2つ要るので、
+   区間の両端のコピーを挿し込んで、その2点を平行に動かす */
+function insertJog(i, offset){
+  const o = selPath(); if (!o) return null;
+  const p = sel.kind === 'bridge' ? cornersOf(o.path) : o.path;
+  const A = p[i], B = p[i+1];
+  const vertSeg = C(A) === C(B);
+  let A2 = A, B2 = B;
+  if (offset){                       /* 見えるように1穴ずらす（ダブルクリック用） */
+    if (vertSeg){
+      const nc = Math.max(1, Math.min(NCOL, C(A) + offset));
+      A2 = H(nc, R(A)); B2 = H(nc, R(B));
+    } else {
+      const nr = Math.max(0, Math.min(ROWS.length-1, R(A) + offset));
+      A2 = H(C(A), nr); B2 = H(C(B), nr);
+    }
+  }
+  p.splice(i+1, 0, A2, B2);
+  if (sel.kind === 'bridge' && drag) drag.corners = p;
+  commitPoints(p);
+  return { A, B, vertSeg, points:p };
+}
+function moveJog(c, r){
+  const p = workingPoints(), i = drag.si;
+  if (drag.vertSeg){
+    p[i+1] = H(c, R(drag.A));
+    p[i+2] = H(c, R(drag.B));
+  } else {
+    p[i+1] = H(C(drag.A), r);
+    p[i+2] = H(C(drag.B), r);
+  }
+  commitPoints(p);
+}
+
+/* ダブルクリックで折れ点を追加 */
+svg.addEventListener('dblclick', ev => {
+  if (mirrored) return;
+  ev.preventDefault();
+  const ds = ev.target.dataset || {};
+  if (ds.jumper === undefined && ds.bridge === undefined) return;
+  const kind = ds.jumper !== undefined ? 'jumper' : 'bridge';
+  const id = kind === 'jumper' ? ds.jumper : +ds.bridge;
+  sel = { kind, id, vi:null };
+  const o = selPath(); if (!o) return;
+  const g = nearestHole(svgPoint(ev));
+  const p = kind === 'bridge' ? cornersOf(o.path) : o.path;
+  /* いちばん近い区間に割り込ませる */
+  let best = 0, bd = Infinity;
+  const q = pt(H(g.c, g.r));
+  for (let i = 0; i < p.length-1; i++){
+    const a = pt(p[i]), b = pt(p[i+1]);
+    const d = (q.x-(a.x+b.x)/2)**2 + (q.y-(a.y+b.y)/2)**2;
+    if (d < bd){ bd = d; best = i; }
+  }
+  pushUndo();
+  sel.vi = best+1;
+  insertJog(best, 1);       /* 1点ではなく折り目（2点）を入れる。1点だと端まで動いてしまう */
+  check(); save(); render();
+});
+
+/* 斜めになった区間をL字に直す */
+function fixDiagonals(p){
+  for (let i = 0; i < p.length-1; i++){
+    const a = p[i], b = p[i+1];
+    if (C(a) !== C(b) && R(a) !== R(b)){ p.splice(i+1, 0, H(C(b), R(a))); i++; }
+  }
+  return p;
+}
+
+window.addEventListener('keydown', ev => {
+  if (ev.key === 'Escape'){ sel = null; render(); return; }
+  if ((ev.key === 'r' || ev.key === 'R') && !ev.ctrlKey && !ev.metaKey
+      && sel && sel.kind === 'block'){
+    ev.preventDefault(); rotateSelectedBlock(); check(); save(); render(); return;
+  }
+  if ((ev.ctrlKey||ev.metaKey) && ev.key.toLowerCase() === 'z'){
+    ev.preventDefault();
+    if (undoStack.length){ L = undoStack.pop(); sel = null; check(); save(); render(); }
     return;
   }
-
-  const a = pt(p.a), b = pt(p.b);
-  const netsHere = [holeNet[p.a], holeNet[p.b]].filter(Boolean);
-  const o = activeNet && !netsHere.includes(activeNet) ? .18 : 1;
-  const mx = (a.x+b.x)/2, my = (a.y+b.y)/2;
-  const vert = Math.abs(a.x-b.x) < 1;
-  const L = p.body.L * MM, Wd = p.body.W * MM;
-
-  el('line', { x1:a.x, y1:a.y, x2:b.x, y2:b.y, stroke:cssVar('--fg'),
-               'stroke-width':1.6, opacity:o*.75 });
-
-  if (p.kind === 'res'){
-    const w = vert ? Wd : L, h = vert ? L : Wd;
-    const body = el('rect', { x:mx-w/2, y:my-h/2, width:w, height:h, rx:3,
-                 fill:cssVar('--panel'), stroke:cssVar('--fg'), 'stroke-width':1.6, opacity:o });
-    tip(body, `${p.name} 1/4W 実寸 ${p.body.L} × ${p.body.W}mm`);
-  } else if (p.kind === 'diode'){
-    /* 実寸の胴＋カソード帯。カソードの向きは実座標から決める（裏返しで自動反転） */
-    const ca = pt(p.cathode);
-    const w = vert ? Wd : L, h = vert ? L : Wd;
-    const body = el('rect', { x:mx-w/2, y:my-h/2, width:w, height:h, rx:2,
-                 fill:cssVar('--panel'), stroke:cssVar('--fg'), 'stroke-width':1.6, opacity:o });
-    tip(body, `${p.name} 実寸 ${p.body.L} × ${p.body.W}mm。帯（カソード）は ${p.cathode} 側`);
-    const s = vert ? (ca.y > my ? 1 : -1) : (ca.x > mx ? 1 : -1);
-    if (vert){
-      el('rect', { x:mx-w/2, y:my+s*(h/2) - (s>0?4:0), width:w, height:4, fill:cssVar('--fg'), opacity:o });
+  if ((ev.key === 'Delete' || ev.key === 'Backspace') && sel
+      && (sel.kind==='jumper' || sel.kind==='bridge')){
+    const o = selPath(); if (!o) return;
+    /* 点を選んでいれば点を消す。線ぜんぶを選んでいれば線を消す */
+    if (sel.vi !== null && sel.vi !== undefined){
+      const p = sel.kind === 'bridge' ? cornersOf(o.path) : o.path;
+      if (p.length <= 2) return;
+      ev.preventDefault();
+      pushUndo();
+      p.splice(sel.vi, 1);
+      fixDiagonals(p);
+      o.path = sel.kind === 'bridge' ? expandPath(p) : p;
+      sel.vi = Math.max(0, Math.min(sel.vi, (sel.kind==='bridge'?cornersOf(o.path):o.path).length-1));
     } else {
-      el('rect', { x:mx+s*(w/2) - (s>0?4:0), y:my-h/2, width:4, height:h, fill:cssVar('--fg'), opacity:o });
+      ev.preventDefault();
+      deleteSelection();
     }
-  } else if (p.kind === 'cap'){
-    const w = vert ? Wd : L, h = vert ? L : Wd;
-    const body = el('ellipse', { cx:mx, cy:my, rx:w/2, ry:h/2,
-                 fill:cssVar('--panel'), stroke:cssVar('--fg'), 'stroke-width':1.6, opacity:o });
-    tip(body, `${p.name} 積層セラミック 実寸 胴${p.body.L}mm（穴間 2.54mm より広い）`);
+    check(); save(); render();
   }
+});
 
-  if (p.under && !vert){
-    el('line', { x1:mx, y1:my+Wd/2, x2:mx, y2:my+44, stroke:cssVar('--sub'),
-                 'stroke-width':1, 'stroke-dasharray':'2 2', opacity:o*.8 });
-  }
-  const ly = vert ? my+4 : (p.under ? my+56 : my-Wd/2-8);
-  const t = el('text', { x: vert ? mx+22 : mx, y: ly,
-                         'text-anchor': vert ? 'start' : 'middle',
-                         fill:cssVar('--fg'), 'font-size':11, 'font-weight':700, opacity:o });
-  t.textContent = p.under ? `${p.name}（裏）` : p.name;
+function deleteSelection(){
+  if (!sel) return;
+  pushUndo();
+  if (sel.kind === 'jumper') L.JUMPERS = L.JUMPERS.filter(j => j.id !== sel.id);
+  else if (sel.kind === 'bridge') L.BRIDGES.splice(sel.id, 1);
+  else return;
+  sel = null;
 }
 
-function drawWarnMarks(){
-  for (const h in holeSev){
-    const q = pt(h);
-    const c = cssVar(holeSev[h] === 'err' ? '--err' : '--amber');
-    el('circle', { cx:q.x, cy:q.y, r:10, fill:'none', stroke:c, 'stroke-width':2.5,
-                   'stroke-dasharray': holeSev[h] === 'err' ? 'none' : '4 3',
-                   opacity: activeNet ? .35 : .95 });
-    if (holeSev[h] === 'err'){
-      el('circle', { cx:q.x, cy:q.y, r:14, fill:'none', stroke:c, 'stroke-width':1,
-                     opacity: activeNet ? .25 : .6 });
-    }
+/* 表の被覆線 ⇔ 裏のブリッジ を入れ替える。
+   短すぎる被覆線を直す手段がだいたいこれなので、1クリックでやれるようにしてある */
+function convertSelection(){
+  const o = selPath(); if (!o) return;
+  pushUndo();
+  if (sel.kind === 'jumper'){
+    L.JUMPERS = L.JUMPERS.filter(j => j.id !== sel.id);
+    L.BRIDGES.push({ path: expandPath(fixDiagonals(o.path.slice())), net:o.net });
+    sel = { kind:'bridge', id:L.BRIDGES.length-1, vi:null };
+  } else {
+    L.BRIDGES.splice(sel.id, 1);
+    const id = nextJumperId();
+    L.JUMPERS.push({ id, path: cornersOf(o.path), net:o.net, what:'（裏から表へ）' });
+    sel = { kind:'jumper', id, vi:null };
   }
 }
 
-/* ---- 節点チップ・警告リスト・組む順番 ---- */
+/* ===========================================================
+   パネル
+   =========================================================== */
 function drawNets(){
   const box = document.getElementById('nets');
   box.innerHTML = '';
   for (const key in NETS){
     const n = NETS[key], c = cssVar(n.css);
     const b = document.createElement('button');
-    b.className = 'chip' + (activeNet === key ? ' on' : '');
+    b.className = 'chip' + (activeNet===key ? ' on' : '');
     b.style.color = c;
     b.innerHTML = `<span class="dot" style="background:${c}"></span>${n.label}`;
-    b.onclick = () => { activeNet = (activeNet === key) ? null : key; render(); };
+    b.onclick = () => { activeNet = activeNet===key ? null : key; render(); };
     box.appendChild(b);
   }
 }
 
-function drawWarnList(){
-  const errs = WARNINGS.filter(w => w.sev === 'err');
-  const warns = WARNINGS.filter(w => w.sev === 'warn');
-  document.getElementById('warns').innerHTML =
-    [...errs, ...warns].map(w => `<li class="${w.sev}">${w.msg}</li>`).join('');
-  document.getElementById('banner').innerHTML =
-    `⚠ <b>この穴割りは旧設計のまま。</b>部品を実寸で描き直した結果、`
-    + `赤 <b>${errs.length}件</b>・黄 <b>${warns.length}件</b> の破綻が出ている。`
-    + `引き直しの作業はこの印を全部消すこと（板は375穴・使うのは一部。詰める理由が無い）。`;
+function drawWarns(){
+  const errs = WARN.filter(w=>w.sev==='err'), warns = WARN.filter(w=>w.sev==='warn');
+  const ul = document.getElementById('warns');
+  ul.innerHTML = '';
+  if (!WARN.length){
+    const li = document.createElement('li');
+    li.className = 'ok';
+    li.textContent = '破綻なし（1穴1本・短絡・+5VとGNDの隣接・断線・被覆線の長さ・交差と重なり・'
+      + '剥き線の近接・胴の衝突と隙間・折り返し余裕・板からのはみ出しを検査）';
+    ul.appendChild(li);
+  } else {
+    for (const w of [...errs, ...warns]){
+      const li = document.createElement('li');
+      li.className = w.sev + (w.jid ? ' clickable' : '');
+      li.innerHTML = w.msg;
+      if (w.jid) li.onclick = () => { sel = { kind:'jumper', id:w.jid, vi:null }; render(); };
+      ul.appendChild(li);
+    }
+  }
+  const c = document.getElementById('count');
+  c.innerHTML = errs.length || warns.length
+    ? `赤 <b class="bad">${errs.length}</b> ／ 黄 <b>${warns.length}</b>　—　赤がゼロになれば組める`
+    : '赤 <b class="good">0</b> ／ 黄 <b class="good">0</b>　—　組める状態';
 }
 
-const STEP_KEY = 'relay_board_steps_v2';
 function drawSteps(){
-  const saved = JSON.parse(localStorage.getItem(STEP_KEY) || '[]');
+  const hdr = L.HEADERS.map(h => `${h.label.split('（')[0]}（${h.pins[0].hole}〜${h.pins[h.pins.length-1].hole}）`).join(' ／ ');
+  /* 🔴 文はレイアウトから作る（2026-08-14）。固定文にしていたせいで、ダイオードを
+     リレーのコイルから外して I4–I6 へ移したあとも「コイルの2本にまたがせる」と
+     言い続けていた。部品を動かしたら指示も動かないと、古い指示のまま組んでしまう */
+  const dio = L.PARTS.find(p => p.kind === 'diode');
+  const dioStep = !dio ? null : (() => {
+    const isA = dio.cath === 'a';
+    const ca = isA ? dio.a : dio.b, an = isA ? dio.b : dio.a;
+    const caNet = NETS[dio.nets[isA ? 'a' : 'b']];
+    return `<b>【${dio.under?'裏':'表'}】${dio.name}</b> を <code>${an}</code>–<code>${ca}</code> に`
+      + `${dio.under ? 'またがせる' : '挿す'}。`
+      + `<b>帯（カソード）は <code>${ca}</code> 側${caNet ? '＝'+caNet.label : ''}</b>。`
+      + `⚠ 帯を逆にすると、トランジスタが ON の間ずっとダイオードが導通して +5V を GND へ落とす。`;
+  })();
+  const STEPS = [
+    (() => {
+      const q = L.PARTS.find(p => p.kind === 'tr');
+      const f = q ? trFlat(q) : null;
+      return `<b>【表】抵抗・コンデンサ・トランジスタ</b>を挿す。`
+        + (q ? `🔴 ${q.name} は<b>平らな印字面を ${f.name}</b> に向ける`
+             + `（B=${q.pins.B} / C=${q.pins.C} / E=${q.pins.E}）。`
+             + `⚠ 逆向きだと E と B が入れ替わり、<b>鳴らないのに熱くもならない</b>。` : '');
+    })(),
+    dio && !dio.under ? dioStep : null,
+    `<b>【裏】駆動側のブリッジ</b>を張る（図の太い短線）。`,
+    `<b>【表】リレー</b>を挿す。近い2本の対（コイル—NO/NC）が手前。`,
+    dio && dio.under ? dioStep : null,
+    `<b>【表】PH コネクタ IN / OUT</b> を挿す。⬜ トップ型かサイド型かは現物合わせ。`,
+    `<b>【表】ピンヘッダ</b>: ${hdr}。⬜ OLED の並びは現物のシルクを見てから確定。`,
+    `<b>【表】ジャンパ（被覆線）</b>を図のとおり張り、端を裏でブリッジに落とす。`,
+    `<b>【表】会話ボタン</b>を縦置きで挿す。<b>レバーの根本側が上</b>。NC は空き。`,
+    `通電。<b>何も起きないのが正常</b>（D3 は浮いていて 10kΩ が LOW に保つ）。`,
+    `シリアルで <code>high 3</code> → カチッ、<code>hiz 3</code> → 戻る。`
+      + `テスターで COM–NO が OL ⇔ 0Ω を追従するか。`,
+    `接点検証が通ってから、はじめてスピーカー線を IN/OUT に挿す。⚠ 挿す前に必ず声をかける。`,
+  ].filter(Boolean);        /* レールも裏の部品も無いレイアウトでは、その行ごと出さない */
+  /* ⚠ 手順の数や並びが変わったら版を上げること。上げないと前のチェックが別の行に付く */
+  const KEY = 'hub_board_steps_v3';
+  let saved = [];
+  try { saved = JSON.parse(lsGet(KEY) || '[]'); } catch(e){ saved = []; }
   const ol = document.getElementById('steps');
   ol.innerHTML = '';
-  STEPS.forEach((s, i) => {
+  STEPS.forEach((s,i) => {
     const li = document.createElement('li');
-    li.innerHTML = `<input type="checkbox" ${saved[i] ? 'checked' : ''}><span class="txt">${s}</span>`;
+    li.innerHTML = `<input type="checkbox" ${saved[i]?'checked':''}><span class="txt">${s}</span>`;
     if (saved[i]) li.classList.add('done');
     li.querySelector('input').onchange = e => {
       li.classList.toggle('done', e.target.checked);
-      const st = JSON.parse(localStorage.getItem(STEP_KEY) || '[]');
+      let st = []; try { st = JSON.parse(lsGet(KEY) || '[]'); } catch(err){ st = []; }
       st[i] = e.target.checked;
-      localStorage.setItem(STEP_KEY, JSON.stringify(st));
+      lsSet(KEY, JSON.stringify(st));
     };
     ol.appendChild(li);
   });
 }
 
-function render(){ draw(); drawNets(); }
+/* ===========================================================
+   エクスポート
+   =========================================================== */
+function exportText(){
+  const q = s => `'${s}'`;
+  const arr = a => '[' + a.map(q).join(',') + ']';
+  const lines = [];
+  lines.push('/* ハブ基板 レイアウト（relay_board.html からエクスポート） */');
+  const errs = WARN.filter(w=>w.sev==='err').length, wns = WARN.filter(w=>w.sev==='warn').length;
+  lines.push(`/* 物理検査: 赤 ${errs} ／ 黄 ${wns} */`);
+  if (errs) for (const w of WARN.filter(x=>x.sev==='err'))
+    lines.push('/*   赤: ' + w.msg.replace(/<[^>]+>/g,'') + ' */');
+  lines.push('');
+  lines.push('PARTS = [');
+  for (const p of L.PARTS) lines.push('  ' + (p.kind==='tr'
+    ? `{ id:'${p.id}', name:'${p.name}', pins:{ ${Object.keys(p.pins).map(k=>`${k}:'${p.pins[k]}'`).join(', ')} } },`
+    : `{ id:'${p.id}', name:'${p.name}', a:'${p.a}', b:'${p.b}'${p.cath?`, cath:'${p.cath}'`:''}${p.under?', under:true':''} },`));
+  lines.push('];');
+  lines.push(`RELAY.pins = [ ${L.RELAY.pins.map(p=>`${p.fn}:'${p.hole}'`).join(', ')} ];`);
+  lines.push(`BUTTON.pins = [ ${L.BUTTON.pins.map(p=>`${p.fn}:'${p.hole}'`).join(', ')} ];`);
+  for (const c of L.PHCONN)
+    lines.push(`${c.id} = [ ${c.pins.map(p=>`${p.fn}:'${p.hole}'`).join(', ')} ];`);
+  for (const h of L.HEADERS)
+    lines.push(`${h.id} = [ ${h.pins.map(p=>`${p.fn}:'${p.hole}'`).join(', ')} ];`);
+  lines.push('JUMPERS = [');
+  for (const j of L.JUMPERS)
+    lines.push(`  { id:'${j.id}', path:${arr(j.path)}, net:'${j.net}'${j.what?`, what:'${j.what}'`:''} },`);
+  lines.push('];');
+  lines.push('BRIDGES = [');
+  for (const b of L.BRIDGES) lines.push(`  { path:${arr(b.path)}, net:'${b.net}' },`);
+  lines.push('];');
+  return lines.join('\n');
+}
 
+document.getElementById('export').onclick = () => {
+  const box = document.getElementById('expbox');
+  box.classList.toggle('open');
+  if (box.classList.contains('open')){
+    document.getElementById('exp').value = exportText();
+    box.scrollIntoView({ behavior:'smooth', block:'start' });
+  }
+};
+document.getElementById('copy').onclick = async () => {
+  const ta = document.getElementById('exp');
+  ta.select();
+  try { await navigator.clipboard.writeText(ta.value); }
+  catch(e){ document.execCommand('copy'); }
+  const b = document.getElementById('copy');
+  b.textContent = 'コピーしました'; setTimeout(()=>b.textContent='クリップボードにコピー', 1400);
+};
+document.getElementById('dl').onclick = () => {
+  const blob = new Blob([exportText()], { type:'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'hub_board_layout.txt';
+  a.click();
+};
+document.getElementById('rot').onclick  = () => { rotateSelectedBlock(); check(); save(); render(); };
+document.getElementById('pside').onclick = () => { rotSession=null; flipPartSide(); check(); save(); render(); };
+document.getElementById('conv').onclick = () => { rotSession=null; convertSelection(); check(); save(); render(); };
+document.getElementById('del').onclick  = () => { rotSession=null; deleteSelection(); check(); save(); render(); };
+document.getElementById('netsel').onchange = e => {
+  const o = selPath(); if (!o) return;
+  pushUndo(); o.net = e.target.value; check(); save(); render();
+};
+document.getElementById('drawmode').onclick = e => {
+  drawing = !drawing;
+  e.target.classList.toggle('on', drawing);
+  e.target.textContent = drawing ? '線を引く（ON・空き地からドラッグ）' : '線を引く';
+  render();
+};
+function drawSelBar(){
+  const o = selPath(), any = o;
+  const lab = document.getElementById('selLabel');
+  const ns = document.getElementById('netsel');
+  document.getElementById('conv').disabled = !o;
+  document.getElementById('del').disabled  = !any;
+  document.getElementById('rot').disabled  = !(sel && sel.kind === 'block');
+  const part = selectedPart();
+  document.getElementById('pside').disabled = !part;
+  ns.disabled = !any;
+  if (!any){
+    if (part)
+      lab.innerHTML = `<b>${part.name}</b>　いま <b>${part.under?'半田面（裏）':'部品面（表）'}</b>　ドラッグで移動`;
+    else
+      lab.textContent = sel && sel.kind==='block' ? '部品を選択中（ドラッグで移動）' : '選択なし';
+    ns.innerHTML = '';
+    return;
+  }
+  const where = sel.vi===null||sel.vi===undefined ? '（ぜんぶ）' : '（点 '+(sel.vi+1)+' を編集中）';
+  const runs = sel.kind==='bridge' ? railRuns(o.path, insertions()) : [];
+  const bus = runs.length
+    ? '（レール ' + runs.map(r => r[0]+'〜'+r[r.length-1]).join('・') + '）' : '';
+  lab.innerHTML = `${sel.kind==='jumper' ? '表の被覆線 <b>'+sel.id+'</b>' : '裏のブリッジ <b>#'+sel.id+'</b>'+bus}`
+    + `　${o.path[0]} → ${o.path[o.path.length-1]}　${where}`;
+  ns.innerHTML = Object.keys(NETS).map(k =>
+    `<option value="${k}" ${k===any.net?'selected':''}>${NETS[k].label}</option>`).join('');
+}
+
+document.getElementById('undo').onclick = () => {
+  rotSession = null;
+  if (undoStack.length){ L = undoStack.pop(); sel = null; check(); save(); render(); }
+};
+document.getElementById('reset').onclick = () => {
+  rotSession = null;
+  pushUndo(); L = initialLayout(); sel = null; check(); save(); render();
+};
 document.getElementById('flip').onclick = e => {
   mirrored = !mirrored;
+  sel = null;
   e.target.classList.toggle('on', mirrored);
   e.target.textContent = mirrored ? '部品面に戻す' : '半田面に裏返す';
   document.getElementById('sideLabel').innerHTML = mirrored
-    ? 'いま見ているのは <b>半田面</b>（裏返した状態。左右が反転している）'
-    : 'いま見ているのは <b>部品面</b>（部品を挿す側）';
+    ? 'いま見ているのは <b>半田面</b>（左右が反転・編集はできません）'
+    : 'いま見ているのは <b>部品面</b>（編集できます）';
   render();
 };
-document.getElementById('clear').onclick = () => { activeNet = null; render(); };
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', render);
 
+function render(){
+  draw(); drawNets(); drawWarns(); drawSelBar();
+  if (!drag) drawSteps();     /* 手順は向きや穴を読んで作るので、編集のたびに作り直す */
+  document.getElementById('undo').disabled = !undoStack.length;
+  if (document.getElementById('expbox').classList.contains('open'))
+    document.getElementById('exp').value = exportText();
+}
+
+check();
 render();
-drawWarnList();
-drawSteps();
 </script>
 </body>
 </html>
