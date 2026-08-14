@@ -6,7 +6,7 @@
 <title>ハブ基板の穴割り（編集できる版）</title>
 <!--
   ハブ基板（ミュートリレー駆動 + コネクタ集約）の穴割り。
-  対象は 両面スルーホール C基板（72×47mm・25列×15行・2.54mm）。
+  対象は 両面スルーホール C基板 DAISEN PU52X74（外形 52×74mm・穴は27列×19行・2.54mm）。
   回路と定数の根拠は docs/POWER.md。ここは図と組む順番だけ。
 
   ▸ 部品面では【線も部品もマウスで動かせる】。動かすたびに物理検査が走る。
@@ -90,7 +90,7 @@
 
   <h1>ハブ基板の穴割り（編集できる版）</h1>
   <p class="lead">
-    両面スルーホール C基板（72×47mm・25列×15行）。回路と定数の根拠は <code>docs/POWER.md</code>。
+    両面スルーホール C基板 DAISEN PU52X74（外形 52×74mm・27列×19行）。回路と定数の根拠は <code>docs/POWER.md</code>。
   </p>
 
   <p class="hint">
@@ -114,6 +114,7 @@
     <button id="undo">元に戻す (Ctrl+Z)</button>
     <button id="reset">初期状態に戻す</button>
     <button id="export">エクスポート</button>
+    <button id="mute">警告を隠す</button>
     <span class="side" id="sideLabel">いま見ているのは <b>部品面</b>（編集できます）</span>
   </div>
   <div class="bar" id="selbar">
@@ -181,6 +182,10 @@ const NETS = {
   SPKP: { label:'スピーカー IN+ / COM', css:'--spk'},
   SPKO: { label:'スピーカー NO / OUT+', css:'--spk'},
   SPKM: { label:'スピーカー −（素通し）', css:'--spk'},
+  /* 🔴 2026-08-14 追加。PowerBoost の EN。GND に落ちると昇圧が止まる＝完全停止。
+     リードスイッチ・マスタートグル・0.1µF の3つが EN⇔GND に並列で入る。
+     ⚠ ファームはこのネットに触らない（触ると自分の電源を切って発振する） */
+  EN:   { label:'EN（電源の入切）', css:'--amber'},
   /* 新しく引いた線の既定。何のネットか決まっていないことを目に見えるようにする */
   NONE: { label:'未割り当て', css:'--sub' },
 };
@@ -201,10 +206,15 @@ function initialLayout(){ return {
        ここを裏に戻さないこと（ユーザーが苦労して外した場所） */
     { id:'D1', name:'1N4148', kind:'diode', a:'I4',  b:'I6', cath:'a',
       nets:{a:'V5', b:'COL'}, body:{L:3.4, W:1.75} },
-    { id:'C1', name:'0.1µF',  kind:'cap',   a:'E11', b:'F11',
+    { id:'C1', name:'0.1µF',  kind:'cap',   a:'F13', b:'G13',
       nets:{a:'V5', b:'GND'}, body:{L:4.5, W:2.8} },
     { id:'Q1', name:'2SC1815-GR', kind:'tr', pins:{ B:'G5', C:'G6', E:'G7' },
       nets:{B:'BASE', C:'COL', E:'GND'}, body:{L:4.6, W:3.9} },
+    /* 🔴 2026-08-14 追加。リードスイッチの跳ね止め（EN⇔GND）。
+       ⚠ 容量を減らすと効かない。効いているのは立ち上がり側で、
+       τ＝ENのプルアップ×0.1µF がバウンス0.6msを上回っている必要がある（POWER.md） */
+    { id:'C2', name:'0.1µF (EN)', kind:'cap', a:'N13', b:'M13',
+      nets:{a:'EN', b:'GND'}, body:{L:4.5, W:2.8} },
   ],
   /* ⚠ COM 2本が内部で繋がっていることは、穴の名前ではなく fn:'COM' で判定している
      （solveNets）。穴で持つと動かした瞬間に取り残される */
@@ -219,56 +229,77 @@ function initialLayout(){ return {
     ] },
   BUTTON: { id:'BUTTON', name:'会話ボタン', bodyW:12, bodyH:5,
     pins:[
-      { hole:'K20', fn:'C',  net:'GND' },
-      { hole:'M20', fn:'NO', net:'BTN' },
-      { hole:'O20', fn:'NC', net:null  },
+      { hole:'M23', fn:'C',  net:'GND' },
+      { hole:'O23', fn:'NO', net:'BTN' },
+      { hole:'Q23', fn:'NC', net:null  },
     ] },
   /* PH2.0 2P。⬜ トップ型かサイド型かは現物合わせ */
   PHCONN: [
     { id:'PHIN',  name:'IN（ReSpeakerから）', body:{L:5.9, W:4.5}, exit:'left',
       pins:[ {hole:'K1', fn:'+', net:'SPKP'}, {hole:'L1', fn:'−', net:'SPKM'} ] },
     { id:'PHOUT', name:'OUT（スピーカーへ）', body:{L:5.9, W:4.5}, exit:'left',
-      pins:[ {hole:'N1', fn:'−', net:'SPKM'}, {hole:'O1', fn:'+', net:'SPKO'} ] },
+      pins:[ {hole:'O1', fn:'−', net:'SPKM'}, {hole:'P1', fn:'+', net:'SPKO'} ] },
   ],
   HEADERS: [
     { id:'XIAO', label:'XIAO からの7本', exit:'up',
-      pins:[ {hole:'A11', fn:'5V',  net:'V5'},
-             {hole:'A12', fn:'D2',  net:'BTN'},
-             {hole:'A13', fn:'D3',  net:'IN'},
-             {hole:'A14', fn:'GND', net:'GND'},
-             {hole:'A15', fn:'3V3', net:'V33'},
-             {hole:'A16', fn:'SCL', net:'SCL'},
-             {hole:'A17', fn:'SDA', net:'SDA'} ] },
+      pins:[ {hole:'A14', fn:'5V',  net:'V5'},
+             {hole:'A15', fn:'D3',  net:'IN'},
+             {hole:'A16', fn:'GND', net:'GND'},
+             {hole:'A17', fn:'3V3', net:'V33'},
+             {hole:'A18', fn:'SCL', net:'SCL'},
+             {hole:'A19', fn:'SDA', net:'SDA'},
+             {hole:'A20', fn:'D2',  net:'BTN'} ] },
     { id:'OLED', label:'OLED 2.42" へ4本 ⬜並び要確認', exit:'down',
-      pins:[ {hole:'O14', fn:'GND', net:'GND'},
-             {hole:'O15', fn:'VDD', net:'V33'},
-             {hole:'O16', fn:'SCL', net:'SCL'},
-             {hole:'O17', fn:'SDA', net:'SDA'} ] },
-    /* 🔴 4本。DIR は基板側に穴を作らず、ハーネス側を二股にして GND に相乗りさせる
-       （2026-08-11 ユーザー指摘。基板の穴とジャンパが1本ぶん減る） */
+      pins:[ {hole:'O16', fn:'GND', net:'GND'},
+             {hole:'O17', fn:'VDD', net:'V33'},
+             {hole:'O18', fn:'SCL', net:'SCL'},
+             {hole:'O19', fn:'SDA', net:'SDA'} ] },
     { id:'AS5600', label:'AS5600 へ4本（GNDは二股ケーブルでDIRへ）', exit:'right',
-      pins:[ {hole:'E25', fn:'SDA', net:'SDA'},
-             {hole:'F25', fn:'SCL', net:'SCL'},
-             {hole:'G25', fn:'3V3', net:'V33'},
-             {hole:'H25', fn:'GND', net:'GND'} ] },
+      pins:[ {hole:'E27', fn:'SDA', net:'SDA'},
+             {hole:'F27', fn:'SCL', net:'SCL'},
+             {hole:'G27', fn:'3V3', net:'V33'},
+             {hole:'H27', fn:'GND', net:'GND'} ] },
+    { id:'PWR', label:'PowerBoost へ4本（3本目は空き）', exit:'down',
+      pins:[ {hole:'S6', fn:'EN',  net:'EN'},
+             {hole:'S5', fn:'GND', net:'GND'},
+             {hole:'S4', fn:'空き', net:null},
+             {hole:'S3', fn:'5V',  net:'V5'} ] },
+    { id:'TOGGLE', label:'マスタートグルへ2本', exit:'down',
+      pins:[ {hole:'S9', fn:'GND', net:'GND'},
+             {hole:'S8', fn:'EN',  net:'EN'} ] },
+    { id:'INA', label:'INA226 へ4本 ⬜並び要確認', exit:'down',
+      pins:[ {hole:'S16', fn:'GND', net:'GND'},
+             {hole:'S17', fn:'3V3', net:'V33'},
+             {hole:'S18', fn:'SCL', net:'SCL'},
+             {hole:'S19', fn:'SDA', net:'SDA'} ] },
+    { id:'REED', label:'リードスイッチへ2本', exit:'down',
+      pins:[ {hole:'S11', fn:'GND', net:'GND'},
+             {hole:'S12', fn:'EN',  net:'EN'} ] },
   ],
   /* 部品面の被覆線。直角のみ。
      🔒 2026-08-14、ユーザーのエクスポートそのまま（赤0／黄11）。ここが正。 */
   JUMPERS: [
-    { id:'①', path:['A10','A3','H3'],       net:'V5',  what:'5V をコイルへ（列2を下る）' },
-    { id:'②', path:['B13','D13','D10','C10','C9'], net:'IN', what:'D3 を 1kΩ へ' },
-    { id:'③', path:['I8','I9','N9','N8'],   net:'COL', what:'コレクタをコイルへ（列8を下る）' },
-    { id:'④', path:['B14','I14'],           net:'GND', what:'GND を分配レールへ' },
-    { id:'⑦', path:['I15','M15'],           net:'V33', what:'3V3 幹線・下 → OLED' },
-    { id:'⑨', path:['F17','F23'],           net:'SCL', what:'SCL を AS5600 へ' },
-    { id:'⑩', path:['G16','M16'],           net:'SCL', what:'SCL 幹線・下 → OLED' },
-    { id:'⑪', path:['D18','D23'],           net:'SDA', what:'SDA を AS5600 へ' },
-    { id:'⑫', path:['D17','M17'],           net:'SDA', what:'SDA 幹線・下 → OLED' },
-    { id:'⑬', path:['B12','C12','C22','M22'], net:'BTN', what:'D2 を会話ボタンへ' },
-    { id:'⑥', path:['I3','N3','N4'],        net:'V5',  what:'（新規）' },
-    { id:'⑧', path:['F16','B16'],           net:'SCL', what:'（新規）' },
-    { id:'⑤', path:['H15','H23','G23'],     net:'V33', what:'（新規）' },
-    { id:'⑭', path:['J20','J14'],           net:'GND', what:'（裏から表へ）' },
+    { id:'①', path:['A12','A3','H3'], net:'V5', what:'5V をコイルへ（列3を下る）' },
+    { id:'②', path:['B15','C15','C9'], net:'IN', what:'D3 を 1kΩ へ' },
+    { id:'③', path:['I8','I9','N9','N8'], net:'COL', what:'コレクタをコイルへ' },
+    { id:'④', path:['B16','I16'], net:'GND', what:'GND を分配レールへ' },
+    { id:'⑤', path:['H17','H26','G26'], net:'V33', what:'3V3 を AS5600 へ' },
+    { id:'⑥', path:['I3','M3'], net:'V5', what:'5V をコイルへ（下半分）' },
+    { id:'⑦', path:['I17','M17'], net:'V33', what:'3V3 幹線・下 → OLED' },
+    { id:'⑧', path:['F18','B18'], net:'SCL', what:'SCL 幹線・上' },
+    { id:'⑨', path:['F19','F26'], net:'SCL', what:'SCL を AS5600 へ' },
+    { id:'⑩', path:['G18','M18'], net:'SCL', what:'SCL 幹線・下 → OLED' },
+    { id:'⑪', path:['D20','D26'], net:'SDA', what:'SDA を AS5600 へ' },
+    { id:'⑫', path:['D19','M19'], net:'SDA', what:'SDA 幹線・下 → OLED' },
+    { id:'⑬', path:['B20','C20','C25','O25'], net:'BTN', what:'D2 を会話ボタンへ' },
+    { id:'⑭', path:['J22','J16'], net:'GND', what:'（裏から表へ）' },
+    { id:'⑮', path:['N3','R3'], net:'V5', what:'PowerBoost の 5V を板の +5V へ' },
+    { id:'⑯', path:['R12','R6'], net:'EN', what:'リードスイッチを EN の節点へ' },
+    { id:'⑰', path:['A13','E13'], net:'V5', what:'（裏から表へ）' },
+    { id:'⑱', path:['K11','Q11','Q10'], net:'GND', what:'GND を下へ' },
+    { id:'⑲', path:['G8','G11','I11'], net:'GND', what:'エミッタ側の GND を幹線へ' },
+    { id:'㉑', path:['B17','G17'], net:'V33', what:'（裏から表へ）' },
+    { id:'㉓', path:['R5','Q5','Q9'], net:'GND', what:'（裏から表へ）' },
   ],
   /* 半田面のブリッジ（隣り合うパッドを裏で繋ぐ）。2026-08-14 のユーザー最終版。
      ⚠ ユーザーのエクスポートでは GND の幹線が
@@ -276,43 +307,60 @@ function initialLayout(){ return {
      実際に作りたいのは T字なので、幹線と F11 への枝の2本に分けてある。
      穴とネットの対応は逆走版と完全に一致することを確認済み。 */
   BRIDGES: [
-    { path:['A11','A10'], net:'V5' },
-    { path:['A11','B11'], net:'V5' },
-    { path:['B11','C11','D11','E11'], net:'V5' },
-    { path:['N4','N5'], net:'V5' },
-    { path:['A14','B14'], net:'GND' },
-    { path:['G7','G8','G9','G10','G11','H11','I11','I12','I13','I14'], net:'GND' },
-    { path:['F11','G11'], net:'GND' },
-    { path:['D8','D9','E9','F9','G9'], net:'GND' },
-    { path:['I14','J14','K14','L14','M14','N14','O14'], net:'GND' },
-    { path:['I25','H25'], net:'GND' },
-    { path:['A13','B13'], net:'IN' },
+    { path:['E13','F13'], net:'V5' },
+    { path:['H3','I3'], net:'V5' },
+    { path:['I3','I4'], net:'V5' },
+    { path:['M3','N3','N4','N5'], net:'V5' },
+    { path:['R3','S3'], net:'V5' },
+    { path:['A12','A13'], net:'V5' },
+    { path:['A13','A14'], net:'V5' },
+    { path:['G7','G8'], net:'GND' },
+    { path:['J11','J12','J13','J14','J15','J16'], net:'GND' },
+    { path:['D8','E8','F8','G8'], net:'GND' },
+    { path:['J22','J23','J24','J25','J26','J27','I27','H27'], net:'GND' },
+    { path:['J23','K23','L23','M23'], net:'GND' },
+    { path:['K11','J11','I11'], net:'GND' },
+    { path:['S16','R16','Q16','P16','O16'], net:'GND' },
+    { path:['O16','N16','M16','L16','K16'], net:'GND' },
+    { path:['I16','J16','K16'], net:'GND' },
+    { path:['A16','B16'], net:'GND' },
+    { path:['J12','J13','I13','H13','G13'], net:'GND' },
+    { path:['J12','J13','K13','L13','M13'], net:'GND' },
+    { path:['S9','S10','S11'], net:'GND' },
+    { path:['R9','Q9'], net:'GND' },
+    { path:['S9','R9'], net:'GND' },
+    { path:['R5','S5'], net:'GND' },
+    { path:['Q9','Q10'], net:'GND' },
+    { path:['A15','B15'], net:'IN' },
     { path:['C8'], net:'IN' },
+    { path:['C8','C9'], net:'IN' },
     { path:['G5','G4','F4','E4','D4','C4'], net:'BASE' },
     { path:['G6'], net:'COL' },
     { path:['N8','N7'], net:'COL' },
-    { path:['A12','B12'], net:'BTN' },
-    { path:['M22','M21','M20'], net:'BTN' },
-    { path:['A15','B15','C15','D15','E15','F15','G15'], net:'V33' },
-    { path:['G15','H15','I15'], net:'V33' },
-    { path:['M15','N15','O15'], net:'V33' },
-    { path:['G23','G24','G25'], net:'V33' },
-    { path:['A16','B16'], net:'SCL' },
-    { path:['M16','N16','O16'], net:'SCL' },
-    { path:['F23','F24','F25'], net:'SCL' },
-    { path:['A17','B17','C17','D17','D18'], net:'SDA' },
-    { path:['M17','N17','O17'], net:'SDA' },
-    { path:['D23','D24','D25','E25'], net:'SDA' },
-    { path:['K1','K2','K3','K4','K5'], net:'SPKP' },
-    { path:['L1','M1','N1'], net:'SPKM' },
-    { path:['O1','O2','O3','O4','O5'], net:'SPKO' },
-    { path:['C8','C9'], net:'IN' },
     { path:['I8','I7','I6','H6','G6'], net:'COL' },
-    { path:['I20','I21','I22','I23','I24','I25','H25'], net:'GND' },
-    { path:['I20','J20','K20'], net:'GND' },
-    { path:['H3','I3'], net:'V5' },
-    { path:['I3','I4'], net:'V5' },
-    { path:['G16','F16','F17'], net:'SCL' },
+    { path:['A20','B20'], net:'BTN' },
+    { path:['O25','O24','O23'], net:'BTN' },
+    { path:['R6','S6'], net:'EN' },
+    { path:['S6','S7','S8'], net:'EN' },
+    { path:['S12','R12'], net:'EN' },
+    { path:['N13','O13','P13','Q13','R13','S13','S12'], net:'EN' },
+    { path:['A17','B17'], net:'V33' },
+    { path:['G17','H17','I17'], net:'V33' },
+    { path:['M17','N17','O17'], net:'V33' },
+    { path:['G26','G27'], net:'V33' },
+    { path:['S17','R17','Q17','P17','O17'], net:'V33' },
+    { path:['A18','B18'], net:'SCL' },
+    { path:['G18','F18','F19'], net:'SCL' },
+    { path:['M18','N18','O18'], net:'SCL' },
+    { path:['F26','F27'], net:'SCL' },
+    { path:['S18','R18','Q18','P18','O18'], net:'SCL' },
+    { path:['A19','B19','C19','D19','D20'], net:'SDA' },
+    { path:['M19','N19','O19'], net:'SDA' },
+    { path:['D26','D27','E27'], net:'SDA' },
+    { path:['S19','R19','Q19','P19','O19'], net:'SDA' },
+    { path:['K1','K2','K3','K4','K5'], net:'SPKP' },
+    { path:['L1','M1','N1','O1'], net:'SPKM' },
+    { path:['P1','P2','P3','P4','P5','O5'], net:'SPKO' },
   ],
 }; }
 
@@ -321,7 +369,7 @@ function initialLayout(){ return {
    =========================================================== */
 /* ⚠ 初期レイアウトを書き換えたら、この番号を上げること。
    上げないと、前に開いたときの保存内容が読み込まれて新しい初期値が出ない */
-const SAVE_KEY = 'hub_board_layout_v6';
+const SAVE_KEY = 'hub_board_layout_v17';
 let L = load() || initialLayout();
 let undoStack = [];
 let mirrored = false;
@@ -329,6 +377,10 @@ let activeNet = null;
 let sel = null;          /* {kind:'jumper'|'bridge'|'block', id, vi:null|number} */
 let drag = null;
 let drawing = false;     /* 「線を引く」モード */
+/* 🔴 2026-08-14: 警告の丸が盤一面に出ると線が見えなくて直せない
+   （ユーザー指摘）。警告の印と一覧を黙らせる。
+   ⚠ 数（赤n／黍n）は黙らせない。消すと気づかないまま組むことになる */
+let muteWarn = lsGet('hub_board_mutewarn') === '1';
 
 function clone(o){ return JSON.parse(JSON.stringify(o)); }
 /* localStorage は環境によって読み書きが禁止される（data: で開いた等）ので必ず包む */
@@ -666,10 +718,13 @@ function netColor(n){ return cssVar(NETS[n] ? NETS[n].css : '--sub'); }
 
 function draw(){
   svg.innerHTML = '';
+  labelSlots = [];
   const W = PADX*2 + (NCOL-1)*PITCH, Hh = PADY*2 + (ROWS.length-1)*PITCH;
   svg.setAttribute('width', W + GUTTER*2);
-  svg.setAttribute('height', Hh + 24);
-  svg.setAttribute('viewBox', `${-GUTTER} 0 ${W + GUTTER*2} ${Hh + 24}`);
+  /* ⚠ 下辺のコネクタのラベルは段違いに落ちるので、その分の余白を足しておく
+     （足りないと一番下のラベルが切れる。2026-08-14） */
+  svg.setAttribute('height', Hh + 84);
+  svg.setAttribute('viewBox', `${-GUTTER} -20 ${W + GUTTER*2} ${Hh + 84}`);
   el('rect', { x:16, y:18, width:W-32, height:Hh-36, rx:10,
                fill:cssVar('--board'), stroke:cssVar('--line') });
 
@@ -716,10 +771,16 @@ function drawBridges(){
       /* ラベルは真ん中の区間の脇。縦に走っていれば右へ、横なら下へ逃がす */
       const i = Math.floor((qs.length-1)/2), a = qs[i], z = qs[i+1];
       const vert = Math.abs(a.x - z.x) < 1;
-      const t = el('text', { x:(a.x+z.x)/2 + (vert?13:0), y:(a.y+z.y)/2 + (vert?4:18),
+      const lb = NETS[b.net] ? NETS[b.net].label : b.net;
+      const lx = (a.x+z.x)/2 + (vert?13:0);
+      /* ⚠ レールの名前も段ずらしに通す。通さないと、レールどうしで重なるし
+         （2026-08-15 に GND が2つ重なった）、コネクタのラベルがこの上に降りてくる */
+      const ly = placeLabel(lx, (a.y+z.y)/2 + (vert?4:18),
+                            labelWidth(lb, 11), vert?'start':'middle', 13);
+      const t = el('text', { x:lx, y:ly,
         'text-anchor': vert?'start':'middle', fill:c, 'font-size':11, 'font-weight':700,
         opacity:op(b.net), 'pointer-events':'none' });
-      t.textContent = NETS[b.net] ? NETS[b.net].label : b.net;
+      t.textContent = lb;
     }
   }
 }
@@ -797,7 +858,20 @@ function drawBlocks(){
     const vert = hd.pins.length>1 && C(hd.pins[0].hole) === C(hd.pins[1].hole);
     for (const p of hd.pins) pinMark(p.hole, p.fn, cssVar('--fg'),
       vert ? (hd.exit==='right'?'right':'left') : (hd.exit==='down'?'down':'downtext'));
-    const lab = el('text', { x:box.x+box.w/2, y: hd.exit==='down' ? box.y+box.h+30 : box.y-9,
+    /* 🔴 2026-08-14: 下辺にコネクタを3つ並べたらラベルが重なって読めなくなった。
+       ぶつかるものだけ1段ずらして、矢印の位置と細い線で結ぶ（ユーザー指摘）。
+       ⚠ 上向き（XIAO）は列番号の目盛りと当たるので、基準を -22 まで上げてある */
+    const lx = box.x + box.w/2;
+    /* 🔴 2026-08-14: ラベルの上下は「出口の向き」ではなく「板のどちら側に居るか」で決める
+       （ユーザー指摘）。回転させると出口が上を向くことがあり、そのとき下辺のコネクタの
+       説明が板の中へ飛び込んでいた。位置で決めれば回しても飛ばない */
+    const down = (box.y + box.h/2) > PADY + (ROWS.length-1)*PITCH/2;
+    const ly0 = down ? box.y + box.h + 30 : box.y - 22;
+    const ly = placeLabel(lx, ly0, labelWidth(hd.label, 11), 'middle', down ? 14 : -14);
+    if (Math.abs(ly - ly0) > 1)
+      el('line', { x1:lx, y1: down ? ly0-4 : ly0+4, x2:lx, y2: down ? ly-10 : ly+4,
+                   stroke:cssVar('--fg'), 'stroke-width':1, opacity: activeNet?.2:.45 });
+    const lab = el('text', { x:lx, y: ly,
       'text-anchor':'middle', fill:cssVar('--fg'), 'font-size':11, 'font-weight':700,
       opacity: activeNet?.2:1 });
     lab.textContent = hd.label;
@@ -805,6 +879,26 @@ function drawBlocks(){
 }
 
 /* 線が外へ抜けていく向きの矢印。回転すると exit も回る */
+/* 🔴 2026-08-14 追加。下辺にコネクタを3つ並べたら、出口のラベルが同じ高さに出て
+   重なって読めなくなった（ユーザー指摘）。置いた場所を覚えておいて、
+   ぶつかるなら1段ずらす。⚠ 幅は実測できないので、全角10px・半角5.5px で見積もる */
+let labelSlots = [];
+function labelWidth(s, fs){
+  fs = fs || 10;
+  let w = 0;
+  for (const ch of s) w += ch.codePointAt(0) > 0x2e80 ? fs : fs*0.55;
+  return w;
+}
+function placeLabel(x, y, w, anchor, step){
+  const x0 = anchor === 'end' ? x - w : anchor === 'start' ? x : x - w/2;
+  const hit = yy => labelSlots.some(s =>
+    Math.abs(s.y - yy) < 11 && x0 < s.x1 && s.x0 < x0 + w);
+  let yy = y;
+  for (let i = 0; i < 8 && hit(yy); i++) yy += step;
+  labelSlots.push({ x0, x1: x0 + w, y: yy });
+  return yy;
+}
+
 function exitArrow(box, exit, label, color){
   const cx = box.x + box.w/2, cy = box.y + box.h/2;
   let dx = 0, dy = 0;
@@ -818,8 +912,16 @@ function exitArrow(box, exit, label, color){
   el('path', { d: dx ? `M ${ex} ${ey} l ${-dx*6} -4 l 0 8 Z`
                      : `M ${ex} ${ey} l -4 ${-dy*6} l 8 0 Z`,
                fill:color, opacity: activeNet?.15:.9 });
-  const t = el('text', { x: ex + dx*7, y: ey + (dy>0 ? 12 : dy<0 ? -6 : 3.5),
-    fill:color, 'text-anchor': dx<0 ? 'end' : dx>0 ? 'start' : 'middle',
+  const anchor = dx<0 ? 'end' : dx>0 ? 'start' : 'middle';
+  const tx = ex + dx*7;
+  const ty0 = ey + (dy>0 ? 12 : dy<0 ? -6 : 3.5);
+  const ty = placeLabel(tx, ty0, labelWidth(label), anchor, dy<0 ? -13 : 13);
+  /* ずらした分だけ、矢印の先とラベルを細い線で繋ぐ（どのコネクタの名前か分かるように） */
+  if (Math.abs(ty - ty0) > 1)
+    el('line', { x1:tx, y1:ty0 - (dy>0?3:-3), x2:tx, y2:ty - (dy>0?9:-3),
+                 stroke:color, 'stroke-width':1, opacity: activeNet?.15:.5 });
+  const t = el('text', { x: tx, y: ty,
+    fill:color, 'text-anchor': anchor,
     'font-size':10, 'font-weight':700, opacity: activeNet?.15:.95 });
   t.textContent = label;
 }
@@ -837,6 +939,11 @@ function pinMark(hole, fn, color, where){
   const t = el('text', { x, y, 'text-anchor':anchor, fill:color, 'font-size':10,
                          'font-weight':700, opacity: activeNet?.18:1, 'pointer-events':'none' });
   t.textContent = fn;
+  /* ⚠ 端子名も「置いた場所」に登録しておく。登録しないと、コネクタのラベルが
+     端子名の上に降りてくる（2026-08-14 に実際に重なった） */
+  const w = labelWidth(fn, 10);
+  labelSlots.push({ x0: anchor==='end' ? x-w : anchor==='start' ? x : x-w/2,
+                    x1: (anchor==='end' ? x-w : anchor==='start' ? x : x-w/2) + w, y });
 }
 
 function drawAxis(){
@@ -883,7 +990,11 @@ function drawJumpers(){
     for (let i = 1; i < ps.length-1; i++)
       el('circle', { cx:ps[i].x, cy:ps[i].y, r:3, fill:c, opacity:op(j.net), 'pointer-events':'none' });
     const mi = Math.floor((ps.length-1)/2), a = ps[mi], b = ps[mi+1] || ps[ps.length-1];
-    const t = el('text', { x:(a.x+b.x)/2, y:(a.y+b.y)/2-8, 'text-anchor':'middle', fill:c,
+    /* ⚠ 交差する2本は中点が同じ場所に来ることがあり、番号が重なって読めなくなる
+       （2026-08-15 に ⑩ と ⑭ で発生）。ここも段ずらしに通す */
+    const jx = (a.x+b.x)/2;
+    const jy = placeLabel(jx, (a.y+b.y)/2-8, labelWidth(j.id, 12), 'middle', -14);
+    const t = el('text', { x:jx, y:jy, 'text-anchor':'middle', fill:c,
       'font-size':12, 'font-weight':700, opacity:op(j.net), 'pointer-events':'none' });
     t.textContent = j.id;
   }
@@ -998,6 +1109,7 @@ function drawTr(p){
 }
 
 function drawMarks(){
+  if (muteWarn) return;
   const sev = {};
   for (const w of WARN){ if (!w.hole) continue; if (w.sev==='err' || !sev[w.hole]) sev[w.hole] = w.sev; }
   for (const h in sev){
@@ -1556,7 +1668,11 @@ function drawWarns(){
   const errs = WARN.filter(w=>w.sev==='err'), warns = WARN.filter(w=>w.sev==='warn');
   const ul = document.getElementById('warns');
   ul.innerHTML = '';
-  if (!WARN.length){
+  if (muteWarn){
+    const li = document.createElement('li');
+    li.textContent = '警告を隠しています。上の「警告を出す」で戻ります。';
+    ul.appendChild(li);
+  } else if (!WARN.length){
     const li = document.createElement('li');
     li.className = 'ok';
     li.textContent = '破綻なし（1穴1本・短絡・+5VとGNDの隣接・断線・被覆線の長さ・交差と重なり・'
@@ -1699,6 +1815,11 @@ document.getElementById('netsel').onchange = e => {
   const o = selPath(); if (!o) return;
   pushUndo(); o.net = e.target.value; check(); save(); render();
 };
+document.getElementById('mute').onclick = () => {
+  muteWarn = !muteWarn;
+  lsSet('hub_board_mutewarn', muteWarn ? '1' : '0');
+  render();
+};
 document.getElementById('drawmode').onclick = e => {
   drawing = !drawing;
   e.target.classList.toggle('on', drawing);
@@ -1757,6 +1878,7 @@ function render(){
   draw(); drawNets(); drawWarns(); drawSelBar();
   if (!drag) drawSteps();     /* 手順は向きや穴を読んで作るので、編集のたびに作り直す */
   document.getElementById('undo').disabled = !undoStack.length;
+  document.getElementById('mute').textContent = muteWarn ? '警告を出す' : '警告を隠す';
   if (document.getElementById('expbox').classList.contains('open'))
     document.getElementById('exp').value = exportText();
 }
