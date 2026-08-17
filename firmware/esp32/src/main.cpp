@@ -52,10 +52,17 @@
 #define KATANORI_BOOT_BUTTON 0
 #endif
 
-// ReSpeaker Lite 裏の Usr ボタン。基板の Usr-D2 穴にジャンパーピンを通して
-// 導通させている（はんだ付けは一切していない。ピンはぶら下がっているだけ）。
-// D2 = GPIO3。XMOS側は未使用なので、押下でGNDに落ちる普通のボタンとして読める。
+// 会話ボタンの入力。D2 = GPIO3。XMOS側は未使用なので、押下でGNDに落ちる
+// 普通のボタンとして読める。
 // (GPIO3はストラッピングピンだが INPUT_PULLUP で読むだけなら影響しない)
+//
+// 🔴 **このコメントは 2026-08-17 まで「ReSpeaker 裏の Usr ボタンに Usr-D2 穴へ
+//    ジャンパーピンを通して導通させている」と書いていたが、それは**壊れた旧ボード**の
+//    話だった**（ユーザー指摘）。現行機にそのジャンパーは無い。
+//    🔒 [[results-belong-to-a-build]] と同じ誤り: 旧構成の状態を現構成として書かない。
+//    **主語がどのボードなのかを書かないコメントを残さないこと。**
+// ⬜ 現行機で D2 に何が繋がるかは筐体 v2 で決める（ハブ基板に降ろすか、
+//    XIAO から会話ボタンへ直結するか。docs/POWER.md の口の一覧と揃えること）
 #ifndef KATANORI_USR_BUTTON
 #define KATANORI_USR_BUTTON 3
 #endif
@@ -85,7 +92,17 @@
 #define KATANORI_KNOB_SPAN_DEG 270  // ゼロ点からこの角度で100%。本番は機構の壁に合わせる
 #endif
 #ifndef KATANORI_KNOB_OFF_DEG
-#define KATANORI_KNOB_OFF_DEG 5    // この角度未満はOFF。リードが閉じる数度手前に置く(docs/POWER.md)
+// この角度未満はOFF。🔒 **リードスイッチが閉じる角度より外**に置くこと(docs/POWER.md 2章)。
+// ここが内側にあると、ファームがまだ鳴らしているうちに EN が落ちてブツ切りになる。
+// ✅ 2026-08-17 実測: リードの反応帯は磁石の真上から片側15度（開くのも閉じるのも同じ角度＝
+//    ヒステリシスは見えなかった）。
+// 🔒 機構側で OFF位置を帯の縁へ 10度 寄せた（knob_v4.scad の STOP_OFF_ANG）ので、
+//    **リードが開くのは OFF から 5度**。閾値 15 で 10度 の余裕。
+//    ⚠ 25 のままだと、鳴らない区間が 25度 と無駄に広い。STOP_OFF_ANG を変えたらここも直す
+// ⚠ 15度は写真からの読み取り。🔴 これを実機の `knob` 表示で詰めることはできない
+//    （この閾値より内側では pct が 0 のまま動かず、出てくるのは閾値そのもの）。
+//    測るならテスタをリードの足に当てる。理由は docs/POWER.md 2章
+#define KATANORI_KNOB_OFF_DEG 15
 #endif
 #ifndef KATANORI_KNOB_FULL_DEG
 #define KATANORI_KNOB_FULL_DEG 10  // 上端からこの角度以内は100%。回し切りを点で当てずに済む

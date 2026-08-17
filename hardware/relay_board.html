@@ -213,7 +213,7 @@ function initialLayout(){ return {
     /* 🔴 2026-08-14 追加。リードスイッチの跳ね止め（EN⇔GND）。
        ⚠ 容量を減らすと効かない。効いているのは立ち上がり側で、
        τ＝ENのプルアップ×0.1µF がバウンス0.6msを上回っている必要がある（POWER.md） */
-    { id:'C2', name:'0.1µF (EN)', kind:'cap', a:'N13', b:'M13',
+    { id:'C2', name:'0.1µF (EN)', kind:'cap', a:'O13', b:'N13',
       nets:{a:'EN', b:'GND'}, body:{L:4.5, W:2.8} },
   ],
   /* ⚠ COM 2本が内部で繋がっていることは、穴の名前ではなく fn:'COM' で判定している
@@ -229,9 +229,9 @@ function initialLayout(){ return {
     ] },
   BUTTON: { id:'BUTTON', name:'会話ボタン', bodyW:12, bodyH:5,
     pins:[
-      { hole:'M23', fn:'C',  net:'GND' },
-      { hole:'O23', fn:'NO', net:'BTN' },
-      { hole:'Q23', fn:'NC', net:null  },
+      { hole:'O23', fn:'C',  net:'GND' },
+      { hole:'Q23', fn:'NO', net:'BTN' },
+      { hole:'S23', fn:'NC', net:null  },
     ] },
   /* PH2.0 2P。⬜ トップ型かサイド型かは現物合わせ */
   PHCONN: [
@@ -249,16 +249,17 @@ function initialLayout(){ return {
              {hole:'A18', fn:'SCL', net:'SCL'},
              {hole:'A19', fn:'SDA', net:'SDA'},
              {hole:'A20', fn:'D2',  net:'BTN'} ] },
-    { id:'OLED', label:'OLED 2.42" へ4本 ⬜並び要確認', exit:'down',
-      pins:[ {hole:'O16', fn:'GND', net:'GND'},
-             {hole:'O17', fn:'VDD', net:'V33'},
-             {hole:'O18', fn:'SCL', net:'SCL'},
-             {hole:'O19', fn:'SDA', net:'SDA'} ] },
+    /* 🔒 2026-08-17、実物が届いて並びが GND・VCC・SCL・SDA で確定した。ここと同じ順。 */
+    { id:'OLED', label:'OLED 2.42" へ4本', exit:'down',
+      pins:[ {hole:'E16', fn:'GND', net:'GND'},
+             {hole:'E17', fn:'VDD', net:'V33'},
+             {hole:'E18', fn:'SCL', net:'SCL'},
+             {hole:'E19', fn:'SDA', net:'SDA'} ] },
     { id:'AS5600', label:'AS5600 へ4本（GNDは二股ケーブルでDIRへ）', exit:'right',
-      pins:[ {hole:'E27', fn:'SDA', net:'SDA'},
-             {hole:'F27', fn:'SCL', net:'SCL'},
-             {hole:'G27', fn:'3V3', net:'V33'},
-             {hole:'H27', fn:'GND', net:'GND'} ] },
+      pins:[ {hole:'G25', fn:'SDA', net:'SDA'},
+             {hole:'H25', fn:'SCL', net:'SCL'},
+             {hole:'I25', fn:'3V3', net:'V33'},
+             {hole:'J25', fn:'GND', net:'GND'} ] },
     { id:'PWR', label:'PowerBoost へ4本（3本目は空き）', exit:'down',
       pins:[ {hole:'S6', fn:'EN',  net:'EN'},
              {hole:'S5', fn:'GND', net:'GND'},
@@ -275,37 +276,40 @@ function initialLayout(){ return {
     { id:'REED', label:'リードスイッチへ2本', exit:'down',
       pins:[ {hole:'S11', fn:'GND', net:'GND'},
              {hole:'S12', fn:'EN',  net:'EN'} ] },
+    /* 🔴 2026-08-17 追加。筐体の天面にも同じ会話ボタンを付けるので、その口。
+       板の上のボタンと並列（どちらを押しても D2 が GND に落ちる）。
+       ⚠ 出すのは GND と D2 の2本だけ。NC は板の上でも使っていない。 */
+    { id:'BTN2', label:'筐体の会話ボタンへ2本', exit:'right',
+      pins:[ {hole:'P26', fn:'GND', net:'GND'},
+             {hole:'Q26', fn:'D2',  net:'BTN'} ] },
   ],
   /* 部品面の被覆線。直角のみ。
-     🔒 2026-08-14、ユーザーのエクスポートそのまま（赤0／黄11）。ここが正。 */
+     🔒 2026-08-17、ユーザーのエクスポートそのまま。OLED を行E へ、AS5600 を列25 へ
+     動かした引き直し版で、幹線もこれに合わせて全部引き直してある。 */
   JUMPERS: [
     { id:'①', path:['A12','A3','H3'], net:'V5', what:'5V をコイルへ（列3を下る）' },
     { id:'②', path:['B15','C15','C9'], net:'IN', what:'D3 を 1kΩ へ' },
     { id:'③', path:['I8','I9','N9','N8'], net:'COL', what:'コレクタをコイルへ' },
-    { id:'④', path:['B16','I16'], net:'GND', what:'GND を分配レールへ' },
-    { id:'⑤', path:['H17','H26','G26'], net:'V33', what:'3V3 を AS5600 へ' },
+    { id:'⑤', path:['L17','L22','I22','I24'], net:'V33', what:'3V3 を AS5600 へ' },
     { id:'⑥', path:['I3','M3'], net:'V5', what:'5V をコイルへ（下半分）' },
-    { id:'⑦', path:['I17','M17'], net:'V33', what:'3V3 幹線・下 → OLED' },
-    { id:'⑧', path:['F18','B18'], net:'SCL', what:'SCL 幹線・上' },
-    { id:'⑨', path:['F19','F26'], net:'SCL', what:'SCL を AS5600 へ' },
-    { id:'⑩', path:['G18','M18'], net:'SCL', what:'SCL 幹線・下 → OLED' },
-    { id:'⑪', path:['D20','D26'], net:'SDA', what:'SDA を AS5600 へ' },
-    { id:'⑫', path:['D19','M19'], net:'SDA', what:'SDA 幹線・下 → OLED' },
-    { id:'⑬', path:['B20','C20','C25','O25'], net:'BTN', what:'D2 を会話ボタンへ' },
-    { id:'⑭', path:['J22','J16'], net:'GND', what:'（裏から表へ）' },
+    { id:'⑨', path:['G19','G22','H22','H24'], net:'SCL', what:'SCL を AS5600 へ' },
+    { id:'⑩', path:['O19','P19','P18','R18'], net:'SCL', what:'SCL 幹線・下 → OLED' },
+    { id:'⑪', path:['E21','E25','F25'], net:'SDA', what:'SDA を AS5600 へ' },
+    { id:'⑬', path:['A21','C21','C27','Q27'], net:'BTN', what:'D2 を会話ボタンへ' },
     { id:'⑮', path:['N3','R3'], net:'V5', what:'PowerBoost の 5V を板の +5V へ' },
     { id:'⑯', path:['R12','R6'], net:'EN', what:'リードスイッチを EN の節点へ' },
-    { id:'⑰', path:['A13','E13'], net:'V5', what:'（裏から表へ）' },
-    { id:'⑱', path:['K11','Q11','Q10'], net:'GND', what:'GND を下へ' },
-    { id:'⑲', path:['G8','G11','I11'], net:'GND', what:'エミッタ側の GND を幹線へ' },
-    { id:'㉑', path:['B17','G17'], net:'V33', what:'（裏から表へ）' },
+    { id:'⑱', path:['L11','Q11','Q10'], net:'GND', what:'GND を下へ' },
+    { id:'⑲', path:['G8','G11','J11'], net:'GND', what:'エミッタ側の GND を幹線へ' },
     { id:'㉓', path:['R5','Q5','Q9'], net:'GND', what:'（裏から表へ）' },
+    { id:'④', path:['S15','N15'], net:'GND', what:'（裏から表へ）' },
+    { id:'⑧', path:['M17','R17'], net:'V33', what:'（新規）' },
+    { id:'⑦', path:['J15','E15'], net:'GND', what:'（裏から表へ）' },
+    { id:'⑭', path:['M15','M25'], net:'GND', what:'（裏から表へ）' },
+    { id:'㉑', path:['N21','S21','S20'], net:'SDA', what:'（新規）' },
+    { id:'⑫', path:['F17','K17'], net:'V33', what:'（裏から表へ）' },
+    { id:'⑰', path:['K25','M25','M26','O26'], net:'GND', what:'（裏から表へ）' },
   ],
-  /* 半田面のブリッジ（隣り合うパッドを裏で繋ぐ）。2026-08-14 のユーザー最終版。
-     ⚠ ユーザーのエクスポートでは GND の幹線が
-     G7…I14 → I13 → … → G11 → F11 と同じ穴を逆走していたが、
-     実際に作りたいのは T字なので、幹線と F11 への枝の2本に分けてある。
-     穴とネットの対応は逆走版と完全に一致することを確認済み。 */
+  /* 半田面のブリッジ（隣り合うパッドを裏で繋ぐ）。2026-08-17 のユーザー最終版。 */
   BRIDGES: [
     { path:['E13','F13'], net:'V5' },
     { path:['H3','I3'], net:'V5' },
@@ -314,50 +318,64 @@ function initialLayout(){ return {
     { path:['R3','S3'], net:'V5' },
     { path:['A12','A13'], net:'V5' },
     { path:['A13','A14'], net:'V5' },
+    { path:['A13','B13','C13','D13','E13'], net:'V5' },
     { path:['G7','G8'], net:'GND' },
-    { path:['J11','J12','J13','J14','J15','J16'], net:'GND' },
+    { path:['K11','K12','K13','K14','K15'], net:'GND' },
     { path:['D8','E8','F8','G8'], net:'GND' },
-    { path:['J22','J23','J24','J25','J26','J27','I27','H27'], net:'GND' },
-    { path:['J23','K23','L23','M23'], net:'GND' },
-    { path:['K11','J11','I11'], net:'GND' },
-    { path:['S16','R16','Q16','P16','O16'], net:'GND' },
-    { path:['O16','N16','M16','L16','K16'], net:'GND' },
-    { path:['I16','J16','K16'], net:'GND' },
+    { path:['M23','N23','O23'], net:'GND' },
+    /* 🔴 2026-08-17 追加。これが無いと GND が3つの島に割れる。
+       ・会話ボタンの C（O23）側の M23–O23 は、3穴が互いに繋がっているだけで幹線に触れない
+       ・AS5600 の GND（J25）と筐体側ボタンの口（P26）も、K25 で行き止まりになっている
+       M25 はジャンパ⑭ が幹線から下ろしてきた GND なので、そこから
+       行M を左へ（M23 へ）、列25 を上へ（K25 へ）の L字1本でどちらも合流する。
+       ⚠ ジャンパ⑰ は K25 と O26 の【両端だけ】が繋がる被覆線で、
+       途中で M25 を通っていても、そこでは繋がらない。ここが3島に割れた原因。 */
+    { path:['M23','M24','M25','L25','K25'], net:'GND' },
+    { path:['L11','K11','J11'], net:'GND' },
+    { path:['S16','S15'], net:'GND' },
+    { path:['J15','K15','L15','M15','N15'], net:'GND' },
     { path:['A16','B16'], net:'GND' },
-    { path:['J12','J13','I13','H13','G13'], net:'GND' },
-    { path:['J12','J13','K13','L13','M13'], net:'GND' },
+    { path:['G13','H13','I13','J13','K13','L13','M13','N13'], net:'GND' },
     { path:['S9','S10','S11'], net:'GND' },
     { path:['R9','Q9'], net:'GND' },
     { path:['S9','R9'], net:'GND' },
     { path:['R5','S5'], net:'GND' },
     { path:['Q9','Q10'], net:'GND' },
+    { path:['J25','K25'], net:'GND' },
+    { path:['O26','P26'], net:'GND' },
+    { path:['E15','E16'], net:'GND' },
+    { path:['B16','C16','D16','E16'], net:'GND' },
     { path:['A15','B15'], net:'IN' },
-    { path:['C8'], net:'IN' },
     { path:['C8','C9'], net:'IN' },
     { path:['G5','G4','F4','E4','D4','C4'], net:'BASE' },
-    { path:['G6'], net:'COL' },
     { path:['N8','N7'], net:'COL' },
     { path:['I8','I7','I6','H6','G6'], net:'COL' },
-    { path:['A20','B20'], net:'BTN' },
-    { path:['O25','O24','O23'], net:'BTN' },
+    { path:['A20','A21'], net:'BTN' },
+    { path:['Q27','Q26','Q25','Q24','Q23'], net:'BTN' },
     { path:['R6','S6'], net:'EN' },
     { path:['S6','S7','S8'], net:'EN' },
     { path:['S12','R12'], net:'EN' },
-    { path:['N13','O13','P13','Q13','R13','S13','S12'], net:'EN' },
+    { path:['O13','P13','Q13','R13','S13','S12'], net:'EN' },
     { path:['A17','B17'], net:'V33' },
-    { path:['G17','H17','I17'], net:'V33' },
-    { path:['M17','N17','O17'], net:'V33' },
-    { path:['G26','G27'], net:'V33' },
-    { path:['S17','R17','Q17','P17','O17'], net:'V33' },
+    { path:['M17','L17','K17'], net:'V33' },
+    { path:['B17','C17','D17','E17','F17'], net:'V33' },
+    { path:['R17','S17'], net:'V33' },
+    { path:['I24','I25'], net:'V33' },
     { path:['A18','B18'], net:'SCL' },
-    { path:['G18','F18','F19'], net:'SCL' },
-    { path:['M18','N18','O18'], net:'SCL' },
-    { path:['F26','F27'], net:'SCL' },
-    { path:['S18','R18','Q18','P18','O18'], net:'SCL' },
-    { path:['A19','B19','C19','D19','D20'], net:'SDA' },
-    { path:['M19','N19','O19'], net:'SDA' },
-    { path:['D26','D27','E27'], net:'SDA' },
-    { path:['S19','R19','Q19','P19','O19'], net:'SDA' },
+    { path:['F18','G18','G19'], net:'SCL' },
+    { path:['F18','E18','D18','C18','B18'], net:'SCL' },
+    { path:['S18','R18'], net:'SCL' },
+    { path:['H24','H25'], net:'SCL' },
+    { path:['G19','H19','I19','J19','K19','L19','M19','N19','O19'], net:'SCL' },
+    { path:['A19','B19','C19','D19','E19','E20'], net:'SDA' },
+    /* 🔴 2026-08-17 追加。これが無いと SDA が2つの島に割れる。
+       列21の幹線は E21 から始まっているが、XIAO・OLED 側から来ているのは E20 で、
+       その2穴が隣どうしのまま繋がっていなかった。
+       ⚠ 幹線を列20から列21へ移したときに、この継ぎ目が落ちている。 */
+    { path:['E20','E21'], net:'SDA' },
+    { path:['E21','F21','G21','H21','I21','J21','K21','L21','M21','N21'], net:'SDA' },
+    { path:['S19','S20'], net:'SDA' },
+    { path:['F25','G25'], net:'SDA' },
     { path:['K1','K2','K3','K4','K5'], net:'SPKP' },
     { path:['L1','M1','N1','O1'], net:'SPKM' },
     { path:['P1','P2','P3','P4','P5','O5'], net:'SPKO' },
@@ -369,7 +387,7 @@ function initialLayout(){ return {
    =========================================================== */
 /* ⚠ 初期レイアウトを書き換えたら、この番号を上げること。
    上げないと、前に開いたときの保存内容が読み込まれて新しい初期値が出ない */
-const SAVE_KEY = 'hub_board_layout_v17';
+const SAVE_KEY = 'hub_board_layout_v24';
 let L = load() || initialLayout();
 let undoStack = [];
 let mirrored = false;
@@ -1722,7 +1740,7 @@ function drawSteps(){
     `<b>【表】リレー</b>を挿す。近い2本の対（コイル—NO/NC）が手前。`,
     dio && dio.under ? dioStep : null,
     `<b>【表】PH コネクタ IN / OUT</b> を挿す。⬜ トップ型かサイド型かは現物合わせ。`,
-    `<b>【表】ピンヘッダ</b>: ${hdr}。⬜ OLED の並びは現物のシルクを見てから確定。`,
+    `<b>【表】ピンヘッダ</b>: ${hdr}。`,
     `<b>【表】ジャンパ（被覆線）</b>を図のとおり張り、端を裏でブリッジに落とす。`,
     `<b>【表】会話ボタン</b>を縦置きで挿す。<b>レバーの根本側が上</b>。NC は空き。`,
     `通電。<b>何も起きないのが正常</b>（D3 は浮いていて 10kΩ が LOW に保つ）。`,
