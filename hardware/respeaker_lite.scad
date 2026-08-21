@@ -75,6 +75,9 @@ BOARD_R =  1.27;    // 📄 四隅のR
 function respeaker_L() = BOARD_L;
 function respeaker_H() = BOARD_H;
 function respeaker_T() = BOARD_T;
+// 🔒 ピンヘッダー上段の頭（板の下端からの高さ）。**この板でいちばん高い実装。**
+//    筐体はここを見て天井を決める（板の上端 BOARD_H ではない）
+function respeaker_hdr_top() = HDR_Z[1] + HDR_T;
 
 // 📄 取付穴 φ2.20（M2）。✅ 実物に2mmネジが通ることをユーザーが確認（2026-08-08）
 HOLE_D = 2.20;
@@ -107,6 +110,9 @@ CENTER_BACK_MEASURED = 1.76;             // ⚠ 実測4.8から逆算（4.8 − 
                                          //   板厚確定でCADの1.69とほぼ同じになった（旧2.10は板1.51前提）
 CENTER_BACK = CENTER_BACK_CAD;           // -D CENTER_BACK=2.10 で厚い側の姿勢も試せる
 function respeaker_center_back() = CENTER_BACK;
+// 🔒 スピーカーソケット J2 の口（板の局所座標）。**筐体側が数字を書き写さないため**
+//    返すのは [左, 右, 下, 上, 面からの出っ張り]。f=+1 なので XIAO 面側（-Y）へ出る
+function respeaker_spk_j2() = let (p = cad_part("J2")) [p[2], p[3], p[4], p[5], p[6]];
 
 // ============================================================
 // ✅ XIAO本体＋ピンヘッダー（公式CADには入っていない・この機体で最も高い）

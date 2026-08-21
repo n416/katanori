@@ -13,3 +13,6 @@ bin/
 # Python
 __pycache__/
 *.pyc
+
+# 使い捨ての検査・試作STL（317ファイル・17MB）
+hardware/scratch/

@@ -65,11 +65,17 @@ function hub_solder() = HUB_SOLDER;
 function hub_size()   = [HUB_L, HUB_W, HUB_T];
 
 // 口が出る向き → 単位ベクトル
-function hub_dir(e) =
-      (e == "up")    ? [ 0, -1]
-    : (e == "down")  ? [ 0,  1]
+// 🔒 exit は relay_board.html の**画面の方向**で書かれている（up = 画面の上 = 行A側）。
+//    🔴 2026-08-19、穴割りの鏡像を直して**行A が Y 大**になったので、up/down を
+//       入れ替えた。ここを直さないと、口の向きだけが古い鏡像のまま残る。
+// 🔒 板は筐体へ **180度 回して**載る（HUB_ROT180・生成器がその向きで座標を出す）。
+//    回れば口の向きも回る。**座標だけ回して向きを回さないと、口の向きだけが嘘になる。**
+function hub_screen_dir(e) =
+      (e == "up")    ? [ 0,  1]
+    : (e == "down")  ? [ 0, -1]
     : (e == "right") ? [ 1,  0]
     :                  [-1,  0];
+function hub_dir(e) = (HUB_ROT180 ? -1 : 1) * hub_screen_dir(e);
 
 // ---- 描画 ----
 module hub_board(ra = HUB_RA) {

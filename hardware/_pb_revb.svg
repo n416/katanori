@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="803.156" height="578.62" font-family="sans-serif">
+<rect x="95" y="34.0" width="613.156" height="388.62" fill="#12401f" stroke="#333" stroke-width="2" rx="5"/>
+<circle cx="138" cy="379" r="7" fill="#f5f5f5" stroke="#e74c3c" stroke-width="3"/>
+<circle cx="138" cy="77" r="7" fill="#f5f5f5" stroke="#e74c3c" stroke-width="3"/>
+<circle cx="671" cy="335" r="7" fill="#f5f5f5" stroke="#e74c3c" stroke-width="3"/>
+<circle cx="671" cy="111" r="7" fill="#f5f5f5" stroke="#e74c3c" stroke-width="3"/>
+<circle cx="671" cy="192" r="6" fill="#95a5a6" stroke="#111"/>
+<circle cx="625" cy="163" r="6" fill="#95a5a6" stroke="#111"/>
+<circle cx="572" cy="401" r="6" fill="#f1c40f" stroke="#111"/>
+<text x="572" y="423" font-size="12" fill="#111" text-anchor="middle" font-weight="normal">GND</text>
+<circle cx="486" cy="401" r="6" fill="#f1c40f" stroke="#111"/>
+<text x="486" y="423" font-size="12" fill="#111" text-anchor="middle" font-weight="normal">GND</text>
+<circle cx="486" cy="401" r="6" fill="#f1c40f" stroke="#111"/>
+<text x="486" y="423" font-size="12" fill="#111" text-anchor="middle" font-weight="normal">GND</text>
+<circle cx="625" cy="282" r="6" fill="#95a5a6" stroke="#111"/>
+<circle cx="671" cy="252" r="6" fill="#95a5a6" stroke="#111"/>
+<circle cx="615" cy="401" r="6" fill="#f1c40f" stroke="#111"/>
+<text x="615" y="423" font-size="12" fill="#111" text-anchor="middle" font-weight="normal">5V</text>
+<circle cx="625" cy="206" r="6" fill="#95a5a6" stroke="#111"/>
+<circle cx="625" cy="240" r="6" fill="#95a5a6" stroke="#111"/>
+<circle cx="399" cy="401" r="6" fill="#f1c40f" stroke="#111"/>
+<text x="399" y="423" font-size="12" fill="#111" text-anchor="middle" font-weight="normal">VBAT</text>
+<circle cx="443" cy="401" r="6" fill="#e67e22" stroke="#111"/>
+<text x="443" y="423" font-size="12" fill="#111" text-anchor="middle" font-weight="bold">EN</text>
+<circle cx="529" cy="401" r="6" fill="#f1c40f" stroke="#111"/>
+<text x="529" y="423" font-size="12" fill="#111" text-anchor="middle" font-weight="normal">LBO</text>
+<circle cx="313" cy="401" r="6" fill="#f1c40f" stroke="#111"/>
+<text x="313" y="423" font-size="12" fill="#111" text-anchor="middle" font-weight="normal">VBUS</text>
+<circle cx="356" cy="401" r="6" fill="#f1c40f" stroke="#111"/>
+<text x="356" y="423" font-size="12" fill="#111" text-anchor="middle" font-weight="normal">VLIPO</text>
+<text x="159.6" y="217.72" font-size="15" fill="#111" text-anchor="middle" font-weight="bold"></text>
+<text x="160" y="224" font-size="13" fill="#fff" text-anchor="middle">micro</text>
+<text x="160" y="239" font-size="13" fill="#fff" text-anchor="middle">USB</text>
+<rect x="251" y="55" width="51" height="44.2" fill="#5dade2" stroke="#111" rx="3"/>
+<text x="277" y="83" font-size="12" fill="#111" text-anchor="middle">JST</text>
+<rect x="610" y="147" width="76.5" height="153" fill="none" stroke="#2980b9" stroke-width="2" stroke-dasharray="4"/>
+<text x="159.6" y="20.0" font-size="15" fill="#2c3e50" text-anchor="middle" font-weight="bold">① 充電 microUSB</text>
+<text x="276.9" y="22" font-size="15" fill="#2c3e50" text-anchor="middle" font-weight="bold">② 電池 JST-PH（IN でもあり OUT でもある）</text>
+<text x="647.5" y="20.0" font-size="15" fill="#2980b9" text-anchor="middle" font-weight="bold">④ +5V / GND 出力</text>
+<text x="463.9" y="478.62" font-size="15" fill="#b9770e" text-anchor="middle" font-weight="bold">③ JP2 … 8ピンの列（ここにピンヘッダが立っている）</text>
+<text x="20" y="480.62" font-size="14" fill="#111" font-weight="bold">PowerBoost 1000C Rev B — 36.07 × 22.86 mm</text>
+<text x="20" y="502.62" font-size="13" fill="#b9770e">EN は JP2 の左から4番目 (20.45, 1.27)。⇒ すでに立っているヘッダから取れる</text>
+<text x="20" y="522.62" font-size="13" fill="#c0392b">赤い輪 = 取付穴4つ</text>
+</svg>

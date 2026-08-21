@@ -47,8 +47,12 @@
   button.on{background:var(--fg);color:var(--bg);border-color:var(--fg)}
   button:disabled{opacity:.4;cursor:default}
   .side{font-size:.8rem;color:var(--sub)}
-  .hint{font-size:.78rem;color:var(--sub);margin:0 0 10px}
-  .hint b{color:var(--fg)}
+  /* 番号の並び（drawNums）。押すと図の中でその1本が光る。
+     ⚠ 欠番は詰めない。詰めると「⑳が無い」ことが画面から消える */
+  .nums{display:flex;gap:5px;flex-wrap:wrap;margin:0 0 9px;align-items:center}
+  .nums button{font-size:1.02rem;line-height:1;padding:5px 6px;min-width:33px;font-weight:700}
+  .nums button.on{background:var(--sel);border-color:var(--sel);color:#fff!important}
+  .nums .gap{min-width:33px;text-align:center;font-size:1.02rem;color:var(--line);cursor:default}
   .boardbox{overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px}
   /* 図の上でドラッグしたときに、ラベルの文字や周りの説明文が選択されないようにする */
   svg{display:block;touch-action:none;user-select:none;-webkit-user-select:none}
@@ -83,6 +87,12 @@
   .count{font-size:.78rem;color:var(--sub)}
   .count b.bad{color:var(--err)}
   .count b.good{color:var(--base)}
+  /* 🔴 2026-08-18 追加。選んだ線を光らせる（drawSpotlight）。
+     ⚠ 実体に触るのは opacity だけ。太さや色を動かすと、隣の線と重なって
+     どこまでが1本なのか、かえって分からなくなる */
+  @keyframes glowpulse{ 0%,100%{opacity:.9} 50%{opacity:.1} }
+  .glow{ animation:glowpulse 1.05s ease-in-out infinite }
+  @media (prefers-reduced-motion: reduce){ .glow{animation:none;opacity:.5} }
 </style>
 </head>
 <body>
@@ -93,21 +103,11 @@
     両面スルーホール C基板 DAISEN PU52X74（外形 52×74mm・27列×19行）。回路と定数の根拠は <code>docs/POWER.md</code>。
   </p>
 
-  <p class="hint">
-    <b>操作</b>　線（<b>表の被覆線＝破線</b> / <b>裏のブリッジ＝太い実線</b>）か部品を
-    <b>クリックで選択</b>、そのまま<b>ドラッグで移動</b>（穴に吸着）。
-    選択済みの線をもう一度クリックすると<b>点の編集</b>になり、四角いハンドルを掴めば1点だけ動く。
-    <b>線を曲げるには、そのとき区間の真ん中に出る「＋」を掴んで引っぱる</b>（折れ点ができる）。
-    線の途中の<b>ダブルクリックでも点を追加</b>できる。<b>Delete</b> は、点を選んでいれば点を、
-    線ぜんぶを選んでいれば線を消す。新しい線は<b>「線を引く」をONにしてから空き地をドラッグ</b>
-    （引いた線のネットは<b>未割り当て</b>で出るので、プルダウンで決める）。
-    <b>Ctrl+Z</b> で元に戻す。<b>Esc</b> で選択解除。
-    ⚠ <b>レールという別枠は無い</b>。裏の線はすべてブリッジで、そのうち
-    <b>足の入っていない穴が4つ以上つづく区間</b>だけを、1本の裸線＝レールとして太線＋ネット名で描く。
-    足の出ているパッドの上は裸線を通せないので、そこはブリッジで渡す。
-    ⚠ <b>半田面に裏返している間は編集できない</b>（左右が反転して操作を誤るため）。
-    ⚠ ブリッジは隣り合う穴の連鎖なので、折れ点を動かすと間は自動で埋まる。
-  </p>
+<!-- 🔴 2026-08-18、図の下にあった長い操作説明を消した（ユーザー「こんなバカみたいな
+     説明いらない」）。ここは図と組む順番だけの場所で、長文は読まれない。
+     ⚠ 説明を書き足したくなったら、ここではなく docs/POWER.md か、
+     その挙動を実装しているコードのコメントへ書くこと。
+     操作の案内が要る所は、ボタンの文言と図の中の <title>（tip）で出す。 -->
 
   <div class="bar">
     <button id="flip">半田面に裏返す</button>
@@ -129,6 +129,12 @@
     </label>
   </div>
   <p class="count" id="count"></p>
+
+  <!-- 🔴 2026-08-18（ユーザー「①どこだーー？？？」）。
+       図の中の番号をクリックさせる作りは順番が逆だった。光らせるために、まず
+       その番号を図から探す羽目になる。番号は盤の外に、いつも同じ場所に、
+       抜けも見える形で並べる。ここを押すと図の中でその1本が光る。 -->
+  <div class="nums" id="nums"></div>
 
   <div class="boardbox"><svg id="svg"></svg></div>
 
@@ -192,7 +198,8 @@ const NETS = {
 
 /* 🔴 +5V のレールは廃止した（2026-08-11 ユーザー指摘）。
    行き先はコイルと 0.1µF の2点だけで、バスにする意味が無い。
-   🔒 2026-08-14、ユーザーのエクスポートをそのまま初期レイアウトにした（赤0／黄11）。
+   🔒 2026-08-17、ユーザーのエクスポートをそのまま初期レイアウトにした（赤0／黄0）。
+   ⚠ ここに「2026-08-14・黄11」と書いてあったのは古い。引き直しで交差も消えている。
    GND のレールもここで無くなり、レールは1本も使っていない。ここが正。 */
 function initialLayout(){ return {
   /* body は実寸(mm)。nets は端子が属する節点。under=半田面に付ける */
@@ -265,7 +272,12 @@ function initialLayout(){ return {
              {hole:'S5', fn:'GND', net:'GND'},
              {hole:'S4', fn:'空き', net:null},
              {hole:'S3', fn:'5V',  net:'V5'} ] },
-    { id:'TOGGLE', label:'マスタートグルへ2本', exit:'down',
+    /* 🔴 2026-08-20、TOGGLE と REED の名札を入れ替えた（ユーザー指示）。
+       2つとも {GND, EN} の2ピンで同じネットに並列なので、**はんだ付けは一切変わらない**。
+       入れ替える理由は筐体側で、口と相手が交差していたため:
+         旧 … TOGGLE の口 X 52.97 → トグル X 40 ／ REED の口 X 45.35 → つまみ X 58.9
+         新 … TOGGLE の口 X 45.35 → トグル X 40 ／ REED の口 X 52.97 → つまみ X 58.9 */
+    { id:'REED', label:'リードスイッチへ2本', exit:'down',
       pins:[ {hole:'S9', fn:'GND', net:'GND'},
              {hole:'S8', fn:'EN',  net:'EN'} ] },
     { id:'INA', label:'INA226 へ4本 ⬜並び要確認', exit:'down',
@@ -273,7 +285,7 @@ function initialLayout(){ return {
              {hole:'S17', fn:'3V3', net:'V33'},
              {hole:'S18', fn:'SCL', net:'SCL'},
              {hole:'S19', fn:'SDA', net:'SDA'} ] },
-    { id:'REED', label:'リードスイッチへ2本', exit:'down',
+    { id:'TOGGLE', label:'マスタートグルへ2本', exit:'down',
       pins:[ {hole:'S11', fn:'GND', net:'GND'},
              {hole:'S12', fn:'EN',  net:'EN'} ] },
     /* 🔴 2026-08-17 追加。筐体の天面にも同じ会話ボタンを付けるので、その口。
@@ -748,7 +760,10 @@ function draw(){
 
   drawBridges(); drawBlocks(); drawBridgeHits();
   drawAxis(); drawHoles();
-  drawJumpers(); drawParts(); drawMarks(); drawNewWire(); drawSelection();
+  drawJumpers(); drawParts(); drawMarks(); drawNewWire();
+  /* ⚠ 霧は drawSelection の【前】。あとに置くと、点の編集ハンドルと「＋」まで
+     霧の下に沈んで掴めなくなる */
+  drawSpotlight(); drawSelection();
 }
 
 /* 裏の裸線。
@@ -1012,6 +1027,13 @@ function drawJumpers(){
        （2026-08-15 に ⑩ と ⑭ で発生）。ここも段ずらしに通す */
     const jx = (a.x+b.x)/2;
     const jy = placeLabel(jx, (a.y+b.y)/2-8, labelWidth(j.id, 12), 'middle', -14);
+    /* 🔴 2026-08-18（ユーザー要望）。番号そのものを掴めるようにした。
+       番号は段ずらしで線から離れた所へ逃げるので、線を狙っても当たらないことがある。
+       ⚠ data-pick は【選ぶだけ】で、ドラッグは始めない。はんだ付けの済んだ板を
+       見ながら押す物なので、確認のつもりで押して線が動いてはいけない */
+    const pick = el('circle', { cx:jx, cy:jy-4, r:11, fill:'transparent', cursor:'pointer' });
+    pick.dataset.pick = 'jumper:' + j.id;
+    tip(pick, `ジャンパ${j.id} を光らせる（もう一度押すと消える）`);
     const t = el('text', { x:jx, y:jy, 'text-anchor':'middle', fill:c,
       'font-size':12, 'font-weight':700, opacity:op(j.net), 'pointer-events':'none' });
     t.textContent = j.id;
@@ -1141,6 +1163,64 @@ function drawMarks(){
   }
 }
 
+/* 🔴 2026-08-18 追加（ユーザー要望）。青い下敷きだけでは、線が何本も交差する所で
+   どれを選んでいるのか目で追えない。周りに霧をかけて、選んだ物だけを霧の上へ
+   もう一度描き、点滅させる。実物と突き合わせながら押すための物。
+   ⚠ 霧は pointer-events:none。当たり判定は霧の下にあるので、掴めなくならないこと。
+   ⚠ ドラッグ中（drag）は出さない。動かしている最中に周りが消えたら位置を合わせられない。
+   ⚠ 点の編集中（sel.vi）も出さない。ハンドルを見ながら摘まむ作業の邪魔になる。 */
+function drawSpotlight(){
+  if (!sel || drag || sel.vi !== null && sel.vi !== undefined) return;
+  const W = PADX*2 + (NCOL-1)*PITCH, Hh = PADY*2 + (ROWS.length-1)*PITCH;
+  el('rect', { x:-GUTTER, y:-20, width:W + GUTTER*2, height:Hh + 84,
+    fill:cssVar('--bg'), opacity:.82, 'pointer-events':'none' });
+  drawAxis();     /* 行と列の見出しは霧の上へ出し直す。沈むと穴の位置が読めない */
+  const col = cssVar('--sel');
+  const glow = (tag, attrs) => {
+    const n = el(tag, Object.assign({ 'pointer-events':'none' }, attrs));
+    n.setAttribute('class', 'glow');
+    return n;
+  };
+  if (sel.kind === 'jumper' || sel.kind === 'bridge'){
+    const o = selPath(); if (!o) return;
+    const ps = o.path.map(pt), c = netColor(o.net);
+    const pts = ps.map(p=>`${p.x},${p.y}`).join(' ');
+    const dash = sel.kind === 'jumper' ? '7 4' : 'none';
+    /* 太い下敷きは【点滅させない】。ここを光らせると、点滅の山で線を塗りつぶして
+       ネットの色と破線（表の被覆線）が消える。太さは「どこにあるか」を出すだけ */
+    el('polyline', { points:pts, fill:'none', stroke:col, 'stroke-width':12,
+      'stroke-linecap':'round', 'stroke-linejoin':'round', opacity:.2,
+      'pointer-events':'none' });
+    el('polyline', { points:pts, fill:'none', stroke:c, 'stroke-width':3.5,
+      'stroke-linecap':'round', 'stroke-linejoin':'round',
+      'stroke-dasharray':dash, 'pointer-events':'none' });
+    /* 点滅するのはこの1本。同じ破線で重ねてあるので、光っても
+       「表の被覆線か、裏のブリッジか」の見分けは消えない */
+    glow('polyline', { points:pts, fill:'none', stroke:col, 'stroke-width':4.5,
+      'stroke-linecap':'round', 'stroke-linejoin':'round', 'stroke-dasharray':dash });
+    /* 両端に穴の名前。実物を指で追うとき、端がどこかを目で確かめられるように */
+    for (const [h, p] of [[o.path[0], ps[0]], [o.path[o.path.length-1], ps[ps.length-1]]]){
+      el('circle', { cx:p.x, cy:p.y, r:7, fill:'none', stroke:col, 'stroke-width':2.5,
+        'pointer-events':'none' });
+      const t = el('text', { x:p.x, y:p.y-13, 'text-anchor':'middle', fill:cssVar('--fg'),
+        'font-size':12, 'font-weight':700, 'pointer-events':'none' });
+      t.textContent = h;
+    }
+  } else {
+    const b = blockList().find(x => x.id === sel.id); if (!b) return;
+    const ps = b.holes().map(pt);
+    const x0=Math.min(...ps.map(p=>p.x))-13, x1=Math.max(...ps.map(p=>p.x))+13;
+    const y0=Math.min(...ps.map(p=>p.y))-13, y1=Math.max(...ps.map(p=>p.y))+13;
+    glow('rect', { x:x0, y:y0, width:x1-x0, height:y1-y0, rx:6, fill:col, 'fill-opacity':.22,
+      stroke:col, 'stroke-width':3 });
+    for (const p of ps)
+      el('circle', { cx:p.x, cy:p.y, r:5.5, fill:col, 'pointer-events':'none' });
+    const t = el('text', { x:(x0+x1)/2, y:y0-8, 'text-anchor':'middle', fill:cssVar('--fg'),
+      'font-size':12, 'font-weight':700, 'pointer-events':'none' });
+    t.textContent = b.name;
+  }
+}
+
 function drawSelection(){
   if (!sel) return;
   const col = cssVar('--sel');
@@ -1198,6 +1278,18 @@ function nearestHole(p){
 }
 
 svg.addEventListener('pointerdown', ev => {
+  /* 🔴 番号のクリック（data-pick）。選ぶだけで、ドラッグには入らない。
+     ⚠ mirrored の門より【手前】に置く。実物と突き合わせるのは半田面を見ている
+     ときなので、裏返した状態で光らせられないと使い物にならない。
+     編集はしないので、裏返しでも安全 */
+  const dp = (ev.target.dataset || {}).pick;
+  if (dp !== undefined){
+    const [kind, id] = dp.split(':');
+    const same = sel && sel.kind === kind && sel.id === id;
+    sel = same ? null : { kind, id, vi:null };   /* もう一度押したら消える */
+    render();
+    return;
+  }
   if (mirrored) return;
   rotSession = null;          /* 図に触ったら回転の連続扱いを打ち切る */
   /* ⚠ ここで preventDefault() してはいけない。マウス互換イベントごと潰れて
@@ -1609,6 +1701,12 @@ function fixDiagonals(p){
 
 window.addEventListener('keydown', ev => {
   if (ev.key === 'Escape'){ sel = null; render(); return; }
+  /* 🔴 半田面では番号クリックで選べるようになった（2026-08-18）。選択があると
+     R と Delete が通ってしまうので、その2つだけ打ち切る。
+     ⚠「裏返している間は編集できない」を崩さないこと。
+     ⚠ Ctrl+Z は元から裏でも効いていたので、ここでは止めない */
+  if (mirrored && (ev.key === 'Delete' || ev.key === 'Backspace'
+                   || ev.key === 'r' || ev.key === 'R')) return;
   if ((ev.key === 'r' || ev.key === 'R') && !ev.ctrlKey && !ev.metaKey
       && sel && sel.kind === 'block'){
     ev.preventDefault(); rotateSelectedBlock(); check(); save(); render(); return;
@@ -1678,6 +1776,42 @@ function drawNets(){
     b.style.color = c;
     b.innerHTML = `<span class="dot" style="background:${c}"></span>${n.label}`;
     b.onclick = () => { activeNet = activeNet===key ? null : key; render(); };
+    box.appendChild(b);
+  }
+}
+
+/* 🔴 2026-08-18（ユーザー「①どこだーー？？？」）。
+   番号を盤の外に並べる。図の中の番号を探させないための物なので、
+   ⚠ 並びは必ず通し番号順。図に置いた順（＝引いた順）で出してはいけない。
+   ⚠ 欠番（⑳・㉒）はマス目を空けたまま出す。詰めると、番号が飛んでいること自体が
+      画面から消えて「自分が1本見落としたのか？」を毎回ここで悩むことになる。
+   ⚠ 半田面でも押せる。押しても選ぶだけで、線は動かない。 */
+function drawNums(){
+  const box = document.getElementById('nums');
+  box.innerHTML = '';
+  const byId = {};
+  for (const j of L.JUMPERS) byId[j.id] = j;
+  const last = Math.max(...L.JUMPERS.map(j => CIRCLED.indexOf(j.id)));
+  for (let i = 0; i <= last; i++){
+    const id = CIRCLED[i], j = byId[id];
+    if (!j){                       /* 欠番。押せない灰色の枠で場所だけ残す */
+      const s = document.createElement('span');
+      s.className = 'gap'; s.textContent = id;
+      s.title = `${id} は欠番（この番号の線は無い）`;
+      box.appendChild(s);
+      continue;
+    }
+    const b = document.createElement('button');
+    b.className = sel && sel.kind === 'jumper' && sel.id === id ? 'on' : '';
+    b.textContent = id;
+    b.style.color = netColor(j.net);
+    b.title = `${NETS[j.net] ? NETS[j.net].label : j.net}　`
+            + `${j.path[0]} → ${j.path[j.path.length-1]}${j.what ? '　— ' + j.what : ''}`;
+    b.onclick = () => {
+      const same = sel && sel.kind === 'jumper' && sel.id === id;
+      sel = same ? null : { kind:'jumper', id, vi:null };
+      render();
+    };
     box.appendChild(b);
   }
 }
@@ -1848,12 +1982,14 @@ function drawSelBar(){
   const o = selPath(), any = o;
   const lab = document.getElementById('selLabel');
   const ns = document.getElementById('netsel');
-  document.getElementById('conv').disabled = !o;
-  document.getElementById('del').disabled  = !any;
-  document.getElementById('rot').disabled  = !(sel && sel.kind === 'block');
+  /* ⚠ 半田面では番号クリックで選べる（2026-08-18）。選択があっても、
+     編集にあたるボタンは押させない。左右が反転していて操作を誤るため */
+  document.getElementById('conv').disabled = !o || mirrored;
+  document.getElementById('del').disabled  = !any || mirrored;
+  document.getElementById('rot').disabled  = !(sel && sel.kind === 'block') || mirrored;
   const part = selectedPart();
-  document.getElementById('pside').disabled = !part;
-  ns.disabled = !any;
+  document.getElementById('pside').disabled = !part || mirrored;
+  ns.disabled = !any || mirrored;
   if (!any){
     if (part)
       lab.innerHTML = `<b>${part.name}</b>　いま <b>${part.under?'半田面（裏）':'部品面（表）'}</b>　ドラッグで移動`;
@@ -1882,7 +2018,9 @@ document.getElementById('reset').onclick = () => {
 };
 document.getElementById('flip').onclick = e => {
   mirrored = !mirrored;
-  sel = null;
+  /* 🔴 2026-08-18: 選択は残す。表で光らせた線を裏返して同じ物を追うため。
+     点の編集だけは打ち切る（裏では編集できないので、ハンドルが残ると嘘になる） */
+  if (sel) sel.vi = null;
   e.target.classList.toggle('on', mirrored);
   e.target.textContent = mirrored ? '部品面に戻す' : '半田面に裏返す';
   document.getElementById('sideLabel').innerHTML = mirrored
@@ -1893,7 +2031,7 @@ document.getElementById('flip').onclick = e => {
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', render);
 
 function render(){
-  draw(); drawNets(); drawWarns(); drawSelBar();
+  draw(); drawNums(); drawNets(); drawWarns(); drawSelBar();
   if (!drag) drawSteps();     /* 手順は向きや穴を読んで作るので、編集のたびに作り直す */
   document.getElementById('undo').disabled = !undoStack.length;
   document.getElementById('mute').textContent = muteWarn ? '警告を出す' : '警告を隠す';

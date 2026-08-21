@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="470" font-family="sans-serif">
+  <rect width="880" height="470" fill="#fafafa"/>
+
+  <!-- ================= A ================= -->
+  <text x="30" y="34" font-size="17" font-weight="bold" fill="#111">A. 私が言っていたもの（小さな中継板）</text>
+  <text x="30" y="56" font-size="13" fill="#555">ハブ基板は寝たまま。すき間に立つ小さな板で、面→上面 に向きを変えるだけ</text>
+
+  <!-- floor -->
+  <line x1="40" y1="330" x2="410" y2="330" stroke="#bbb" stroke-width="2"/>
+  <text x="40" y="348" font-size="11" fill="#999">箱の底</text>
+
+  <!-- ReSpeaker standing -->
+  <rect x="70" y="150" width="14" height="180" fill="#1a5c2a"/>
+  <text x="77" y="143" font-size="12" fill="#1a5c2a" text-anchor="middle">ReSpeaker</text>
+  <text x="77" y="345" font-size="11" fill="#555" text-anchor="middle">立つ</text>
+  <!-- mic arrows -->
+  <path d="M68 210 L44 210" stroke="#27ae60" stroke-width="3" marker-end="url(#g)"/>
+  <path d="M68 280 L44 280" stroke="#27ae60" stroke-width="3" marker-end="url(#g)"/>
+  <text x="46" y="196" font-size="11" fill="#27ae60">マイク</text>
+  <!-- XIAO header pins -->
+  <rect x="84" y="196" width="22" height="8" fill="#c93"/>
+  <rect x="84" y="256" width="22" height="8" fill="#c93"/>
+  <text x="112" y="192" font-size="11" fill="#b9770e">XIAOの2×7</text>
+
+  <!-- riser: small vertical board -->
+  <rect x="112" y="180" width="10" height="115" fill="#8e44ad"/>
+  <text x="117" y="172" font-size="12" fill="#8e44ad" text-anchor="middle" font-weight="bold">ライザー</text>
+  <text x="117" y="312" font-size="11" fill="#8e44ad" text-anchor="middle">20×20mm程度</text>
+  <!-- riser bottom pins into hub -->
+  <rect x="113" y="295" width="8" height="10" fill="#c93"/>
+
+  <!-- hub board flat -->
+  <rect x="112" y="305" width="270" height="9" fill="#1a5c2a"/>
+  <rect x="112" y="314" width="270" height="4" fill="#888"/>
+  <text x="250" y="300" font-size="12" fill="#1a5c2a" text-anchor="middle">ハブ基板（寝たまま）</text>
+  <!-- parts on hub -->
+  <rect x="150" y="288" width="26" height="17" fill="#222"/>
+  <text x="163" y="283" font-size="10" fill="#222" text-anchor="middle">リレー</text>
+
+  <text x="70" y="392" font-size="12" fill="#111">・ハブ基板は今までどおり寝ている</text>
+  <text x="70" y="412" font-size="12" fill="#111">・ライザーは「面に挿さって上面に降りる」ためだけの小片</text>
+  <text x="70" y="432" font-size="12" fill="#111">・箱の高さは変わらない。25mmの通り道だけが消える</text>
+
+  <!-- divider -->
+  <line x1="440" y1="20" x2="440" y2="450" stroke="#ddd" stroke-width="2"/>
+
+  <!-- ================= B ================= -->
+  <text x="470" y="34" font-size="17" font-weight="bold" fill="#111">B. ライザーカード的な読み方</text>
+  <text x="470" y="56" font-size="13" fill="#555">ハブ基板が「カード」になって立つ。ライザーは底のスロット側</text>
+
+  <line x1="480" y1="330" x2="850" y2="330" stroke="#bbb" stroke-width="2"/>
+  <text x="480" y="348" font-size="11" fill="#999">箱の底</text>
+
+  <rect x="510" y="150" width="14" height="180" fill="#1a5c2a"/>
+  <text x="517" y="143" font-size="12" fill="#1a5c2a" text-anchor="middle">ReSpeaker</text>
+  <path d="M508 210 L484 210" stroke="#27ae60" stroke-width="3"/>
+  <path d="M508 280 L484 280" stroke="#27ae60" stroke-width="3"/>
+
+  <!-- hub board standing as a card -->
+  <rect x="600" y="120" width="11" height="200" fill="#1a5c2a"/>
+  <text x="606" y="112" font-size="12" fill="#1a5c2a" text-anchor="middle">ハブ基板が立つ</text>
+  <rect x="611" y="170" width="24" height="16" fill="#222"/>
+  <text x="650" y="182" font-size="10" fill="#222">リレー</text>
+
+  <!-- riser socket at bottom -->
+  <rect x="588" y="316" width="36" height="14" fill="#8e44ad"/>
+  <text x="606" y="352" font-size="12" fill="#8e44ad" text-anchor="middle" font-weight="bold">ライザー（スロット）</text>
+
+  <text x="510" y="392" font-size="12" fill="#111">・ハブ基板が縦になるので、52mmが高さに乗る</text>
+  <text x="510" y="412" font-size="12" fill="#111">・設置面積は小さくなるが、箱が高くなる</text>
+  <text x="510" y="432" font-size="12" fill="#c0392b">・肩に載せる条件（高さが急所）とぶつかる</text>
+
+  <defs><marker id="g" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+    <path d="M8,4 L0,0 L0,8 z" fill="#27ae60"/></marker></defs>
+</svg>

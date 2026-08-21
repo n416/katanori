@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="682.0" height="520.0" font-family="sans-serif">
+<rect x="40" y="40" width="602.0" height="350.0" fill="#eef2f5" stroke="#333" stroke-width="2"/>
+<text x="40" y="28" font-size="14" fill="#333">正面の内寸 86.0 × 50.0 mm（OLED を縦に入れた場合）</text>
+<rect x="43.5" y="49.79999999999999" width="490.69999999999993" height="336.7" fill="#2c3e50" stroke="#111"/>
+<text x="288.84999999999997" y="218.15" font-size="15" fill="#fff" text-anchor="middle">OLED 2.42"  70.1 × 48.1</text>
+<rect x="534.1999999999999" y="40" width="107.80000000000004" height="350.0" fill="#f9e79f" opacity="0.6"/>
+<text x="588.1" y="82.0" font-size="12" fill="#7d6608" text-anchor="middle">残り</text>
+<text x="588.1" y="110.0" font-size="13" fill="#7d6608" text-anchor="middle" font-weight="bold">15.4mm</text>
+<rect x="523.0" y="180.0" width="112.0" height="161.0" fill="#5d6d7e" stroke="#111"/>
+<text x="579.0" y="260.5" font-size="11" fill="#fff" text-anchor="middle" transform="rotate(-90 579.0 260.5)">スピーカー 23×16</text>
+<rect x="83.4" y="243.0" width="18.900000000000002" height="24.5" fill="#c0392b" stroke="#111"/>
+<text x="92.85000000000001" y="218.5" font-size="11" fill="#c0392b" text-anchor="middle" font-weight="bold">隠れる</text>
+<text x="92.85000000000001" y="281.5" font-size="11" fill="#c0392b" text-anchor="middle">マイク1</text>
+<rect x="580.4" y="243.0" width="18.90000000000002" height="24.5" fill="#27ae60" stroke="#111"/>
+<text x="589.8500000000001" y="218.5" font-size="11" fill="#27ae60" text-anchor="middle" font-weight="bold">出せる</text>
+<text x="589.8500000000001" y="281.5" font-size="11" fill="#27ae60" text-anchor="middle">マイク2</text>
+<text x="40" y="420.0" font-size="14" fill="#111" font-weight="bold">OLED を正面に置くと、横に 15.4mm 残る</text>
+<text x="40" y="442.0" font-size="13" fill="#1e8449">・スピーカー(16mm幅) は入る … ご指摘のとおり</text>
+<text x="40" y="462.0" font-size="13" fill="#1e8449">・マイクも片方は出せる</text>
+<text x="40" y="482.0" font-size="13" fill="#c0392b">・⚠ マイクは両端に2個。間隔71mm。もう片方は OLED の裏に隠れる</text>
+</svg>
