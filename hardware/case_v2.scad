@@ -6,26 +6,37 @@
 // ---- part に入れられる値（🔒 増やしたらここに1行足す）----
 //   刷る物   "lower" 下シェル / "upper" 上シェル / "button" ボタン頭 / "clip" ボタン受け
 //            "washer" OLEDワッシャ / "tail" 尻尾のキャップ
+//            "shutter" 電池の蓋 / "lock" ロックパーツ（任意）
 //   見る     未指定＝組み立て全部（線込み） / "inside" 中身＋線（筐体を外す）
 //            "inside_only" 線を外した中身だけ / "wires" 線だけ / "shells" 筐体だけ
 //            🔒 SHOW_WIRES=false で線を消せる
 //            "rail" **背面のガイド＋線＋部品だけ**（筐体を出さない）
+//            "bridge" **トラス（波板）だけ**。上シェルの difference を通した実物
 //            "explode" 分解図 / "cut" 断面 / "none" 何も出さない
 //   🔒 **線は行き先の 4mm 手前で止めて描く**（当たり検査のため）。繋がって見えないので、
 //      見るときは **-D WIRE_TRIM=0**。⚠ 検査のときは 0 にしないこと
 //   🔒 "wires" は **CUT_AXIS / CUT_AT / CUT_TH で薄く切れる**。真上や斜めからでは
 //      束の並びが読めない。後ろの縦路の断面は X 方向から見た Y-Z 面（CUT_AXIS=0）
 //   当たり   "chk_lower" 下シェル⇔部品 / "chk_upper" 上シェル⇔部品 / "chk_parts" 部品どうし
+//            "chk_shut" シャッターの通り道 ⇔ シェル・部品・線
 //            "chk_shell" 上下シェル / "chk_button" ボタン ガイド⇔部品
 //            "chk_one" 部品1つだけ: -D 'part="chk_one"' -D IDX=4（番号は §5 の PARTS_V2）
 //
+//   🔒 **刷る物は `PRINT_POSE` で向きが変わる**（`upper` は上下逆、`shutter`/`lock` は
+//      寝かせる）。CAD で位置を見たいときは `PRINT_POSE = false`（Customizer にある）。
+//      組み立ての座標のまま出るので、他の部品と同じ場所に重なる
+//   🔴 **STL を書き出すときは必ず `-D PRINT_POSE=true` を付ける。**
+//      Customizer で切り替えた値は**ファイルに書き戻る**ので、GUI で false にしたまま
+//      書き出すと、寝かせていない STL が出る（2026-08-22 に実際に出した）:
+//        openscad --backend=manifold -o stl/case_v2_shutter.stl //                 -D 'part="shutter"' -D PRINT_POSE=true hardware/case_v2.scad
 //   🔒 **透けて見えるのは F5（プレビュー）だけ。** F6 は色も透過も捨てる。
 //      筐体の中の物を見るときは `SHELL_A` を下げて F5 か、"cut" で切る
 //
 // ============================================================
 // 🔒 v1 から何を引き継ぎ、何を変えるのか
 // ============================================================
-// **外側は v1 のまま。** 12辺 45度 2mm 面取り、正面いっぱいの OLED、天面のつまみと
+// **外側は v1 のまま。** 12辺 2mm の丸み（🔒 2026-08-21 に 45° 面取りから丸めに変更。
+// `EDGE_ROUND`）、正面いっぱいの OLED、天面のつまみと
 // ボタンとスピーカー、背面の尻尾。ユーザー指定（2026-08-17「v1 のことは見た目程度で
 // 忘れて良い」）＝ 見た目は残す、中身は捨てる。
 //
@@ -54,7 +65,7 @@
 //   ・充電口（PowerBoost の microUSB）の位置と向き。v1 は天面だった
 //     🔴 2026-08-19: いまの置き方では**床を向いている**（§2.5 の USB_PB の🔴）
 
-part = "inside";
+part = "bridge";
 $fn  = 48;
 // chk_one 用。IDX は PARTS_V2 の何番目か（-1 = 全部）、SHELL は当てる側
 IDX   = -1;
@@ -70,6 +81,12 @@ CUT_AXIS = 2;     // [0:2]
 CUT_AT   = 30.0;  // [0:1:90]
 // part="explode" の広がり
 EXPLODE  = 55.0;  // [0:5:120]
+// 🔒 刷る向きに置くか。**false にすると組み立ての座標のまま出る**（CAD で見るとき用）。
+//    ⚠ STL を書き出すときは true のまま。ヘッダーの openscad コマンドはこれが前提
+PRINT_POSE = false;
+// 組み立て図での蓋のずらし（0 = 閉 / 1 = ずらし切り）。形には影響しない
+SHUT_OPEN = 0;    // [0:0.1:1]
+SHOW_LOCK = true; // 組み立て図にロックパーツを出すか
 
 use <parts.scad>
 use <respeaker_lite.scad>
@@ -106,7 +123,9 @@ IN_Y = HUB_Y0 + HUB_W + BACK_CL;   // = 66.0
 TOP_T = 2.5;
 WALL  = 2.0;
 BEZ_T = 2.0;
-CHAM  = 2.0;
+CHAM  = 2.0;          // 外周12辺の丸み（前は 45° の面取りの量）
+EDGE_ROUND = true;    // 🔒 外周12辺は丸める（2026-08-21 ユーザー指示「外側のベベルも丸めて」）。
+                      //    false で v1 と同じ 45° 面取りに戻る
 
 // 🔒 **板の下端はこの1面に揃える**（2026-08-19 ユーザー）。ハブ基板はスペーサーで
 //    2.5 上がるので、他の板も保持パーツで同じ高さへ上げる
@@ -168,6 +187,10 @@ OUT_Z = IN_Z + TOP_T + WALL;
 Z_TOP = IN_Z + TOP_T;
 
 M2_PILOT = 1.7;
+// 🔒 **樹脂にネジを切らない。M2 は貫通＋ナット**（DIMENSIONS.md 4章）。2026-08-21 に移行
+M2_CLEAR = 2.50;   // M2 の通し穴（2.4 ＋ 印刷の縮み 0.1）
+M2_NAF   = 4.30;   // M2 ナットの二面幅（呼び 4.0 ＋ 0.3 でジャスト）
+M2_NT    = 1.80;   // M2 ナットの厚み（1.6 ＋ 0.2）
 M2_POST  = 6.0;
 
 // ============================================================
@@ -349,16 +372,25 @@ PB_AT = [PB_X1 - PB_TH, PB_Y0,
 LIPO_Z  = DECK_Z;   // 下面 ＝ ブリッジの上面（🔒 出どころは DECK_Z 1つ）
 // 🔴 Y14 だと**ブリッジの手前の縁が ReSpeaker の裏面の部品（Y 13.43 まで）へ 34.3mm3**
 //    食い込む。トンネルの前壁は電池より 2.0 手前に出るので、電池は Y17 まで下がる
-// 🔒 右端は内壁から **COV_SEAT だけ内側**。そこが蓋の座になる（外寸は変えない）
+// 🔒 左端は内壁から **COV_SEAT だけ内側**。⚠ 2026-08-21 にシャッターが外付けへ移った
+//    ので、ここはもう「蓋の座」ではなく、**壁の内面と電池の隙間**である。値は据え置き
 COV_SEAT = 2.0;
 // 🔴 **Y17 → 20。前に縦の配線路を空けるため**（2026-08-20）。
 //    ReSpeaker の裏 Y13.43 ↔ ブリッジの手前 Y18.0 で **4.57mm** 空く。
 //    17 のままだと 1.57mm しかなく、4本束（φ3.2）が通らなかった。
 //    🔒 ここが OLED と AS5600 の**唯一の上下の通り道**。狭めないこと
-//    🔒 **奥へ寄せられる限界は背面列の4口**（PWR・TOGGLE・INA・REED）。
-//       ハウジングが Y 59.5 から始まるので、トンネルの後ろ壁 BR_Y1 はそこまで。
-//       BR_Y1 = LIPO_AT[1] + 37.0 なので **LIPO_AT[1] ≤ 22.5**。22.0 を採る
-//       ⇒ 前の縦路は 6.57mm（束 φ3.2 が2本で 6.4mm 要る）
+//    🔴 **2026-08-22、22.0 → 22.5。**ブリッジの上面（Z 28.5）が ReSpeaker の XIAO
+//       ソケット（Z 27.5〜29.5）へ **0.527mm3** 食い込んでいて、その逃げとして
+//       `bridge_clear()` が **X 19mm × Y 4.8mm の切り欠きをトラスに上下貫通**で
+//       開けていた。⚠ **重なりは Y 20.00〜20.03 の 0.03mm だけ**だった。
+//       ⇒ **0.5mm 下げれば当たりが消える**（実測 0.000）ので、逃げごと削除した。
+//       ⭐ **構造体を後から欠く前に、配置を動かせないかを見る**（ユーザー指摘）
+//    ⚠ **旧記述「限界は背面列の4口。ハウジングが Y 59.5 なので LIPO_AT[1] ≤ 22.5」は
+//       いまの配置では効いていない。**実測でハブ基板とは **+1.0mm でも 0.000mm3**。
+//       先に当たるのは**線**で、+0.5 で 0.029 ／ +1.0 で 1.669mm3。
+//       ⇒ **限界を決めているのは口ではなく線。**寄せるならここを測り直すこと
+//       ⇒ 前の縦路は 6.07mm（束 φ3.2 が2本で 6.4mm 要る）⚠ **0.33mm 足りない計算**。
+//          ただし `chk_wire` は 0.000 なので、実際の束の位置では通っている
 // 🔴 **2026-08-20、右の壁 → 左の壁**（ユーザー指示「OLED から見て左を電池の口に」）。
 //    ハブ基板を左へ寄せて右に空いた 10mm へ PowerBoost が立ち、左の棚が電池に空いた
 // 🚫 **mirror() は使わない。** 鏡像は一瞬正しく見えるので事故になる
@@ -490,8 +522,22 @@ module bridge_section() {
 //    ⚠ **ソケット本体（Y 10.0〜20.0）だけでなく、その裏を線が通るぶん**まで抜く。
 //       上段のソケットは Z 27.5〜29.5 でブリッジと同じ高さなので、ここでしか上がれない
 module bridge_clear() {
-    translate([RSP_X + respeaker_L() - 20.5, RSP_BD_Y1 - 0.5, BR_ZB - 2])  // XIAO ソケット
-        cube([19.0, 14.5, BR_ZT - BR_ZB + 4]);
+    // 🔴 **2026-08-22、角穴をやめた。**前は **X 19mm × Y 14.5mm をトラスに上下貫通**で
+    //    抜いていて、その帯の断面を **9.6%** 落としていた（上板＝圧縮側と下弦＝引張側の両方）。
+    //    しかも**内側に直角の入隅が1つできる**（X 63.5 / Y 24.0）。大きな構造なら、
+    //    そこがせん断の集中点になる。
+    // ⭐ **切り欠きは避けられない**（ユーザー判断 2026-08-22。逃がそうとすると ReSpeaker・
+    //    ブリッジ・PowerBoost が同じ Z 帯を取り合って解が無くなる）。
+    //    ⇒ **せん断が集中しない形にする。**角を1つも作らない。
+    // ① ソケットの逃げ … **面取りだけ。**重なりは Y 20.00〜20.03 の **0.03mm** しかないので、
+    //    穴を開ける必要が無い。前上の稜線を R1.0 で削る。⚠ 自由端の稜線なので断面に効かない
+    translate([63.9, BR_Y0, BR_ZT]) rotate([0, 90, 0])
+        cylinder(r = 1.0, h = 15.4, $fn = 32);
+    // ② 配線の穴 … **角の無い長丸**（束2本を包む2円のハル）。入隅がゼロになる
+    //    🔒 束の半径は XIAO 上段 1.783（4本）／下段 1.545（3本）。逃げ 0.6 を足す
+    hull() for (q = [[66, 1.545], [70, 1.783]])
+        translate([q[0], 21.8, BR_ZB - 1])
+            cylinder(r = q[1] + 0.6, h = BR_ZT - BR_ZB + 2, $fn = 48);
     // ✅ JST のスリットは**要らなくなった**（2026-08-20）。板を下げて下側のネジ列を
     //    ブリッジの下面に合わせたら、下を向いた JST の先が Z 16.77 ＝ ブリッジ（24〜30.1）
     //    より下へ出た。**穴を開ける理由そのものが消えた。**
@@ -529,69 +575,236 @@ module ghost_bridge() { color("#7f9ec4", 0.35) bridge(); }
 // 🔒 **つまみの座の下では天井を張らない。** 座の下端 38.007 と天井の内面 38.0 が
 //    ぶつかる。そこは**座の裏がそのまま天井**になる
 // ============================================================
-// 2.8 電池の蓋（右の口・Y方向スライド ＋ 磁石）
+// 2.8 電池の蓋（左の口・彫り込み式・ずらして外す ＋ 磁石 ＋ 任意のロック）
 // ============================================================
-// ✅ ユーザー決定（2026-08-20）: **爪は使わない。レジンなので曲げる部品は折れる。**
-//    ⇒ 曲げを使う部品をゼロにする。**溝が荷重を受け、磁石は滑り止めだけ**を担当する。
-//      ・電池が押す力（+X）… 蓋のツメが天井と床の溝に掛かって受ける
-//      ・蓋が Y へ滑り出すの… 磁石が止める（電池の慣性はこの向きには掛からない）
-// 🔒 スライドの向きは**電池を抜く向きと直角**。同じ向きだと振動がそのまま蓋を押す
-// ⚠ **ツメと溝の噛み合いは未検証。** 印刷して確かめること（レジンの寸法は PRINT.md）
-// 🔴 2026-08-20 に一旦オフにしていた（ユーザー指示「電池の口とかそういうのは後で
-//    一気にやるべき」）。**2026-08-21、配置が固まったので戻した。**
-// 🔴 **オフの間、左の壁には穴が 1mm3 も開いていなかった**（実測: 帯 1700mm3 に対して
-//    穴 0）。⇒ 電池が取り出せない状態のまま「工具なしで交換できる」と書いていた
+// ✅ ユーザー決定（2026-08-21）: **工具なしで外せるが、ロックすれば持ち歩ける。**
+// 🔒 開け方は「ロックを外す → 上へ SHUT_SLIDE ずらす → まっすぐ手前へ引く」。
+// 🔒 **外へは何も出ない**（外付けレール案はユーザー却下「うわーダサいな」）。
+// 🔒 止めは磁石2個。⚠ **電池が押せるのは −X の1方向だけ**なので、そこの押さえに頼る
+//    止めは作らない（押し込み式ロックはそれで却下になった）。磁石は Z の滑りを剪断で止める。
+//
+// 🔴 **リップは Z 31.85 で終わる**（2026-08-21）。耳がずらし切った位置の下端までしか要らない。
+//    上まで伸ばすと**帯の両端がリップに塞がれて**、ロックパーツを幅いっぱいにできなかった
+//    （ユーザー指摘「全体ってそうじゃないよ」）。⇒ 上は全幅で開く。
+//    耳の切れ目という独立した穴も無くなり、上の開口と一続きになる。
 BAT_HOUSING = true;
-COV_CL   = 0.3;    // 蓋まわりの隙間
-COV_SL   = 6.0;    // 差し込んでから滑らせる量
-COV_TAB  = 1.2;    // ツメの厚み
-MAG_D    = 6.10;   // ✅ ゲージ確定（parts.scad のリード用と同じ φ6）
-MAG_H    = 2.15;   // ✅ 実測
-// ✅ **蓋の磁石とリードスイッチの距離は心配しなくてよい**（2026-08-20 ユーザー
-//    「かなり離れていますから」）。蓋は右の壁、リード磁石はつまみの中。⇒ 測らない
+SHUT_T     = 2.75;  // 板厚。磁石 2.0 ＋ 外面の肉 0.75
+SHUT_EAR_T = 0.75;  // 耳の厚み。🔒 **電池の押しはここが受ける**
+SHUT_LIP   = 0.70;  // リップの厚み（外面から）
+SHUT_EAR   = 1.60;  // 耳の掛かり（Y 片側）
+SHUT_EAR_H = 4.50;  // 耳の丈（Z）
+SHUT_SLIDE = 5.50;  // 逃がすためにずらす量。⚠ 耳の丈 + 1.0。リップの上端との間に
+                    //    上下 0.5 ずつの逃げが要る（0.3 だと擦って 0.600mm3 出た）
+SHUT_CL    = 0.25;  // 隙間
+SHUT_MARG  = 0.80;  // 開口を被る量
+SHUT_BACK  = 2.20;  // 壁の内面から裏へ足す肉。⚠ 彫ると壁が 0 になるため
+SHUT_R     = 2.50;  // 角丸
+SHUT_EXT   = 6.30;  // 蓋を下へ伸ばす量。φ6 の磁石が入る高さを開口の下に作るため
+SHUT_MAG_D = 6.10;  // 磁石の穴。✅ ゲージ確定（PRINT.md 2章）
+SHUT_MAG_H = 2.00;  // 📄 カタログ φ6 × 2.0。⚠ parts.scad の 2.15 は本人が「疑わしい・
+                    //    設計に使うな」と書いている値なので使わない
+SHUT_MAG_Z = 25.45; // 磁石の中心。ブリッジ（Z 22.4〜28.5）の中に収める
+SHUT_MAG_DY = 12.0; // 中心から左右へ振る量（2個）
+// ---- ロックパーツ（任意）。⚠ **これとネジを外せば工具なしで開く** ----
+// ✅ ユーザー案（2026-08-21・絵）: **帯の幅いっぱいに広げて、両端の逃げまで覆う。**
+//    **中央だけ半円で蓋の上に少し下りる。**
+// 🔒 両端の脚は耳の逃げ道を塞ぐので、飾りではなく**そのままロックになる**
+SHUT_LK_T   = 1.20;  // 蓋に乗る側（中央の半円）の厚み
+SHUT_LK_R   = 5.00;  // 中央の半円の半径
+SHUT_LK_DIP = 2.50;  // 半円が蓋へ下りる量
+SHUT_LK_RF  = 0.50;  // 脚の足先・外側の角丸
+SHUT_LK_CL  = 0.10;  // ロック ⇔ 蓋の隙間。🔒 ロックは滑らないのでギリギリでよい（2026-08-21
+                     //    ユーザー指示）。⚠ 筐体の彫り込みに対しては SHUT_CL のまま
+SHUT_LOCK_D   = 2.50;  // M2 の通し穴（2.4 ＋ 印刷の縮み 0.1）
+SHUT_LOCK_NAF = 4.30;  // M2 ナットの二面幅（呼び 4.0 ＋ 0.3 でジャスト）
+SHUT_LOCK_NT  = 1.80;  // M2 ナットの厚み（1.6 ＋ 0.2）
+SHUT_LOCK_B   = 3.60;  // 彫り込みの床から内側へ立てるボスの厚み
+SHUT_LOCK_CB  = 4.40;  // ネジ頭のザグリ径
+SHUT_LOCK_CBT = 1.60;  // 同 深さ
 function cov_y0() = BAT_C0[1];
 function cov_y1() = BAT_C1[1];
 function cov_z0() = BAT_C0[2];
 function cov_z1() = BAT_C1[2];
 function cov_w()  = cov_y1() - cov_y0();
+// X（外面は -WALL）
+function shut_xb()  = -WALL + SHUT_T;              // 蓋の裏面
+// 🔴 **耳はリップのすぐ裏に置く**（2026-08-21）。板の裏面から取ると、板を 2.75 に
+//    厚くしたときに耳がリップの陰から外れ、**閉のまま引いても掴めなくなった**（実測 0.000）
+function shut_xe()  = shut_xl() + SHUT_CL;         // 耳の外面
+function shut_xl()  = -WALL + SHUT_LIP;            // リップの裏面
+function shut_xg()  = shut_xb() + SHUT_CL;         // 彫り込みの床
+// Y
+function shut_y0() = cov_y0() - SHUT_MARG;
+function shut_y1() = cov_y1() + SHUT_MARG;
+function shut_by0() = shut_y0() - SHUT_EAR - SHUT_CL;
+function shut_by1() = shut_y1() + SHUT_EAR + SHUT_CL;
+// Z
+function shut_z0() = cov_z0() - SHUT_MARG - SHUT_EXT;
+function shut_z1() = cov_z1() + SHUT_MARG;
+function shut_h()  = shut_z1() - shut_z0();
+function shut_ez0() = shut_z0() + (shut_h() - SHUT_EAR_H) / 2;  // 耳の下端（閉）
+function shut_bz0() = shut_z0() - SHUT_CL;
+function shut_bz1() = shut_z1() + SHUT_SLIDE + SHUT_CL;
+// 🔒 リップの上端。耳の閉位置の頭（+0.5）と、ずらし切った位置の足（−0.5）の間に置く
+function shut_ltop() = shut_ez0() + SHUT_EAR_H + 0.5;
+function shut_lock_y() = (shut_y0() + shut_y1()) / 2;
+// 🔒 ネジの高さは「頭のザグリが帯の下端に触れる位置」（2026-08-21 ユーザー指示
+//    「0.6 下げるだけ」）。前は帯の中央（Z 40.1）で、頭が上端に寄り過ぎていた。
+//    ⚠ これより下げると ①ザグリが半円の厚み 1.2 を抜く ②ナット（二面幅 4.3）が
+//    電池トンネルの天井（Z 36.4）に食い込む。ナットの下の肉は 0.95
+function shut_lock_z() = lk_zb() + SHUT_LOCK_CB / 2;
+// ロックパーツの外形
+function lk_y0() = shut_by0() + SHUT_CL;
+function lk_y1() = shut_by1() - SHUT_CL;
+// 🔒 脚の下端。両端は角丸なしで抜いてあるので、リップの上端のすぐ上から始められる
+function lk_z0() = shut_ltop() + SHUT_CL;
+function lk_z1() = shut_bz1() - SHUT_CL;           // 帯の上端
+function lk_zb() = shut_z1() + SHUT_LK_CL;         // 帯の下端（＝蓋の頭）
 
-// 蓋そのもの（刷る部品）。原点は箱の座標のまま
-// 🔴 2026-08-20、右の壁 → **左の壁**。座標を直に書き直した（mirror は使わない）
-module battery_cover() {
-    // 壁の中に入る板（外面とツライチ）
-    translate([-WALL, cov_y0() + COV_CL, cov_z0() + COV_CL])
-        cube([WALL, cov_w() - COV_CL * 2, cov_z1() - cov_z0() - COV_CL * 2]);
-    // 内側のツメ2本（上と下）。滑らせた先で天井と床の溝に潜る
-    for (z = [cov_z0() + COV_CL, cov_z1() - COV_CL - COV_TAB])
-        translate([0, cov_y0() + COV_CL, z])
-            cube([COV_SEAT, cov_w() - COV_CL * 2 - COV_SL, COV_TAB]);
-    // 磁石のポケットは蓋の外面側から。板の中に埋める
-    difference() {
-        translate([-WALL, cov_y1() - 5 - MAG_D / 2, (cov_z0() + cov_z1()) / 2])
-            rotate([0, 90, 0]) cylinder(d = MAG_D + 2.4, h = 1.2, $fn = 32);
-        translate([-WALL + 0.2, cov_y1() - 5 - MAG_D / 2, (cov_z0() + cov_z1()) / 2])
-            rotate([0, 90, 0]) cylinder(d = MAG_D, h = MAG_H, $fn = 32);
+// Y-Z 面の角丸長方形を X 方向へ伸ばす。🔒 彫り込みと蓋はこれ1つから作る
+module rrect_x(x0, xlen, y0, y1, z0, z1, r) {
+    hull() for (y = [y0 + r, y1 - r], z = [z0 + r, z1 - r])
+        translate([x0, y, z]) rotate([0, 90, 0]) cylinder(r = r, h = xlen, $fn = 48);
+}
+module shutter_magnets(x0, h) {
+    for (dy = [-SHUT_MAG_DY, SHUT_MAG_DY])
+        translate([x0, shut_lock_y() + dy, SHUT_MAG_Z])
+            rotate([0, 90, 0]) cylinder(d = SHUT_MAG_D, h = h, $fn = 48);
+}
+module shutter_lock_bore(x0, h, d) {
+    translate([x0, shut_lock_y(), shut_lock_z()]) rotate([0, 90, 0])
+        cylinder(d = d, h = h, $fn = 32);
+}
+// 中央の半円（ロックパーツが蓋へ下りる部分）。gap を足すと蓋側の逃げになる
+module lk_tongue(x0, xlen, gap = 0) {
+    intersection() {
+        translate([x0, shut_lock_y(), lk_zb() + SHUT_LK_R - SHUT_LK_DIP])
+            rotate([0, 90, 0]) cylinder(r = SHUT_LK_R + gap, h = xlen, $fn = 64);
+        translate([x0 - 1, shut_lock_y() - SHUT_LK_R - 1, lk_zb() - SHUT_LK_DIP - gap])
+            cube([xlen + 2, (SHUT_LK_R + 1) * 2, SHUT_LK_DIP + gap * 2]);
     }
 }
-// 🔴 **2026-08-21、これが無かった。**蓋の板は X -2〜0 に描いてあるのに、
+
+// 蓋そのもの（刷る部品）。open = 0 で閉、1 でずらし切ったところ
+module battery_shutter(open = 0) {
+    translate([0, 0, open * SHUT_SLIDE]) difference() {
+        union() {
+            rrect_x(-WALL, SHUT_T, shut_y0(), shut_y1(), shut_z0(), shut_z1(),
+                    SHUT_R - SHUT_CL);
+            for (y = [shut_y0() - SHUT_EAR, shut_y1()])
+                translate([shut_xe(), y, shut_ez0()])
+                    cube([SHUT_EAR_T, SHUT_EAR, SHUT_EAR_H]);
+        }
+        // 磁石は裏面から埋める。外面には 0.75mm の肉が残る
+        shutter_magnets(shut_xb() - SHUT_MAG_H, SHUT_MAG_H + 0.01);
+        // ロックパーツの半円が乗る逃げ（外面側）
+        lk_tongue(-WALL - 0.01, SHUT_LK_T + SHUT_LK_CL + 0.01, SHUT_LK_CL);
+    }
+}
+// 脚の内面（蓋の側面に SHUT_CL で向き合う）
+function lk_yi0() = shut_y0() - SHUT_LK_CL;
+function lk_yi1() = shut_y1() + SHUT_LK_CL;
+// 帯と脚を**1枚の門形**で作る（2026-08-21）。
+// 🔴 前は帯（角丸 2.25）の下に脚（幅 1.35・角丸 0.5）を別物で足していて、
+//    外面に段、内側は 0.2mm の首で辛うじてつながり、足先が丸かった（ユーザー指摘・絵）。
+// ⇒ 外周は上の角を 2.25、足先の外側を 0.5 で丸める。口の角は**蓋の角丸（SHUT_R）と同心**にして、
+//    隙間が全周 SHUT_LK_CL で揃うようにした
+module lk_frame(x0, xlen) {
+    r = SHUT_R - SHUT_CL;
+    difference() {
+        hull() {
+            for (y = [lk_y0() + r, lk_y1() - r])
+                translate([x0, y, lk_z1() - r]) rotate([0, 90, 0])
+                    cylinder(r = r, h = xlen, $fn = 48);
+            // 足先の外側の角（2026-08-21 ユーザー指摘「ここだけカクっとしている」）
+            rf = SHUT_LK_RF;
+            for (y = [lk_y0() + rf, lk_y1() - rf])
+                translate([x0, y, lk_z0() + rf]) rotate([0, 90, 0])
+                    cylinder(r = rf, h = xlen, $fn = 32);
+        }
+        ri = SHUT_R - SHUT_CL + SHUT_LK_CL;  // 蓋の角丸 2.25 と同心
+        hull() {
+            for (y = [lk_yi0() + ri, lk_yi1() - ri])
+                translate([x0 - 1, y, lk_zb() - ri]) rotate([0, 90, 0])
+                    cylinder(r = ri, h = xlen + 2, $fn = 64);
+            translate([x0 - 1, lk_yi0(), lk_z0() - 1])
+                cube([xlen + 2, lk_yi1() - lk_yi0(), 1]);
+        }
+    }
+}
+// ロックパーツ（刷る部品）。門形（帯 ＋ 両端の脚） ＋ 中央の半円
+module battery_lock() {
+    difference() {
+        union() {
+            lk_frame(-WALL, WALL + shut_xg());
+            lk_tongue(-WALL, SHUT_LK_T);
+        }
+        shutter_lock_bore(-WALL - 1, WALL + shut_xg() + 2, SHUT_LOCK_D);
+        shutter_lock_bore(-WALL - 0.01, SHUT_LOCK_CBT, SHUT_LOCK_CB);
+    }
+}
+// 🔴 **2026-08-21、これが無かった。**板は壁の中に描いてあるのに、
 //    **壁を抜くモジュールがどこにも無かった。**
-//    ⚠ **側面の壁は上シェルの持ち物**（下シェルは床しか無い）。`lower_cuts()` に
-//       書いても効かない。⇒ `upper_raw()` の difference で引く
+//    ⚠ **側面の壁は上シェルの持ち物**（下シェルは床しか無い）
 module battery_port_cut() { if (BAT_HOUSING) {
     translate([-WALL - 1, cov_y0(), cov_z0()])
         cube([WALL + 1 + 0.01, cov_w(), cov_z1() - cov_z0()]);
 } }
-// 蓋のために筐体から引くもの（溝と、相手側の磁石ポケット）
-module battery_cover_cuts() { if (BAT_HOUSING) {
-    // ツメが潜る溝（天井と床。X 0〜COV_SEAT の帯を Y いっぱいに）
-    for (z = [cov_z0(), cov_z1() - COV_TAB - COV_CL])
-        translate([-0.01, cov_y0(), z])
-            cube([COV_SEAT + 0.02, cov_w(), COV_TAB + COV_CL]);
-    // 相手側の磁石ポケット（壁の内側から）
-    translate([COV_SEAT, cov_y1() - 5 - MAG_D / 2 - COV_SL, (cov_z0() + cov_z1()) / 2])
-        rotate([0, 90, 0]) cylinder(d = MAG_D, h = MAG_H, $fn = 32);
+// 彫り込み（上シェルから引く）
+module shutter_band_cut() { if (BAT_HOUSING) {
+    // 耳が走る溝（リップの裏。全高・全幅）
+    rrect_x(shut_xl(), shut_xg() - shut_xl(), shut_by0(), shut_by1(),
+            shut_bz0(), shut_bz1(), SHUT_R);
+    // 中央は外面まで抜く（蓋の本体が入る）
+    rrect_x(-WALL - 0.01, SHUT_LIP + 0.01, shut_y0() - SHUT_CL, shut_y1() + SHUT_CL,
+            shut_bz0(), shut_bz1(), SHUT_R);
+    // 🔒 リップの上端より上は**全幅で**外面まで抜く（ロックパーツの帯と脚が入る）
+    rrect_x(-WALL - 0.01, SHUT_LIP + 0.01, shut_by0(), shut_by1(),
+            shut_ltop(), shut_bz1(), SHUT_R);
+    // 🔴 上の角丸（SHUT_R）のせいで、**Y の両端だけリップが 2.5mm 高く残る。**
+    //    そこを耳が擦った（実測 0.203mm3）。⇒ 両端は角丸なしで抜く
+    //    🔒 外側の下の角は脚の足先（r 0.5）と同心の r 0.75 で丸める（2026-08-21
+    //    ユーザー指摘「揃ってない」）。隙間は全周 SHUT_CL
+    for (sgn = [0, 1]) {
+        rp = SHUT_LK_RF + SHUT_CL;
+        w  = SHUT_EAR + SHUT_CL;
+        h  = SHUT_R + 1;
+        y  = sgn == 0 ? shut_by0() : shut_y1();   // 口の Y の始まり
+        yc = sgn == 0 ? y + rp : y + w - rp;       // 丸めの中心 Y（外側）
+        ys = sgn == 0 ? y + rp : y;                // 角を欠いた下段の始まり
+        hull() {
+            translate([-WALL - 0.01, yc, shut_ltop() + rp]) rotate([0, 90, 0])
+                cylinder(r = rp, h = SHUT_LIP + 0.01, $fn = 32);
+            translate([-WALL - 0.01, y, shut_ltop() + rp])
+                cube([SHUT_LIP + 0.01, w, h - rp]);
+            translate([-WALL - 0.01, ys, shut_ltop()])
+                cube([SHUT_LIP + 0.01, w - rp, h]);
+        }
+    }
+    // 相手側の磁石の座（⚠ ブリッジの肉を使っている）
+    shutter_magnets(shut_xg() - 0.01, SHUT_MAG_H + 0.01);
 } }
-
+// ロックネジの穴とナットの座（上シェルから引く）
+module shutter_lock_cut() { if (BAT_HOUSING) {
+    shutter_lock_bore(shut_xl() - 1, SHUT_LOCK_B + shut_xg() - shut_xl() + 2,
+                      SHUT_LOCK_D);
+    // ナットの六角ポケット。🔒 **上から落とし込む**
+    translate([shut_xg() + SHUT_LOCK_B - SHUT_LOCK_NT, shut_lock_y(), shut_lock_z()])
+        rotate([0, 90, 0]) rotate([0, 0, 90])
+            cylinder(d = SHUT_LOCK_NAF / cos(30), h = SHUT_LOCK_NT + 0.01, $fn = 6);
+    // 🔴 溝を長く取ると**天板を突き抜ける**。ボスの頭までで止める
+    translate([shut_xg() + SHUT_LOCK_B - SHUT_LOCK_NT,
+               shut_lock_y() - SHUT_LOCK_NAF / 2, shut_lock_z()])
+        cube([SHUT_LOCK_NT + 0.01, SHUT_LOCK_NAF, 3.5 + 0.5]);
+} }
+// 彫ったぶん、壁の裏へ肉を足す（電池の通り道はあとで difference で抜かれる）
+module shutter_backing() { if (BAT_HOUSING) {
+    translate([0, shut_by0(), shut_bz0()])
+        cube([SHUT_BACK, shut_by1() - shut_by0(), shut_bz1() - shut_bz0()]);
+    // ロックネジのナットを持つボス
+    translate([shut_xg(), shut_lock_y() - 4.5, shut_lock_z() - 3.5])
+        cube([SHUT_LOCK_B, 9.0, 7.0]);
+} }
 module battery_tunnel() {
     if (BAT_HOUSING) difference() {
         // 筒（閉じているのは +X 側なので、そこへ端板ぶん伸ばす）
@@ -626,7 +839,8 @@ module battery_tunnel() {
         //    空いていた（ユーザー指摘）。⇒ 座の板の角を逃がして **つまみを 0.8 右へ**。
         //    🔒 **端板は 1.6mm 通しのまま。**電池の止めを削らない
         bridge_clear();
-        battery_cover_cuts();
+        // 🔒 シャッターは筐体の**外**を走るので、トンネルから引くものは無くなった
+        //    （2026-08-21。前は battery_cover_cuts() でツメの溝を引いていた）
     }
 }
 
@@ -729,6 +943,10 @@ KNOB_Y1 = KNOB_Y0 + knob_bay_y();
 // 🔒 **両隣から出す。** 左はスピーカーの右端、右はつまみの座の左端。
 //    レイアウトを動かしてもリブが勝手に付いてくる
 RIB1_W  = 6.0;                                  // 幅（余白を取るため 8 から削った）
+// ---- 右の押さえは壁から出す腕（§4.8）----
+RSP_ARM_T = 3.0;   // 腕の厚み（Z）
+RSP_PRESS = 0.3;   // 🔒 板の頭への**押し代**。⚠ chk_upper にこの分の重なりが出るのが正常
+RSP_ARM_R = 4.0;   // 根元の曲線の半径。🔒 せん断の集中を避けるため角で立てない
 RIB1_L  = SPK_X + SPK_L;                        // 左どなり: スピーカーの右端
 RIB1_R  = KNOB_AT[0] - knob_bay_x() / 2;        // 右どなり: つまみの座の左端
 RIB1_X  = (RIB1_L + RIB1_R - RIB1_W) / 2;       // 余白が左右そろう位置
@@ -1007,6 +1225,14 @@ module wires_v2() {
         // XIAO 7本 … ソケットの逃げ（X 63.5〜82.5 / Y 9.5〜24）の中で上下する
         // ⚠ 縦に上がる Y は 21.8。21.5 だと 4本束（半径 1.61）の下端 19.89 が
         //    ReSpeaker の裏（Y 20.0）を 0.011mm3 噛んだ。上はソケットの逃げ（Y 24）まで 0.6 ある
+        // 🔴 **2026-08-22、X 70 / 66 で真下に落としていた。**そこはブリッジ（X 〜79.2）の
+        //    真上で、束がトラスを Z 22.4〜28.5 で貫いていた（30.146mm3）。
+        //    ⚠ ブリッジ側にはその逃げが開いていたので、**当たりとしては出ていなかった。**
+        //    穴があるうちは、その穴を使っていることが検査に出ない。
+        // ✅ ユーザー案（2026-08-22）「右に流して、ソケットが終わったところで下に落とす」。
+        //    ソケットは X 82.0 まで、ブリッジは X 79.2 まで。⇒ **X 82 で落とす。**
+        //    🔒 縦の道は **X 80〜84 / Y 20.5〜23.5**（実測: 部品・シェル・他の線とも 0.00）。
+        //    ⚠ **Y は 20.5 より奥**。20 までは ReSpeaker の板が居る（4.19mm3 当たった）
         harness("XIAO", [xiao_x(), 21.8, xiao_zh()],
                 [[port_at("XIAO")[0], port_at("XIAO")[1], LZ],
                  [70, port_at("XIAO")[1], LZ],
@@ -1251,7 +1477,18 @@ module cham_box(p0, sz, k) {
         translate([p0[0], p0[1], p0[2] + k]) cube([sz[0], sz[1], sz[2] - 2 * k]);
     }
 }
-module outer_envelope() { cham_box([-WALL, -BEZ_T, -WALL], [OUT_X, OUT_Y, OUT_Z], CHAM); }
+// 12辺と8隅を半径 k で丸めた箱。🔒 k = WALL なので丸みの中心が内壁の角に来て、
+// 壁は角でも 2.0 のまま（45° 面取りだと角で 1.41 まで薄くなっていた）
+module round_box(p0, sz, k) {
+    hull() for (x = [p0[0] + k, p0[0] + sz[0] - k],
+                y = [p0[1] + k, p0[1] + sz[1] - k],
+                z = [p0[2] + k, p0[2] + sz[2] - k])
+        translate([x, y, z]) sphere(r = k, $fn = 48);
+}
+module outer_envelope() {
+    if (EDGE_ROUND) round_box([-WALL, -BEZ_T, -WALL], [OUT_X, OUT_Y, OUT_Z], CHAM);
+    else            cham_box([-WALL, -BEZ_T, -WALL], [OUT_X, OUT_Y, OUT_Z], CHAM);
+}
 
 // 基板を受ける柱（床から立てる）
 // ⭐ **ナットは床の裏のポケットに埋め、ゴム足で蓋をする**（2026-08-18・ユーザー案
@@ -1713,10 +1950,25 @@ module upper_raw() {
             // ---- ブリッジ（電池を載せる）＋ 電池のトンネル ----
             bridge();
             battery_tunnel();
+            // PowerBoost のナットを持つボス（板の内側）。⚠ 角箱 8×8 だと部品と線に
+            //    当たった（6.05 / 0.80 / 5.58mm3）。φ6.6 なら 0.12mm3 まで落ちる
+            for (h = PB_HOLES)
+                translate([IN_X - PB_TH - 3.0, h[0], h[1]]) rotate([0, 90, 0])
+                    cylinder(d = 6.2, h = 3.0, $fn = 32);
+            shutter_backing();   // 🔒 彫り込みの裏に足す肉（外へは出ない）
             // OLED のねじボス4本（裏から M2×8）
+            // 🔒 **2026-08-22、上の2本だけ貫通＋ナットにした**（ユーザー指摘
+            //    「OLED の上の角付近って全然部品ない」「下にフィルムの配線があって
+            //    少し圧が掛かって前に押される。上が止まってれば固定は問題ない」）。
+            //    実測: 上の2穴は 部品 0.00 ／ 線 0.00 ／ 下シェル 0.00。
+            //    ⚠ 下の2穴は**下シェルの OLED の棚へ 47.3 / 47.5mm3** 入る ⇒ ネジをやめた。
+            //    下は棚が受ける（`lower_raw()` の「OLED が乗る棚」）
             for (h = OLED_HOLES)
                 translate([h[0], 0, h[1]]) rotate([-90, 0, 0])
                     cylinder(d = 5.0, h = OLED_BOSS_L);
+            for (i = [1, 3])
+                translate([OLED_HOLES[i][0], oled_back(), OLED_HOLES[i][1]])
+                    rotate([-90, 0, 0]) cylinder(d = 6.6, h = 2.0, $fn = 32);
             // スピーカーの位置出しの縁（貼るだけ。受け皿は作らない）
             translate([SPK_X - SPK_RIM_M, SPK_Y - SPK_RIM_M, IN_Z - SPK_RIM])
             difference() {
@@ -1735,10 +1987,29 @@ module upper_raw() {
             //    ✅ 2026-08-19 ユーザー指定「マージンをそろえてくれればなんでもいい」
             //    ⚠ 以前は sx = 32 と直書きしていて、§2.5 でスピーカーが +3 動いたときに
             //       置き去りになり、天面に 0.0911mm3 食い込んだ（旧 X 8.5〜31.5 前提の数字）
-            for (sx = [RIB1_X, 74])
-                translate([sx, RSP_BD_Y0 - 0.5, RSP_TOP + 0.3])
-                    cube([sx == RIB1_X ? RIB1_W : 8, respeaker_T() + 1.0,
-                          IN_Z - RSP_TOP - 0.3]);
+            // 🔴 **2026-08-22、下端を RSP_TOP + 0.3 → RSP_TOP − RSP_PRESS へ。**
+            //    コメントは「0.3mm の押し代で当たる」「6方向とも拘束される」と書いていたが、
+            //    実際は **0.3mm 浮いていて上方向を拘束していなかった**（`chk_upper` が
+            //    0.000 だったのは、当たっていなかったから）。⇒ 本当に押し代にした
+            // 左は中央（壁から 39mm）なので天板からぶら下げるしかない
+            translate([RIB1_X, RSP_BD_Y0 - 0.5, RSP_TOP - RSP_PRESS])
+                cube([RIB1_W, respeaker_T() + 1.0, IN_Z - RSP_TOP + RSP_PRESS]);
+            // 🔒 **右は右の壁から出す腕**（2026-08-22 ユーザー案）。天板からぶら下げると
+            //    板の頭より上の 11.3mm が全部ふさがり、**OLED 右上のネジが 11.2mm で
+            //    突き当たっていた**。⚠ 実測: Z 42〜48.1 の 131.69mm3 は**何も押さえていない**。
+            //    ⚠ たわみには頼らない（レジンで板バネは作れない・PRINT.md）。硬い当たりのまま
+            // 🔒 **根元は曲線**（ユーザー指定「せん断を考慮して曲線で抑えて」）。
+            //    片持ちの付け根は応力が集中するので、角のまま立てない
+            translate([74, RSP_BD_Y0 - 0.5, RSP_TOP - RSP_PRESS])
+                cube([IN_X - 74, respeaker_T() + 1.0, RSP_ARM_T + RSP_PRESS]);
+            difference() {
+                translate([IN_X - RSP_ARM_R, RSP_BD_Y0 - 0.5, RSP_TOP + RSP_ARM_T])
+                    cube([RSP_ARM_R, respeaker_T() + 1.0, RSP_ARM_R]);
+                translate([IN_X - RSP_ARM_R, RSP_BD_Y0 - 1.5,
+                           RSP_TOP + RSP_ARM_T + RSP_ARM_R])
+                    rotate([-90, 0, 0])
+                        cylinder(r = RSP_ARM_R, h = respeaker_T() + 3.0, $fn = 48);
+            }
         }
 
         // ============ 引くもの ============
@@ -1793,6 +2064,8 @@ module upper_raw() {
         translate([IN_X - 1, RSP_BD_Y1 - 0.5, RSP_Z + 14 - 1.5])
             cube([WALL + 2, 10.5, 12]);
         battery_port_cut();   // 🔒 電池の口（左の壁）。上シェルでしか抜けない
+        shutter_band_cut();   // 🔒 蓋の彫り込み。⚠ 裏の肉より後に引くこと
+        shutter_lock_cut();   // 🔒 ロックネジ（任意）の通し穴とナットの座
         // 🔴 **2026-08-21、つまみの島の柱が電池の通り道へ入った。**柱の下端は
         //    `Z_TOP − 18.1`（AS5600 の板の面）で、天井を下げると電池の頭 34.5 を
         //    割る（実測 2.4mm3・左手前の1本）。🔒 **電池の通り道は誰も侵さない**
@@ -1810,16 +2083,30 @@ module upper_raw() {
         translate([74.5, 45.5, Z_TOP - 9.5]) cube([IN_X - 74.5, 7.0, 7.5]);
         // PowerBoost の下穴（**右の壁**を横向きに貫く）。PB_HOLES は [Y, Z]
         // 🔒 板はブリッジの構造の一部なので、この4本はブリッジの右端も留めている
-        for (h = PB_HOLES)
+        // 🔒 2026-08-21、下穴 → **貫通＋ナット**。ナットは板の内側（X 76.9〜78.7）。
+        //    実測でその位置は 部品 0.00 ／ 線 0.00 ／ 下シェル 0.00
+        for (h = PB_HOLES) {
             translate([IN_X - 1, h[0], h[1]]) rotate([0, 90, 0])
-                cylinder(d = M2_PILOT, h = WALL + 2);
+                cylinder(d = M2_CLEAR, h = WALL + 2, $fn = 32);
+            // 🔒 ナットは**板の面（X 79.2）にぴたりと付ける。**離すと板を挟めない
+            //    ⚠ 横へ溝を抜くと、下の穴では床まで届いて筐体を割る（試して戻した）
+            translate([IN_X - PB_TH - M2_NT, h[0], h[1]]) rotate([0, 90, 0])
+                rotate([0, 0, 90]) cylinder(d = M2_NAF / cos(30), h = M2_NT + 0.01, $fn = 6);
+        }
         // ✅ 2026-08-20 ユーザー決定: **充電口は外へ出さない。**中でケーブルを受けて、
         //    箱の外は Type-C にする。⇒ **壁には開けない。**要るのはプラグが挿さる空間だけ
         //    （下の pb_usb_space。chk_usb で見張る）
         // OLED のねじの下穴
-        for (h = OLED_HOLES)
-            translate([h[0], -BEZ_T + 0.6, h[1]]) rotate([-90, 0, 0])
-                cylinder(d = M2_PILOT, h = BEZ_T - 0.6 + OLED_BOSS_L + 0.5);
+        // 🔒 上の2本だけ。**通し穴＋ナット**（ねじ山は樹脂が持たない）
+        //    ⚠ 下の2本は 2026-08-22 に削除した。やめた機構の痕跡を残さない
+        for (i = [1, 3]) {
+            translate([OLED_HOLES[i][0], -BEZ_T + 0.6, OLED_HOLES[i][1]])
+                rotate([-90, 0, 0]) cylinder(d = M2_CLEAR, h = BEZ_T + oled_back() + 4, $fn = 32);
+            // ナットは奥の面から軸方向に差す
+            translate([OLED_HOLES[i][0], oled_back() + 2.0 - M2_NT, OLED_HOLES[i][1]])
+                rotate([-90, 0, 0]) rotate([0, 0, 90])
+                    cylinder(d = M2_NAF / cos(30), h = M2_NT + 0.01, $fn = 6);
+        }
         for (b = BOSSES) screw_hole(b[0], b[1]);
     }
 }
@@ -1887,6 +2174,10 @@ module parts_v2(pick = -1) {
 module printed_extras() {
     color("#d8dde3") translate([BTN_AT[0], BTN_AT[1], 0]) button_cap();
     color("#8892a0") translate([BTN_AT[0], BTN_AT[1], Z_NECK1]) button_clip();
+    // 🔴 **2026-08-21 まで蓋がここに無かった。**刷る部品なのに組み立て図に出ておらず、
+    //    GUI で開いても存在しないように見えていた。⇒ シャッターは必ずここに出す
+    color("#c8ced6") battery_shutter(SHUT_OPEN);
+    if (SHOW_LOCK) color("#8892a0") battery_lock();
 }
 
 // ============================================================
@@ -1923,15 +2214,25 @@ module cut_view() {
 // ============================================================
 // 6. 出力
 // ============================================================
+// ---- 刷る向きへ回すラッパ（PRINT_POSE = false で素通し）----
+// 🔒 **回すのはここだけ。**部品の module 自体は組み立ての座標で描く
+module pose_upper()  { if (PRINT_POSE) translate([0, 0, Z_TOP]) rotate([180, 0, 0]) children();
+                       else children(); }
+module pose_button() { if (PRINT_POSE) translate([0, 0, Z_TOP + BTN_OUT]) rotate([180, 0, 0]) children();
+                       else children(); }
+module pose_flat(dz) { if (PRINT_POSE) translate([0, 0, dz]) rotate([0, 90, 0]) children();
+                       else children(); }
+
 // ---- 刷る物 ----
 if      (part == "none")   ;
 else if (part == "lower")  shell_lower();
-else if (part == "upper")  translate([0, 0, Z_TOP]) rotate([180, 0, 0]) shell_upper();
-else if (part == "button")
-    translate([0, 0, Z_TOP + BTN_OUT]) rotate([180, 0, 0]) button_cap();
+else if (part == "upper")  pose_upper()   shell_upper();
+else if (part == "button") pose_button()  button_cap();
 else if (part == "clip")   button_clip();
-else if (part == "batcover")
-    translate([-IN_X - WALL, 0, 0]) battery_cover();   // 刷るときは寝かせて置き直す
+// 🔒 寝かせて、**外面（指がかりの側）を上**に。プレートに付くのは平らな内面
+// ⚠ 回すと外面（−WALL）が上、平らな裏面が下になる。**底を Z=0 へ落とす**
+else if (part == "lock")    pose_flat(shut_xg()) battery_lock();
+else if (part == "shutter") pose_flat(shut_xb()) battery_shutter();
 else if (part == "washer") oled_washer();
 else if (part == "tail")   tail_cap();
 
@@ -1949,6 +2250,7 @@ else if (part == "explode") {
     shell_lower();
     translate([0, 0, EXPLODE]) shell_upper();
     translate([BTN_AT[0], BTN_AT[1], EXPLODE * 1.4]) button_cap();
+    translate([-EXPLODE * 0.5, 0, EXPLODE]) battery_shutter();
     translate([0, 0, EXPLODE * 0.47]) parts_v2();
 }
 
@@ -1957,7 +2259,7 @@ else if (part == "explode") {
 // 🔒 **1つだけ当てられる: `-D 'part="chk_one"' -D IDX=4`。** 番号は §5 の PARTS_V2。
 //   置き場所は parts_v2() が唯一の出どころなので、**単体の合計は必ず全体と一致する。**
 //   ✅ 2026-08-19 実測: 全体 6.6435 ＝ IDX=3（つまみ）の 6.6435。他10個はすべて 0
-// 🔒 **「わざと残してある重なり」が2種類ある。これ以外が出たら本物:**
+// 🔒 **「わざと残してある重なり」が3種類ある。これ以外が出たら本物:**
 //   ・chk_lower に 約46.6mm3 × 4（ハブ基板の四隅・Z 0.5〜2.5）
 //       … hub_board() が半田面を「一様な2mmの箱」で描いているだけ。実物は取付穴の
 //         まわりに足が出ていない。v1 から同じ
@@ -1969,6 +2271,13 @@ else if (part == "explode") {
 //       ⚠ 2026-08-19、これを「AS5600 を受ける柱」と誤読した。`POST_XY_LO = 8.5` は
 //         穴のピッチであって半径ではない（柱の半径は 8.5×√2 ＝ 12.02）。
 //         🔒 **位置を推測で名指ししない。角度と半径を入れて座標を出してから言う。**
+//   ・chk_upper に **8.497mm3**（ReSpeaker の板の頭・Z 36.207〜36.507）
+//       … 押さえリブと右の腕の**押し代**（`RSP_PRESS` 0.3）。左のリブ 6.0 幅 ＋
+//         右の腕 X 74〜84.024 が、板の頭へ 0.3mm 食い込む。**上方向を拘束するための
+//         重なりなので消さない**（2026-08-22 に入れた）。
+//       🔴 **それまでは逆に 0.3mm 浮いていて、上方向を拘束していなかった。**
+//         コメントだけが「押し代」「6方向とも拘束」と言っていた。
+//         ⭐ **`chk_upper` が 0 なのは「当たっていない」であって「正しい」ではない。**
 // 🔴 **部品どうし**の当たり。2026-08-17 追加。それまで筐体と部品しか見ておらず、
 //    「寝かせたハブ基板と、背面に立つ PowerBoost が Y で重なる」のを誰も捕まえられなかった
 // 🔴 **2026-08-21 まで、これはハブ基板 × 4部品だけの手書きだった。**
@@ -1991,6 +2300,11 @@ else if (part == "chk_one")   intersection() {
     parts_v2(IDX);
 }
 else if (part == "chk_shell") intersection() { shell_lower(); shell_upper(); }
+// 🔒 蓋が手前へ抜ける道を、シェル・部品・線に当てる（0 が合格）
+else if (part == "chk_shut")  intersection() {
+    union() { for (t = [0 : 0.05 : 1]) battery_shutter(t); }
+    union() { shell_upper(); shell_lower(); parts_v2(); wires_v2(); }
+}
 // 🔒 充電のプラグが入る空間を、他の物が食っていないか
 else if (part == "chk_usb")   intersection() {
         pb_usb_space();
@@ -2001,6 +2315,23 @@ else if (part == "chk_usb")   intersection() {
 // 🔒 **ガイド＋線＋部品だけ。**筐体は出さない（2026-08-20 ユーザー指示）
 else if (part == "rail")      { color("#9aa5b1") back_rail(); parts_v2(); ghost_bridge(); wires_v2(); }
 else if (part == "wires")     wires_view();
+// 🔒 **トラス（波板）だけ。上シェルの difference を通した後の"実物"を出す。**
+//    ⚠ `inside` の ghost_bridge() は素通しの bridge() を半透明で描いているので、
+//       波板の谷が透けて中身の詰まった板に見える。**形を判断するときはこちらを見る**
+//    組み立ての座標のまま出るので、`inside` とそのまま重ねて比べられる
+// 🔴 **必ず F6（レンダー）で見ること。F5（プレビュー）は波板を描けない。**
+//    2026-08-22、`inside` では左右に通った板に見え、`upper` では大きくえぐられて
+//    見える、という食い違いが出た。実体を測ったら**削れているのは 2.2%（310mm3）だけ**で、
+//    しかもその中身は蓋の彫り込み（264.85）と磁石の座（89.15）＝ どちらも 2026-08-22 に
+//    こちらが入れたもの。つまみの座の cut・電池の通り道・トンネルは**すべて 0.00mm3**。
+//    ⭐ **F5 の絵で形を判断しない。**体積か F6 で確かめる
+//    ⚠ この part は difference で組んである（intersection でも体積は同じ 13494.28 だが、
+//       F5 の描画がさらに崩れる）。difference 版は 13539.52 で、差 45.24mm3（0.33%）は
+//       板全体に薄く散ったブーリアンの誤差
+else if (part == "bridge")    difference() {
+    bridge();
+    battery_port_cut(); shutter_band_cut(); shutter_lock_cut();
+}
 else if (part == "chk_wire")  intersection() { wires_v2(); parts_v2(); }
 else if (part == "chk_wshell") intersection() { wires_v2(); union() { shell_lower(); shell_upper(); } }
 else if (part == "chk_wout")  difference() { wires_v2();
