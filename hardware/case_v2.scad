@@ -492,7 +492,7 @@ function knob_seat_x0() = KNOB_AT[0] - knob_bay_x() / 2;
 function knob_seat_x1() = KNOB_AT[0] + knob_bay_x() / 2;
 BR_ZT = LIPO_Z;                    // 上面 ＝ 電池の下面
 BR_ZB = BR_ZT - BR_DEPTH;          // 下面。🔒 深さは DECK_Z の隣で決めてある
-BR_T  = 1.6;                       // 部材の太さ
+BR_T  = 2.0;                       // 部材の太さ
 BR_BAYS = 8;                       // 三角の数（ジグザグの山谷）
 
 // 🔴 **2026-08-20、作り直した。前のは「三角の穴を開けた板」でトラスではなかった。**
