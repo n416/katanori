@@ -126,9 +126,28 @@ HDR_T  = 2.0;
 HDR_Z  = [8.0 - HDR_T / 2, BOARD_H - 8.0 - HDR_T / 2];
 
 // ⚠ XIAOのUSB-C（左端から張り出す）。**公式CADには無い**（XIAOは別基板）
-XIAO_USB_OUT = 3.0;   // ⚠
-XIAO_USB_Z   = 14.0;  // ⚠ 下端
-XIAO_USB_H   = 3.2;   // ⚠
+// 🔴 2026-08-22 まで「板の面に直に・下端 14」で描いていた。実際は**積み重ねの頭**
+//    （XIAO 面から HDR_H ✅10.0）に載る。Z は XIAO がソケット2列の真ん中に載るので
+//    板の高さの中央（USB-C は XIAO の幅の中央）。筐体の口はここから導く（case_v2 §4.3c）
+// 📄 2026-08-22 Seeed 公式の XIAO ESP32S3 3D モデル（STEP）と寸法 DXF から:
+//    ・レセプタクルは XIAO の板の端から **1.53** 出る（板の端 12.282 → 殻の先 13.809）
+//    ・XIAO の板の端は ReSpeaker の左端とツライチ（ReSpeaker のパッド 2.932 − XIAO のピン〜端 2.921 = 0.01）
+//    ・殻の幅の中心は板の幅の中心（中心 −6.119 ↔ 板 −6.111）⇒ Z はソケット2列の真ん中
+//    ・積み重ねの頭は USB-C の殻（板の上 3.21）。シールド缶は 2.0 で、それより 1.2 高い
+//    🔴 それまで 3.0 と書いていた（約 2 倍）
+XIAO_USB_OUT = 1.53;  // 📄 板の左端からの張り出し（公式 STEP）
+XIAO_USB_L   = 8.94;  // 📄 USB-C レセプタクルのシェル幅（規格）
+XIAO_USB_H   = 3.26;  // 📄 同 厚み（規格）
+XIAO_USB_Z   = (BOARD_H - XIAO_USB_L) / 2;   // 下端（板の高さの中央に置く）
+XIAO_USB_Y0  = HDR_H - XIAO_USB_H;           // 面からの距離（積み重ねの頭から厚みぶん内側）
+// 筐体が読む: 面からの中心距離と、板の下端からの中心高さ [面から, Z]
+function xiao_usb_yz() = [HDR_H - XIAO_USB_H / 2, XIAO_USB_Z + XIAO_USB_L / 2];
+function xiao_usb_sz() = [XIAO_USB_H, XIAO_USB_L];
+function xiao_usb_out() = XIAO_USB_OUT;   // 筐体が ReSpeaker の X をこれで決める（case_v2 の RSP_X）
+// ⚠ プラグのオーバーモールドの上限 [厚み(面から), 幅]。規格は殻（8.25×2.40）しか決めていない。
+//    市販品は概ね 5.5〜6.5 × 10.5〜12.5。面から USB_SEAT(0.3) 離れた所から始まる
+XIAO_PLUG_OM   = [6.5, 12.5];
+XIAO_PLUG_SEAT = 0.3;
 
 // ⚠ 挿さる物の長さ（全部推測。実測で置き換える）
 JACK_PLUG_OUT  = 20.0;
@@ -186,8 +205,8 @@ module respeaker_lite() {
     color("#777") for (z = HDR_Z) face_box(HDR_X0, HDR_X1, z, z + HDR_T, HDR_H, +1);
 
     // ⚠ XIAOのUSB-C（左端から張り出す・XIAO面側）
-    color("#9cf") translate([-XIAO_USB_OUT, -XIAO_USB_H, XIAO_USB_Z])
-        cube([XIAO_USB_OUT, XIAO_USB_H, 9]);
+    color("#9cf") translate([-XIAO_USB_OUT, -HDR_H, XIAO_USB_Z])
+        cube([XIAO_USB_OUT, XIAO_USB_H, XIAO_USB_L]);
 }
 
 // 挿さる物・線が要る空間。**筐体はここも開ける。**
@@ -205,8 +224,12 @@ module respeaker_mating_space() {
         translate([usb[2], -(usb[6] + 3), usb[5]])
             cube([usb[3] - usb[2], usb[6] + 3, USBC_CABLE_OUT]);
         // ⚠ XIAOのUSB-C: 左端から左へ
-        translate([-XIAO_USB_OUT - USBC_CABLE_OUT, -(XIAO_USB_H + 3), XIAO_USB_Z])
-            cube([USBC_CABLE_OUT, XIAO_USB_H + 3, 9]);
+        // 📄 XIAOのUSB-C: レセプタクルの面の 0.3 先から、オーバーモールドの上限の箱で左へ
+        //    （レセプタクルの中心に揃える）。筐体の彫り込みはこれが座る面
+        translate([-XIAO_USB_OUT - XIAO_PLUG_SEAT - USBC_CABLE_OUT,
+                   -HDR_H + XIAO_USB_H / 2 - XIAO_PLUG_OM[0] / 2,
+                   XIAO_USB_Z + XIAO_USB_L / 2 - XIAO_PLUG_OM[1] / 2])
+            cube([USBC_CABLE_OUT, XIAO_PLUG_OM[0], XIAO_PLUG_OM[1]]);
     }
 }
 
