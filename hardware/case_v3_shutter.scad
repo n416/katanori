@@ -222,3 +222,20 @@ module shutter_backing() { if (BAT_HOUSING) {
     translate([shut_xg(), shut_lock_y() - 4.5, shut_lock_z() - 3.5])
         cube([SHUT_LOCK_B, 9.0, 7.0]);
 } }
+// ---- 絵にだけ出す実体（当たり検査は case_v3_fasteners.scad の FAST が持つ）----
+// ロックの M2 ビス。頭は外面のザグリの中、胴は蓋とロックを貫いて壁のボスのナットへ
+module shutter_lock_screw() { color("#e8e8e8")
+    translate([shut_xl(), shut_lock_y(), shut_lock_z()]) rotate([0, 90, 0]) {
+        cylinder(d = 2.0, h = 6.0, $fn = 24);
+        translate([0, 0, -1.3]) cylinder(d = 3.0, h = 1.3, $fn = 32);
+    }
+}
+// ロックの M2 ナット（壁のボスの六角ポケット。🔒 上から落とし込む）
+module shutter_lock_nut() { color("#888")
+    translate([shut_xg() + SHUT_LOCK_B - SHUT_LOCK_NT, shut_lock_y(), shut_lock_z()])
+        rotate([0, 90, 0]) rotate([0, 0, 90])
+            cylinder(d = SHUT_LOCK_NAF / cos(30), h = SHUT_LOCK_NT, $fn = 6);
+}
+// φ6 × 2.0 の磁石 4 個。蓋の裏に 2・壁（彫り込みの床）に 2 で向き合う
+module shutter_magnets_wall()    { color("#c0c0c0") shutter_magnets(shut_xg(), SHUT_MAG_H); }
+module shutter_magnets_shutter() { color("#c0c0c0") shutter_magnets(shut_xb() - SHUT_MAG_H, SHUT_MAG_H); }

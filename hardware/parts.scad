@@ -257,6 +257,8 @@ MTS_PIN_H  =  6.0;      // ⚠ 端子（3本・1列）
 MTS_MOUNT  = MTS_BUSH_D;
 
 // パネルより内側に要る深さ（胴＋端子）。🔒 配線の逃げは呼ぶ側で足すこと
+function mts102_w()     = MTS_BODY_W;   // 13 胴の幅。端子 3 本（ピッチ 4.7）が並ぶのはこの向き
+function mts102_d()     = MTS_BODY_D;   //  8 胴の奥行き。`rotate([-90,0,0])` でハッチに付けると**こちらが縦**になる
 function mts102_deep()  = MTS_BODY_H + MTS_PIN_H;   // 18
 function mts102_lever() = MTS_LEVER;
 

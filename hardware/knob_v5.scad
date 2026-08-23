@@ -917,28 +917,49 @@ module stop_nuts() {
             cylinder(d = M25_NUT_AF / cos(30), h = M25_NUT_T, $fn = 6);
 }
 
-module assembly(show_deck = true) {
-    color("#d8dde3") knob_part();
-    color("#e03131") wall_part();
-    if (show_deck) color("#9aa5b1", 0.75) deck_test(props = false);
-    color("#e8e8e8") stop_screws();
-    color("#b8b8b8") stop_nuts();
-    color("#c0c0c0") ering_part();
-    translate([0, 0, Z_PCB_BOT]) as5600(show_connector = false);
-    color("#e8e8e8") for (x = [-1, 1], y = [-1, 1])
+// 組む単位で取り出せる形にした（2026-08-23）。筐体の explode 図が
+//   「持ち手・島・ねじ・E リング・基板」を別々に散らすため。assembly() はこれを順に呼ぶだけ
+KNOB_PARTS = ["knob", "mag", "screw", "wall", "nut", "ering", "pnut", "pcb", "pscr"];
+function knob_parts() = KNOB_PARTS;   // use<> では変数が見えないので関数で渡す
+module knob_group(g) {
+    if (g == "knob")  color("#d8dde3") knob_part();
+    if (g == "wall")  color("#e03131") wall_part();
+    if (g == "screw") color("#e8e8e8") stop_screws();
+    if (g == "nut")   color("#b8b8b8") stop_nuts();
+    if (g == "ering") color("#c0c0c0") ering_part();
+    if (g == "pcb")   translate([0, 0, Z_PCB_BOT]) as5600(show_connector = false);
+    if (g == "pscr")  color("#e8e8e8") for (x = [-1, 1], y = [-1, 1])
         translate([x * POST_XY_LO, y * POST_XY_LO, Z_PCB_BOT]) {
             translate([0, 0, -1.3]) cylinder(d = 3.8, h = 1.3);
             cylinder(d = 2.0, h = PCB_T + M2_SHELF + M2_NUT_T);
         }
-    color("#888") for (x = [-1, 1], y = [-1, 1])
+    if (g == "pnut")  color("#888") for (x = [-1, 1], y = [-1, 1])
         translate([x * POST_XY_LO, y * POST_XY_LO, Z_PCB_TOP + M2_SHELF])
             cylinder(d = M2_NUT_AF / cos(30), h = M2_NUT_T, $fn = 6);
-    color("#bbb") translate([0, 0, Z_MAG_BOT]) cylinder(d = 4.0, h = 2.0);
-    // ⚠ 絵も B向き（軸は +X＝接線）。ポケットと同じ角度へ回す。
-    //    ここが実物と違うと、当たり検査は効いていても目で見て気付けない
-    color("#c0392b") rotate([0, 0, MAG2_ANG - 90])
-        translate([-magnet_reed_t() / 2, MAG2_R, Z_MAG2_BOT + MAG2_PART_D / 2])
-            rotate([0, 90, 0]) magnet_reed();
+    if (g == "mag") {
+        color("#bbb") translate([0, 0, Z_MAG_BOT]) cylinder(d = 4.0, h = 2.0);
+        // ⚠ 絵も B向き（軸は +X＝接線）。ポケットと同じ角度へ回す。
+        //    ここが実物と違うと、当たり検査は効いていても目で見て気付けない
+        color("#c0392b") rotate([0, 0, MAG2_ANG - 90])
+            translate([-magnet_reed_t() / 2, MAG2_R, Z_MAG2_BOT + MAG2_PART_D / 2])
+                rotate([0, 90, 0]) magnet_reed();
+    }
+}
+// explode での散らし方（Z・単位は s）。上から入る物は上へ、下から入る物は下へ
+function knob_exp_dz(g) =
+      g == "knob"  ?  4.6      // 持ち手（軸ごと）。軸が長いので島より高く上げないと重なって見える
+    : g == "mag"   ?  3.6      // 軸の底の φ4 とリードの磁石。軸の下から入れるので持ち手の下
+    : g == "screw" ?  2.6      // 島を留める M2.5 ×2（上から）
+    : g == "wall"  ?  0.7      // 島（へこみに落ちる）
+    : g == "nut"   ? -0.6      // 島のナット ×2（天板の段の裏のポケット）
+    : g == "ering" ? -1.2      // E リング（軸の溝へ横から）
+    : g == "pnut"  ? -1.8      // 基板の M2 ナット ×4（柱の座）
+    : g == "pcb"   ? -2.4      // AS5600 基板
+    : g == "pscr"  ? -3.0 : 0; // 基板の M2 ×4（下から）
+
+module assembly(show_deck = true) {
+    if (show_deck) color("#9aa5b1", 0.75) deck_test(props = false);
+    for (g = KNOB_PARTS) knob_group(g);
 }
 
 module exploded() {

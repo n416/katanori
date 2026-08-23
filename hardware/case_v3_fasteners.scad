@@ -26,7 +26,7 @@ FAST = concat(
         ["FLOORWALL", [c[0], c[1], -FLOOR_T + SCR_CBT], [0, 0, 1], 15.0, M2D, M2HD, M2HH, [c[0], c[1], BOSS_B_H - NUT_T + M2T / 2], M2AF, M2T]],
     [for (sc = concat(SCR_L, [SCR_R])) ["BRIDGE", [sc[0], sc[1], BR_ZT - SCR_CBT], [0, 0, -1], 15.0, M2D, M2HD, M2HH, [sc[0], sc[1], BR_ZB - NUT_T + M2T / 2], M2AF, M2T]],
     [for (b = BOSSES) let (c = [b[0] + BOSS / 2, b[1] + BOSS / 2]) ["TOP", [c[0], c[1], Z_TOP - SCR_CBT], [0, 0, -1], 6.0, M2D, M2HD, M2HH, [c[0], c[1], IN_Z - NUT_T + M2T / 2], M2AF, M2T]],
-    [for (ex = EAR_X) let (c = [(ex[0] + ex[1]) / 2, (EAR_Y0 + EAR_Y1) / 2]) ["EAR", [c[0], c[1], Z_TOP - SCR_CBT], [0, 0, -1], 6.0, M2D, M2HD, M2HH, [c[0], c[1], IN_Z - NUT_T + M2T / 2], M2AF, M2T]],
+    [for (ex = EAR_X) let (c = [(ex[0] + ex[1]) / 2, (EAR_Y0 + EAR_Y1) / 2]) ["EAR", [c[0], c[1], Z_TOP - SCR_CBT], [0, 0, -1], 6.0, M2D, M2HD, M2HH, [c[0], c[1], IN_Z - EAR_T - NUT_T + M2T / 2], M2AF, M2T]],   // 耳を貫いて `ear_col` のナットへ
     oled_scr, knob_scr,
     [["LOCK", [shut_xl(), shut_lock_y(), shut_lock_z()], [1, 0, 0], 6.0, M2D, M2HD, M2HH, [shut_xg() + SHUT_LOCK_B - SHUT_LOCK_NT / 2, shut_lock_y(), shut_lock_z()], M2AF, M2T]],
     [["TCHOLD", tc_hold_scr() + [2.0, 0, 0], [-1, 0, 0], 6.0, M2D, M2HD, M2HH, [2.2 + (NUT_T + 0.2) / 2, tc_hold_scr()[1], tc_hold_scr()[2]], M2AF, M2T]]
