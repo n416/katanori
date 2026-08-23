@@ -16,7 +16,7 @@ use <icon_gear_wrench.scad>   // メンテナンスの印（ユーザーの SVG 
 use <wires.scad>              // 線を実体で描く（v2 と同じ道具）
 include <hub_board_parts.scad>
 
-part  = "wires";
+part  = "explode";
 $fn   = 48;     // 🔒 v2 と同じ分割数。🔴 無いと小さい円（マイクのヒゲ・口の角丸）が 5〜6 角形で出て粗雑に見える（2026-08-23 ユーザー指摘）
 SWEEP = 40;     // 降ろす距離（mm）
 STEP  = 1;
@@ -170,7 +170,7 @@ BTN_PAD_X = 25.0; BTN_PAD_Y = 15.0; BTN_CLAW_W = 5.0; BTN_CLAW_G = 0.5; BTN_PKT_
 BTN_AT = [TOP_MARGIN + BTN_DISH_L / 2, TOP_MARGIN + SPK_EMB_D + TOP_MARGIN + BTN_DISH_W / 2];
 KNOB_AT = [IN_X - TOP_MARGIN - knob_dish_d() / 2 + KNOB_DX, KNOB_YC, Z_TOP];
 // ReSpeaker の頭を押さえるリブ（v2: 前のリブ X 39.1〜45.1 と右の腕。押し代 0.3）
-RSP_TOP = RSP_Z + respeaker_H(); RSP_PRESS = 0.3; RIB1_X = 39.1; RIB1_W = 6.0; RSP_ARM_X0 = 74.0; RSP_ARM_T = 2.0;
+RSP_TOP = RSP_Z + respeaker_H(); RSP_PRESS = 0.3; RIB1_X = 39.1; RIB1_W = 6.0; RSP_ARM_X0 = 69.5; RSP_ARM_X1 = 74.2; RSP_ARM_T = 2.0;   // 🔴 2026-08-23 腕 X 74〜78.7 → 69.5〜74.2: OLED の右のビス（X 76.5・M2×6 の先が L の後ろへ 2.4 出る）を避ける
 // トグルの棚の爪（天板の裏）: 棚の両側のフランジが −Y へ滑り込む L 字 2 本
 SHELF_HOOK_T = 1.6; SHELF_HOOK_LIP = 1.5; SHELF_FLANGE_T = 1.2;
 
@@ -485,23 +485,29 @@ module right_wall_v3() {
             color("#b6c0cc") translate([IN_X - LEDGE_W, BR_Y0, BR_ZB - 2]) cube([LEDGE_W, PB_Y0 - PB_FRONT_CL - BR_Y0, 2]);
             color("#b6c0cc") translate([IN_X - LEDGE_W, BR_Y0, BR_ZT]) cube([LEDGE_W, PB_Y0 - PB_FRONT_CL - BR_Y0, SLOT_LIP_T]);
             // 右前の柱は充電プラグの空間（Z 〜42.6）の上に収める（高さ 9 → 5.2）
-            for (b = BOSSES) if (b[0] > IN_X / 2) {
-                h = (b[1] < IN_Y / 2) ? BOSS_H_FR : BOSS_H;
-                color("#b6c0cc") translate([b[0], b[1], IN_Z - h]) cube([BOSS, BOSS, h]);
-            }
+            for (b = BOSSES) if (b[0] > IN_X / 2) top_boss(b, (b[1] < IN_Y / 2) ? BOSS_H_FR : BOSS_H);
             color("#b6c0cc") for (b = BOSSES_B) if (b[0] > IN_X / 2) bottom_boss(b);   // 床へのビスの柱
         }
         right_wall_ports_cut();
     }
 }
 BOSS_H_FR = NUT_T + 2.0;   // 5.2: ナット 3.2 ＋ 床 2.0
+// 🔴 2026-08-23 ビスを全部実体で置いて検査したら、天面のビス 4 本が入るこの柱に**穴もナットのポケットも無かった**（1 本あたり 33mm³ 残る）。
+//    耳・床の柱と同じ作り: 上面に六角ポケット（ナットは上から落とし、天面が蓋）＋ 通し穴
+module top_boss(b, h) {
+    difference() {
+        color("#b6c0cc") translate([b[0], b[1], IN_Z - h]) cube([BOSS, BOSS, h]);
+        translate([b[0] + BOSS / 2, b[1] + BOSS / 2, IN_Z - NUT_T]) hex_pocket(NUT_T + 1);
+        translate([b[0] + BOSS / 2, b[1] + BOSS / 2, IN_Z - h - 1]) cylinder(d = SCR_D, h = h + 2, $fn = 24);
+    }
+}
 module left_wall_v3() {
     difference() {
         union() {
             color("#b6c0cc") translate([-WALL, 0, 0]) cube([WALL, IN_Y, IN_Z]);
             color("#b6c0cc") shutter_backing();   // 彫り込みの裏に足す肉（v2）
             for (yy = LEDGE_L_Y) nut_ledge(0, yy[0], LEDGE_W, yy[1] - yy[0], BR_ZB);
-            color("#b6c0cc") for (b = BOSSES) if (b[0] < IN_X / 2) translate([b[0], b[1], IN_Z - BOSS_H]) cube([BOSS, BOSS, BOSS_H]);
+            for (b = BOSSES) if (b[0] < IN_X / 2) top_boss(b, BOSS_H);
             color("#b6c0cc") for (b = BOSSES_B) if (b[0] < IN_X / 2) bottom_boss(b);   // 床へのビスの柱
             if (CHG_ON == "left" && TC_POCKET_L) color("#b6c0cc") typec_pocket_add_L();
             if (CHG_ON == "left") color("#b6c0cc") tc_holder_boss();   // 別刷りの受けを留める座（ビスは箱の中から横向き・ナットは座の中）
@@ -532,12 +538,19 @@ BOSSES = [[0, BOSS_FY], [IN_X - BOSS, BOSS_FY], [0, IN_Y - BOSS], [IN_X - BOSS, 
 // ⬜ ユーザー案（2026-08-22）: 天面から L を下ろして OLED の上の 2 穴を中で受ける（フロントにビスを見せない）
 //    L の足は OLED の裏（Y 4.6）に面で当たり、ビスは後ろから通してナットは基板の前（ガラスの厚み 3.0 の中・窓枠の裏）
 function oled_top_holes() = [for (h = oled_mount()) if (h[1] > oled_w() / 2) [OLED_X0 + h[0], OLED_Z0 + h[1]]];
+// 🔴 2026-08-23 ビスの実体検査: L にビスの穴が無く（1 本 15mm³）、絵の頭が L の後ろに付いていた。🔒 決めた形（ビスは OLED の前から・ナットは L のポケット）に直す:
+//    L を Y に貫く穴 ＋ 後ろの面から六角ポケット（ナットは後ろから入れる。残り 0.2）。頭は OLED の基板の前面（Y 3.0）の手前
 module oled_brackets() {
     for (h = oled_top_holes()) {
-        color("#c9d0d8") translate([h[0] - OLED_L_W / 2, oled_back(), IN_Z - OLED_L_DROP]) cube([OLED_L_W, OLED_L_T, OLED_L_DROP]);
-        color("#e8e8e8") translate([h[0], oled_back() + OLED_L_T, h[1]]) rotate([-90, 0, 0]) cylinder(d = SCR_HEAD_D, h = SCR_HEAD_H, $fn = 24);
+        difference() {
+            color("#c9d0d8") translate([h[0] - OLED_L_W / 2, oled_back(), IN_Z - OLED_L_DROP]) cube([OLED_L_W, OLED_L_T, OLED_L_DROP]);
+            translate([h[0], oled_back() - 1, h[1]]) rotate([-90, 0, 0]) cylinder(d = SCR_D, h = OLED_L_T + 2, $fn = 24);
+            translate([h[0], oled_back() + OLED_L_T - NUT_T, h[1]]) rotate([-90, 0, 0]) hex_pocket(NUT_T + 1);
+        }
     }
 }
+module oled_screw_heads() { for (h = oled_top_holes()) color("#e8e8e8") translate([h[0], OLED_PCB_Y_FRONT, h[1]]) rotate([90, 0, 0]) cylinder(d = SCR_HEAD_D, h = SCR_HEAD_H, $fn = 24); }   // 頭（前面の手前 Y 1.7〜3.0）。絵にだけ出す（天面の部品には入れない）
+OLED_PCB_Y_FRONT = 3.0;   // OLED の基板の前面（parts.scad OLED_PCB_Y。use<> では見えない）
 module toggle_shelf() if (SHELF_HUNG) {   // ⚠ 粗い形: 天板から下がる U 字（底＋両側。爪は描いていない）
     // 前の壁は無し。Y の止めは外の六角ナット（ユーザー）。前の壁を付けると電池の尻（Y 57.9）に 0.3 入る（22.5mm3）
     w = TGL_BODY_D + 2 * (SHELF_T + SHELF_CL); d = mts102_deep() + SHELF_CL;
@@ -623,8 +636,8 @@ module top_plate_raw() {   // 天面の印刷部品（つまみの座・ボタ�
             // ReSpeaker の頭を押さえるリブ（前）と右の腕（v2）
             color("#c9d0d8") translate([RIB1_X, RSP_BD_Y0 - 0.5, RSP_TOP - RSP_PRESS]) cube([RIB1_W, respeaker_T() + 1.0, IN_Z - RSP_TOP + RSP_PRESS + 0.01]);
             // 🔴 腕は右前の柱（X 79〜・Z 43〜）の手前で止める。壁まで伸ばすと、天面を降ろすとき柱の真下を通って 34mm3 当たる
-            color("#c9d0d8") translate([RSP_ARM_X0, RSP_BD_Y0 - 0.5, RSP_TOP - RSP_PRESS]) cube([BOSSES[1][0] - 0.3 - RSP_ARM_X0, respeaker_T() + 1.0, RSP_ARM_T + RSP_PRESS]);
-            color("#c9d0d8") translate([RSP_ARM_X0 + 2, RSP_BD_Y0 - 0.5, RSP_TOP]) cube([BOSSES[1][0] - 0.3 - (RSP_ARM_X0 + 2), respeaker_T() + 1.0, IN_Z - RSP_TOP + 0.01]);   // 腕を天井につなぐ（右前の柱 X 79 の手前まで）
+            color("#c9d0d8") translate([RSP_ARM_X0, RSP_BD_Y0 - 0.5, RSP_TOP - RSP_PRESS]) cube([RSP_ARM_X1 - RSP_ARM_X0, respeaker_T() + 1.0, RSP_ARM_T + RSP_PRESS]);
+            color("#c9d0d8") translate([RSP_ARM_X0, RSP_BD_Y0 - 0.5, RSP_TOP]) cube([RSP_ARM_X1 - RSP_ARM_X0, respeaker_T() + 1.0, IN_Z - RSP_TOP + 0.01]);   // 腕を天井につなぐ
         }
         translate(KNOB_AT) knob_station_cut();
         translate([KNOB_TRIM_X, PB_Y0 - 1, IN_Z - 12]) cube([IN_X - KNOB_TRIM_X + 1, PB_L + 2, 12]);   // 座の板の右端を削る（PowerBoost の C6。つまみ本体と同じ）
@@ -828,6 +841,7 @@ module innards() {
     difference() { translate(KNOB_AT) assembly(show_deck = false); translate([KNOB_TRIM_X, PB_Y0 - 1, IN_Z - 12]) cube([IN_X - KNOB_TRIM_X + 1, PB_L + 2, 12]); }
     left_wall_extras(); tail_at();
     if (CHG_ON == "left") color("#e53e3e") typec_housing_L(CHG_C_LW);   // Type-C のハウジング（⚠ 仮 25×12×7）
+    oled_screw_heads();
 }
 if (part == "all")    { shells_rounded(); innards(); }
 if (part == "inside") { shells_open(); innards(); }
