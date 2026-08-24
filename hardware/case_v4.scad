@@ -23,7 +23,7 @@ W = "none";      // _v4_core の内部スイッチ（芯だけの検査 deskseat
 //            close_hatch（蓋・トグルごと閉じる）/ close_desk（ブリッジを降ろす＝core の deskseat）
 //   線     : chk_wire（WP で 1 束に絞れる・束 ↔ 部品と皮）/ chk_wire_w（束 ↔ 他の束＋電源系）/ chk_wire_pwr（電源系 7 本）
 //   電池   : chk_shut_slide（蓋を下へずらす）/ chk_shut_out（蓋を抜く）/ chk_swap（電池を後ろへ抜く・v3 と同名）
-part = "look";
+part = "inside";
 WP = "";         // chk_wire 系で束を 1 つに: xiao / oled / as5600 / btn2 / phin / phout / ina / tgl / reed / chg（"" で全部）
 
 // ---- v4 の配置（芯と同じ式。数字を増やさない） ----
@@ -36,10 +36,24 @@ RIB4_X = 31.4; RIB4_W = 6.0;                                       // ⚠ 前リ
 ARM4_X0 = 50.0; ARM4_X1 = 54.7;                                    // ⚠ 腕の移設（上のヘッダ参照）
 
 // ---- ボス（v3 の型）----
-//   天面: 後ろの柱 2（BOSSES）＋ 前は耳兼用の柱 2（ear_col）。床: 前の 2 本は v3 のまま。
-//   🔴 後ろの床ビスは左右とも無し（左は v3 で廃止（充電まわり）・右は 2026-08-25 壁 84.354 で幅が無くなり廃止。
-//      後ろの床はハッチの爪 2 つとトグルの外ナットが持つ）⚠ ユーザー検収待ち
-V4_FLOOR_SCREWS = [[0.7 + BOSS / 2, BOSS_B_DY_F / 2], [78.3 + BOSS / 2, BOSS_B_DY_F / 2]];   // 床の裏からのビス 2 本（前右はボスの移動に追従。🔴 後ろ 2 本は無し・rwall のヘッダ参照）
+//   天面: 後ろの柱 2（BOSSES）＋ 前は耳兼用の柱 2（ear_col）。床: 前 2 本は v3 のまま。
+//   🔒 2026-08-25 後ろの床ビスを**復活**（ユーザー「無いと落下でバラける」）: どちらも L 形＝ハブの角を欠いて立てる。
+//   右: 壁 84.354 で真っ直ぐな 7 幅が取れない → X 77.4〜84.354 からハブの柱の角（X<80.8 ∩ Y<68.6）を欠く。ナット [82.0, 69.5]
+//   左: 充電基板を +11.5 上げて角を空けた（🔒 同日ユーザー）→ X 1.694〜7.7 からハブの柱の角（X>5.2 ∩ Y<68.4）を欠く。ナット [4.4, 69.5]
+//   ⚠ どちらもナットの六角の角がハブ側の欠きに小さく開く（開口はナットの二面幅より狭く抜けない）
+module bottom_boss_br() difference() {
+    color("#b6c0cc") translate([77.4, 65, 0]) cube([IN_X - 77.4, 7.0, BOSS_B_H]);
+    translate([77.4 - 1, 65 - 1, -1]) cube([80.8 - 77.4 + 1, 68.6 - 65 + 1, BOSS_B_H + 2]);
+    translate([82.0, 69.5, BOSS_B_H - NUT_T]) rotate([0, 0, 30]) hex_pocket(NUT_T + 1);
+    translate([82.0, 69.5, -1]) cylinder(d = SCR_D, h = BOSS_B_H + 2, $fn = 24);
+}
+module bottom_boss_bl() difference() {
+    color("#b6c0cc") translate([LW_X, 65, 0]) cube([7.7 - LW_X, 7.0, BOSS_B_H]);   // 右端 7.7 ＝ 床の爪の帯（X 8〜）の 0.3 手前
+    translate([5.2, 65 - 1, -1]) cube([7.7 - 5.2 + 1, 68.4 - 65 + 1, BOSS_B_H + 2]);   // ハブの柱（φ7・X 5.5〜）から 0.3
+    translate([4.4, 69.5, BOSS_B_H - NUT_T]) rotate([0, 0, 30]) hex_pocket(NUT_T + 1);
+    translate([4.4, 69.5, -1]) cylinder(d = SCR_D, h = BOSS_B_H + 2, $fn = 24);
+}
+V4_FLOOR_SCREWS = [[0.7 + BOSS / 2, BOSS_B_DY_F / 2], [78.3 + BOSS / 2, BOSS_B_DY_F / 2], [82.0, 69.5]];   // 床の裏からのビス 3 本（前 2＋復活した後ろ右。後ろ左は ⬜ 保留）
 
 // ---- 床 ----
 //   v3 の床（まな板）と同じ形。違いは ① ハブのビス穴と柱が +4（HUB_DY）② ブリッジの前の脚の受け溝 ③ 後ろ右の床ビスの位置
@@ -64,8 +78,7 @@ module floor_v4() {
             //    → 前縁をハブの後端 + 0.5 ＝ Y 68.4 へ。バーは Y 68.4〜70 に痩せるが、爪の唇（〜Y 68.2）はまだ 1.6 掛かる。
             //    ⚠ バーの前面とハブの半田面の予約の隙間は 0.1（予約は包絡。実際の足はまばら）
             color("#9aa5b1") translate([RSP_RIB_X0, HUB_Y0 + HUB_DY + HUB_W + 0.5, 0]) cube([RSP_RIB_X1 - RSP_RIB_X0, IN_Y - (HUB_Y0 + HUB_DY + HUB_W + 0.5), CLAW_STRIP_H]);
-            // Type-C 基板の前の振れ止めリブ ⚠ AI 仮（板の前縁 Y 48.67（③案 +1.2 後）から 0.27 逃げ・充電線 X 3.35〜 から 0.35 逃げ）。
-            //   🔴 左の壁に付けると、壁を降ろす軌跡が壁ぎわの電池線（X 1.25〜2.75・Z 29〜31）を通過する（lwseat 2mm³）ので床に持たせる
+            // 充電基板の前の振れ止めリブ ⚠ AI 仮（板の前縁 48.67 の 0.27 手前）
             color("#9aa5b1") translate([LW_X, 47.7, 0]) cube([3.0, 0.7, 3.0]);
             // ブリッジの前の脚（1 枚板・厚み 2.0）の受け溝 ⚠ AI 仮（ReSpeaker の「溝＋押さえ」の型の写し。Z の留めは無し・⬜）
             //   脚 X 21.5〜44.5・Y 12.9〜14.9。溝は ±0.25、壁は前 1.6・後ろ 0.45（🔴 ハブの前縁 15.9（⚠ HUB_DY=4 仮）から 0.3 逃げた残り）
@@ -130,6 +143,7 @@ module lwall_v4() {
             for (b = BOSSES) if (b[0] < IN_X / 2) top_boss(b, BOSS_H);
             ear_col(EAR_X[0][0], EAR_X[0][1]);
             color("#b6c0cc") bottom_boss([0.7, 0]);   // 🔴 [LW_X] 起点だと OLED の左端（8.002）に届く → 右端を 7.7（OLED − 0.3）に
+            // bottom_boss_bl();   // ⬜ 後ろ左は保留: 立てるには充電基板を帯の上（口 Z≈33.5）へ上げる必要がある（帯は切らない 🔒）。判断待ち
         }
         lwall_port_cut4();
     }
@@ -164,6 +178,7 @@ module rwall_v4() {
             for (b = BOSSES) if (b[0] > IN_X / 2) top_boss(b, BOSS_H);
             ear_col(EAR_X[1][0], EAR_X[1][1]);
             color("#b6c0cc") bottom_boss([78.3, 0]);   // 🔴 壁 84.354 で [IN_X-BOSS] だと OLED の右端（78.002）に 0.65 入る → 0.3 逃げ。壁側へ 0.95 めり込む分は自分の壁と一体
+            bottom_boss_br();                          // 後ろ右（復活・L 形）
         }
         rwall_port_cut4();
     }
