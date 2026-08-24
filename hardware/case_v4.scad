@@ -282,7 +282,9 @@ module door4(open = 0, fast = false) {
 }
 
 // ---- 角丸（v3 の rounded と同じ。スピーカーの盛り上げの例外だけ v4 の位置）----
-module rounded4() { intersection() { children(); union() { outer_envelope(); translate([SPK4_X - 6, SPK4_Y - 6, Z_TOP - 1]) cube([SPK_L + 12, SPK_W + 12, EMB_H + 1]); } } }
+// 🔒 2026-08-25 ユーザー「黄色い外装はなんで? 灰色にして」: 角丸の intersection で板の color が落ちて
+//    OpenSCAD の既定色（黄）に戻っていた。皮の色はここで一括指定（#c9d0d8）
+module rounded4() { color("#c9d0d8") intersection() { children(); union() { outer_envelope(); translate([SPK4_X - 6, SPK4_Y - 6, Z_TOP - 1]) cube([SPK_L + 12, SPK_W + 12, EMB_H + 1]); } } }
 
 // ---- 表示と検査（part で選ぶ。一覧は冒頭）----
 module skin1(k) {
