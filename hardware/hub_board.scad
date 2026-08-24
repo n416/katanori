@@ -87,9 +87,14 @@ module hub_board(ra = HUB_RA) {
                        HUB_W / 2 + sy * HUB_MOUNT[1] / 2, -1])
                 cylinder(d = HUB_MOUNT_D, h = HUB_T + 2);
     }
-    // 半田面
-    color("#888", 0.35) translate([0, 0, -HUB_SOLDER])
-        cube([HUB_L, HUB_W, HUB_SOLDER]);
+    // 半田面（足の逃げの予約）。取付穴の周り φ7.5 は床の柱（case_v3 HUB_POST_D 7.0）が座る所で足は無い。
+    //    2026-08-24: ここを抜いていなかったので chk_floor が v3 の最初から 215mm³ 出ていた（柱 ↔ この予約）
+    color("#888", 0.35) difference() {
+        translate([0, 0, -HUB_SOLDER]) cube([HUB_L, HUB_W, HUB_SOLDER]);
+        for (sx = [-1, 1], sy = [-1, 1])
+            translate([HUB_L / 2 + sx * HUB_MOUNT[0] / 2, HUB_W / 2 + sy * HUB_MOUNT[1] / 2, -HUB_SOLDER - 1])
+                cylinder(d = 7.5, h = HUB_SOLDER + 2, $fn = 32);
+    }
 
     // 部品
     for (p = HUB_PARTS) {

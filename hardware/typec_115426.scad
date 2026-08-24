@@ -1,0 +1,37 @@
+// ============================================================================
+// 秋月 [115426] USB Type-C コネクター DIP 化キット（シンプル版エコノミータイプ）¥180
+//   📄 基板寸法図 AE-USB2.0-TYPE-C-5077CR_rev1.pdf（2026-08-24 取得）: 基板 20 × 15、ランドは 2.54 グリッド
+//      下辺に 7 ピン（VBUS / GND / +D / −D / CC1 / CC2 / GND・φ0.9）。コネクタ 5077CR の足（長穴 1.4×0.6・1.7×0.6）は上辺側
+//   📄 コネクタ 5077CR-16-SMC2-BK-TR: 横型・胴 8.94 × 7.35・高さ 3.26（データシート）⚠ 口が基板の縁から出る量は図に無い → 0.8 と置く
+//   🔴 CC1/CC2 に抵抗は**載っていない**。C-C ケーブルで充電するには CC1-GND / CC2-GND に 5.1kΩ を各 1 本、自分で付ける
+//   ⚠ 2026-08-24 時点で**未注文**（ユーザー）
+//
+//   ローカル座標: 原点 = 基板の左下（部品面から見て）。+X 右、+Y 上（コネクタの口が向く側）、+Z 部品面
+// ============================================================================
+TC_BD = [20.0, 15.0, 1.6];
+TC_CONN = [8.94, 7.35, 3.26];   // 胴 X × Y × 高さ
+TC_CONN_OUT = 0.8;              // ⚠ 口が上辺から出る量
+TC_PIN_Y = 2.54;                // 下辺のピン列の Y（図: 縁から 1 グリッド）
+TC_PIN_X0 = 2.54;               // 1 番（VBUS・四角ランド）の X
+TC_NAMES = ["VBUS", "GND", "+D", "-D", "CC1", "CC2", "GND"];
+
+function tc_size()   = TC_BD;
+function tc_conn()   = TC_CONN;
+function tc_nose_y() = TC_BD[1] + TC_CONN_OUT;                 // 口の面の Y（15.8）
+function tc_conn_zc() = TC_BD[2] + TC_CONN[2] / 2;            // 口の中心の Z（3.23）
+function tc_pin(i)   = [TC_PIN_X0 + i * 2.54, TC_PIN_Y];
+
+module typec_115426(pins = true, pin_len = 6.0) {
+    color("#1a5c2a") difference() {
+        cube(TC_BD);
+        for (i = [0 : 6]) translate([tc_pin(i)[0], tc_pin(i)[1], -1]) cylinder(d = 0.9, h = TC_BD[2] + 2, $fn = 12);
+    }
+    // コネクタ（上辺・中央）。口は +Y
+    color("#c8ccd0") translate([TC_BD[0] / 2 - TC_CONN[0] / 2, TC_BD[1] - TC_CONN[1] + TC_CONN_OUT, TC_BD[2]]) cube(TC_CONN);
+    // 下辺のピン（真っ直ぐなヘッダを立てた場合・樹脂 2.5 ＋ ピン）
+    if (pins) {
+        color("#222") translate([TC_PIN_X0 - 1.27, TC_PIN_Y - 1.27, TC_BD[2]]) cube([7 * 2.54, 2.54, 2.5]);
+        color("#c8ccd0") for (i = [0 : 6]) translate([tc_pin(i)[0] - 0.32, tc_pin(i)[1] - 0.32, -1.2]) cube([0.64, 0.64, 1.2 + TC_BD[2] + 2.5 + pin_len]);
+    }
+}
+typec_115426();
