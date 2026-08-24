@@ -26,7 +26,7 @@
 //   → **外形寸法を面の位置として使わない。**
 //
 // この版で残っている⚠は、公式CADに載っていない「この機体だけの物」だけ:
-//   - XIAO本体＋ピンヘッダー（ソケット込み・高さ10）… ✅ユーザー実測
+//   - XIAO本体（直付け）＋その上のピンヘッダー（ピンの先端 10）… ✅ユーザー実測＋写真（2026-08-24 構成確定）
 //   - XIAOのUSB-Cの張り出し … ⚠ 未実測
 //   - 中央領域のジャンパ線・はんだのぶん（実測4.8 − CAD4.38 = 0.42）… ⚠ 配分は仮定
 //   - u.FLアンテナの同軸 … ⬜ 未取得
@@ -124,7 +124,6 @@ HDR_H  = 10.0;
 HDR_X0 = 2.0;    HDR_X1 = 20.0;
 HDR_T  = 2.0;
 HDR_Z  = [8.0 - HDR_T / 2, BOARD_H - 8.0 - HDR_T / 2];
-
 // ⚠ XIAOのUSB-C（左端から張り出す）。**公式CADには無い**（XIAOは別基板）
 // 🔴 2026-08-22 まで「板の面に直に・下端 14」で描いていた。実際は**積み重ねの頭**
 //    （XIAO 面から HDR_H ✅10.0）に載る。Z は XIAO がソケット2列の真ん中に載るので
@@ -139,15 +138,49 @@ XIAO_USB_OUT = 1.53;  // 📄 板の左端からの張り出し（公式 STEP）
 XIAO_USB_L   = 8.94;  // 📄 USB-C レセプタクルのシェル幅（規格）
 XIAO_USB_H   = 3.26;  // 📄 同 厚み（規格）
 XIAO_USB_Z   = (BOARD_H - XIAO_USB_L) / 2;   // 下端（板の高さの中央に置く）
-XIAO_USB_Y0  = HDR_H - XIAO_USB_H;           // 面からの距離（積み重ねの頭から厚みぶん内側）
+// 🔴 2026-08-24 訂正: 殻は「積み重ねの頭」ではなく **XIAO の板の上**（XIAO は直付け）。面から 1.4〜4.66。
+//    v2/v3 の右の壁の口はこの誤りで約 5.3 奥に開いていた。XIAO_TOP はこの下（XIAO_USB_H より後ろのブロック）で定義
+XIAO_USB_Y0  = 0.2 + 1.2;                    // 面からの距離（＝XIAO_SOLDER + XIAO_BD_T。前方参照が効かないので同値を書く・出典は下のブロック）
 // 筐体が読む: 面からの中心距離と、板の下端からの中心高さ [面から, Z]
-function xiao_usb_yz() = [HDR_H - XIAO_USB_H / 2, XIAO_USB_Z + XIAO_USB_L / 2];
+function xiao_usb_yz() = [XIAO_USB_Y0 + XIAO_USB_H / 2, XIAO_USB_Z + XIAO_USB_L / 2];
 function xiao_usb_sz() = [XIAO_USB_H, XIAO_USB_L];
 function xiao_usb_out() = XIAO_USB_OUT;   // 筐体が ReSpeaker の X をこれで決める（case_v2 の RSP_X）
 // ⚠ プラグのオーバーモールドの上限 [厚み(面から), 幅]。規格は殻（8.25×2.40）しか決めていない。
 //    市販品は概ね 5.5〜6.5 × 10.5〜12.5。面から USB_SEAT(0.3) 離れた所から始まる
 XIAO_PLUG_OM   = [6.5, 12.5];
 XIAO_PLUG_SEAT = 0.3;
+
+// 🔴 このブロックは XIAO_USB_H より後ろに置くこと（use<> 先では前方参照が効かず、XIAO_TOP が undef になって積み重ねが消えた・2026-08-24）
+// ✅ 構成（2026-08-24 ユーザー写真＋説明。🔴 同日中に 2 回間違えた末の確定）:
+//    **XIAO は ReSpeaker に直接はんだ付け（ソケット無し・浮き無し）。その XIAO の上にストレートのピンヘッダが立ち、線の DuPont はそこに挿さる。**
+//    🔴 誤り①「塊 高さ10」: 挿す物が無かった。🔴 誤り②「ソケットで XIAO が 6.7 浮き、USB の殻が頭」: AI の作り話。
+//    実物の鎖: はんだ ⚠0.2 ＋ XIAO の板 ⚠1.2 ＝ 板の上面 1.4 → ヘッダ樹脂 2.5 → ピン 6.0 ＝ **先端 9.9 ≈ ✅実測 10**（標準部品で閉じる）。
+//    線の DuPont（10 ✅）は樹脂の上に座る ⇒ 頭は面から 13.9・線の逃げ（曲がりの余白 3.6 ⚠既定）で 17.5。
+//    🔴 これに伴い XIAO の USB-C は「積み重ねの頭」ではなく **XIAO の板の上（面から 1.4〜4.66）**。右の壁の口の Y はこれで決め直す（v2/v3 は約 5.3 奥に開けていた）
+XIAO_SOLDER = 0.2;                           // ⚠ 直付けのはんだの浮き
+XIAO_BD_T  = 1.2;                            // ⚠ XIAO の板厚（規格読み）
+XIAO_TOP   = XIAO_SOLDER + XIAO_BD_T;        // 1.4 XIAO の板の上面（面から）
+HDR_PL = 2.5; HDR_PIN_UP = 6.0;              // 2.54 ヘッダの樹脂・ピンの余り（規格。✅ ヘッダ単体の定規写真とも一致: 長い側 約 6〜7）
+PAD_X = [for (k = [0 : 6]) 2.932 + k * 2.54];   // 📄 パッドの中心 7 つ
+PAD_Z = [9.397, 24.627];                     // 📄 パッドの列（下から）
+function respeaker_xiao_head() = XIAO_TOP + HDR_PL + 10.0;   // 13.9 線の DuPont の頭（面から。10 は ✅ ハウジングの高さ）
+module respeaker_xiao_stack() {   // 恒久の積み重ね（XIAO 直付け・シールド缶・ヘッダ・ピン）。respeaker_lite() が呼ぶ
+    color("#2f4f6f") translate([10.552 - 21.0 / 2, -XIAO_TOP, 17.012 - 17.5 / 2]) cube([21.0, XIAO_BD_T, 17.5]);             // XIAO の板 📄 21 × 17.5（パッドの中心に置く）
+    color("#dcdcdc") translate([10.552 - 7.0, -XIAO_TOP - 2.0, 17.012 - 6.0]) cube([14.0, 2.0, 12.0]);                       // シールド缶 ⚠ 高さ 📄2.0・平面は仮
+    color("#222") for (z = PAD_Z) translate([PAD_X[0] - 1.27, -(XIAO_TOP + HDR_PL), z - 1.27]) cube([7 * 2.54, HDR_PL, 2.54]);   // ヘッダの樹脂（XIAO の上）
+    color("#c8ccd0") for (x = PAD_X, z = PAD_Z) translate([x - 0.32, -(XIAO_TOP + HDR_PL + HDR_PIN_UP), z - 0.32])
+        cube([0.64, XIAO_TOP + HDR_PL + HDR_PIN_UP, 0.64]);                                                                  // ピン（先端 9.9 ≈ ✅10）
+}
+// ✅ 挿すのは使う 7 本だけ（POWER.md 4章: 5V・D3・GND・3V3・SCL・SDA・D2）。
+//    📄 XIAO の公式ピン配置: 電源側の列は USB 端から 5V・GND・3V3（スロット 0〜2）、
+//    信号側の列は D0〜D6 で、使うのは D2・D3・D4(SDA)・D5(SCL)（スロット 2〜5）。残り 7 ピンは裸のまま。
+//    ⚠ どちらの列（下 9.397 ／ 上 24.627）が電源側かは未確認。入れ替わっても X の帯が入れ替わるだけで、筐体の当たりには効かない
+XIAO_USED = [[0, 1, 2], [2, 3, 4, 5]];   // [電源側のスロット, 信号側のスロット]（USB 端＝局所 x の小さい側から数える）
+module respeaker_xiao_housings(bend = true) color("#63b3ed", 0.85)
+    for (r = [0, 1], k = XIAO_USED[r]) { x = PAD_X[k]; z = PAD_Z[r];
+        translate([x - 1.27, -respeaker_xiao_head(), z - 1.27]) cube([2.54, 10.0, 2.54]);
+        if (bend) translate([x - 1.8, -respeaker_xiao_head() - 3.6, z - 1.8]) cube([3.6, 3.6, 3.6]);   // 線の逃げ（曲がりの余白 ⚠既定 3.6）
+    }
 
 // ⚠ 挿さる物の長さ（全部推測。実測で置き換える）
 JACK_PLUG_OUT  = 20.0;
@@ -196,16 +229,24 @@ module respeaker_lite() {
     // 見たところ、**胴は下から3.40より上**で、それより下（2.18〜3.40）にあるのは
     // 出っ張り0.24mmのハンダ足だけだった。✅ユーザー実測の「ジャック下端3」とも合う。
     // レールに当たるには2.11mm以上出ている必要があるので、足は当たらない
+    // 📄 2026-08-25 STEP の実体から取り直し（ユーザー「モデルが間違ってる。CAD が公開されてるのに」。
+    //    旧: 胴＋筒をまとめた角箱 → 筒が角箱＝筐体の口が「大穴」になった）:
+    //    ・胴 = x 66.60〜82.024・下から 3.51〜9.51・面から 5.19
+    //    ・筒 = **丸**。外径 φ5.45（穴 φ3.6）・軸 [下から 6.502, 面から 2.485]・板の端から 1.576 出て x 83.60 まで
+    //    ・+Y の金属カバー = x 82.25〜82.70（端から 0.68 出る）・下から 3.65〜8.90・面から 3.14〜7.52
     color("#555") {
-        face_box(69.00, 83.60, 3.40, 10.83, 4.99, +1);   // 胴＋右へ出る筒
-        face_box(72.65, 81.05, 2.18,  3.40, 0.24, +1);   // ハンダ足
+        face_box(66.60, 82.024, 3.51, 9.51, 5.19, +1);                                   // 胴（📄 CAD bbox）
+        translate([82.0, -2.485, 6.502]) rotate([0, 90, 0]) cylinder(d = 5.45, h = 83.60 - 82.0, $fn = 48);   // 筒（丸・📄）
+        translate([82.25, -7.52, 3.65]) cube([82.70 - 82.25, 7.52 - 3.14, 8.90 - 3.65]); // 金属カバー（📄）
+        face_box(72.65, 81.05, 2.18,  3.40, 0.24, +1);                                   // ハンダ足
     }
 
-    // ✅ XIAO＋ピンヘッダー 2列（公式CADに無い）
-    color("#777") for (z = HDR_Z) face_box(HDR_X0, HDR_X1, z, z + HDR_T, HDR_H, +1);
+    // ✅ XIAO の積み重ね（公式CADに無い）。🔴 2026-08-24 まで「塊 2 列 × 高さ 10」だった。
+    //    実物は直付け XIAO の板 → 貫通ヘッダ（ユーザー説明）。線の DuPont は respeaker_xiao_housings()（別モジュール・挿した状態で頭 13.9 ＝ respeaker_xiao_head()）
+    respeaker_xiao_stack();
 
-    // ⚠ XIAOのUSB-C（左端から張り出す・XIAO面側）
-    color("#9cf") translate([-XIAO_USB_OUT, -HDR_H, XIAO_USB_Z])
+    // XIAOのUSB-C（左端から張り出す・XIAO面側）。🔴 2026-08-24: 頭ではなく XIAO の板の上に置き直した
+    color("#9cf") translate([-XIAO_USB_OUT, -(XIAO_USB_Y0 + XIAO_USB_H), XIAO_USB_Z])
         cube([XIAO_USB_OUT, XIAO_USB_H, XIAO_USB_L]);
 }
 
@@ -227,7 +268,7 @@ module respeaker_mating_space() {
         // 📄 XIAOのUSB-C: レセプタクルの面の 0.3 先から、オーバーモールドの上限の箱で左へ
         //    （レセプタクルの中心に揃える）。筐体の彫り込みはこれが座る面
         translate([-XIAO_USB_OUT - XIAO_PLUG_SEAT - USBC_CABLE_OUT,
-                   -HDR_H + XIAO_USB_H / 2 - XIAO_PLUG_OM[0] / 2,
+                   -(XIAO_USB_Y0 + XIAO_USB_H / 2) - XIAO_PLUG_OM[0] / 2,
                    XIAO_USB_Z + XIAO_USB_L / 2 - XIAO_PLUG_OM[1] / 2])
             cube([USBC_CABLE_OUT, XIAO_PLUG_OM[0], XIAO_PLUG_OM[1]]);
     }
