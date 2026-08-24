@@ -247,7 +247,12 @@ body {
 .d { font-size:.92em; font-weight:700; color:var(--accent); }
 .w { font-size:.86em; font-weight:700; letter-spacing:.04em; }
 
-header.mast { padding:56px 0 28px; border-bottom:2px solid var(--ink); }
+.dead {
+  margin:24px 0 0; padding:16px 20px; border:2px solid var(--stop);
+  background:var(--card); color:var(--ink); font-size:15px; line-height:1.8;
+}
+.dead b { color:var(--stop); }
+header.mast { padding:28px 0 28px; border-bottom:2px solid var(--ink); }
 .eyebrow {
   font-family:Archivo,system-ui,sans-serif; font-weight:600; font-size:12px;
   letter-spacing:.22em; text-transform:uppercase; color:var(--accent); margin:0 0 10px;
@@ -356,6 +361,12 @@ a { color:var(--accent); }
 
 BODY = """
 <div class="wrap">
+<div class="dead">
+  <b>2026-08-25 打ち切り。この手順では組み上がらない。</b>
+  PowerBoost を本物（ヘッダ・ハウジング・挿す軌跡）にしたら、v3 の中に置ける場所が無かった。
+  次は v4 で、<b>置く順番</b>から作り直す（面倒なピースが先: PowerBoost＋挿す手 → 電池＋工具なし交換 → ReSpeaker/OLED/フィルム → ハブ → つまみ）。
+  経緯は <b>docs/CASE-V3.md</b> の冒頭と <b>docs/CASE-V4.md</b>。このページは記録として残す。
+</div>
 <header class="mast">
   <p class="eyebrow">katanori &middot; enclosure v3</p>
   <h1>カタノリ v3<br><em>組み立て</em></h1>
@@ -365,7 +376,7 @@ BODY = """
     <span><b>内寸</b> 86 &times; 72 &times; 48.45 mm</span>
     <span><b>2026-08-23</b> 版</span>
     <span>番号は <b>docs/CASE-V3.md</b> の ①〜⑬ と同じ</span>
-    <span>まだ 1 度も組んでいない机上の手順</span>
+    <span>組まれないまま終わった机上の手順</span>
   </div>
 </header>
 
