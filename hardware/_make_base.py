@@ -1,8 +1,16 @@
-# case_v3.scad -> case_base.scad 抽出スクリプト（使い捨て）
+# case_v3.scad -> case_base.scad 抽出スクリプト（2026-08-25 に 1 度だけ使った・**もう流せない**）
+#
+# 🔴 このスクリプトは実行できないようにしてある。case_base.scad は生成した後に手で育てていて、
+#    2026-08-25 の時点で case_v3.scad から作れる物と **65 行**食い違う（FRONT_DY・WIN_SUNK・FY_OUT/FY_IN・
+#    PHIN/PHOUT の PH2.0 ソケット・OLED の窓の裏の彫り・HOUS_R の実測 4.5 など）。
+#    流し直すと、それが全部 v3 の値に戻る。case_base.scad が正で、このファイルは出自の記録。
+#    どうしても流すなら、上の 65 行を先に case_v3.scad へ入れてから。
 #   1) top-level の `if (part == ...)` 文を全部除去（brace/paren バランスで文末まで）
 #   2) `part = ...;` の行を除去
 #   3) v3 専用モジュール（KEEP に無い module 定義）を除去。変数・関数・コメントは全部残す
 import re, sys
+
+sys.exit('_make_base.py は役目を終えています。case_base.scad は手で育てているので、流し直すと 65 行ぶんの直しが v3 の値に戻ります。上のコメントを読んでください。')
 
 SRC = 'hardware/case_v3.scad'
 DST = 'hardware/case_base.scad'
