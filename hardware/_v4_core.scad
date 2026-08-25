@@ -778,6 +778,9 @@ if (W == "topseat")  intersection() { union() for (t = [0 : STEP : 25]) translat
 if (W == "brgchk")  intersection() { brg_v4(); union() { core(); pb_bat(); ina_bat(); tgl_v4(); tcb_v4(); } }   // 橋 ↔ 全部（電池は上に載るだけ）
 // 箱への固定（2026-08-25）: 棚 ↔ 中身 ／ ビスとナットの現物 ↔ 周り。どちらも **0 が正**
 if (W == "brgldg")  intersection() { union() { brg_ledges(-1); brg_ledges(1); } union() { core(); bat_v4(); pb_bat(); ina_bat(); tgl_v4(); tcb_v4(); straps_v4(); wires_pwr(); wires_sig(); } }
+// 現物だけを出す（_asm_access.py が軸と頭の高さを bbox から拾う。当たり検査ではない）
+if (W == "hw_brg")  brg_hw();
+if (W == "hw_seat") seat_hw();
 if (W == "brghw")   intersection() { brg_hw(); union() { brg_v4(); v3_walls_lr(); core(); bat_v4(); tcb_v4(); straps_v4(); wires_pwr(); wires_sig(); } }
 echo(v3_inner = [IN_X, IN_Y, IN_Z], v3_outer = [IN_X + 2 * WALL, IN_Y + HATCH_T, IN_Z + TOP_T + FLOOR_T]);
 echo(hub_dx = HUB_DX, hub_x = [HUB_X + HUB_DX, HUB_X + HUB_L + HUB_DX], rsp_edge = RSP_X + respeaker_L(), xiao_face = XIAO_FACE_X);

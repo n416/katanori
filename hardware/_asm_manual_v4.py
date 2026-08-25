@@ -144,10 +144,13 @@ STEPS = [
  dict(n='5', t='ブリッジを上から降ろす', img='st5', acts=[
    '前の脚（1 枚板・厚み <span class="d">2.0</span>・<span class="n">X 21.5〜44.5</span>）を床の受け溝へ入れながら、まっすぐ <b>Z で</b>降ろす。',
    '皿（電池の受け・<span class="n">X 13〜53</span>）が下、壁〜壁の帯（<span class="n">Y 50.5〜62.9</span>）が後ろ。皿から左右の壁へ<b>腕</b>が伸びていて、手順 4 で入れたナットの上に載る。',
-   '🆕 <b>載ったら上から <span class="d">M2×6</span> を 3 本締める</b>: <span class="n">[4.2, 33.5]</span>（左）/ <span class="n">[81.9, 34.0]</span>（右・前）/ <span class="n">[81.9, 59.9]</span>（右・後ろ）。頭は座ぐり（<span class="d">φ3.4 × 1.6</span>）に沈む。締まる順は <b>頭 → 腕 2.4 → 棚の肉 1.6 → ナット</b>。<b>電池より先に締める。</b>',
+   '🆕 <b>載ったら上から <span class="d">M2×6</span> を 3 本締める</b>: <span class="n">[4.2, 33.5]</span>（左・前）/ <span class="n">[4.2, 66.2]</span>（左・後ろの耳）/ <span class="n">[81.9, 59.9]</span>（右）。頭は座ぐり（<span class="d">φ3.4 × 1.6</span>）に沈む。締まる順は <b>頭 → 腕 2.4 → 棚の肉 1.6 → ナット</b>。<b>電池より先に締める。</b>',
    '帯の裏の左端に <b>Type-C 基板の押さえ</b>（<span class="n">X 1.694〜3.9・Y 58.6〜62.2</span>・下端 <span class="n">Z 20.7</span>）が付いている。ここが基板の Z の抜け止めなので、<b>ブリッジを載せるまで基板は上へ抜ける。</b>',
  ], warn='🔴 <b>ブリッジは OLED より先。</b>OLED を先に立てると受け皿が OLED の線の帯（<span class="n">X 37.9〜48.1・Z 45〜48</span>）を通り、ヘッダのピン先とも当たる（<span class="n">close_desk</span> 171mm³ ・<b>CASE-V4-LOG.md</b> §10）。',
-    open_='前の脚はビス無しで床の溝に座るだけ。ビスの一番前（<span class="n">Y 34.0</span>）から前への張り出しは片持ち 20mm で、たわみは ⚠ 概算 0.013mm（<b>CASE-V4-OPEN.md</b> A-3）。'),
+    open_='🔴 <b>3 本目（左・後ろの耳・<span class="n">[4.2, 66.2]</span>）は、まっすぐなドライバでは締められない。</b>'
+         '頭から真上へ <span class="d">13.0mm</span> で<b>天面の後ろ左の柱</b>（<span class="n">X 1.694〜8.694・Y 65〜72・Z 39.454〜48.454</span>）に当たる。'
+         '柱は左の壁と一体なので、この段では既に立っている。「工具と手の道」の節を見ること。直し方は未決。'
+         '前の脚はビス無しで床の溝に座るだけ（片持ち 20mm・たわみ ⚠ 概算 0.013mm）。'),
 
  dict(n='6', t='留め帯 A・B・C を横から差す', img='st6', acts=[
    '<span class="d">M2</span> ナット 6 個を、帯の面に開いた<b>横穴</b>へ差し込む（6 か所とも横穴。上下を肉で挟むので、差したらどう向けても落ちない）。',
@@ -186,7 +189,8 @@ STEPS = [
  dict(n='11', t='天面を降ろし、OLED を留め、フロントを差す', img='st11', acts=[
    '先に <span class="d">M2</span> ナット 4 個を落とす。後ろの 2 個は左右の壁の柱の頭（<span class="n">Z 46.65〜48.454</span>）、前の 2 個は耳兼用の柱。<b>この 4 個は天面を載せる前にしか入らない。</b>',
    '天面＋つまみ＋スピーカー＋会話ボタンをまっすぐ <b>Z で</b>降ろす。ReSpeaker の頭を前リブ（<span class="n">X 31.4〜37.4</span>）と腕（<span class="n">X 50.0〜54.7</span>）が <span class="d">0.3mm</span> 押さえる。',
-   'OLED を<b>前から</b> <span class="d">M2×6</span> ×2 で天面の L に締める。ナットは L の後ろの水平のポケットへ<b>ピンセット</b>で（天面を裏返しているうちには入らない。ポケットが横向きだから）。',
+   'OLED を<b>前から</b> <span class="d">M2×6</span> ×2 で天面の L に締める。ビスの道は左右とも外まで開いている。',
+   '🔴 <b>ナットは右だけ入らない。</b>L の後ろの空きは左が <span class="d">11.3mm</span>、<b>右は <span class="d">0.05〜0.43mm</span></b>（すぐ後ろがつまみの島）。天面を載せた後にピンセットで入れられるのは左だけで、右は<b>天面を裏返しているうちに入れて、落とさずに返す</b>しかない。ポケットは呼び 4.0 に対し 4.3 で 0.3 遊ぶので、そのままでは落ちる。直し方は未決。',
    'フロントを<b>前から +Y に</b>差し込む。',
    '四隅を <span class="d">M2×6</span> ×4 で締める。前の 2 本は 天面 → フロントの耳 → 壁の耳柱 の <b>3 枚</b>を通る。',
  ], warn='入れ忘れたナットは、天面を外さないと入らない。'),
@@ -510,6 +514,25 @@ __STEPS__
 <tbody>__CHECKROWS__</tbody>
 </table></div>
 
+<h2 class="sec">工具と手の道（2026-08-26 に初めて当てた）</h2>
+<p class="cal warn"><span class="tag">経緯</span>ここまでの検査は<b>部品が通るかどうか</b>しか見ていなかった。
+「順として物理的に成立することは検査済み」と書いていたが、<b>ドライバ・ナット・指を一度も当てていない</b>状態だった（ユーザー指摘）。
+その手順のときに箱の中に在る物へ向けて、円筒を撃って真っ直ぐ何 mm 入るかを測り直した
+（<b>hardware/_asm_access.py</b>・v3 の <span class="n">_asm_probe.py</span> の光線をそのまま使う）。
+ドライバの先端は <span class="d">φ3.2</span>、M2 ナットは二面幅 <span class="d">4.3</span>、ピンセットは <span class="d">φ5</span>、指は <span class="d">φ12</span> で撃っている。
+<b>この表はマニュアルを作り直すたびに測り直す</b>ので、古くならない。</p>
+<div class="tw"><table>
+<thead><tr><th>何を入れるか</th><th>手順</th><th>道具</th><th>φ</th><th>要る mm</th><th>通った mm</th><th>結果</th><th>備考</th></tr></thead>
+<tbody>__ACCESS__</tbody>
+</table></div>
+<p class="cal warn"><span class="tag">止まった</span><b>2 か所で本当に止まる。</b>
+① <b>ブリッジの 3 本目</b>（帯の左端の耳・<span class="n">X 4.2, Y 66.2</span>）は、頭から真上へ <span class="d">13.0mm</span> で
+<b>天面の後ろ左の柱</b>（<span class="n">X 1.694〜8.694・Y 65〜72・Z 39.454〜48.454</span>）に当たる。
+柱は左の壁と一体で、この段では既に立っている。まっすぐなドライバでは頭に届かない。
+② <b>OLED の右のナット</b>は、L の後ろの空きが <span class="d">0.05〜0.43mm</span>（つまみの島がすぐ後ろ）。
+天面を載せた後では入らない。左は <span class="d">11.3mm</span> 空いているので入る。
+どちらも直し方は決めていない（<b>CASE-V4-OPEN.md</b>）。</p>
+
 <h2 class="sec">線</h2>
 <div class="tw"><table>
 <thead><tr><th>束</th><th>本数</th><th>模型の実長</th><th>通した道</th></tr></thead>
@@ -564,6 +587,20 @@ __STEPS__
 """
 
 
+def access_rows():
+    """工具・ナット・指の道を毎回測り直す（hardware/_asm_access.py）。数字は手で写さない。"""
+    sys.path.insert(0, HERE)
+    import _asm_access
+    out = []
+    for what, step, tool, dia, need, got, ok, note in _asm_access.run():
+        cls = 'ok' if ok == '通る' else 'stop'
+        mark = '<b>通る</b>' if ok == '通る' else '<b>🔴 止まる</b>'
+        out.append('<tr><td>{}</td><td class="n">{}</td><td>{}</td><td class="n">φ{}</td>'
+                   '<td class="n">{}</td><td class="n {}">{}</td><td class="{}">{}</td><td>{}</td></tr>'
+                   .format(what, step, tool, dia, need, cls, got, cls, mark, note))
+    return chr(10).join(out)
+
+
 def build():
     IM = {k: img('c_' + k + '.png') for k in SEQ + [w[0] for w in WIDE]}
 
@@ -596,6 +633,7 @@ def build():
             .replace('__LOOK__', IM['look'])
             .replace('__WIRES__', IM['wires'])
             .replace('__STEPS__', '\n'.join(step_html(s) for s in STEPS))
+            .replace('__ACCESS__', access_rows())
             .replace('__CHECKROWS__', '\n'.join(
                 '<tr><td>{}</td><td class="n">{}</td><td class="n {}">{}</td><td>{}</td></tr>'
                 .format(r[0], r[1], r[3], r[2], r[4]) for r in CHECKS))
