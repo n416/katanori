@@ -4,7 +4,7 @@
 > 「PowerBoost は一番入れるのが面倒なピースで、**最後に入れようとしても入るわけがない**。全体を組み直して入る場所を探す」——次は v4。
 > v4 は**置く順番**から作る: 面倒なピースが先（PowerBoost＋挿す手 → 電池＋工具なし交換 → ReSpeaker/OLED/フィルム → ハブ → つまみ）。
 > 部品の模型（parts.scad ほか）は版に依らないので、今日までの精緻化はそのまま v4 の土台になる。
-> 🔒 2026-08-25 **v4 が使う寸法・座標・共通モジュールは [case_base.scad](../hardware/case_base.scad) へ分離した**（CASE-V4 §10）。
+> 🔒 2026-08-25 **v4 が使う寸法・座標・共通モジュールは [case_base.scad](../hardware/case_base.scad) へ分離した**（[CASE-V4-LOG.md](CASE-V4-LOG.md) §10）。
 > v4 の系（_v4_core / case_v4）はもう [case_v3.scad](../hardware/case_v3.scad) を読まない。このファイルと case_v3.scad は履歴（単体では今も開ける）。
 
 
