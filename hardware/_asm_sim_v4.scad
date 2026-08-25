@@ -27,7 +27,7 @@ module s_plugs()  translate([HUB_DX, HUB_DY, 0]) for (id = PLUGGED_9) housing(id
 module s_rsp()    { respeaker_at(); rsp_j2_space(); }
 module s_tcb()    tcb_v4();
 module s_walls()  rounded4() { lwall_v4(); rwall_v4(); }
-module s_brg()    { brg_v4(); brg_hw(); }   // brg_hw = 箱へ留める M2×6 とナット 3 組（手順 5 で締める）
+module s_brg()    { brg_v4(); brg_front(); brg_hw(); }   // brg_hw = 箱へ留める M2×6 とナット 3 組（手順 5 で締める）。前板は先に床の溝へ差す（2026-08-26 に別部品になった）
 module s_oled()   oled_at();
 module s_bat()    color("#f6ad55") bat_v4();
 module s_strap()  straps_v4();

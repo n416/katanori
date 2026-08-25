@@ -26,7 +26,7 @@ W = "none";      // _v4_core の内部スイッチ（芯だけの検査 deskseat
 //   線     : chk_wire（WP で 1 束に絞れる・束 ↔ 部品と皮）/ chk_wire_w（束 ↔ 他の束＋電源系）/ chk_wire_pwr（電源系 7 本）
 //   充電基板: chk_tc（Type-C の受け＋押さえ ↔ 基板と周り。**0 が正**）
 //   電池   : chk_shut_slide（蓋を下へずらす）/ chk_shut_out（蓋を抜く）/ chk_swap（電池を後ろへ抜く・v3 と同名）
-part = "inside";
+part = "bridge";
 WP = "";         // chk_wire 系で束を 1 つに: xiao / oled / as5600 / btn2 / phin / phout / ina / tgl / reed / chg（"" で全部）
 
 // ---- v4 の配置（芯と同じ式。数字を増やさない） ----
@@ -185,6 +185,7 @@ module lwall_v4() {
         union() {
             color("#b6c0cc") translate([LW_X - WALL, FY_IN, 0]) cube([WALL, IN_Y - FY_IN, IN_Z]);
             brg_ledges(-1);   // ブリッジを留める棚（Y 30.5〜36.5・ナット入り・_v4_core の「箱への固定」）
+            brg_ledge_up();   // 3 点目の棚（Y 63.2〜69.2・帯の左端を**上から**留める・_v4_core の BLU_*）
             for (b = BOSSES) if (b[0] < IN_X / 2) top_boss(b, BOSS_H);
             ear_col(EAR_X[0][0], EAR_X[0][1]);
             color("#b6c0cc") difference() {
@@ -379,7 +380,7 @@ module skin1(k) {
 SKINS = ["floor", "lwall", "rwall", "top", "front", "hatch"];
 module skin_all() for (k = SKINS) skin1(k);
 module skin_except(k) for (n = SKINS) if (n != k) skin1(n);
-module innards4(tgl = 0) { core(); color("#f6ad55") bat_v4(); pb_bat(); pbl_hous(); pbu_hous(); ina_bat(); tgl_v4(tgl); if (tgl != 0) tail_at(); tcb_v4(); brg_v4(); straps_v4(); wires_pwr(); wires_sig(); door4(0, tgl != 0); }   // tgl: レバーの角度。絵は TAIL_ANG ＋ 尻尾＋蓋のビスの絵付き。door4 = 電池の蓋一式（閉）
+module innards4(tgl = 0) { core(); color("#f6ad55") bat_v4(); pb_bat(); pbl_hous(); pbu_hous(); ina_bat(); tgl_v4(tgl); if (tgl != 0) tail_at(); tcb_v4(); brg_v4(); brg_front(); straps_v4(); wires_pwr(); wires_sig(); door4(0, tgl != 0); }   // tgl: レバーの角度。絵は TAIL_ANG ＋ 尻尾＋蓋のビスの絵付き。door4 = 電池の蓋一式（閉）
 
 if (part == "look") { rounded4() skin_all(); innards4(TAIL_ANG); }
 OPEN = ["floor", "lwall", "rwall", "top"];   // 🔒 2026-08-25 ユーザー「inside は本来 壁なし・床なし・天井なし（v3 から壊れてた）」。残すのはフロントとハッチ
@@ -398,7 +399,7 @@ for (k = P_NAMES) if (part == str("p_", k)) p_one(k);
 // 🔒 v3 と同じ名前（2026-08-25 ユーザー）。芯の _v4_core にある板なので p_ は付けない・角丸も無し・刷る向きは ⬜ 未決（CASE-V4 §10）
 // 🔒 2026-08-25 ユーザー「バッテリー、電流計、PowerBoost、左右の壁、結束バンドは必要です」: ブリッジは単体では判断できないので一緒に出す
 if (part == "bridge") {
-    brg_v4(); straps_v4(); brg_hw();   // brg_hw = 箱へ留める M2×6 とナットの現物（3 か所）
+    brg_v4(); brg_front(); straps_v4(); brg_hw();   // brg_hw = 箱へ留める M2×6 とナットの現物（3 か所）
     color("#f6ad55") bat_v4(); ina_bat(); pb_bat();
     rounded4() { skin1("lwall"); skin1("rwall"); }
 }
@@ -411,6 +412,30 @@ if (part == "print_hatch")   translate([0, 0, IN_Y + HATCH_T]) rotate([-90, 0, 0
 if (part == "print_shutter") translate([0, 0, SW4_YOUT]) rotate([-90, 0, 0]) battery_shutter4(0);
 if (part == "print_lock")    translate([0, 0, SW4_YOUT]) rotate([-90, 0, 0]) battery_lock4();
 if (part == "print_tail")    translate([0, 0, -0.2]) tail_cap();
+
+// ---- 2026-08-26 ここから 5 点（ブリッジ・留め帯 A/B/C・会話ボタンのキャップ）----
+//   それまで STL の出口が無く、刷れるのは板 9 点だけだった（CASE-V4-OPEN A-2）。
+// 帯は 3 本が別々の部品。straps_v4() は 3 本＋座を一度に作るので、Y で 1 本ぶんだけ切り出す
+//   （座・ナットの横穴・PB の足の逃げ溝も、その帯に属するぶんだけ一緒に出る）
+module strap_one(s) intersection() {
+    straps_v4();
+    translate([-100, s[0] - 0.05, -100]) cube([400, s[1] + 0.1, 400]);
+}
+// 帯: ⊓ の断面を寝かせる（押し出しの軸 Y を上へ向ける＝断面がベッドに平らに乗る）。
+//   断面が高さ方向に変わらないので支えが要らず、電池を抱く力の向きが層と同じ面の中に収まる。
+if (part == "print_strap_a") translate([0, 0, -STRAP_BANDS[0][0]]) rotate([90, 0, 0]) strap_one(STRAP_BANDS[0]);
+if (part == "print_strap_b") translate([0, 0, -STRAP_BANDS[1][0]]) rotate([90, 0, 0]) strap_one(STRAP_BANDS[1]);
+if (part == "print_strap_c") translate([0, 0, -STRAP_BANDS[2][0]]) rotate([90, 0, 0]) strap_one(STRAP_BANDS[2]);
+// キャップ: 閉じている天面をベッドに伏せる（うつ伏せ）。中の空洞と押し棒が上を向くので支えは要らない
+//   （棒の先の返り φ5 × 0.8 だけが庇になる）。z_top = Z_TOP + BTN_OUT
+if (part == "print_btn")     translate([0, 0, Z_TOP + BTN_OUT]) rotate([180, 0, 0]) button_cap();
+// ブリッジ: 皿を伏せる（2026-08-26・前板を別部品にしたので L 字ではなくなった）。レール・パッドは全部上を向く。
+//   ⚠ 皿の裏に 1 つだけ出っ張りが残る: 充電の Type-C の押さえ（X 1.69〜3.9・Y 58.6〜62.2・皿の裏から 0.7 下）。
+//     底の Z を 0 にするためにその押さえで置いているので、**皿は 0.7 浮く**。ここだけラフト／サポートが要る
+if (part == "print_bridge")  translate([0, 0, -TC_PRESS[2]]) brg_v4();
+// 前板（返し＋脚）: **前面を伏せて寝かせる**（🔒 2026-08-26 ユーザー「寝かせる向きでしょ」）。
+//   前面（Y 12.9）は 634mm² の 1 枚の平らな面なので、そのままベッドに着く。フランジは真上へ立つ壁になり庇は出ない
+if (part == "print_brgfront") translate([0, 0, -BAT_Y0]) rotate([90, 0, 0]) brg_front();
 
 // 静止の当たり: 板 1 枚 ↔ 中身＋他の板。**0 が正**。
 //   ReSpeaker の押さえの押し代（リブが板に 0.3 めり込む設計値）は意図した重なりなので検査から除外し、
@@ -447,14 +472,14 @@ if (part == "close_rwall") intersection() { union() for (t = [0 : STEP : 30]) tr
 //     右の前の棚が通り抜ける分。この 2 本はスピーカー（天面の部品）に付いたまま最後に降りてくるので、
 //     壁を降ろす時点では箱に居ない。低い車線に居るのは口から壁ぎわまでの Z 19.5 の区間だけで、そこは 0
 // 天面と一緒に降りる物（島・コネクタ・スピーカー・タクト・傘 = core の top_group）は動く側。障害物に入れない
-module stage_top() { lower_group(); brg_v4(); bat_v4(); pb_bat(); ina_bat(); straps_v4(); pbl_hous(); pbu_hous();
+module stage_top() { lower_group(); brg_v4(); brg_front(); bat_v4(); pb_bat(); ina_bat(); straps_v4(); pbl_hous(); pbu_hous();
                      wires_pwr(); wires_sig(); floor_v4(); lwall_v4(); rwall_v4(); }
 if (part == "close_top") difference() { intersection() { union() for (t = [0 : STEP : 25]) translate([0, 0, t]) { top_v4(); top_group(); }
                                           stage_top(); } rsp_press_zone(); }   // 押し代は除外。🔒 つまみ +2 後の 2mm³ は「AS5600 の線の逃げ予約（3.6 角）↔ PHIN」。実体同士は Z で 2.15 離れて非接触（2026-08-25 ユーザー確認・PHIN の曲がりは 1.5 に修正済み）。これだけが正
 if (part == "close_front") intersection() { union() for (t = [0 : STEP : 20]) translate([0, -t, 0]) front_v4();
                                             union() { stage_noskin(); lwall_v4(); rwall_v4(); top_v4(); } }
 if (part == "close_hatch") intersection() { union() for (t = [0 : STEP : 20]) translate([0, t, 0]) { hatch_v4(); tgl_v4(); door4(); }
-                                            union() { core(); bat_v4(); pb_bat(); pbl_hous(); pbu_hous(); ina_bat(); tcb_v4(); brg_v4(); straps_v4(); wires_pwr(); wires_sig(); floor_v4(); lwall_v4(); rwall_v4(); top_v4(); front_v4(); } }
+                                            union() { core(); bat_v4(); pb_bat(); pbl_hous(); pbu_hous(); ina_bat(); tcb_v4(); brg_v4(); brg_front(); straps_v4(); wires_pwr(); wires_sig(); floor_v4(); lwall_v4(); rwall_v4(); top_v4(); front_v4(); } }
 // 充電基板の入れ方（🆕 2026-08-25）。**左の壁の内面に当てて、壁と一緒に降ろす**。デュポンはまだ挿していない
 //   🔴 壁より先に立てることは出来ない: 板の裏を受ける面が左壁の内面そのものなので、壁が無いと −X 側へ倒れる。
 //   🔴 壁より後に真上から落とすことも出来ない: 天面の後ろ左のボス（左壁の一部・X 1.694〜・Y 64〜72・Z 38〜48）が
@@ -465,16 +490,16 @@ if (part == "close_hatch") intersection() { union() for (t = [0 : STEP : 20]) tr
 //      静止では板の上端 20.5 と線の下端 27.75 が 7.25 離れているので当たらないが、線を通すときはここを避けて回す
 if (part == "close_tc") intersection() { union() for (t = [0 : STEP : 30]) translate([0, 0, t]) { lwall_v4(); tcb_v4_bare(); }
                                          union() { core(); floor_v4(); } }
-if (part == "close_desk") intersection() { union() for (t = [0 : STEP : 30]) translate([0, 0, t]) brg_v4(); lower_group(); }   // core の deskseat と同じ（🔴 ブリッジは OLED を立てる前に降ろす順が前提・CASE-V4 §10）
+if (part == "close_desk") intersection() { union() for (t = [0 : STEP : 30]) translate([0, 0, t]) brg_v4(); union() { lower_group(); brg_front(); } }   // core の deskseat と同じ（🔴 ブリッジは OLED を立てる前に降ろす順が前提・CASE-V4 §10）
 
 // 線の検査（core の wchk/wwchk と同じ中身。WP で 1 束に絞る）
 if (part == "chk_wire")   intersection() { wsel(); wire_obst(); }
 if (part == "chk_wire_w") intersection() { wsel(); union() { wires_pwr(); if (WP != "") wsig_except(); } }
-if (part == "chk_wire_pwr") intersection() { wires_pwr(); union() { core(); bat_v4(); pb_bat(); pbl_hous(); pbu_hous(); ina_bat(); tgl_v4(); tcb_v4(); brg_v4(); straps_v4(); skin_all(); door4(); } }
+if (part == "chk_wire_pwr") intersection() { wires_pwr(); union() { core(); bat_v4(); pb_bat(); pbl_hous(); pbu_hous(); ina_bat(); tgl_v4(); tcb_v4(); brg_v4(); brg_front(); straps_v4(); skin_all(); door4(); } }
 
 // 電池の入れ替えの動き: ロックを外す → 蓋を下へずらす → 蓋を後ろへ抜く → JST を抜く → 電池を後ろへ抜く
-module world_no_door() { core(); bat_v4(); pb_bat(); pbl_hous(); pbu_hous(); ina_bat(); tgl_v4(); tcb_v4(); brg_v4(); straps_v4(); wires_pwr(); wires_sig(); skin_all(); }
-module world_no_door_bat() { core(); pb_bat(); pbl_hous(); pbu_hous(); ina_bat(); tgl_v4(); tcb_v4(); brg_v4(); straps_v4(); w_pwr3(); w_batout(); wires_sig(); skin_all(); }   // 電池のタブ側の線（w_batin）は JST で外して抜くので入れない
+module world_no_door() { core(); bat_v4(); pb_bat(); pbl_hous(); pbu_hous(); ina_bat(); tgl_v4(); tcb_v4(); brg_v4(); brg_front(); straps_v4(); wires_pwr(); wires_sig(); skin_all(); }
+module world_no_door_bat() { core(); pb_bat(); pbl_hous(); pbu_hous(); ina_bat(); tgl_v4(); tcb_v4(); brg_v4(); brg_front(); straps_v4(); w_pwr3(); w_batout(); wires_sig(); skin_all(); }   // 電池のタブ側の線（w_batin）は JST で外して抜くので入れない
 if (part == "chk_shut_slide") intersection() { union() for (t = [0 : 0.5 : SHUT_SLIDE]) translate([0, 0, -t]) battery_shutter4(0); world_no_door(); }
 if (part == "chk_shut_out")   intersection() { union() for (t = [0 : STEP : 20]) translate([0, t, 0]) battery_shutter4(1); world_no_door(); }
 if (part == "chk_swap")       intersection() { union() for (t = [0 : STEP : 45]) translate([0, t, 0]) bat_v4(); world_no_door_bat(); }
@@ -486,7 +511,8 @@ if (part == "explode") {
     rounded4() floor_v4(); hub_unit(); respeaker_at(); xiao_hous(); oled_at(); oled_hous(); tcb_v4();
     translate([-EX, 0, E]) rounded4() lwall_v4();
     translate([EX, 0, E])  rounded4() rwall_v4();
-    translate([0, 0, 0.6 * E])           brg_v4();                                        // ブリッジ（脚は床の溝へ）
+    translate([0, 0, 0.35 * E])          brg_front();                                     // 前板（先に床の溝へ差す）
+    translate([0, 0, 0.6 * E])           brg_v4();                                        // ブリッジ（掘り込みが前板のフランジに被さる）
     translate([0, 0, 0.6 * E + 1.5 * S]) color("#f6ad55") bat_v4();                       // 電池（皿の上）
     translate([0, 0, 0.6 * E + 2.5 * S]) { pb_bat(); ina_bat(); pbl_hous(); pbu_hous(); } // 帯の天面に載る 2 枚＋挿す線
     translate([0, 0, 0.6 * E + 3.5 * S]) straps_v4();                                     // 留め帯 3 本（上から抱く）
