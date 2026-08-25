@@ -80,19 +80,11 @@ module v3_ghost() {
     translate([LW_X - WALL, IN_Y, -FLOOR_T]) cube([IN_X + 2 * WALL - LW_X, HATCH_T, IN_Z + TOP_T + FLOOR_T]);  // ハッチ
     translate([LW_X - WALL, 0, IN_Z]) cube([IN_X + 2 * WALL - LW_X, IN_Y, TOP_T]);               // 天井
 }
-// ---- 自由な部品 その1: PowerBoost（2026-08-24 ユーザー「どこでもいい」→ 最初の席は
-//      スタディ①の C の姿勢（背面立て・右壁ぎわ・上縁 Z 33）。皮は後からこれに合わせて描く ----
-C_AT = [84.3, IN_Y - 0.5 - 1.2, 33.0];   // ⚠ 仮。v3 のハッチ内面基準の値のまま。皮が従属変数になったので、後ろへ動かす自由もある
-module pose_c() translate(C_AT) rotate([0, 0, 180]) rotate([-90, 0, 0]) children();
-module pb_c() pose_c() { powerboost_1000c(hdr = "front", ra_dir = -1); pb_jst_plug(); }
-module hous_c() pose_c() {
-    for (i = [3, 4]) { x = 12.83 + i * 2.54;
-        translate([x - 1.27, -HOUS_H, 1.6 + 2.5 - 1.27]) cube([2.54, HOUS_H, 2.54]);
-        translate([x - HOUS_R / 2, -HOUS_H - HOUS_R, 1.6 + 2.5 - HOUS_R / 2]) cube([HOUS_R, HOUS_R, HOUS_R]); }
-    translate([12.83 + 7 * 2.54 - 1.27, 0, 1.6 + 2.5]) cube([2.54, 2.54, HOUS_H]);          // USB（ハブ側へ水平）
-    translate([pb_hdr_x() - 1.27, pb_hdr_y0(), 1.6 + 2.5]) cube([2.54, 4 * 2.54, HOUS_H]);  // PWR（ハブ側へ水平）
-}
-module pb_unit() { pb_c(); hous_c(); }
+// ---- 自由な部品 その1: PowerBoost
+//   🔒 2026-08-25 いまの席は**電池の上の傾いた板**（`pb_bat()` / `pb_frame()`・座のネジ 6 本＋留め帯 3 本）。
+//   8/24 のスタディ①の案 C（背面立て・C_AT / pose_c / pb_c / hous_c / pb_unit）と、それだけを見ていた
+//   W="pbchk" / "lookpb" / "pbseat" は、案 C が使われなくなった後も残って現行機の当たりと読み違えられたので削除した。
+//   当たりの検査は case_v4.scad の chk_* / close_* / seat* / strap*（相手は pb_bat）が持つ。経緯は CASE-V4 §10。
 
 // ---- 自由な部品 その2: 電池（2026-08-25 ユーザー「立てて・背面・ケーブルは下から出る」）----
 //   長辺 50 を縦（ケーブル・タブ側が下＝床）・厚み 6 を X・幅 35 を背面沿い。
@@ -520,7 +512,6 @@ if (W == "strapchk") intersection() { straps_v4(); union() { core(); tgl_v4(); t
 if (W == "strappb")  intersection() { straps_v4(); union() { pb_bat(); ina_bat(); } }                              // 帯 ↔ 上に載る 2 枚（足の刺さり検出）
 if (W == "lookbox") { core(); color("#8899aa", 0.15) v3_ghost(); }
 // PB 込みの絵と検査（chk = 静止の当たり・seat = 線を挿した単位を上から降ろす軌跡）
-if (W == "lookpb") { core(); color("#f6ad55") pb_c(); color("#63b3ed", 0.85) hous_c(); }
 if (W == "lookbat") { core(); color("#f6ad55") bat_v4(); }
 // 電池スタック（電池＋PB＋INA226）の当たり検査
 if (W == "batchk")  intersection() { union() { bat_v4(); pb_bat(); ina_bat(); } core(); }   // スタック ↔ 芯
@@ -552,8 +543,6 @@ if (W == "deskseat") intersection() { union() for (t = [0 : STEP : 30]) translat
 if (W == "topseat")  intersection() { union() for (t = [0 : STEP : 25]) translate([0, 0, t]) top_group();
                                       union() { lower_group(); brg_v4(); straps_v4(); bat_v4(); pb_bat(); ina_bat(); tgl_v4(); } }
 if (W == "brgchk")  intersection() { brg_v4(); union() { core(); pb_bat(); ina_bat(); tgl_v4(); tcb_v4(); } }   // 橋 ↔ 全部（電池は上に載るだけ）
-if (W == "pbchk")  intersection() { pb_unit(); core(); }
-if (W == "pbseat") intersection() { union() for (t = [0 : STEP : 25]) translate([0, 0, t]) pb_unit(); core(); }
 echo(v3_inner = [IN_X, IN_Y, IN_Z], v3_outer = [IN_X + 2 * WALL, IN_Y + HATCH_T, IN_Z + TOP_T + FLOOR_T]);
 echo(hub_dx = HUB_DX, hub_x = [HUB_X + HUB_DX, HUB_X + HUB_L + HUB_DX], rsp_edge = RSP_X + respeaker_L(), xiao_face = XIAO_FACE_X);
 if (W == "seatchk")  intersection() { straps_v4(); union() { ina_bat(); pb_bat(); bat_v4(); core(); brg_v4(); tgl_v4(); tcb_v4(); wires_pwr(); wires_sig(); } }   // 座＋ネジ穴を入れた帯 ↔ 全部（0 が正）
