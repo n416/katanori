@@ -16,18 +16,20 @@ W = "none";      // _v4_core の内部スイッチ（芯だけの検査 deskseat
 // ---- part の一覧（v3 と同じ流儀・2026-08-25 ユーザー「V3 と同じ part を」で V/P4 を廃止）----
 //   絵     : look（組んだ全体）/ inside（OPEN の板を外して中身）/ explode（分解・組む向き）
 //   板     : p_floor p_lwall p_rwall p_top p_front p_hatch p_shutter p_lock p_tail（印刷部品・角丸込み）
+//            bridge（ブリッジ＋電池・電流計・PowerBoost・左右の壁・結束バンド。🔒 単体では見えないのでこの一式で出す）
 //   刷る向き: print_floor 〜 print_hatch print_shutter print_lock print_tail（外面を下に・底 Z0）
 //   静止   : chk_floor chk_lwall chk_rwall chk_top chk_front chk_hatch（板 ↔ 中身＋他の板）/ chk_all（皮全部 ↔ 中身）
+//            chk_top_spk（天板 ↔ SPK_LIFT で持ち上げたスピーカー。枠ごと板に入るので専用に見張る）
 //            —— **全部 0 が正**（押し代は除外済み）。chk_press だけは **≈6mm3 が正**（ReSpeaker の押さえが板に届いている証拠）
 //   動き   : close_lwall close_rwall（壁を上から降ろす）/ close_top（天面一式を降ろす）/ close_front（前から差す）/
 //            close_hatch（蓋・トグルごと閉じる）/ close_desk（ブリッジを降ろす＝core の deskseat）
 //   線     : chk_wire（WP で 1 束に絞れる・束 ↔ 部品と皮）/ chk_wire_w（束 ↔ 他の束＋電源系）/ chk_wire_pwr（電源系 7 本）
 //   電池   : chk_shut_slide（蓋を下へずらす）/ chk_shut_out（蓋を抜く）/ chk_swap（電池を後ろへ抜く・v3 と同名）
-part = "inside";
+part = "look";
 WP = "";         // chk_wire 系で束を 1 つに: xiao / oled / as5600 / btn2 / phin / phout / ina / tgl / reed / chg（"" で全部）
 
 // ---- v4 の配置（芯と同じ式。数字を増やさない） ----
-KNOB4 = [KNOB_AT[0] + 1.5, KNOB_AT[1] + 5, KNOB_AT[2]];            // 🔒 つまみ +1.5 右・+5 後ろ（2026-08-25「少しだけ内側へ」で +3 → +1.5・⚠ 量は仮）
+KNOB4 = [KNOB_AT[0] + 1.5, KNOB_AT[1] + 7, KNOB_AT[2]];   // 🔒 2026-08-25 ユーザー「つまみも 2mm 移動」で +5 → +7            // 🔒 つまみ +1.5 右・+5 後ろ（2026-08-25「少しだけ内側へ」で +3 → +1.5・⚠ 量は仮）
 BTN4  = [22, 22.3 - 0.5 - spk_w() / 2];                            // 会話ボタン（core と同じ式・[22, 14.3]）
 SPK4  = [KNOB_AT[0] + 1.5, 22.3 - 0.5 - spk_w() / 2];              // スピーカーの中心（core と同じ式）
 SPK4_X = SPK4[0] - SPK_L / 2; SPK4_Y = SPK4[1] - SPK_W / 2;
@@ -53,7 +55,7 @@ module bottom_boss_bl() difference() {
     translate([4.4, 69.5, BOSS_B_H - NUT_T]) rotate([0, 0, 30]) hex_pocket(NUT_T + 1);
     translate([4.4, 69.5, -1]) cylinder(d = SCR_D, h = BOSS_B_H + 2, $fn = 24);
 }
-V4_FLOOR_SCREWS = [[0.7 + BOSS / 2, BOSS_B_DY_F / 2], [78.3 + BOSS / 2, BOSS_B_DY_F / 2], [82.0, 69.5]];   // 床の裏からのビス 3 本（前 2＋復活した後ろ右。後ろ左は ⬜ 保留）
+V4_FLOOR_SCREWS = [[0.7 + BOSS / 2, 2 + BOSS_B_DY_F / 2], [78.3 + BOSS / 2, 2 + BOSS_B_DY_F / 2], [82.0, 69.5]];   // 前 2 本は +2（柱と一緒に）   // 床の裏からのビス 3 本（前 2＋復活した後ろ右。後ろ左は ⬜ 保留）   // 床の裏からのビス 3 本（前 2＋復活した後ろ右。後ろ左は ⬜ 保留）
 
 // ---- 床 ----
 //   v3 の床（まな板）と同じ形。違いは ① ハブのビス穴と柱が +4（HUB_DY）② ブリッジの前の脚の受け溝 ③ 後ろ右の床ビスの位置
@@ -61,7 +63,7 @@ LEG4_W = lipo_size()[1] - 2 * (LEG_X0 - BAT_X0);   // 脚の幅 23（_v4_core �
 module floor_v4() {
     difference() {
         union() {
-            color("#9aa5b1") translate([LW_X - WALL, 0, -FLOOR_T]) cube([IN_X + 2 * WALL - LW_X, IN_Y, FLOOR_T]);
+            color("#9aa5b1") translate([LW_X - WALL, FY_IN, -FLOOR_T]) cube([IN_X + 2 * WALL - LW_X, IN_Y - FY_IN, FLOOR_T]);   // 前端はフロント板の内面まで（板を後ろへ寄せた分だけ詰める）
             color("#9aa5b1") for (h = HUB_HOLES4) translate([h[0], h[1], 0]) cylinder(d = HUB_POST_D, h = BOARD_Z, $fn = 32);
             // ReSpeaker の溝（v3 と同じ）
             color("#9aa5b1") translate([RSP_RIB_X0, RSP_SLOT_Y0, 0]) cube([RSP_RIB_X1 - RSP_RIB_X0, RSP_SLOT_Y1 - RSP_SLOT_Y0, RSP_Z]);
@@ -139,10 +141,10 @@ module lwall_port_cut4() {
 module lwall_v4() {
     difference() {
         union() {
-            color("#b6c0cc") translate([LW_X - WALL, 0, 0]) cube([WALL, IN_Y, IN_Z]);
+            color("#b6c0cc") translate([LW_X - WALL, FY_IN, 0]) cube([WALL, IN_Y - FY_IN, IN_Z]);
             for (b = BOSSES) if (b[0] < IN_X / 2) top_boss(b, BOSS_H);
             ear_col(EAR_X[0][0], EAR_X[0][1]);
-            color("#b6c0cc") bottom_boss([0.7, 0]);   // 🔴 [LW_X] 起点だと OLED の左端（8.002）に届く → 右端を 7.7（OLED − 0.3）に
+            color("#b6c0cc") bottom_boss([0.7, 2]);   // 🔒 前の床ビスを +2（ハッチ方向）   // 🔴 [LW_X] 起点だと OLED の左端（8.002）に届く → 右端を 7.7（OLED − 0.3）に
             // bottom_boss_bl();   // ⬜ 後ろ左は保留: 立てるには充電基板を帯の上（口 Z≈33.5）へ上げる必要がある（帯は切らない 🔒）。判断待ち
         }
         lwall_port_cut4();
@@ -174,10 +176,15 @@ module rwall_port_cut4() {
 module rwall_v4() {
     difference() {
         union() {
-            color("#b6c0cc") translate([IN_X, 0, 0]) cube([WALL, IN_Y, IN_Z]);
+            color("#b6c0cc") translate([IN_X, FY_IN, 0]) cube([WALL, IN_Y - FY_IN, IN_Z]);
             for (b = BOSSES) if (b[0] > IN_X / 2) top_boss(b, BOSS_H);
             ear_col(EAR_X[1][0], EAR_X[1][1]);
-            color("#b6c0cc") bottom_boss([78.3, 0]);   // 🔴 壁 84.354 で [IN_X-BOSS] だと OLED の右端（78.002）に 0.65 入る → 0.3 逃げ。壁側へ 0.95 めり込む分は自分の壁と一体
+            color("#b6c0cc") difference() {
+                bottom_boss([78.3, 2]);   // 🔒 前の床ビスを +2（ハッチ方向）
+                // 🔴 +2 で ReSpeaker の右端の部品（X 78.30〜82.79・Y 5.60〜・Z 6.61〜9.81）に届く → その帯だけ欠く（±0.3）。
+                //    ナットの座（Z 10.2〜12）とビス（中心 Y 4.75）には掛からない
+                translate([78.0, 5.3, 6.31]) cube([5.09, 7.5 - 5.3 + 1, 3.8]);
+            }   // 🔴 壁 84.354 で [IN_X-BOSS] だと OLED の右端（78.002）に 0.65 入る → 0.3 逃げ。壁側へ 0.95 めり込む分は自分の壁と一体
             bottom_boss_br();                          // 後ろ右（復活・L 形）
         }
         rwall_port_cut4();
@@ -191,7 +198,7 @@ module top_v4() {
     intersection() { seam_top_half();
     difference() {
         union() {
-            color("#c9d0d8") translate([LW_X - WALL, -BEZ_T, IN_Z]) cube([IN_X + 2 * WALL - LW_X, IN_Y + BEZ_T + HATCH_T, TOP_T]);
+            color("#c9d0d8") translate([LW_X - WALL, FY_OUT, IN_Z]) cube([IN_X + 2 * WALL - LW_X, IN_Y - FY_OUT + HATCH_T, TOP_T]);
             knob_station_add4();                                                        // つまみの座（+3, +5・v4 の欠き入り）
             color("#c9d0d8") translate([BTN4[0], BTN4[1], 0]) rotate([0, 0, 180]) btn_socket();   // 会話ボタンの受け（タクトと同じ 180°）
             color("#c9d0d8") translate([SPK4_X - SPK_RIM_M, SPK4_Y - SPK_RIM_M, IN_Z - SPK_RIM]) difference() {   // スピーカーの位置出しの縁
@@ -209,6 +216,9 @@ module top_v4() {
         translate([BTN4[0], BTN4[1], Z_BTN_PAD - 1]) cylinder(d = BTN_HOLE_D, h = BTN_PAD_T + 2, $fn = 32);
         // スピーカー: 振動板の逃げ・天面のへこみ・音の穴（v3 と同じ形を SPK4 に）
         translate([SPK4_X + (SPK_L - SPK_DIA[0]) / 2 - 0.5, SPK4_Y + (SPK_W - SPK_DIA[1]) / 2 - 0.5, IN_Z - 0.01]) spk_obround(SPK_DIA[0] + 1, SPK_DIA[1] + 1, SPK_REL + 0.01);
+        // 🔒 SPK_LIFT で持ち上げた分、**枠ごと**天板に入るのでその座（逃げは振動板 15×9 の分しか無く、枠 23×15 が 0.4 食い込んでいた）。
+        //    深さは SPK_LIFT ちょうど＝頭の上の隙間は持ち上げ前と同じ 0.2。横は片側 0.3（位置出しの縁 SPK_RIM と二段で効く）
+        translate([SPK4_X - 0.3, SPK4_Y - 0.3, IN_Z - 0.01]) spk_obround(SPK_L + 0.6, SPK_W + 0.6, SPK_LIFT + 0.01);
         translate([SPK4[0], SPK4[1], 0]) hull() {
             translate([0, 0, Z_TOP - EMB_H]) linear_extrude(0.01) offset(r = 2) square([SPK_DIA[0] + EMB_M * 2 - 4, SPK_DIA[1] + EMB_M * 2 - 4], center = true);
             translate([0, 0, Z_TOP + 1]) linear_extrude(0.01) offset(r = 2) square([SPK_DIA[0] + EMB_M * 2 - 4 + (EMB_H + 1) * 2, SPK_DIA[1] + EMB_M * 2 - 4 + (EMB_H + 1) * 2], center = true);
@@ -244,11 +254,11 @@ module knob_station_add4() difference() {
     color("#c9d0d8") translate(KNOB4) knob_station_add();
     translate([KNOB4[0] - 30, KNOB4[1] - 30, 40]) cube([60, 22.3 - (KNOB4[1] - 30), 8.5]);
     translate([82.1, KNOB4[1] - 30, 30]) cube([10, 60, 18.454]);
-    translate([57.38, 32.37, 32.55]) cube([77.02 - 57.38, 34.60 - 32.37, 3.1]);   // （島 −1.5 に追従）
+    translate([57.38, 34.37, 32.55]) cube([77.02 - 57.38, 36.60 - 34.37, 3.1]);   // （島 −1.5 に追従。🔒 つまみ +2 で 32.37〜34.60 → 34.37〜36.60）
     // ④ トグルの線（立ち上がり X 55.2 → Y 64.8〜55.4 の前送り → Z 46.8 の車線）が座の板の左端（X 52.7〜）の
     //    後角を通る → ノッチ（皿の縁の外・板の後端 58.3 を抜けるまで・±0.3）。
     //    🔴 横穴だと天面を降ろす軌跡でノッチの底の肉が線を通過する（topseat 12mm³）→ 下まで抜いて縦の通り道にする
-    translate([50.9, 54.35, 41.9]) cube([56.25 - 50.9, 58.7 - 54.35, 48.0 - 41.9]);   // （島 −1.5: 座の板の左端 51.2 の 0.3 外から）
+    translate([50.9, 54.35, 41.9]) cube([56.25 - 50.9, 60.7 - 54.35, 48.0 - 41.9]);   // 🔒 つまみ +2 で板の後端 58.3 → 60.3。ノッチも後端を抜けるまで延長（58.7 → 60.7）   // （島 −1.5: 座の板の左端 51.2 の 0.3 外から）
 }
 
 // ---- フロント ----（OLED・ReSpeaker が 🔒 固定なので v3 と同一。窓・ベベル・ヒゲ・耳）
@@ -302,12 +312,14 @@ module door4(open = 0, fast = false) {
 module rounded4() { color("#c9d0d8") intersection() { children(); union() { outer_envelope(); translate([SPK4_X - 6, SPK4_Y - 6, Z_TOP - 1]) cube([SPK_L + 12, SPK_W + 12, EMB_H + 1]); } } }
 
 // ---- 表示と検査（part で選ぶ。一覧は冒頭）----
+// フロント板（v4）。床の前 2 本の柱が +2 で Y 2〜7.5 になり、板の裏（Y 1.0）とは当たらなくなったので逃げは持たない
+module front_v4() front_plate_raw();
 module skin1(k) {
     if (k == "floor") floor_v4();
     if (k == "lwall") lwall_v4();
     if (k == "rwall") rwall_v4();
     if (k == "top")   top_v4();
-    if (k == "front") front_plate_raw();
+    if (k == "front") front_v4();
     if (k == "hatch") hatch_v4();
 }
 SKINS = ["floor", "lwall", "rwall", "top", "front", "hatch"];
@@ -329,6 +341,13 @@ module p_one(k) {
 }
 P_NAMES = ["floor", "lwall", "rwall", "top", "front", "hatch", "shutter", "lock", "tail"];
 for (k = P_NAMES) if (part == str("p_", k)) p_one(k);
+// 🔒 v3 と同じ名前（2026-08-25 ユーザー）。芯の _v4_core にある板なので p_ は付けない・角丸も無し・刷る向きは ⬜ 未決（CASE-V4 §10）
+// 🔒 2026-08-25 ユーザー「バッテリー、電流計、PowerBoost、左右の壁、結束バンドは必要です」: ブリッジは単体では判断できないので一緒に出す
+if (part == "bridge") {
+    brg_v4(); straps_v4();
+    color("#f6ad55") bat_v4(); ina_bat(); pb_bat();
+    rounded4() { skin1("lwall"); skin1("rwall"); }
+}
 if (part == "print_floor")   translate([0, 0, FLOOR_T]) p_one("floor");
 if (part == "print_lwall")   translate([0, 0, WALL]) rotate([0, -90, 0]) p_one("lwall");
 if (part == "print_rwall")   translate([0, 0, IN_X + WALL]) rotate([0, 90, 0]) p_one("rwall");
@@ -359,11 +378,11 @@ if (part == "close_rwall") intersection() { union() for (t = [0 : STEP : 30]) tr
 module stage_top() { lower_group(); brg_v4(); bat_v4(); pb_bat(); ina_bat(); straps_v4(); pbl_hous(); pbu_hous();
                      wires_pwr(); wires_sig(); floor_v4(); lwall_v4(); rwall_v4(); }
 if (part == "close_top") difference() { intersection() { union() for (t = [0 : STEP : 25]) translate([0, 0, t]) { top_v4(); top_group(); }
-                                          stage_top(); } rsp_press_zone(); }   // 押し代は除外（0 が正）
-if (part == "close_front") intersection() { union() for (t = [0 : STEP : 20]) translate([0, -t, 0]) front_plate_raw();
+                                          stage_top(); } rsp_press_zone(); }   // 押し代は除外。🔒 つまみ +2 後の 2mm³ は「AS5600 の線の逃げ予約（3.6 角）↔ PHIN」。実体同士は Z で 2.15 離れて非接触（2026-08-25 ユーザー確認・PHIN の曲がりは 1.5 に修正済み）。これだけが正
+if (part == "close_front") intersection() { union() for (t = [0 : STEP : 20]) translate([0, -t, 0]) front_v4();
                                             union() { stage_noskin(); lwall_v4(); rwall_v4(); top_v4(); } }
 if (part == "close_hatch") intersection() { union() for (t = [0 : STEP : 20]) translate([0, t, 0]) { hatch_v4(); tgl_v4(); door4(); }
-                                            union() { core(); bat_v4(); pb_bat(); pbl_hous(); pbu_hous(); ina_bat(); tcb_v4(); brg_v4(); straps_v4(); wires_pwr(); wires_sig(); floor_v4(); lwall_v4(); rwall_v4(); top_v4(); front_plate_raw(); } }
+                                            union() { core(); bat_v4(); pb_bat(); pbl_hous(); pbu_hous(); ina_bat(); tcb_v4(); brg_v4(); straps_v4(); wires_pwr(); wires_sig(); floor_v4(); lwall_v4(); rwall_v4(); top_v4(); front_v4(); } }
 if (part == "close_desk") intersection() { union() for (t = [0 : STEP : 30]) translate([0, 0, t]) brg_v4(); lower_group(); }   // core の deskseat と同じ（🔴 ブリッジは OLED を立てる前に降ろす順が前提・CASE-V4 §10）
 
 // 線の検査（core の wchk/wwchk と同じ中身。WP で 1 束に絞る）
@@ -390,7 +409,7 @@ if (part == "explode") {
     translate([0, 0, 0.6 * E + 2.5 * S]) { pb_bat(); ina_bat(); pbl_hous(); pbu_hous(); } // 帯の天面に載る 2 枚＋挿す線
     translate([0, 0, 0.6 * E + 3.5 * S]) straps_v4();                                     // 留め帯 3 本（上から抱く）
     translate([0, 0, 2 * E]) { rounded4() top_v4(); top_group(); }                        // 天面一式（島・スピーカー・傘ごと）
-    translate([0, -E, 2 * E]) rounded4() front_plate_raw();                               // フロント（前から差す）
+    translate([0, -E, 2 * E]) rounded4() front_v4();                               // フロント（前から差す）
     translate([0, E, 2 * E]) { rounded4() hatch_v4(); tgl_v4(TAIL_ANG); translate([0, E / 2, 0]) tail_at();
                                translate([0, E / 2, 0]) { color("#c8ced6") battery_shutter4(0); sw4_magnets_shutter(); }
                                translate([0, E * 0.75, 0]) { color("#8892a0") battery_lock4(); sw4_lock_screw(); }
@@ -399,3 +418,7 @@ if (part == "explode") {
 
 echo(v4_skin = "床/左壁/右壁/天面/フロント/ハッチ", knob4 = KNOB4, btn4 = BTN4, spk4 = SPK4);
 echo(hub_holes4 = HUB_HOLES4, floor_screws = V4_FLOOR_SCREWS, chg4 = CHG4_C, in_x = IN_X);
+if (part == "chk_top_spk")  intersection() { top_v4(); translate([SPK4_X, SPK4_Y, IN_Z - spk_th() - 0.2 + SPK_LIFT]) speaker_112495(); }   // 天板 ↔ 持ち上げたスピーカー（枠ごと入るので専用に見張る・0 が正）
+
+
+

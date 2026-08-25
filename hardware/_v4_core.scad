@@ -11,6 +11,24 @@ include <case_base.scad>
 //        絵は -o x.png -D "W=\"look\""（部品のみ）/ "lookbox"（v3 の外皮を薄く重ねる）
 // ============================================================
 // 2026-08-25 include を case_v3.scad → case_base.scad（共通の土台だけの写し）へ。part= の細工は不要になった
+// ---- 🔒 2026-08-25 ユーザー「フロントパネルとスピーカーのベベルが大味。すこし掘りをゆるめて」----
+//   ① フロントは **OLED の窓だけ** 掘りを浅く: WIN_CH 1.2 → 0.6（板厚 2.0 の 6 割 → 3 割）。
+//      マイクのヒゲ（WSK_CH 0.5）と口のベベル（PORT_BEV 1.0）は触らない。
+//   ② 天面は「ベベルを浅くした分スピーカーが上に上がる」（ユーザー・天面は他パーツの兼ね合いが大きいので板は動かさない）:
+//      EMB_H 1.2 → 0.6 の 0.6 だけスピーカーを持ち上げ（SPK_LIFT）、振動板の逃げも同じ 0.6 だけ深く（SPK_REL 0.4 → 1.0）。
+//      これで「振動板 → 外面」の距離もグリルの長さ 0.9 も**前と同じ**まま、外から見える彫りだけが浅くなる。
+WIN_CH   = 0.6;   // OLED の窓のベベル（case_base の 1.2 を v4 で上書き）。彫り込みの底の面から掘る
+// 🔒 2026-08-25 ユーザー「壁側を 1mm 寄せる」「OLED の所だけ壁の厚みが 1mm になるわけです」「裏を 1mm だよ」:
+//   彫るのは**裏（内面）**。外面は平らのまま＝外から見た顔は変えない。
+//   🔴 一度これを外面に彫って外から見える額縁を作ってしまった（ユーザー「なんで表を 1mm えぐってるんだ」）。表ではない。
+WIN_SUNK = 1.0;   // 裏の彫り込みの深さ（窓まわりの壁 2.0 → 1.0）
+FRONT_DY = 1.0;   // 🔒 ユーザー「板の位置を y−1」: フロント板を 1.0 だけ後ろ（ハッチ側）へ寄せる。
+                  //   これで裏の彫り込みの底が OLED のガラスの面（Y=0）に当たり、外面 → ガラスが 2.0 → 1.0 になる。
+                  //   床・左右の壁・天面の前端は板の内面までに詰まる（板が 1.0 内側へ入るぶん）
+EMB_H    = 0.6;   // 天面のスピーカーのへこみ（同 1.2）
+SPK_REL  = 1.0;   // 振動板の逃げ（同 0.4）。持ち上げた分だけ深くする
+SPK_LIFT = 0.6;   // スピーカーを持ち上げる量（= 元の EMB_H − 新しい EMB_H）
+
 W = "look";
 R  = 0;          // AS5600 コネクタの取付回転（⚠ 仮 R0。筋は直立て × R0/R180・CASE-V4.md §4）
 RA = false;      // 直立て（はんだ済みの個体の姿）
@@ -39,13 +57,13 @@ module core() {
     // 🔒 2026-08-25 ユーザー「つまみを後ろに 5」（+Y。島・柱・AS5600・コネクタごと一体で動かす）
     // 🔒 2026-08-25 ユーザー「スピーカーとつまみをすこしだけ右壁に寄せて良い」→ +3（スピーカーも下で +3・直線のまま）
     // 🔒 2026-08-25 同日「スピーカーとつまみを少しだけ内側へ。当たりは出るかもしれないが解決するしかない」→ +3 を +1.5 に（⚠ 量は仮）
-    translate([1.5, 5, 0]) { knob_at_v4(); as_conn(); }                      // つまみ一式（天面から下りる島・柱込み）
+    translate([1.5, 7, 0]) { knob_at_v4(); as_conn(); }                      // つまみ一式（天面から下りる島・柱込み）
     // 🔒 2026-08-25 ユーザー「スピーカーと会話ボタンを平置きのまま Z 軸で 90 度」（どちらも自分の中心で回す）
     // 🔒 2026-08-25 ユーザー「OLED から見ると直線上にスピーカー、その後ろにつまみ」:
     //    X の中心をつまみに揃え、Y はつまみの島の前縁（22.3）の手前 0.5 に後端を付けた（⚠ 前後の隙間は仮）
     SPK_CY = 22.3 - 0.5 - spk_w() / 2;   // スピーカーの中心 Y（14.3）
     // 2026-08-25 ユーザー「スピーカーを Z 軸 180 度」→ 計 360＝素の向きへ（場所は同じ・リード線の切り株が反対側に来る）
-    translate([KNOB_AT[0] + 1.5, SPK_CY, IN_Z - spk_th() - 0.2])
+    translate([KNOB_AT[0] + 1.5, SPK_CY, IN_Z - spk_th() - 0.2 + SPK_LIFT])
         rotate([0, 0, 0]) translate([-SPK_L / 2, -SPK_W / 2, 0]) speaker_112495();   // スピーカー（天面）
     // 🔒 2026-08-25 ユーザー「会話ボタンを X でもっと中央に」: 中央（43）までは OLED の線の帯
     //    （X 37.9〜48.1・Z 45〜48・Y が重なる）に当たるので、帯の手前 0.5 に傘の右端を付けた＝中心 X 28.4
@@ -107,10 +125,13 @@ INA_DX = -4.7; THETA = 10;   // 2026-08-25 島 −1.5 に追従してさらに �
 //   端子・ヘッダの向きは ⚠ 仮のまま（着荷で照合）。左側の余裕: INPUT/OUT の口の後端 8.5 → 6.8（電池線 X≤4.25 まで 1.6）
 // I2C ヘッダは直立て（ra=false）: L 字横出しだと PB の JST プラグ（X 36.4〜44.3・Z 33〜38.2）に入るため。
 //   直立ての頭 X 34.2 は、ボタンの傘（〜31）と OLED の線の帯（37.9〜）の隙間
-module ina_bat() translate([INA_DX + BAT_X0 + (lipo_size()[1] - ina_size()[0]) / 2 + ina_size()[0], PAIR_Y0 + ina_size()[1], BAT_TOP + STRAP_T]) rotate([-THETA, 0, 0]) rotate([0, 0, 180]) ina226_module(ra = true);   // 🔒 2026-08-25 ユーザー「天面にぶつかるので L 字必須」
+// 板の座標系（原点 = 後縁の蝶番・z=0 が板の裏の面・+y が板に沿って前へ）。板・座・ネジは全部これを通すので THETA を動かせば全部追従する
+module ina_frame() translate([INA_DX + BAT_X0 + (lipo_size()[1] - ina_size()[0]) / 2 + ina_size()[0], PAIR_Y0 + ina_size()[1], BAT_TOP + STRAP_T]) rotate([-THETA, 0, 0]) rotate([0, 0, 180]) children();
+module ina_bat() ina_frame() ina226_module(ra = true);   // 🔒 2026-08-25 ユーザー「天面にぶつかるので L 字必須」
 // 2026-08-25 ユーザー「PowerBoost を Z 軸まわりに 180 度」（占有する場所は同じ・向きだけ反転）
 // 🔒 2026-08-25 ユーザー「L 字のピンヘッダを外側へ向けて」: ra_dir=-1 ＝ 板の縁の外（世界の +Y・後ろの縦穴側）へ
-module pb_bat()  translate([BAT_X0 + (lipo_size()[1] - PB_L) / 2 + PB_L, PAIR_Y0 + ina_size()[1] + 0.5 + PB_W, BAT_TOP + STRAP_T]) rotate([-THETA, 0, 0]) rotate([0, 0, 180]) { powerboost_1000c(ra_dir = -1); pb_jst_plug(); }
+module pb_frame()  translate([BAT_X0 + (lipo_size()[1] - PB_L) / 2 + PB_L, PAIR_Y0 + ina_size()[1] + 0.5 + PB_W, BAT_TOP + STRAP_T]) rotate([-THETA, 0, 0]) rotate([0, 0, 180]) children();
+module pb_bat()  pb_frame() { powerboost_1000c(ra_dir = -1); pb_jst_plug(); }
 // PB の L ピン 3 本に挿さる DuPont（ピンは世界 Y 59.7〜65.7・軸 Z 35.8。ハウジング 10 は後端 69.7＝ハッチまで 2.3）
 module pbl_hous() color("#4a5568", 0.85) for (x = [32.2, 24.58, 22.04])
     translate([x - 1.27, 59.7, 35.8 - 1.27]) cube([2.54, 10, 2.54]);
@@ -131,6 +152,31 @@ module tcb_v4() translate([-64.47 + LW_X, IN_Y - 0.50, 0]) rotate([0, 0, -90]) {
 //   v3 のまま: 軸 X 40・Z 43.5・ハッチ内面（IN_Y）から外向き・外ナット留め
 module tgl_v4(a = 0) translate([TGL_AT[0], IN_Y, TGL_AT[1]]) rotate([-90, 0, 0]) mts102(a);   // a: レバーの角度（絵では尻尾と同じ TAIL_ANG）
 
+// ---- 面取りとフィレットの道具（🔒 2026-08-25 ユーザー「ブリッジと結束バンドの面をとりたい。90 度カーブの所には R を」）----
+//   稜を一本ずつ削るのではなく、**断面（2D）を先に丸めてから押し出す**。
+//     ・出隅の R（角丸）  = 開き（縮めてから膨らます）
+//     ・入隅の R（フィレット）= 閉じ（膨らませてから縮める）
+//   押し出しの両端の稜は ext_ch が 45° に落とす（＝面取り）。
+//   板どうしが合わさる所は、相手の断面に「相手へ食い込む帯」を持たせて union で埋める。
+//   これをしないと、面がそのまま続いている所（脚の前面と皿の前面など）を面取りの溝が横切ってしまう。
+//   斜面は「c だけ痩せた断面 ⊕ 錐」（ミンコフスキ和）で出す真の 45°。
+//   🔴 2026-08-25 ここを薄いスライスの階段で近似してガタガタになった。roof() は実験機能なので使えない
+FN2 = 32;
+module sm_fil(f) { if (f > 0) offset(r = -f, $fn = FN2) offset(r = f, $fn = FN2) children(); else children(); }
+module smooth2d(f, o) {   // f = 入隅の R（フィレット）／ o = 出隅の R（角丸）。0 なら何もしない
+    if (o > 0) offset(r = o, $fn = FN2) offset(r = -o, $fn = FN2) sm_fil(f) children();
+    else sm_fil(f) children();
+}
+module ch_cone(c) { cylinder(r1 = c, r2 = 0, h = c, $fn = 24); mirror([0, 0, 1]) cylinder(r1 = c, r2 = 0, h = c, $fn = 24); }
+module ext_ch(h, c) translate([0, 0, c]) minkowski() {   // 2D 断面を h だけ押し出し、両端の稜を c だけ 45° に落とす
+    linear_extrude(h - 2 * c) offset(delta = -c) children();
+    ch_cone(c);   // 上下に尖った錐との和で、真っ平らな 45° の斜面が出る（階段にならない）
+}
+// 断面 (u, v) を各軸へ押し出す。両端は c 面取り
+module prism_x(x0, len, c) translate([x0, 0, 0]) rotate([90, 0, 90]) ext_ch(len, c) children();        // u→Y  v→Z
+module prism_y(y0, len, c) translate([0, y0 + len, 0]) rotate([90, 0, 0]) ext_ch(len, c) children();   // u→X  v→Z
+module prism_z(z0, len, c) translate([0, 0, z0]) ext_ch(len, c) children();                            // u→X  v→Y
+
 // ---- ブリッジ（🔒 2026-08-25 ユーザー・スクショ 2 枚「こう通して。波板がいいが高さがないので平板でも良い」）----
 //   左右の壁の間を渡す平板。天面＝電池の底（23.4）・厚み 2.0（落下前提の板厚）・X は壁の内面 0〜86。
 //   ⚠ Y の帯は「この階の住人（XIAO の線・つまみのコネクタ・J2 の確保空間）を全幅で避けられる場所」を検査で出した仮値
@@ -140,24 +186,49 @@ BRG_T = 2.0; BRG_Y0 = 50.5; BRG_Y1 = 62.9;
 // 🔒 2026-08-25 ユーザー「（脚は）お任せ。太さも。いっそ 1 枚板でも良い」→ 前縁から床まで 1 枚板（厚み 2.0）。
 //   X は J2 の確保空間（〜12.1）を 0.5 逃げた 12.6 から、皿の右端 44.5 まで。ハブの前縁 15.9 へは 1.0 逃げ
 LEG_X0 = BAT_X0 + 6;   // 意匠の引っ込み 6 を維持（右壁寄せ後は 21.5。J2 ソケット X 〜15.0 も自然に逃げる）
+// ---- 角の丸め（🔒 2026-08-25 ユーザー「面をとりたい・90 度カーブの所には R を」）----
+BRG_CH  = 0.5;   // 面取り: 押し出しの両端の稜を 45° に落とす量
+BRG_RD  = 0.5;   // 出隅の角 R
+BRG_FL  = 1.0;   // 入隅の R（フィレット）。脚の付け根。1.0 なら真下のハブの前縁 Y 15.9 にちょうど届いて止まる
+BRG_FLB = 0.5;   // 電池に面する入隅の R。レールの内側は電池との隙間が 0.5 しか無いので、そこに収める
+BRG_FLG = 0;     // ⚠ ガードの付け根だけ R なし。電池は Y も Z も隙間 0 で当たっていて、R を入れると電池を押す
+LEG4W   = lipo_size()[1] - 2 * (LEG_X0 - BAT_X0);   // 脚とガードの X 幅（23）
+// 皿＋壁〜壁の帯: X-Y の 1 枚板を Z へ押し出す。帯と皿の段の入隅 2 か所に R が入る
+module brg_plate2d() {
+    translate([BAT_X0 - 2.5, BAT_Y0]) square([lipo_size()[1] + 5, lipo_size()[0]]);   // 電池の受け皿（X 13〜53）
+    translate([LW_X, BRG_Y0]) square([IN_X - LW_X, BRG_Y1 - BRG_Y0]);                 // 壁〜壁の帯
+}
+// レール: X-Z 断面を Y へ押し出す。皿へ食い込む帯（幅 6）を持たせて、皿の縁の面取りがレールの足元を横切らないようにする
+module brg_rail2d(right) {
+    x = right ? BAT_X0 + lipo_size()[1] + 0.5 : BAT_X0 - 2.5;
+    translate([x, BAT_Z]) square([STRAP_T, 4]);                                  // 土手（厚み 2・高さ 4）
+    translate([right ? x + STRAP_T - 6 : x, BAT_Z - BRG_T]) square([6, BRG_T]);  // 皿へ食い込む帯
+}
+// 脚: Y-Z 断面を X へ押し出す。付け根に R（下はハブの線の頭 Z 20.2 まで 1.2 空いている）
+module brg_leg2d() {
+    translate([BAT_Y0, 0]) square([BRG_T, BAT_Z - BRG_T]);      // 床までの 1 枚板
+    translate([BAT_Y0, BAT_Z - BRG_T]) square([8, BRG_T]);      // 皿へ食い込む帯
+}
+// 電池の前ガード: 同じく X へ押し出す。
+// 🔴 2026-08-25 元の形は皿と「線」でしか接していなかった（ガード Y 11.9〜12.9・Z 23.4〜 / 皿 Y 12.9〜・Z 〜23.4 で、
+//    共有するのは Y 12.9 ∩ Z 23.4 の一本の稜だけ）。皿を 1.0 だけ前（Y 11.9）へ出して面で受ける。
+//    前面の位置は変えないので ReSpeaker への隙間 0.18 はそのまま
+module brg_guard2d() {
+    translate([BAT_Y0 - 1.0, BAT_Z]) square([1.0, lipo_size()[2]]);              // 返し（厚み 1.0・高さ 6）
+    translate([BAT_Y0 - 1.0, BAT_Z - BRG_T]) square([8.0, BRG_T]);               // 皿へ食い込む帯（前へ 1.0 出る）
+}
 module brg_v4() color("#c9d0d8") {
-    translate([LW_X, BRG_Y0, BAT_Z - BRG_T]) cube([IN_X - LW_X, BRG_Y1 - BRG_Y0, BRG_T]);  // 壁〜壁の帯（🔴 2026-08-25 一度左端を欠いたがユーザー「ブリッジ切り抜いちゃだめ」で撤回）
-    // 削りは前左の角の一段だけ（X < 15.5 かつ Y < 25.5 を欠く）。理由はそこに ReSpeaker の
-    // J2 ソケットの胴（X 〜15.0）とスピーカー線のプラグ空間（Y 〜25.04）が居るため。他は全部四角のまま
-    // 2026-08-25 皿（左右へ 2.5 ずつ広い足場付き・X 13.0〜53.0）。右壁寄せ +6 でプラグ空間を X で抜けたため、前左の欠きは不要になった＝ただの四角
-    translate([BAT_X0 - 2.5, BAT_Y0, BAT_Z - BRG_T]) cube([lipo_size()[1] + 5, lipo_size()[0], BRG_T]);   // 電池の受け皿
-    // 🔒 2026-08-25 ユーザー「足の形状を左右対称に。そうすれば意匠に見える」: 皿の両端から同じ 6.0 ずつ引っ込める
-    translate([LEG_X0, BAT_Y0, 0]) cube([lipo_size()[1] - 2 * (LEG_X0 - BAT_X0), BRG_T, BAT_Z - BRG_T]);   // 前の 1 枚板の脚（床まで・左右対称）
-    // 🔒 2026-08-25 ユーザー「電池が ReSpeaker の基板を叩かないためのガードも」: 皿の前縁に返しを立てる。
-    //   脚と同じ X 幅（対称のまま）・高さは電池いっぱい（Z 23.4〜29.4）。⚠ 厚みは 1.0:
-    //   ReSpeaker の裏面の幅広部品（板面から 1.69・X 18.3〜38.5 帯）が Y 11.72 まで居て、残りが 1.18 しか無い。隙間 0.18（⚠ 0.3 未満）
-    translate([LEG_X0, BAT_Y0 - 1.0, BAT_Z]) cube([lipo_size()[1] - 2 * (LEG_X0 - BAT_X0), 1.0, lipo_size()[2]]);   // 電池の前ガード
+    prism_z(BAT_Z - BRG_T, BRG_T, BRG_CH) smooth2d(BRG_FL, BRG_RD) brg_plate2d();
     // 🔒 2026-08-25 ユーザー「A は作らない代わりに電池のレール」: 皿の縁に立つ土手（厚み2・高さ4・電池へ 0.5 逃げ）。
-    //   ⊓ の足が座る区間（Y 33.2〜42.2・52.6〜58.6）と、左の前（J2 空間・皿の欠き）だけ途切れる
+    //   ⊓ の足が座る区間（Y 15.45〜21.45・33.2〜42.2・52.6〜58.6）だけ途切れる
     for (s = [[21.45, 33.2], [42.2, 52.6], [58.6, BAT_Y0 + lipo_size()[0]]])
-        translate([BAT_X0 - 2.5, s[0], BAT_Z]) cube([STRAP_T, s[1] - s[0], 4]);                      // 左のレール（A の足の後ろから）
+        prism_y(s[0], s[1] - s[0], BRG_CH) smooth2d(BRG_FLB, BRG_RD) brg_rail2d(false);   // 左のレール（A の足の後ろから）
     for (s = [[BAT_Y0, 15.45], [21.45, 33.2], [42.2, 52.6], [58.6, BAT_Y0 + lipo_size()[0]]])
-        translate([BAT_X0 + lipo_size()[1] + 0.5, s[0], BAT_Z]) cube([STRAP_T, s[1] - s[0], 4]);     // 右のレール
+        prism_y(s[0], s[1] - s[0], BRG_CH) smooth2d(BRG_FLB, BRG_RD) brg_rail2d(true);    // 右のレール
+    // 🔒 2026-08-25 ユーザー「足の形状を左右対称に。そうすれば意匠に見える」: 皿の両端から同じ 6.0 ずつ引っ込める
+    prism_x(LEG_X0, LEG4W, BRG_CH) smooth2d(BRG_FL, BRG_RD) brg_leg2d();      // 前の 1 枚板の脚（床まで・左右対称）
+    // 🔒 2026-08-25 ユーザー「電池が ReSpeaker の基板を叩かないためのガードも」。厚み 1.0 なので面取りと角 R は小さく
+    prism_x(LEG_X0, LEG4W, 0.4) smooth2d(BRG_FLG, 0.4) brg_guard2d();         // 電池の前ガード
 }
 
 // ---- 留め帯 3 本（🔒 2026-08-25 ユーザー・写真＋断面図「結束バンドのように（v2 のトンネル役）。
@@ -175,18 +246,79 @@ module strap_loop(y0, w) difference() {   // ロの字: 皿（X 7〜47）ごと�
     translate([BAT_X0 - 5.0, y0, BAT_Z - BRG_T - 1.0]) cube([lipo_size()[1] + 10, w, 1.0 + BRG_T + lipo_size()[2] + STRAP_T]);
     translate([BAT_X0 - 3.0, y0 - 1, BAT_Z - BRG_T]) cube([lipo_size()[1] + 6, w + 2, BRG_T + lipo_size()[2]]);
 }
-module strap_u(y0, w) {   // ⊓: 足（厚み2）は皿の縁の上（Z 23.4〜）・天板は電池の上
-    for (x = [BAT_X0 - 2.5, BAT_X0 + lipo_size()[1] + 0.5])
-        translate([x, y0, BAT_Z]) cube([STRAP_T, w, lipo_size()[2] + STRAP_T]);
-    translate([BAT_X0 - 2.5, y0, BAT_Z + lipo_size()[2]]) cube([lipo_size()[1] + 5, w, STRAP_T]);
+STRAP_CH = 0.5; STRAP_RD = 0.5;   // 面取り・出隅の角 R
+STRAP_FL = 0.5;   // 入隅の R。⊓ の内側の 2 か所は電池との隙間が X で 0.5 なので、そこに収めれば電池に当たらない
+module strap2d() {   // ⊓ の断面（X-Z）
+    for (x = [BAT_X0 - 2.5, BAT_X0 + lipo_size()[1] + 0.5]) translate([x, BAT_Z]) square([STRAP_T, lipo_size()[2] + STRAP_T]);
+    translate([BAT_X0 - 2.5, BAT_Z + lipo_size()[2]]) square([lipo_size()[1] + 5, STRAP_T]);
 }
+module strap_u(y0, w) prism_y(y0, w, STRAP_CH) smooth2d(STRAP_FL, STRAP_RD) strap2d();   // ⊓: 足（厚み2）は皿の縁の上（Z 23.4〜）・天板は電池の上
 // 🔒 2026-08-25 ユーザー「B を C と同じ ⊓ に揃える」→ 右壁寄せ +6 で「A も作れる?」→ 作れたので A も ⊓ で復活
 //   A = Y 15.45〜21.45（電力計の前穴 18.5 が中心）・B = 33.2〜42.2・C = 52.6〜58.6
+STRAP_BANDS = [[15.45, 6], [33.2, 9], [52.6, 6]];   // A / B / C（幅は取付穴をまたぐ量）
+
+// ---- 傾斜の座とネジ（🔒 2026-08-25 ユーザー「固定具作って下さい」→「ネジにしないと逆さまにしたら落ちちゃう」）----
+//   🔴 THETA = 10° は板の座標を回しただけで、前縁の下は空だった（PowerBoost 3.97・電流計 3.49 浮き）。
+//   帯 A/B/C の天板の上に、板の裏の面と同じ 10° の面を持つ座を立てて**全面で受け**、取付穴 6 つを M2 で締める。
+//   ネジは板に直角（＝座の面に直角）。ナットは天板の**裏**＝電池を入れる前に落とし込む（樹脂にネジを切らず貫通＋ナット・CASE-V3 §4）。
+//   ⚠ 板の後ろ側の穴 2 つ（電流計 Y 34.05・PB Y 57.12）は蝶番のすぐ脇で座がほぼ 0。天板 2.0 とあわせて 2.4 しか無く、
+//     ナット 1.8 を掘ると残りは 0.6 台になる。上は板の面（Z 31.4）・下は電池の頭（Z 29.4）で、ここは作図ではなく現物の限界。
+SEAT_GAP = 0.3;   // 座の面を板の裏から下げる量。裏の足（電流計の L ヘッダ 1.2・PB の 8 ピン列 1.0）はこれで全部逃げる
+SEAT_PAD_D = 5.0;   // ビスの座（パッド）の径。ここだけ板の裏に届く
+//   穴は板そのものの座標（ina_holes / pb_mount）をそのまま使う。frame の中では板の原点＝後縁の蝶番で、
+//   local +y が板に沿って前（＝持ち上がる側）へ進む。板を動かせば穴も座もネジも一緒に動く。
+// 🔴 ネジは**鉛直**に立てる（板に直角ではない）。直角にするとナットが 10° 傾き、
+//   角が天板の裏（Z 29.4）から 0.35 はみ出して**電池の頭を突く**（seathw 6mm³ で出た）。
+//   鉛直ならナットは天板の裏に平らに座る。頭は 10° の板に片当たりになるが、M2 の頭 φ3.0 では実害が出ない。
+function seat_d(hy) = hy * sin(THETA) + STRAP_T;   // 板の裏から天板の裏までの**鉛直**距離
+module seat_vert() rotate([0, 0, 180]) rotate([THETA, 0, 0]) children();   // frame の回転を打ち消して世界の鉛直に戻す
+//   🔴 座は素の cube で作る。prism_y（ext_ch → roof）を通すと ① roof は実験機能で GUI 既定では無効
+//   ② プレビューの CSG 正規化が跳ね上がる。板の footprint で切るので X の端は天板の内側に収まり、面取りは見えない
+module seat_cols() for (s = STRAP_BANDS)
+    translate([BAT_X0 - 2.5, s[0], BAT_Z + lipo_size()[2] + STRAP_T - 1.0]) cube([lipo_size()[1] + 5, s[1], 11.0]);   // 天板へ 1.0 食い込ませて継ぎ目を埋める
+module board_under(h = 20) {   // 板の裏の面より下（板の footprint だけ）
+    ina_frame() translate([0, 0, -h]) cube([ina_size()[0], ina_size()[1], h]);
+    pb_frame()  translate([0, 0, -h]) cube([PB_L, PB_W, h]);
+}
+// 🔴 2026-08-25 板の裏の足を「板の CSG を 7 方向にずらして引く」で逃がしたら、プレビューの正規化が
+//   20 万要素を超えて**空の木**になった（ユーザーの画面が真っ白）。逃げ方を変える:
+//   座の面は板の裏から SEAT_GAP だけ下げ、板はビスの 6 か所のパッドだけで受ける。
+//   こうすると裏の足（電流計の L ヘッダ 1.2・PB の 8 ピン列 1.0）は掘らなくても全部逃げる。
+module seat_pads() intersection() {   // ビスの真下だけ板の裏まで立ち上がる座（パッド）
+    union() {
+        for (h = ina_holes()) ina_frame() translate([h[0], h[1], 0]) seat_vert() translate([0, 0, -20]) cylinder(d = SEAT_PAD_D, h = 20, $fn = 24);
+        for (h = pb_mount())  pb_frame()  translate([h[0], h[1], 0]) seat_vert() translate([0, 0, -20]) cylinder(d = SEAT_PAD_D, h = 20, $fn = 24);
+    }
+    board_under();
+}
+module seats_v4() intersection() {
+    union() { translate([0, 0, -SEAT_GAP]) board_under(); seat_pads(); }
+    seat_cols();
+}
+module seat_hole(hy) seat_vert() {   // 通し穴＋天板の裏のナット（どちらも鉛直）
+    translate([0, 0, -seat_d(hy) - 3]) cylinder(d = SCR_D, h = seat_d(hy) + 6, $fn = 24);
+    translate([0, 0, -seat_d(hy) - 3]) hex_pocket(NUT_T + 3);
+}
+module seat_screws() {
+    for (h = ina_holes()) ina_frame() translate([h[0], h[1], 0]) seat_hole(h[1]);
+    for (h = pb_mount())  pb_frame()  translate([h[0], h[1], 0]) seat_hole(h[1]);
+}
+module seat_bolt(hy, t) seat_vert() {
+    color("#8899aa") { translate([0, 0, t]) cylinder(d = 3.0, h = 1.3, $fn = 24);       // 頭 ✅ φ3.0 × 1.3
+                       translate([0, 0, -seat_d(hy)]) cylinder(d = 2.0, h = seat_d(hy) + t + 1.3, $fn = 16); }   // 軸 M2
+    color("#4a5568") translate([0, 0, -seat_d(hy)]) hex_pocket_af(4.0, NUT_T - 0.2);    // ナット（呼び 4.0 × 1.6）
+}
+module seat_hw() {   // ネジとナットの現物（検査と絵の用。straps_v4 には入れない）
+    for (h = ina_holes()) ina_frame() translate([h[0], h[1], 0]) seat_bolt(h[1], ina_size()[2]);
+    for (h = pb_mount())  pb_frame()  translate([h[0], h[1], 0]) seat_bolt(h[1], pb_pcb_t());
+}
+
 module straps_v4() color("#ed8936") difference() {
-    union() { strap_u(15.45, 6); strap_u(33.2, 9); strap_u(52.6, 6); }
+    union() { for (s = STRAP_BANDS) strap_u(s[0], s[1]); seats_v4(); }
     // 🔴 2026-08-25 皮の検査（strappb 2mm³）: PB の 8 ピン列の足（板の裏に 1.0）が C の天板に 1.02 刺さる
     //    → 足の列の逃げ溝（X 19.8〜38.8・Y 57.56〜・深さ 1.35・残り 0.65 ⚠）
     translate([19.8, 57.56, BAT_Z + lipo_size()[2] + STRAP_T - 1.35]) cube([19.0, 1.2, 1.4]);
+    seat_screws();
 }
 
 // ---- 配線（2026-08-25〜）: 電源系から。線は 1.5 角の箱の連結（直角のみ）。⚠ 経路は仮・見て判断する用 ----
@@ -282,8 +414,9 @@ module w_tgl() color("#2c3e50") {   // トグル 2 本: 口 → 縦穴を上が�
 module w_reed() color("#95a5a6") {   // リード 2 本: 🔒 直はんだ（2026-08-25 ユーザー）。座は knob_v5 デッキのポケット（REED_IN 14.5・接線向き・+Y 側）。
     //   足は縦の溝 x ±7.85 から下へ ＝ 世界 [60.85 / 76.55, 54.95]・パッドの裏 Z 41.95 より下ではんだ。
     //   デッキのパッド（Y ≤58.3・Z 41.95〜）は look に無いが実在するので、Y 58.3 より前は Z 41.0 で潜る
-    wire([[56.97, 64.76, 21.4], [59.35, 64.76, 21.4], [59.35, 64.76, 42.6], [59.35, 59.5, 42.6], [59.35, 59.5, 41.0], [59.35, 55.4, 41.0]]);   // デッキの足 −1.5 に追従
-    wire([[56.97, 64.76, 21.4], [56.97, 64.76, 44.6], [75.05, 64.76, 44.6], [75.05, 59.5, 44.6], [75.05, 59.5, 41.0], [75.05, 55.4, 41.0]]);
+    //   🔒 つまみ +2: デッキの足 54.95 → 56.95・パッドの後端 58.3 → 60.3。潜る点も +2（59.5 → 61.5・終点 55.4 → 57.4）
+    wire([[56.97, 64.76, 21.4], [59.35, 64.76, 21.4], [59.35, 64.76, 42.6], [59.35, 61.5, 42.6], [59.35, 61.5, 41.0], [59.35, 57.4, 41.0]]);   // デッキの足 −1.5 に追従
+    wire([[56.97, 64.76, 21.4], [56.97, 64.76, 44.6], [75.05, 64.76, 44.6], [75.05, 61.5, 44.6], [75.05, 61.5, 41.0], [75.05, 57.4, 41.0]]);
 }
 module w_chg() color("#dd6b20") {   // 充電 2 本: Type-C 基板の口（−Y 向き）→ 左の壁ぎわ X 4.1/4.9 を上がる → 天井の下 Z 47.3 を右へ → PB の USB ピン（8 番）の逃げの上で終わる
     wire([[5.8, 47.8, 6.5], [5.8, 45.8, 6.5], [5.8, 45.8, 47.3], [19.5, 45.8, 47.3], [19.5, 56.3, 47.3]]);   // VBUS（始点は基板 +1.2, +LW_X に追従。立ち上がりは出口の真上）（⚠ どのピン対かは実物照合）。立ち上がりは電池線（X≤4.25）の右
@@ -308,7 +441,7 @@ module core_rest() {
     respeaker_at(); xiao_hous(); rsp_j2_space();
     oled_at(); oled_hous();
     knob_at_v4(); as_conn();
-    translate([SPK_X, SPK_Y, IN_Z - spk_th() - 0.2]) speaker_112495();
+    translate([SPK_X, SPK_Y, IN_Z - spk_th() - 0.2 + SPK_LIFT]) speaker_112495();
     translate([BTN_AT[0], BTN_AT[1], Z_TSW_BOT]) tactswitch();
     translate([BTN_AT[0], BTN_AT[1], 0]) button_cap();
 }
@@ -364,10 +497,10 @@ if (W == "pts") {
 // 組み立ての軌跡検査（2026-08-25）: 机を上から降ろす／天板一式を最後に降ろす
 module lower_group() { hub_unit(); respeaker_at(); xiao_hous(); rsp_j2_space(); oled_at(); oled_hous(); tcb_v4(); }
 module top_group() {   // 天板にぶら下がって一緒に降りる物（core() と同じ置き方。core を変えたらここも合わせる）
-    translate([1.5, 5, 0]) { knob_at_v4(); as_conn(); }
-    translate([KNOB_AT[0] + 1.5, 22.3 - 0.5 - spk_w() / 2, IN_Z - spk_th() - 0.2]) translate([-SPK_L / 2, -SPK_W / 2, 0]) speaker_112495();
+    translate([1.5, 7, 0]) { knob_at_v4(); as_conn(); }
+    translate([KNOB_AT[0] + 1.5, 22.3 - 0.5 - spk_w() / 2, IN_Z - spk_th() - 0.2 + SPK_LIFT]) translate([-SPK_L / 2, -SPK_W / 2, 0]) speaker_112495();
     translate([22, 22.3 - 0.5 - spk_w() / 2, Z_TSW_BOT]) rotate([0, 0, 180]) tactswitch();
-    translate([22, 22.3 - 0.5 - spk_w() / 2, 0]) rotate([0, 0, 180]) button_cap();
+    color("#d8dde3") translate([22, 22.3 - 0.5 - spk_w() / 2, 0]) rotate([0, 0, 180]) button_cap();   // button_cap は素のモジュール（色を持たない）。付け忘れると既定の黄色で出る
 }
 if (W == "deskseat") intersection() { union() for (t = [0 : STEP : 30]) translate([0, 0, t]) brg_v4(); lower_group(); }
 if (W == "topseat")  intersection() { union() for (t = [0 : STEP : 25]) translate([0, 0, t]) top_group();
@@ -377,3 +510,12 @@ if (W == "pbchk")  intersection() { pb_unit(); core(); }
 if (W == "pbseat") intersection() { union() for (t = [0 : STEP : 25]) translate([0, 0, t]) pb_unit(); core(); }
 echo(v3_inner = [IN_X, IN_Y, IN_Z], v3_outer = [IN_X + 2 * WALL, IN_Y + HATCH_T, IN_Z + TOP_T + FLOOR_T]);
 echo(hub_dx = HUB_DX, hub_x = [HUB_X + HUB_DX, HUB_X + HUB_L + HUB_DX], rsp_edge = RSP_X + respeaker_L(), xiao_face = XIAO_FACE_X);
+if (W == "seatchk")  intersection() { straps_v4(); union() { ina_bat(); pb_bat(); bat_v4(); core(); brg_v4(); tgl_v4(); tcb_v4(); wires_pwr(); wires_sig(); } }   // 座＋ネジ穴を入れた帯 ↔ 全部（0 が正）
+if (W == "seathw")   intersection() { seat_hw(); union() { core(); bat_v4(); brg_v4(); tgl_v4(); tcb_v4(); wires_pwr(); wires_sig(); } }                        // ネジとナットの現物 ↔ 周り（0 が正）
+if (W == "lookseat") { straps_v4(); seat_hw(); color("#f6ad55") bat_v4(); ina_bat(); pb_bat(); brg_v4(); }
+if (W == "seatbolt") intersection() { seat_hw(); union() { ina_bat(); pb_bat(); } }   // ネジの軸 ↔ 板（穴に通っていれば 0）
+module seat_shaft_only() {
+    for (h = ina_holes()) ina_frame() translate([h[0], h[1], 0]) seat_vert() translate([0, 0, -seat_d(h[1])]) cylinder(d = 2.0, h = seat_d(h[1]) + ina_size()[2], $fn = 32);
+    for (h = pb_mount())  pb_frame()  translate([h[0], h[1], 0]) seat_vert() translate([0, 0, -seat_d(h[1])]) cylinder(d = 2.0, h = seat_d(h[1]) + pb_pcb_t(), $fn = 32);
+}
+if (W == "seatshaft") intersection() { seat_shaft_only(); union() { ina_bat(); pb_bat(); } }

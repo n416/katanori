@@ -27,6 +27,7 @@ WALL    = 2.0;   // 壁（落下前提 2.0）
 FLOOR_T = 2.0;   // まな板
 TOP_T   = 2.5;   // 天面
 BEZ_T   = 2.0;   // フロント
+FRONT_DY = 0;    // フロント板の前後位置（+ でハッチ寄り）。既定 0 ＝ v1/v2/v3 は今までどおり
 HATCH_T = 2.0;   // ハッチ
 
 // ---- まな板: ハブと ReSpeaker（v2 の値。ReSpeaker の位置はマイクで決まる） ----
@@ -196,12 +197,17 @@ SHELF_HOOK_T = 1.6; SHELF_HOOK_LIP = 1.5; SHELF_FLANGE_T = 1.2;
 
 // ---- フロント（OLED の窓・ベベル・マイクのヒゲ。v2 §4.6 そのまま）----
 WIN_CR = 2.0; WIN_CH = 1.2; WIN_R = 0.4;
+// OLED の所だけ壁を薄くする彫り込み（既定 0 ＝ 彫らない。v1/v2/v3 は今までどおり）
+WIN_SUNK = 0;      // 外面をこの深さだけ彫る ⇒ 窓まわりの壁の厚みは BEZ_T − WIN_SUNK
+WIN_SUNK_M = 2.5;  // 彫り込みが窓の外へ出る量（⚠ 仮）
 WIN_X0 = OLED_X0 + oled_glass_x() - 0.3;  WIN_X1 = WIN_X0 + oled_glass()[0] + 0.6;
 WIN_Z0 = OLED_Z0 + oled_glass_y() - 0.3;  WIN_Z1 = WIN_Z0 + oled_glass()[1] + 0.6;
 WSK_L = 6.0; WSK_W = 1.0; WSK_CH = 0.5; WSK_R = 0.4; WSK_ANG = 4;
 // ---- 外周の角丸（v2 と同じ。12 辺と 8 隅を半径 WALL で丸める。🔒 天面とフロントの継ぎ目は角丸の真ん中）----
 CHAM = WALL; EDGE_ROUND = true;
-OUT_X = IN_X + 2 * WALL; OUT_Y = IN_Y + BEZ_T + HATCH_T; OUT_Z = IN_Z + TOP_T + FLOOR_T;
+FY_OUT = -BEZ_T + FRONT_DY;   // フロント板の外面の Y（＝機体の前の面）
+FY_IN  = FRONT_DY;            // フロント板の内面の Y
+OUT_X = IN_X + 2 * WALL; OUT_Y = IN_Y - FY_OUT + HATCH_T; OUT_Z = IN_Z + TOP_T + FLOOR_T;
 
 // ---- まな板（床）----
 // ① ハブ: 4 本のビスを**下から**通し、ナットは板の上。頭は床の裏のザグリ（床は肩・スタンドに載る面なので頭を出さない）
@@ -239,9 +245,17 @@ module housing(id) {
     //    それまで頭を 14.1（板上 10）として v3 の検査を通していたが、実際は 16.6・線の曲がり込みで 20.2。
     //    hub_board.scad の「裸のヘッダで数えるな」（2026-08-15 ユーザー指摘×2）と同じ忘れ方をここでもしていた。
     p = port_at(id); wl = port_wl(id); HDR_PL = 2.5;   // 2.54mm ピンヘッダの樹脂の高さ（parts.scad PB_HDR_PLASTIC と同じ）
-    color("#c93") translate([p[0] - wl[0] / 2, p[1] - wl[1] / 2, p[2]]) cube([wl[0], wl[1], HDR_PL]);                 // ヘッダの樹脂
-    color("#333") translate([p[0] - wl[0] / 2, p[1] - wl[1] / 2, p[2] + HDR_PL]) cube([wl[0], wl[1], HOUS_H]);       // ハウジング
-    color("#c0392b", 0.6) translate([p[0], p[1], p[2] + HDR_PL + HOUS_H]) cylinder(d = HOUS_R, h = HOUS_R, $fn = 24);
+    if (id == "PHIN" || id == "PHOUT") {
+        // 🔴 2026-08-25 ユーザー「DuPont が刺さるか？刺さらねえよ」: この 2 口は 2.54 ヘッダではなく
+        //    📄 JST PH2.0 の 2P ソケット（relay_board.html PHCONN・胴 5.9×4.5・⬜ トップ型かサイド型かは現物合わせ）。
+        //    それまで全口共通の DuPont（樹脂 2.5＋胴 10）を立てていた＝存在しない挿さり方だった。
+        //    高さ 6.0 は JST PH の標準 ⚠。プラグと線の空間は ⬜ 型が決まってから
+        color("#e8e8e8") translate([p[0] - 5.9 / 2, p[1] - 4.5 / 2, p[2]]) cube([5.9, 4.5, 6.0]);
+    } else {
+        color("#c93") translate([p[0] - wl[0] / 2, p[1] - wl[1] / 2, p[2]]) cube([wl[0], wl[1], HDR_PL]);                 // ヘッダの樹脂
+        color("#333") translate([p[0] - wl[0] / 2, p[1] - wl[1] / 2, p[2] + HDR_PL]) cube([wl[0], wl[1], HOUS_H]);       // ハウジング
+        color("#c0392b", 0.6) translate([p[0], p[1], p[2] + HDR_PL + HOUS_H]) cylinder(d = HOUS_R, h = HOUS_R, $fn = 24);   // 線が曲がり切るまでの予約
+    }
 }
 module hub_at() { translate(HUB_AT) hub_board(false); }
 module respeaker_at() { translate([RSP_X + respeaker_L(), RSP_BD_Y1, RSP_Z]) rotate([0, 0, 180]) respeaker_lite(); }
@@ -254,12 +268,18 @@ module hex_pocket_af(af, h) cylinder(d = af / cos(30), h = h, $fn = 6);
 function bev_pts(c, k, n = 10) = [for (i = [0 : n]) let (t = i / n, p = (1 - k) * c / 2) [2 * t * (1 - t) * p + t * t * c, (1 - t) * (1 - t) * c + 2 * t * (1 - t) * p]];
 module win_rrect(g = 0) { hull() for (x = [WIN_X0 + WIN_CR, WIN_X1 - WIN_CR], z = [WIN_Z0 + WIN_CR, WIN_Z1 - WIN_CR]) translate([x, z]) circle(r = WIN_CR + g, $fn = 40); }
 module win_bev_slab(g, y) { translate([0, y + 0.01, 0]) rotate([90, 0, 0]) linear_extrude(0.01) win_rrect(g); }
-module win_chamfer_cut() { hull() { win_bev_slab(WIN_CH, -BEZ_T - 0.5); for (p = bev_pts(WIN_CH, WIN_R)) win_bev_slab(p[1], -BEZ_T + p[0]); } }
+module win_chamfer_cut() { hull() { win_bev_slab(WIN_CH, FY_OUT - 0.5); for (p = bev_pts(WIN_CH, WIN_R)) win_bev_slab(p[1], FY_OUT + p[0]); } }
+// 🔴 彫り込みは**裏**（内面 Y=0 側）。外面は平らのまま = 外から見た顔は変わらない。
+//    深さ WIN_SUNK だけ内面を彫るので、窓まわりの壁の厚みが BEZ_T − WIN_SUNK になる
+module win_sunk_cut() if (WIN_SUNK > 0) hull() {
+    win_bev_slab(WIN_SUNK_M, FY_IN - WIN_SUNK);        // 彫り込みの底（外面から BEZ_T − WIN_SUNK の所）
+    win_bev_slab(WIN_SUNK_M + WIN_SUNK + 0.5, FY_IN + 0.5);   // 内面の 0.5 内側まで 45° で開く
+}
 module whisker_plate(l, w, y) { translate([-l / 2, y, -w / 2]) rotate([90, 0, 0]) spk_obround(l, w, 0.01); }
 // 🔴 2026-08-23 v2 から写すとき 2 つ目の hull（内面まで貫くスリット）が落ちていて、外面を 0.5 彫っただけのベベルになっていた
 //    （ユーザー「マイクの穴空いてない？」）。外のベベル＋貫通の 2 段で 1 本のヒゲ
 module whisker_cut(l, w, ch) {
-    fy = -BEZ_T / 2;
+    fy = -BEZ_T / 2;   // 🔴 相対値。呼び出し側の translate（FY_OUT + BEZ_T/2）に乗るので、ここも FY_OUT 化すると二重になり外面に届かない＝穴が消える（2026-08-25 やらかした）
     hull() { whisker_plate(l + ch * 2, w + ch * 2, fy - 0.5); for (p = bev_pts(ch, WSK_R)) whisker_plate(l + p[1] * 2, w + p[1] * 2, fy + p[0]); }   // 外面のベベル
     hull() { whisker_plate(l, w, fy + ch); whisker_plate(l, w, fy + BEZ_T + 1); }                                                                   // 内面まで貫く（v2 と同じ）
 }
@@ -267,12 +287,12 @@ module whiskers_cut() {   // マイクのヒゲ（位置は ReSpeaker の CAD �
     for (ref = ["U4", "U5"]) {
         m = cad_part(ref, -1);
         bx = RSP_X + respeaker_L() - (m[2] + m[3]) / 2; bz = RSP_Z + (m[4] + m[5]) / 2; out = (bx < IN_X / 2) ? 1 : -1;
-        for (i = [-1, 0, 1]) translate([bx - out * 1.0, -BEZ_T / 2, bz + i * 3.6]) rotate([0, out * i * WSK_ANG, 0]) whisker_cut(WSK_L, WSK_W, WSK_CH);
+        for (i = [-1, 0, 1]) translate([bx - out * 1.0, FY_OUT + BEZ_T / 2, bz + i * 3.6]) rotate([0, out * i * WSK_ANG, 0]) whisker_cut(WSK_L, WSK_W, WSK_CH);
     }
 }
 module cham_box(p0, sz, k) { hull() { translate([p0[0] + k, p0[1], p0[2]]) cube([sz[0] - 2 * k, sz[1], sz[2]]); translate([p0[0], p0[1] + k, p0[2]]) cube([sz[0], sz[1] - 2 * k, sz[2]]); translate([p0[0], p0[1], p0[2] + k]) cube([sz[0], sz[1], sz[2] - 2 * k]); } }
 module round_box(p0, sz, k) { hull() for (x = [p0[0] + k, p0[0] + sz[0] - k], y = [p0[1] + k, p0[1] + sz[1] - k], z = [p0[2] + k, p0[2] + sz[2] - k]) translate([x, y, z]) sphere(r = k, $fn = 48); }
-module outer_envelope() { if (EDGE_ROUND) round_box([LW_X - WALL, -BEZ_T, -FLOOR_T], [OUT_X - LW_X, OUT_Y, OUT_Z], CHAM); else cham_box([LW_X - WALL, -BEZ_T, -FLOOR_T], [OUT_X - LW_X, OUT_Y, OUT_Z], CHAM); }   // 左端は LW_X に追従（2026-08-25）
+module outer_envelope() { if (EDGE_ROUND) round_box([LW_X - WALL, FY_OUT, -FLOOR_T], [OUT_X - LW_X, OUT_Y, OUT_Z], CHAM); else cham_box([LW_X - WALL, FY_OUT, -FLOOR_T], [OUT_X - LW_X, OUT_Y, OUT_Z], CHAM); }   // 左端は LW_X に追従（2026-08-25）
 // 部品を外周の角丸で切る。スピーカーの盛り上げ（天面の上 EMB_H）だけは許す（v2 と同じ）
 // 壁の下の柱（四隅・ナットは上から落とす・ビスは床の裏から）
 // 🔴 前の下の柱は Y 5.5 まで。ReSpeaker のマイクの先（Y 5.91）が右端の柱の真上に居て、6.0 だと降ろすときに 13.3mm3 当たる。
@@ -379,9 +399,12 @@ EAR_COL_H = 9.0;
 module ear_col(x0, x1 = undef) {   // 2026-08-25 幅を耳の実スパンから取る（右の耳は壁の移動で EAR_W より痩せるため）
     w = (x1 == undef ? EAR_W : x1 - x0);
     difference() {
-        color("#b6c0cc") translate([x0, EAR_Y0, IN_Z - EAR_T - EAR_COL_H]) cube([w, EAR_Y1 - EAR_Y0, EAR_COL_H]);
+        color("#b6c0cc") translate([x0, max(EAR_Y0, FY_IN), IN_Z - EAR_T - EAR_COL_H]) cube([w, EAR_Y1 - max(EAR_Y0, FY_IN), EAR_COL_H]);   // 前端はフロント板の内面まで（板を後ろへ寄せた分だけ詰める）
         translate([x0 + w / 2, (EAR_Y0 + EAR_Y1) / 2, IN_Z - EAR_T - NUT_T]) rotate([0, 0, 30]) hex_pocket(NUT_T + 1);   // 二面幅を X に
         translate([x0 + w / 2, (EAR_Y0 + EAR_Y1) / 2, IN_Z - EAR_T - EAR_COL_H - 1]) cylinder(d = SCR_D, h = EAR_COL_H + 2, $fn = 24);
+        // 🔒 耳を +2（EAR_Y1 = 10）にしたら柱の裾が ReSpeaker の板の上端（Z 36.5）を 0.25 かすめる
+        //    → 板の帯（Y 7.885〜10.335・±0.3）だけ、板の頭 +0.3 まで欠く。ナット（Z 43.45〜）と縦のビス穴（中心 Y 6）には掛からない
+        translate([x0 - 1, RSP_BD_Y0 - 0.3, IN_Z - EAR_T - EAR_COL_H - 1]) cube([w + 2, respeaker_T() + 0.6, RSP_TOP + 0.3 - (IN_Z - EAR_T - EAR_COL_H) + 1]);
     }
 }
 // 🔴 2026-08-23 ビスを全部実体で置いて検査したら、天面のビス 4 本が入るこの柱に**穴もナットのポケットも無かった**（1 本あたり 33mm³ 残る）。
@@ -470,14 +493,16 @@ HOOK_Z0 = PB_ZT - 5.0;   // 前のフックの下端。（旧）充電プラグ�
 // 🔒 天面とフロントの継ぎ目は角丸の真ん中（2026-08-22 ユーザー）: 前上の角の円弧の中心（Y 0・Z IN_Z）を通る 45° の面で割る。
 //    天面 = Y + Z >= IN_Z、フロント = Y + Z <= IN_Z（フロントは天面の厚みの分まで上に伸び、その 45° で切れる）
 // 🔴 初版は rotate(+45) で面が裏返り（Z >= Y + IN_Z）、天面がほぼ消えてフロントが上へ伸びた（ユーザー「天板もなくなっちゃいました」）。−45 が正
-module seam_top_half()   { translate([-WALL - 1, 0, IN_Z]) rotate([-45, 0, 0]) translate([0, -100, 0]) cube([OUT_X + 2, 200, 100]); }        // Y + Z >= IN_Z の側
-module seam_front_half() { translate([-WALL - 1, 0, IN_Z]) rotate([-45, 0, 0]) translate([0, -100, -100]) cube([OUT_X + 2, 200, 100]); }    // Y + Z <= IN_Z の側
+// 🔴 2026-08-25 蝶番はフロント板の**内面**（FY_IN）。板を後ろへ寄せたとき 0 のまま切ると、旧斜面と新しい板の間に
+//    楔の欠けが開く（右上の角で 1mm³・ユーザー「天板の斜めを切り直してないからだね」）
+module seam_top_half()   { translate([-WALL - 1, FY_IN, IN_Z]) rotate([-45, 0, 0]) translate([0, -100, 0]) cube([OUT_X + 2, 200, 100]); }        // (Y−FY_IN) + Z >= IN_Z の側
+module seam_front_half() { translate([-WALL - 1, FY_IN, IN_Z]) rotate([-45, 0, 0]) translate([0, -100, -100]) cube([OUT_X + 2, 200, 100]); }    // (Y−FY_IN) + Z <= IN_Z の側
 // 🔒 B 案（2026-08-23 ユーザー）: フロントの耳（天面とつなぐビスの受け）は OLED の両脇（X 0〜6.25 / 79.75〜86）・OLED の L の手前〜横・天井の下。
 //    ビスは天面の表から M2×6（頭は天面・後ろの 2 本と同じ見え方）。🔒 2026-08-23 ナットは耳から `ear_col`（耳の真下の壁の柱）へ移し、
 //    この 1 本で 天面・耳・壁 の 3 枚を締める（六角は二面幅を X に向ける。幅 6.2 に対して 4.3・Y は角 5.0 が 8 に入る）。
 //    🔴 最初は OLED の裏（X 20〜30 / 56〜66）に耳を描いたが、OLED が前面の内側を X 8〜78・天井まで埋めていて 102mm3 当たった
 EAR_W = OLED_X0 + oled_mount()[0][0] - OLED_L_W / 2 - 0.3;   // 6.25 耳の X 幅（L の足まで 0.3）
-EAR_X = [[LW_X, EAR_W], [79.352, IN_X]]; EAR_Y0 = 0; EAR_Y1 = 8.0; EAR_T = 3.2;   // 🔒 耳の内側の縁（左 6.652・右 79.352）は OLED の L の都合＝凍結 2026-08-25。外側の縁と幅は壁に追従
+EAR_X = [[LW_X, EAR_W], [79.352, IN_X]]; EAR_Y0 = 2.0; EAR_Y1 = 10.0; EAR_T = 3.2;   // 🔒 2026-08-25 ユーザー「天面と底面のネジを 2mm ハッチ方向に移動」: 耳（天面の前 2 本）を 0〜8 → 2〜10   // 🔒 耳の内側の縁（左 6.652・右 79.352）は OLED の L の都合＝凍結 2026-08-25。外側の縁と幅は壁に追従
 module front_ears() {
     for (ex = EAR_X) difference() {
         translate([ex[0], EAR_Y0, IN_Z - EAR_T]) cube([ex[1] - ex[0], EAR_Y1 - EAR_Y0, EAR_T]);
@@ -492,11 +517,12 @@ module front_plate_raw() {
     intersection() { seam_front_half(); union() {
     difference() {
         union() {
-            color("#c9d0d8") translate([LW_X - WALL, -BEZ_T, -FLOOR_T]) cube([IN_X + 2 * WALL - LW_X, BEZ_T, Z_TOP + FLOOR_T]);   // 上は天面の厚みの分まで（45° で切られる）・下は床の裏まで（下前の丸みはフロントが持つ）
-            color("#c9d0d8") translate([LW_X - WALL, -BEZ_T, IN_Z - EAR_T]) cube([IN_X + 2 * WALL - LW_X, BEZ_T + 0.01, EAR_T]);   // （耳はここに付く）
+            color("#c9d0d8") translate([LW_X - WALL, FY_OUT, -FLOOR_T]) cube([IN_X + 2 * WALL - LW_X, BEZ_T, Z_TOP + FLOOR_T]);   // 上は天面の厚みの分まで（45° で切られる）・下は床の裏まで（下前の丸みはフロントが持つ）
+            color("#c9d0d8") translate([LW_X - WALL, FY_OUT, IN_Z - EAR_T]) cube([IN_X + 2 * WALL - LW_X, BEZ_T + 0.01, EAR_T]);   // （耳はここに付く）
         }
-        translate([0, -BEZ_T - 1, 0]) rotate([-90, 0, 0]) linear_extrude(BEZ_T + 2) mirror([0, 1]) win_rrect(0);   // 窓（ガラス＋0.3）
-        win_chamfer_cut();                                                                                       // 窓のベベル
+        translate([0, FY_OUT - 1, 0]) rotate([-90, 0, 0]) linear_extrude(BEZ_T + 2) mirror([0, 1]) win_rrect(0);   // 窓（ガラス＋0.3）
+        win_sunk_cut();                                                                                          // OLED の所だけ壁を薄くする彫り込み（**裏**）
+        win_chamfer_cut();                                                                                       // 窓のベベル（外面）
         whiskers_cut();                                                                                          // マイクのヒゲ
     }
     } }
