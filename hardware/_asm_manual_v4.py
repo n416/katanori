@@ -219,6 +219,7 @@ SCREWS = [
  ('M3 × 8',  '4', 'ハブ基板 → 床（頭は床の裏のザグリ・ナットは基板の上）', '1'),
  ('M2 × 15', '3', '床の裏 → 左右の壁の下の柱（前 2・後ろ右 1）', '4'),
  ('M2 × 4',  '6', '電流計 / PowerBoost → 留め帯の座（<b>6 穴とも同じ長さ</b>・掛かり 1.34〜1.6mm）', '8'),
+ ('M2 × 6',  '3', 'ブリッジ → 左右の壁の棚（上から。左 1・右 2。<b>ナットは棚に横から差す</b>）', '5'),
  ('M2 × 6',  '4', 'AS5600 の基板 → つまみの島の柱（下から）', '10'),
  ('M2 × 6',  '2', 'OLED → 天面の L（前から・ナットは L の後ろ）', '11'),
  ('M2 × 6',  '4', '天面の四隅（後ろ 2 = 壁の柱 / 前 2 = 天面＋耳＋耳柱の 3 枚）', '11'),
@@ -230,6 +231,7 @@ NUTS = [
  ('M3',  '4', 'ハブ基板の上（上向き）', '手で置ける'),
  ('M2',  '3', '壁の下の柱の頭（上向き・<span class="n">Z 10.2〜12.0</span>）', '<b>箱を伏せると落ちる</b>'),
  ('M2',  '6', '留め帯の座の<b>横穴</b>（帯の面から差す）', '差したら落ちない'),
+ ('M2',  '3', 'ブリッジの棚の<b>横穴</b>（棚のハッチ側の面から差す）', '<b>壁を寝かせているうちに</b>'),
  ('M2',  '4', 'つまみの島の柱の小判スロット（横向き・v5 の設計）', '天面が裏返しのうちに'),
  ('M2',  '2', 'OLED の L の後ろ（横向き・残り 0.2）', '<b>ピンセット</b>'),
  ('M2',  '4', '天面の後ろの柱 2・前の耳柱 2（上向き）', '天面を載せる前だけ'),
@@ -445,7 +447,7 @@ BODY = """
 <header class="mast">
   <p class="eyebrow">katanori &middot; enclosure v4</p>
   <h1>カタノリ v4<br><em>組み立て</em></h1>
-  <p class="sub">印刷部品 14 点・ビス 24 本・線 13 束 39 本を、この順番で組む。
+  <p class="sub">印刷部品 14 点・ビス 27 本・線 13 束 39 本を、この順番で組む。
   順番は入れ替えられない。ナットを入れられる段と、皿と帯の下を通る線の車線が決まっているため。</p>
   <div class="meta">
     <span><b>外寸</b> 86.65 &times; 75.0 &times; 52.95 mm</span>
@@ -508,7 +510,7 @@ __STEPS__
 <thead><tr><th>ビス</th><th>本数</th><th>どこ</th><th>手順</th></tr></thead>
 <tbody>__SCREWROWS__</tbody>
 </table></div>
-<p class="cal note"><span class="tag">読み</span>樹脂にネジは切らない。全部<b>貫通＋ナット</b>（<b>docs/DIMENSIONS.md</b> の方針）。長さは <span class="d">M2×4</span>・<span class="d">M2×6</span>・<span class="d">M2×15</span>・<span class="d">M3×8</span> の 4 種類。</p>
+<p class="cal note"><span class="tag">読み</span>樹脂にネジは切らない。全部<b>貫通＋ナット</b>（<b>docs/DIMENSIONS.md</b> の方針）。長さは <span class="d">M2×4</span>・<span class="d">M2×6</span>・<span class="d">M2×15</span>・<span class="d">M3×8</span> の 4 種類。ナットは <span class="d">M3</span> ×4・<span class="d">M2</span> ×23。</p>
 <div class="tw" style="margin-top:18px"><table>
 <thead><tr><th>ナット</th><th>数</th><th>どこ・向き</th><th>入れ方</th></tr></thead>
 <tbody>__NUTROWS__</tbody>
