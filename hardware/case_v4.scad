@@ -24,8 +24,9 @@ W = "none";      // _v4_core の内部スイッチ（芯だけの検査 deskseat
 //   動き   : close_lwall close_rwall（壁を上から降ろす）/ close_top（天面一式を降ろす）/ close_front（前から差す）/
 //            close_hatch（蓋・トグルごと閉じる）/ close_desk（ブリッジを降ろす＝core の deskseat）
 //   線     : chk_wire（WP で 1 束に絞れる・束 ↔ 部品と皮）/ chk_wire_w（束 ↔ 他の束＋電源系）/ chk_wire_pwr（電源系 7 本）
+//   充電基板: chk_tc（Type-C の受け＋押さえ ↔ 基板と周り。**0 が正**）
 //   電池   : chk_shut_slide（蓋を下へずらす）/ chk_shut_out（蓋を抜く）/ chk_swap（電池を後ろへ抜く・v3 と同名）
-part = "look";
+part = "inside";
 WP = "";         // chk_wire 系で束を 1 つに: xiao / oled / as5600 / btn2 / phin / phout / ina / tgl / reed / chg（"" で全部）
 
 // ---- v4 の配置（芯と同じ式。数字を増やさない） ----
@@ -57,6 +58,45 @@ module bottom_boss_bl() difference() {
 }
 V4_FLOOR_SCREWS = [[0.7 + BOSS / 2, 2 + BOSS_B_DY_F / 2], [78.3 + BOSS / 2, 2 + BOSS_B_DY_F / 2], [82.0, 69.5]];   // 前 2 本は +2（柱と一緒に）   // 床の裏からのビス 3 本（前 2＋復活した後ろ右。後ろ左は ⬜ 保留）   // 床の裏からのビス 3 本（前 2＋復活した後ろ右。後ろ左は ⬜ 保留）
 
+// ---- 充電（Type-C）基板の受け（🔒 2026-08-25 ユーザー「この絵で良いと思いますよ」で形は検収済み）----
+//   ⚠ 検収されたのは**形**。現物が未注文なので、②③④ の Y の位置は板が届いたら取り直しになる
+//   板は 📄 秋月 [115426] の寸法図で 20 × 15 × 1.6。左壁の内面にベタ付けで立ち、世界座標は
+//   **X 1.694〜3.294（＝LW_X＋1.6）・Y 57.4〜72.4・Z 0.5〜20.5**（tcb_v4 を単体 STL に出した bbox から）。
+//   Y 48.669 まで前へ出ているのは板ではなく**デュポンのハウジング 4 個**（X 4.524〜7.065・Z は 4 つの帯）。
+//   受けは 4 つで持つ:
+//     ① 底の座    板の下端 0.5 を面で受ける（口の Z 中心 10.5 が下がらないよう、床から 0.5 上げた面に座らせる）
+//     ② 前の当て  板の前縁の 0.25 手前に立つ壁。**ケーブルを挿す力（−Y）を受けるのはここだけ**
+//     ③ 前の返し  ②から +Y へ折れた L の腕。板の表を全高で押さえる（＝倒れ止め・前）
+//     ④ 後ろの控え ピン列の後端 61.21 と コネクタ胴の前端 65.85 の隙間に立つ全高の柱（＝倒れ止め・後ろ）
+//   Z の抜けは受けでは止まらない。ブリッジの帯の裏に付けた押さえ（_v4_core の brg_tc_press）が止める。
+//   −X（壁側）は左の壁の内面そのもの。🔴 このため **Type-C 基板は左右の壁を降ろした後に立てる**（組む順が変わる）。
+//   逃げの実績: ③ の表 4.25 ↔ ハウジング 4.524 = 0.274 / ③ の後端 58.35 ↔ ピン列 58.67 = 0.32 /
+//               ④ の後端 65.5 ↔ コネクタ胴 65.85 = 0.35 / ⑤ の右 5.9 ↔ ハブの左端 6.002 = 0.102
+TC4_XF  = LW_X + 1.6;         // 板の表（3.294）
+TC4_Y0  = 57.4; TC4_Y1 = 72.4;   // 板の前縁・後縁（後縁はハッチの内面 IN_Y に 0.4 入る）
+TC4_ZT  = 20.5;               // 板の上端
+TC4_CL  = 0.25;               // 板と受けの隙間
+TC4_GX0 = TC4_XF + TC4_CL;    // 返し・控えの内面（3.544）
+TC4_GX1 = 4.25;               // 返しの表（ハウジング 4.524 へ 0.274）
+TC4_BX1 = 4.70;               // 控えの表
+TC4_FY1 = TC4_Y0 - TC4_CL;    // 前の当ての後ろ面（57.15）
+TC4_FY0 = TC4_FY1 - 1.2;      // 前の当ての前面（55.95）
+module tc_seat4() {
+    // ① 底の座（板の下端 Z 0.5 を受ける。床の後端 IN_Y までで切る）
+    translate([LW_X, TC4_FY0, 0]) cube([3.9 - LW_X, IN_Y - TC4_FY0, 0.5]);
+    // ② 前の当て（−Y を止める壁・全高）
+    translate([LW_X, TC4_FY0, 0]) cube([TC4_GX1 - LW_X, 1.2, TC4_ZT]);
+    // ③ 前の返し（L の腕・板の表を全高で押さえる）
+    translate([TC4_GX0, TC4_FY1, 0]) cube([TC4_GX1 - TC4_GX0, 58.35 - TC4_FY1, TC4_ZT]);
+    // ④ 後ろの控え（ピン列とコネクタ胴の間・全高）
+    translate([TC4_GX0, 62.0, 0]) cube([TC4_BX1 - TC4_GX0, 65.5 - 62.0, TC4_ZT]);
+    // ⑤ 補強の三角（② は 1.2 厚で 20.5 立つので前へ、④ は右へ。どちらも Z の途中で消える）
+    translate([LW_X, 0, 0]) rotate([90, 0, 90]) linear_extrude(TC4_GX1 - LW_X)
+        polygon([[TC4_FY0 - 3.75, 0], [TC4_FY0, 0], [TC4_FY0, 12.0]]);
+    translate([0, 65.5, 0]) rotate([90, 0, 0]) linear_extrude(65.5 - 62.0)
+        polygon([[TC4_BX1, 0], [5.9, 0], [TC4_BX1, 10.0]]);
+}
+
 // ---- 床 ----
 //   v3 の床（まな板）と同じ形。違いは ① ハブのビス穴と柱が +4（HUB_DY）② ブリッジの前の脚の受け溝 ③ 後ろ右の床ビスの位置
 LEG4_W = lipo_size()[1] - 2 * (LEG_X0 - BAT_X0);   // 脚の幅 23（_v4_core の brg_v4 と同じ式）
@@ -80,8 +120,10 @@ module floor_v4() {
             //    → 前縁をハブの後端 + 0.5 ＝ Y 68.4 へ。バーは Y 68.4〜70 に痩せるが、爪の唇（〜Y 68.2）はまだ 1.6 掛かる。
             //    ⚠ バーの前面とハブの半田面の予約の隙間は 0.1（予約は包絡。実際の足はまばら）
             color("#9aa5b1") translate([RSP_RIB_X0, HUB_Y0 + HUB_DY + HUB_W + 0.5, 0]) cube([RSP_RIB_X1 - RSP_RIB_X0, IN_Y - (HUB_Y0 + HUB_DY + HUB_W + 0.5), CLAW_STRIP_H]);
-            // 充電基板の前の振れ止めリブ ⚠ AI 仮（板の前縁 48.67 の 0.27 手前）
-            color("#9aa5b1") translate([LW_X, 47.7, 0]) cube([3.0, 0.7, 3.0]);
+            // 充電（Type-C）基板の受け 🔒 2026-08-25（形はユーザー検収済み）
+            //   🔴 ここには「前の振れ止めリブ」（X LW_X〜4.694・Y 47.7〜48.4・Z 0〜3.0）が立っていたが、
+            //      板の前縁を 48.67 と読み違えたもので、実際の板は Y 57.4〜。リブは何にも触っていなかったので廃止。
+            color("#9aa5b1") tc_seat4();
             // ブリッジの前の脚（1 枚板・厚み 2.0）の受け溝 ⚠ AI 仮（ReSpeaker の「溝＋押さえ」の型の写し。Z の留めは無し・⬜）
             //   脚 X 21.5〜44.5・Y 12.9〜14.9。溝は ±0.25、壁は前 1.6・後ろ 0.45（🔴 ハブの前縁 15.9（⚠ HUB_DY=4 仮）から 0.3 逃げた残り）
             color("#9aa5b1") difference() {
@@ -142,6 +184,7 @@ module lwall_v4() {
     difference() {
         union() {
             color("#b6c0cc") translate([LW_X - WALL, FY_IN, 0]) cube([WALL, IN_Y - FY_IN, IN_Z]);
+            brg_ledges(-1);   // ブリッジを留める棚（Y 30.5〜36.5・ナット入り・_v4_core の「箱への固定」）
             for (b = BOSSES) if (b[0] < IN_X / 2) top_boss(b, BOSS_H);
             ear_col(EAR_X[0][0], EAR_X[0][1]);
             color("#b6c0cc") difference() {
@@ -183,6 +226,7 @@ module rwall_v4() {
     difference() {
         union() {
             color("#b6c0cc") translate([IN_X, FY_IN, 0]) cube([WALL, IN_Y - FY_IN, IN_Z]);
+            brg_ledges(1);    // ブリッジを留める棚 2 つ（Y 30.0〜36.0 と 56.9〜62.9・ナット入り）
             for (b = BOSSES) if (b[0] > IN_X / 2) top_boss(b, BOSS_H);
             ear_col(EAR_X[1][0], EAR_X[1][1]);
             color("#b6c0cc") difference() {
@@ -354,7 +398,7 @@ for (k = P_NAMES) if (part == str("p_", k)) p_one(k);
 // 🔒 v3 と同じ名前（2026-08-25 ユーザー）。芯の _v4_core にある板なので p_ は付けない・角丸も無し・刷る向きは ⬜ 未決（CASE-V4 §10）
 // 🔒 2026-08-25 ユーザー「バッテリー、電流計、PowerBoost、左右の壁、結束バンドは必要です」: ブリッジは単体では判断できないので一緒に出す
 if (part == "bridge") {
-    brg_v4(); straps_v4();
+    brg_v4(); straps_v4(); brg_hw();   // brg_hw = 箱へ留める M2×6 とナットの現物（3 か所）
     color("#f6ad55") bat_v4(); ina_bat(); pb_bat();
     rounded4() { skin1("lwall"); skin1("rwall"); }
 }
@@ -378,12 +422,30 @@ module rsp_press_zone() {   // リブ 2 本の足元（押し代の領域）
 for (k = SKINS) if (part == str("chk_", k)) difference() { intersection() { skin1(k); union() { innards4(); skin_except(k); } } rsp_press_zone(); }
 if (part == "chk_all") difference() { intersection() { skin_all(); innards4(); } rsp_press_zone(); }
 if (part == "chk_press") intersection() { top_v4(); respeaker_at(); }   // ≈6mm3 が正（0 なら押さえが板に届いていない）
+// 充電（Type-C）基板の受け ↔ 周り。**0 が正**。
+//   受け（床の tc_seat4）と 押さえ（ブリッジの brg_tc_press）は、どちらも自分の板の一部なので
+//   chk_floor / chk_all では「板 ↔ 中身」の片側に入ってしまい、基板そのものとの当たりが見えない。専用に見張る。
+if (part == "chk_tc") intersection() {
+    union() { tc_seat4(); brg_tc_press(); }
+    union() { core(); tcb_v4(); bat_v4(); pb_bat(); pbl_hous(); pbu_hous(); ina_bat(); straps_v4();
+              wires_pwr(); wires_sig(); door4(); lwall_v4(); rwall_v4(); top_v4(); front_v4(); hatch_v4(); }
+}
 
 // 組む動き（v4 の①〜⑬は ⬜ ユーザー待ち。板ごとの入れる向きだけ当てる）:
 //   壁は上から降ろす（🔒 v3「両方上から降ろせないとダメ」）・天面は上から・フロントは前から・ハッチは後ろから
 module stage_noskin() { innards4(); floor_v4(); }
-if (part == "close_lwall") intersection() { union() for (t = [0 : STEP : 30]) translate([0, 0, t]) lwall_v4(); stage_noskin(); }
-if (part == "close_rwall") intersection() { union() for (t = [0 : STEP : 30]) translate([0, 0, t]) rwall_v4(); stage_noskin(); }
+// 🔴 2026-08-25 壁の障害物を「その時点で箱に入っている物」に直した。
+//   壁を降ろすのは手順 4 で、ブリッジ・電池・留め帯・基板・上の車線・トグルはまだ入っていない（CASE-V4 §7）。
+//   それまでは innards4（＝全部）を障害物にしていたが、壁が素の板だったので偶然 0 だった。
+//   ブリッジを留める棚（brg_ledges）が壁に付いた今は、棚が**後から入るブリッジの腕の位置**を通り抜けるので、
+//   古い障害物のままだと左 121mm³ / 右 178mm³ が出る。これは順番を守れば起きない当たりなので、
+//   障害物の側を正した（close_tc と同じ考え方）。静止の当たりは chk_lwall / chk_rwall が別に見ている。
+module stage_walls() { hub_unit(); respeaker_at(); xiao_hous(); rsp_j2_space(); wires_low(); floor_v4(); }
+if (part == "close_lwall") intersection() { union() for (t = [0 : STEP : 30]) translate([0, 0, t]) lwall_v4(); stage_walls(); }
+if (part == "close_rwall") intersection() { union() for (t = [0 : STEP : 30]) translate([0, 0, t]) rwall_v4(); stage_walls(); }
+//   ⚠ close_rwall に残る 25mm³ は スピーカー OUT の**天井下の区間**（X 82.55〜84.05・Y 30〜36・Z 44.35〜47.35）を
+//     右の前の棚が通り抜ける分。この 2 本はスピーカー（天面の部品）に付いたまま最後に降りてくるので、
+//     壁を降ろす時点では箱に居ない。低い車線に居るのは口から壁ぎわまでの Z 19.5 の区間だけで、そこは 0
 // 天面と一緒に降りる物（島・コネクタ・スピーカー・タクト・傘 = core の top_group）は動く側。障害物に入れない
 module stage_top() { lower_group(); brg_v4(); bat_v4(); pb_bat(); ina_bat(); straps_v4(); pbl_hous(); pbu_hous();
                      wires_pwr(); wires_sig(); floor_v4(); lwall_v4(); rwall_v4(); }
@@ -393,6 +455,16 @@ if (part == "close_front") intersection() { union() for (t = [0 : STEP : 20]) tr
                                             union() { stage_noskin(); lwall_v4(); rwall_v4(); top_v4(); } }
 if (part == "close_hatch") intersection() { union() for (t = [0 : STEP : 20]) translate([0, t, 0]) { hatch_v4(); tgl_v4(); door4(); }
                                             union() { core(); bat_v4(); pb_bat(); pbl_hous(); pbu_hous(); ina_bat(); tcb_v4(); brg_v4(); straps_v4(); wires_pwr(); wires_sig(); floor_v4(); lwall_v4(); rwall_v4(); top_v4(); front_v4(); } }
+// 充電基板の入れ方（🆕 2026-08-25）。**左の壁の内面に当てて、壁と一緒に降ろす**。デュポンはまだ挿していない
+//   🔴 壁より先に立てることは出来ない: 板の裏を受ける面が左壁の内面そのものなので、壁が無いと −X 側へ倒れる。
+//   🔴 壁より後に真上から落とすことも出来ない: 天面の後ろ左のボス（左壁の一部・X 1.694〜・Y 64〜72・Z 38〜48）が
+//      板の平面図の footprint（X 1.694〜3.294・Y 57.4〜72.4）に重なっていて、経路を 75.6mm3 塞ぐ。
+//   → 残るのは「壁と一緒に降ろす」の 1 通り。この検査はその姿を見る
+//   ⚠ 障害物に電源系の線（wires_pwr）は入れない: 電池は手順 6＝壁より後で、この時点ではまだ通っていない。
+//      入れると 20.2mm3 出る（X 2.0〜4.9・Y 57.4〜64.45・Z 27.75〜30.75 ＝ 電池の線が板の真上を横切る場所）。
+//      静止では板の上端 20.5 と線の下端 27.75 が 7.25 離れているので当たらないが、線を通すときはここを避けて回す
+if (part == "close_tc") intersection() { union() for (t = [0 : STEP : 30]) translate([0, 0, t]) { lwall_v4(); tcb_v4_bare(); }
+                                         union() { core(); floor_v4(); } }
 if (part == "close_desk") intersection() { union() for (t = [0 : STEP : 30]) translate([0, 0, t]) brg_v4(); lower_group(); }   // core の deskseat と同じ（🔴 ブリッジは OLED を立てる前に降ろす順が前提・CASE-V4 §10）
 
 // 線の検査（core の wchk/wwchk と同じ中身。WP で 1 束に絞る）

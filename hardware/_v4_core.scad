@@ -142,6 +142,9 @@ module pbl_hous() color("#4a5568", 0.85) for (x = [32.2, 24.58, 22.04])
 // 🔴 2026-08-25 後ろ左の床ビスのため +11.5 に上げたが、上げた板が帯（Z 21.4〜23.4）を横切り、
 //    帯は切らない（🔒 ユーザー）ため撤回。復活させるなら板を帯の上（下端 23.4〜・口 Z≈33.5）に載せる案の判断待ち（⬜）
 module tcb_v4() translate([-64.47 + LW_X, IN_Y - 0.50, 0]) rotate([0, 0, -90]) { tcb_at(); tcb_ra(); color("#63b3ed", 0.85) tcb_hous(); }   // 板の裏は左壁の内面（LW_X）にベタ付け
+// デュポンを挿す前の姿（板＋コネクタ＋L 型ピンだけ）。落とし込みの検査 close_tc はこれで見る:
+//   手順では基板を立ててからハブの口を挿す（assembly_v4.html）ので、降りてくるときハウジングはまだ付いていない
+module tcb_v4_bare() translate([-64.47 + LW_X, IN_Y - 0.50, 0]) rotate([0, 0, -90]) { tcb_at(); tcb_ra(); }
 
 // ---- 自由な部品 その5: トグル（🔒 2026-08-25 ユーザー「v3 と同じ位置へ」）----
 //   v3 のまま: 軸 X 40・Z 43.5・ハッチ内面（IN_Y）から外向き・外ナット留め
@@ -192,6 +195,7 @@ LEG4W   = lipo_size()[1] - 2 * (LEG_X0 - BAT_X0);   // 脚とガードの X 幅�
 module brg_plate2d() {
     translate([BAT_X0 - 2.5, BAT_Y0]) square([lipo_size()[1] + 5, lipo_size()[0]]);   // 電池の受け皿（X 13〜53）
     translate([LW_X, BRG_Y0]) square([IN_X - LW_X, BRG_Y1 - BRG_Y0]);                 // 壁〜壁の帯
+    for (m = BRG_ARMS) translate([m[0], m[1]]) square([m[2] - m[0], m[3] - m[1]]);    // 壁の棚へ渡す腕 2 本（下の「箱への固定」）
 }
 // レール: X-Z 断面を Y へ押し出す。皿へ食い込む帯（幅 6）を持たせて、皿の縁の面取りがレールの足元を横切らないようにする
 module brg_rail2d(right) {
@@ -212,8 +216,68 @@ module brg_guard2d() {
     translate([BAT_Y0 - 1.0, BAT_Z]) square([1.0, lipo_size()[2]]);              // 返し（厚み 1.0・高さ 6）
     translate([BAT_Y0 - 1.0, BAT_Z - BRG_T]) square([8.0, BRG_T]);               // 皿へ食い込む帯（前へ 1.0 出る）
 }
-module brg_v4() color("#c9d0d8") {
+// 充電（Type-C）基板の Z の抜け止め（🔒 2026-08-25 ユーザー検収済み）。
+//   板の上端 20.5 と 壁〜壁の帯の裏 21.4 のあいだは 0.9 しか無い。その 0.9 に 0.7 の押さえを下ろし、
+//   板が上へ動ける量を 0.2 にする。ブリッジは基板より後（手順 5）に降りるので組む順の邪魔にならない。
+//   X は板（1.694〜3.294）を覆う 3.9 まで・Y は前の返し 58.35 と 後ろの控え 62.0 のあいだ。
+TC_PRESS = [58.6, 62.2, 20.7];   // [Y0, Y1, Z0]
+module brg_tc_press() translate([LW_X, TC_PRESS[0], TC_PRESS[2]])
+    cube([3.9 - LW_X, TC_PRESS[1] - TC_PRESS[0], BAT_Z - BRG_T + 0.4 - TC_PRESS[2]]);
+// ---- 箱への固定（🔒 2026-08-25 ユーザー「ブリッジを箱に固定してください。このロボットは外で使うものです。
+//      ひっくり返されたら壊れるのでは使い物になりません」）----
+//   v3 と同じ手 ＝ 壁の内面に棚を立て、ナットは上から落とし、ビスはブリッジの上から M2×6。3 か所:
+//     L  左の壁 Y 30.5〜36.5（v3 の左の棚 31〜37 とほぼ同じ場所）
+//     R1 右の壁 Y 30.0〜36.0
+//     R2 右の壁 Y 56.9〜62.9（壁〜壁の帯の右端がそのまま載るので腕は要らない）
+//   L と R1 へは皿から腕（BRG_ARMS・厚み 2.0）を渡す。3 点は電池の重心（X 33・Y 37.9）を三角形の内側に囲む
+//   ＝ 逆さにしても回らない。
+//   🔴 留められなかった 2 か所（当たり検査の実測。直すには他の部品を動かすことになるので手を付けていない）:
+//     ・帯の左端（Y 50.5〜62.9）: 真下に充電の Type-C 基板（X 〜7.06・Z 〜20.5・Y 48.67〜73.2）が居る。
+//       壁は上から降りるので、そこに棚を立てると壁が入らない。
+//     ・前の脚の足元: 床の空きが Y 12.02〜15.6 の **3.58** しか無い（前は ReSpeaker の裏の部品が Y 11.72 まで・
+//       後ろはハブの前縁 15.9）。M2 のナットは 4.3 要るので寝られない。X 方向のすき間も最大 0.8 で連続していた。
+//       ハブを +2 後ろへ（HUB_DY 4 → 6）送れば 5.58 になって入るが、口 10 本と線が動くので ⬜ 判断待ち。
+BRG_ZB    = BAT_Z - BRG_T;   // 21.4 皿と帯の裏 ＝ 棚の上面
+BRG_LDG_W = 5.0;             // 棚の X 幅（壁の内面から）
+BRG_LDG_H = 8.0;             // 棚の高さ（v3 と同じ）
+BRG_PAD_T = 2.0;             // ビスの座: 腕を局所的に 2.0 → 4.0 に厚くする（座ぐり 1.6 を彫っても 2.4 残る）
+BRG_PAD_W = 6.0;             // 座の X 幅
+//         [側(-1=左/+1=右), 棚 Y0, 棚 Y1, ビスの Y, 座 Y0, 座 Y1]
+BRG_ANCH = [[-1, 30.5, 36.5, 33.5, 30.5, 36.5],
+            [ 1, 30.0, 36.0, 32.3, 30.0, 34.6],    // 座と腕は Y 34.6 まで（ハブのハウジングが 34.67 から）
+            [ 1, 56.9, 62.9, 59.9, 56.9, 62.9]];
+BRG_ARMS = [[LW_X, 30.5, BAT_X0 - 2.5, 36.5],                        // 左の腕（皿の左縁 13 → 左の壁）
+            [BAT_X0 + lipo_size()[1] + 2.5, 30.0, IN_X, 34.6]];      // 右の腕（皿の右縁 53 → 右の壁）
+function brg_ldg_x0(a) = (a[0] < 0) ? LW_X : IN_X - BRG_LDG_W;
+function brg_scr(a)    = [(a[0] < 0) ? LW_X + BRG_LDG_W / 2 : IN_X - BRG_LDG_W / 2, a[3]];
+function brg_pad_x0(a) = (a[0] < 0) ? LW_X : IN_X - BRG_PAD_W;
+// 壁の内面の棚（ナットは上から落とし、ブリッジの腕が蓋になる）。左右の壁の板がこれを呼ぶ
+module brg_ledges(side) for (a = BRG_ANCH) if (a[0] == side) difference() {
+    color("#b6c0cc") translate([brg_ldg_x0(a), a[1], BRG_ZB - BRG_LDG_H]) cube([BRG_LDG_W, a[2] - a[1], BRG_LDG_H]);
+    translate([brg_scr(a)[0], brg_scr(a)[1], BRG_ZB - NUT_T]) rotate([0, 0, 30]) hex_pocket(NUT_T + 1);   // ナットの座（二面幅を Y に向ける）
+    translate([brg_scr(a)[0], brg_scr(a)[1], BRG_ZB - BRG_LDG_H - 1]) cylinder(d = SCR_D, h = BRG_LDG_H + 2, $fn = 24);
+}
+// ブリッジ側: ビスの座（腕の上の増し肉。下 1.0 は皿の中に埋めて、面取りが継ぎ目に溝を作らないようにする）
+module brg_pads() for (a = BRG_ANCH)
+    prism_z(BRG_ZB + BRG_T - 1.0, BRG_PAD_T + 1.0, BRG_CH) smooth2d(0, BRG_RD)
+        translate([brg_pad_x0(a), a[4]]) square([BRG_PAD_W, a[5] - a[4]]);
+module brg_anchor_cuts() for (a = BRG_ANCH) {
+    translate([brg_scr(a)[0], brg_scr(a)[1], BRG_ZB - 1]) cylinder(d = SCR_D, h = BRG_T + BRG_PAD_T + 2, $fn = 24);                   // 通し穴
+    translate([brg_scr(a)[0], brg_scr(a)[1], BRG_ZB + BRG_T + BRG_PAD_T - SCR_CBT]) cylinder(d = SCR_CB, h = SCR_CBT + 1, $fn = 32);  // 頭の座ぐり
+}
+// ビスとナットの現物（検査と絵に出す。M2×6・頭 φ3.0 × 1.3 ✅実測・ナット 二面幅 4.0 × 1.6）
+module brg_hw() color("#8892a0") for (a = BRG_ANCH) {
+    translate([brg_scr(a)[0], brg_scr(a)[1], BRG_ZB + BRG_T + BRG_PAD_T - SCR_CBT]) {
+        cylinder(d = 3.0, h = 1.3, $fn = 24);                        // 頭（座ぐりの底に座る）
+        translate([0, 0, -6]) cylinder(d = 2.0, h = 6, $fn = 24);    // 軸 M2×6
+    }
+    translate([brg_scr(a)[0], brg_scr(a)[1], BRG_ZB - 1.6]) rotate([0, 0, 30]) hex_pocket_af(4.0, 1.6);   // 締めて腕の裏に上がったナット
+}
+module brg_v4() color("#c9d0d8") difference() {
+  union() {
     prism_z(BAT_Z - BRG_T, BRG_T, BRG_CH) smooth2d(BRG_FL, BRG_RD) brg_plate2d();
+    brg_pads();
+    brg_tc_press();
     // 🔒 2026-08-25 ユーザー「A は作らない代わりに電池のレール」: 皿の縁に立つ土手（厚み2・高さ4・電池へ 0.5 逃げ）。
     //   ⊓ の足が座る区間（Y 15.45〜21.45・33.2〜42.2・52.6〜58.6）だけ途切れる
     for (s = [[21.45, 33.2], [42.2, 52.6], [58.6, BAT_Y0 + lipo_size()[0]]])
@@ -224,6 +288,8 @@ module brg_v4() color("#c9d0d8") {
     prism_x(LEG_X0, LEG4W, BRG_CH) smooth2d(BRG_FL, BRG_RD) brg_leg2d();      // 前の 1 枚板の脚（床まで・左右対称）
     // 🔒 2026-08-25 ユーザー「電池が ReSpeaker の基板を叩かないためのガードも」。厚み 1.0 なので面取りと角 R は小さく
     prism_x(LEG_X0, LEG4W, 0.4) smooth2d(BRG_FLG, 0.4) brg_guard2d();         // 電池の前ガード
+  }
+  brg_anchor_cuts();   // 箱へ留める M2 の通し穴＋座ぐり（3 か所）
 }
 
 // ---- 留め帯 3 本（🔒 2026-08-25 ユーザー・写真＋断面図「結束バンドのように（v2 のトンネル役）。
@@ -468,6 +534,10 @@ module pbu_hous() color("#4a5568", 0.85) {
     translate([18.6, 57.1, 45.62 + BOARD_LIFT]) cube([3.6, 3.6, 3.6]);
 }
 module wires_sig() { w_xiao(); w_oled(); w_as5600(); w_btn2(); w_phin(); w_phout(); w_ina_i2c(); w_tgl(); w_reed(); w_chg(); }
+// 車線で分けた束（CASE-V4 §6 の表そのまま）。**壁を降ろす時点で通っているのは低い車線だけ**なので、
+//   板を入れる動きの検査（close_lwall / close_rwall）はこちらを障害物に使う（2026-08-25）
+module wires_low()  { w_xiao(); w_as5600(); w_btn2(); w_phin(); w_phout(); }        // 低い車線（ブリッジより先）
+module wires_high() { w_oled(); w_ina_i2c(); w_tgl(); w_reed(); w_chg(); }          // 上の車線（ブリッジより後）
 WP = "";   // 束を 1 つだけ検査するとき: xiao/oled/as5600/btn2/phin/phout/ina/tgl/reed/chg
 module wsel() { if (WP == "" ) wires_sig();
     else if (WP == "xiao") w_xiao(); else if (WP == "oled") w_oled(); else if (WP == "as5600") w_as5600();
@@ -489,6 +559,7 @@ if (W == "core") core();
 // 2026-08-25 ユーザー「ブリッジを設計する。左右の壁だけ見えるように」→ look に v3 の左右の壁だけ影で出す（床・天井・ハッチは出さない）
 module v3_walls_lr() color("#8899aa", 0.25) {
     translate([LW_X - WALL, 0, 0]) cube([WALL, IN_Y, IN_Z + TOP_T]);   // 左の壁（内面 LW_X）
+    brg_ledges(-1); brg_ledges(1);                                     // ブリッジを留める棚（線の検査もこれを障害物として見る）
     // 🔒 2026-08-25 要件: 口（殻の面 85.554）が彫り込みの床に顔を出す。壁の内面は殻＋0.15（IN_X 85.704・case_base）。
     //   彫りは v2/v3 の right_wall_ports_cut そのまま。🔴 旧記述「局所的に薄くする＝壁は v3 の位置で外から彫るだけ」は
     //   安い読み違いで、口が 1.25 埋まっていた（CASE-V4 §10 ①）
@@ -543,6 +614,9 @@ if (W == "deskseat") intersection() { union() for (t = [0 : STEP : 30]) translat
 if (W == "topseat")  intersection() { union() for (t = [0 : STEP : 25]) translate([0, 0, t]) top_group();
                                       union() { lower_group(); brg_v4(); straps_v4(); bat_v4(); pb_bat(); ina_bat(); tgl_v4(); } }
 if (W == "brgchk")  intersection() { brg_v4(); union() { core(); pb_bat(); ina_bat(); tgl_v4(); tcb_v4(); } }   // 橋 ↔ 全部（電池は上に載るだけ）
+// 箱への固定（2026-08-25）: 棚 ↔ 中身 ／ ビスとナットの現物 ↔ 周り。どちらも **0 が正**
+if (W == "brgldg")  intersection() { union() { brg_ledges(-1); brg_ledges(1); } union() { core(); bat_v4(); pb_bat(); ina_bat(); tgl_v4(); tcb_v4(); straps_v4(); wires_pwr(); wires_sig(); } }
+if (W == "brghw")   intersection() { brg_hw(); union() { brg_v4(); v3_walls_lr(); core(); bat_v4(); tcb_v4(); straps_v4(); wires_pwr(); wires_sig(); } }
 echo(v3_inner = [IN_X, IN_Y, IN_Z], v3_outer = [IN_X + 2 * WALL, IN_Y + HATCH_T, IN_Z + TOP_T + FLOOR_T]);
 echo(hub_dx = HUB_DX, hub_x = [HUB_X + HUB_DX, HUB_X + HUB_L + HUB_DX], rsp_edge = RSP_X + respeaker_L(), xiao_face = XIAO_FACE_X);
 if (W == "seatchk")  intersection() { straps_v4(); union() { ina_bat(); pb_bat(); bat_v4(); core(); brg_v4(); tgl_v4(); tcb_v4(); wires_pwr(); wires_sig(); } }   // 座＋ネジ穴を入れた帯 ↔ 全部（0 が正）

@@ -38,14 +38,14 @@ module s_front()  rounded4() front_v4();
 module s_hatch()  { rounded4() hatch_v4(); tgl_v4(TAIL_ANG); tail_at(); door4(0, true); }
 
 // ---- 手順の段（累積）------------------------------------------------------
-//  1 床にハブ / 2 ReSpeaker と Type-C / 3 ハブの口 10 本＋低い車線 / 4 左右の壁 / 5 ブリッジ
+//  1 床にハブ / 2 ReSpeaker / 3 ハブの口 10 本＋低い車線 / 4 左右の壁＋Type-C（壁と一緒に降ろす）/ 5 ブリッジ
 //  6 電池 / 7 留め帯 / 8 電流計と PowerBoost / 9 OLED と上の車線と電源系の線
 // 10 天面一式 / 11 フロント / 12 ハッチ
 module upto(n) {
     if (n >= 1)  { s_floor(); s_hub(); }
-    if (n >= 2)  { s_rsp(); s_tcb(); }
+    if (n >= 2)  s_rsp();
     if (n >= 3)  { s_plugs(); xiao_hous(); w_low(); }
-    if (n >= 4)  s_walls();
+    if (n >= 4)  { s_walls(); s_tcb(); }   // 🔒 2026-08-25 Type-C は左の壁と一緒に降ろす（CASE-V4-OPEN.md A-13）
     if (n >= 5)  s_brg();
     if (n >= 6)  s_bat();
     if (n >= 7)  s_strap();

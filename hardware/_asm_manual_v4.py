@@ -8,6 +8,7 @@
 # 当たりの数字は同じファイルの CHK=... を manifold で回した実測（下の CHECKS に出典を書いた）。
 # 挿絵は openscad の --render を PNG にして、背景の一色を縁から塗りつぶして透過にし、
 # 12 枚を同じ枠で切って倍率を揃えている（段を並べたときに大きさが飛ばないように）。
+# 🔴 2026-08-25 OpenSCAD Nightly は --render に値が要る（'--render' だけだと次の引数を食う）。'--render=full' で渡すこと
 import base64, os, subprocess, sys
 from collections import deque
 
@@ -30,13 +31,13 @@ WIDE = [('explode', 'case_v4.scad', 'part', 'explode', '0,0,0,62,0,42,0'),
 def render():
     os.makedirs(IMGDIR, exist_ok=True)
     for st in SEQ:
-        subprocess.run([OPENSCAD, '--backend=manifold', '--render'] + CAM +
+        subprocess.run([OPENSCAD, '--backend=manifold', '--render=full'] + CAM +
                        ['-o', os.path.join(IMGDIR, st + '.png'), '-D', 'ST="%s"' % st,
                         os.path.join(HERE, '_asm_sim_v4.scad')],
                        check=True, capture_output=True)
         print('  ', st)
     for name, scad, var, val, cam in WIDE:
-        subprocess.run([OPENSCAD, '--backend=manifold', '--render', '--projection=p',
+        subprocess.run([OPENSCAD, '--backend=manifold', '--render=full', '--projection=p',
                         '--autocenter', '--viewall', '--camera=' + cam,
                         '--imgsize=1200,950', '-o', os.path.join(IMGDIR, name + '.png'),
                         '-D', '%s="%s"' % (var, val), os.path.join(HERE, scad)],
@@ -116,12 +117,11 @@ STEPS = [
    '穴の位置は <span class="n">[9.0, 18.9] / [9.0, 64.9] / [77.0, 18.9] / [77.0, 64.9]</span>。ハブは箱の X 中央（<span class="n">X 6.0〜80.0</span>）に座る。',
  ], note='床の裏はスタンドに載る面。ビスの頭が出ていると座らない。v3 と同じ流儀。'),
 
- dict(n='2', t='ReSpeaker と Type-C 基板を立てる', img='st2', acts=[
+ dict(n='2', t='ReSpeaker を立てる', img='st2', acts=[
    'ReSpeaker を床の溝に上から差す。<b>ビスは無い。</b>頭は手順 10 で天面のリブ 2 本が <span class="d">0.3mm</span> 押さえる。',
    '向きは、イヤホンジャックと ReSpeaker 自身の USB-C が<b>左の壁</b>側、XIAO の USB-C が<b>右の壁</b>側。左の壁に開いているのはイヤホンジャックの丸い口（<span class="d">φ6.05</span>）だけで、ReSpeaker 自身の USB-C は 🔒 外に出さず、壁の内側の盲ポケットが受ける。',
-   'Type-C 基板は左の壁の内面に沿わせて床に立て、口の鼻先を<b>ハッチ側（後ろ）</b>へ向ける。床の振れ止めリブの後ろへ落とす。',
  ], warn='<b>壁より先に入れる。</b>壁を降ろした後で ReSpeaker を入れようとすると <span class="d">454mm³</span> 当たって入らない（<span class="n">CHK="rsp_after"</span>）。',
-    open_='Type-C 基板の保持は床の振れ止めリブ 1 本だけ。X に倒れる向きと Z の抜けは未対策のまま（<b>CASE-V4-OPEN.md</b> A-6）。基板そのもの（秋月 115426）は 2026-08-24 時点で未注文。'),
+    open_='🔴 2026-08-25 <b>Type-C 基板はこの手順では入れない</b>。手順 4 で左の壁と一緒に降ろす（<b>CASE-V4-OPEN.md</b> A-13）。'),
 
  dict(n='3', t='ハブの口 10 本を全部挿して、低い車線に寝かせる', img='st3', acts=[
    '<span class="w">XIAO</span> 7・<span class="w">PHIN</span> 2・<span class="w">OLED</span> 4・<span class="w">AS5600</span> 5・<span class="w">BTN2</span> 2・<span class="w">REED</span> 2・<span class="w">PHOUT</span> 2・<span class="w">PWR</span> 3・<span class="w">INA</span> 4・<span class="w">TOGGLE</span> 2 の 10 束を、ハブ側だけ全部挿す。',
@@ -134,6 +134,7 @@ STEPS = [
  dict(n='4', t='左右の壁を降ろし、床の裏から 3 本で留める', img='st4', acts=[
    '<span class="d">M2</span> ナット 3 個を、壁の下の柱の頭（<span class="n">Z 10.2〜12.0</span>）に上から落とす。',
    '壁はまっすぐ <b>Z で</b>降ろす。傾けない。',
+   '🔴 <b>左の壁は Type-C 基板を抱いて降ろす。</b>基板の板の裏を左の壁の内面に当て、口の鼻先を<b>ハッチ側（後ろ）</b>へ向けたまま、壁と基板を一緒にまっすぐ下ろす。板の下端が床の受け（前の当て・後ろの控え・底の座）に入れば座る。<b>先に立てることも、壁の後から真上に落とすことも出来ない</b>——前者は板の裏を受ける面が左壁の内面そのものなので <span class="d">−X</span> へ倒れ、後者は天面の後ろ左のボスが板の真上を <span class="d">75.6mm³</span> 塞ぐ（<span class="n">close_tc</span>）。',
    '箱は<b>伏せずに</b>机の端か台に載せ、下から <span class="d">M2×15</span> ×3。前の 2 本 <span class="n">[4.2, 4.75] / [81.8, 4.75]</span>、後ろ右 1 本 <span class="n">[82.0, 69.5]</span>（ハブの角を欠いた L 形のボス）。',
    '<b>後ろ左のビスは無い。</b>v3 と同じ 3 本構成で、後ろの床はこの 1 本とハッチの爪 2 つ・トグルの外ナットが持つ。',
  ], warn='ナットは落とし込んだだけで、六角のポケットは <span class="d">4.3</span>・ナットは <span class="d">4.0</span> で <b>0.3 の遊びがある</b>。箱を伏せると落ちる。',
@@ -142,6 +143,7 @@ STEPS = [
  dict(n='5', t='ブリッジを上から降ろす', img='st5', acts=[
    '前の脚（1 枚板・厚み <span class="d">2.0</span>・<span class="n">X 21.5〜44.5</span>）を床の受け溝へ入れながら、まっすぐ <b>Z で</b>降ろす。',
    '皿（電池の受け・<span class="n">X 13〜53</span>）が下、壁〜壁の帯（<span class="n">Y 50.5〜62.9</span>）が後ろ。帯の左右の端は壁に触れるだけ。',
+   '帯の裏の左端に <b>Type-C 基板の押さえ</b>（<span class="n">X 1.694〜3.9・Y 58.6〜62.2</span>・下端 <span class="n">Z 20.7</span>）が付いている。ここが基板の Z の抜け止めなので、<b>ブリッジを載せるまで基板は上へ抜ける。</b>',
  ], warn='🔴 <b>ブリッジは OLED より先。</b>OLED を先に立てると受け皿が OLED の線の帯（<span class="n">X 37.9〜48.1・Z 45〜48</span>）を通り、ヘッダのピン先とも当たる（<span class="n">close_desk</span> 171mm³ ・<b>CASE-V4-LOG.md</b> §10）。',
     open_='帯の左右の端の受けと、脚の Z の抜け止めが無い（<b>CASE-V4-OPEN.md</b> A-3・A-4）。いまは前の脚が床の溝に座っているだけ。'),
 
@@ -266,7 +268,8 @@ BLANKS = [
   '<span class="n">part="bridge"</span> は「見る用」（電池・基板・壁ごと）で、印刷用の <span class="n">p_</span> / <span class="n">print_</span> が無い。刷る向きも未決（帯が脚の上に張り出す）。<b>会話ボタンのキャップ</b>も同じで、v3 の <span class="n">p_btncap</span> が v4 に移っていない',
   '未整備'),
  ('③ 支えが無い所',
-  'ブリッジの帯の左右の端の受け・脚の Z の留め・留め帯の Z の抜け止め・電池と基板の Z の抜け止め・Type-C 基板の保持',
+  'ブリッジの帯の左右の端の受け・脚の Z の留め・留め帯の Z の抜け止め・電池の Z の抜け止め'
+  '（Type-C 基板の保持は 2026-08-25 に受けを作り、🔒 同日ユーザー検収済み）',
   '<b>CASE-V4-OPEN.md</b> A-3〜A-6'),
  ('④ 線の長さ（置いた姿勢）',
   '表の「模型の実長」は箱の中の折れ線長。天面を箱の左に裏返して置く姿勢で足りるかは v4 では測っていない（v3 では最大 +57mm 要った束があった）',
