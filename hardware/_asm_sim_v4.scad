@@ -39,7 +39,8 @@ module s_hatch()  { rounded4() hatch_v4(); tgl_v4(TAIL_ANG); tail_at(); door4(0,
 
 // ---- 手順の段（累積）------------------------------------------------------
 //  1 床にハブ / 2 ReSpeaker / 3 ハブの口 10 本＋低い車線 / 4 左右の壁＋Type-C（壁と一緒に降ろす）/ 5 ブリッジ
-//  6 電池 / 7 留め帯 / 8 電流計と PowerBoost / 9 OLED と上の車線と電源系の線
+//  🔒 2026-08-26 6 と 7 を入れ替えた。留め帯のツバは横からしか入らず、電池が先に居ると差せない
+//  6 留め帯（横から差す）/ 7 電池（後ろから差し込む）/ 8 電流計と PowerBoost / 9 OLED と上の車線と電源系の線
 // 10 天面一式 / 11 フロント / 12 ハッチ
 module upto(n) {
     if (n >= 1)  { s_floor(); s_hub(); }
@@ -47,8 +48,8 @@ module upto(n) {
     if (n >= 3)  { s_plugs(); xiao_hous(); w_low(); }
     if (n >= 4)  { s_walls(); s_tcb(); }   // 🔒 2026-08-25 Type-C は左の壁と一緒に降ろす（CASE-V4-OPEN.md A-13）
     if (n >= 5)  s_brg();
-    if (n >= 6)  s_bat();
-    if (n >= 7)  s_strap();
+    if (n >= 6)  s_strap();
+    if (n >= 7)  s_bat();
     if (n >= 8)  s_boards();
     if (n >= 9)  { s_oled(); oled_hous(); w_high(); s_wpwr(); }
     if (n >= 10) s_top();
@@ -72,10 +73,21 @@ if (CHK == "wall_r")  intersection() { sweep_z() rwall_v4(); upto(3); }
 if (CHK == "brg")     intersection() { sweep_z() brg_v4(); upto(4); }
 // 反例: 上の車線を先に通してしまった場合（0 にならないことを見るための検査）
 if (CHK == "brg_bad") intersection() { sweep_z() brg_v4(); union() { upto(4); w_high(); s_oled(); oled_hous(); } }
-// ⑥ 電池を上から降ろす（相手 = 手順⑤まで）
-if (CHK == "bat")     intersection() { sweep_z() bat_v4(); upto(5); }
-// ⑦ 留め帯 3 本を上からかぶせる（相手 = 手順⑥まで）
-if (CHK == "strap")   intersection() { sweep_z() straps_v4(); upto(6); }
+// 🔒 2026-08-26 ⑥⑦ は上からではなくなった。⑥ は横（つまみ側から −X へ 2.0）・⑦ は後ろから（−Y へ）
+//   向きは右（つまみ側）から。左から差すと帯 A の左足が BTN2 の束を 32.69mm³ 通る（右の XIAO は 20.63mm³ で、
+//   右の溝の方が広く束をよけやすい）。どちらも線だけで、剛体との当たりは 0
+module sweep_x(d = TAB_L) union() for (t = [0 : STEP : d]) translate([d - t, 0, 0]) children();
+module sweep_y(d = 55)    union() for (t = [0 : 1 : d]) translate([0, d - t, 0]) children();
+// ⑥ 留め帯 3 本を横から差す（相手 = 手順⑤まで）。ツバが土手の溝へ入る 2.0 の掃引
+if (CHK == "strap")     intersection() { sweep_x() straps_v4(); upto(5); }
+module upto5_dry() { s_floor(); s_hub(); s_rsp(); s_plugs(); xiao_hous(); s_walls(); s_tcb(); s_brg(); }
+if (CHK == "strap_dry") intersection() { sweep_x() straps_v4(); upto5_dry(); }   // 線を除いた剛体だけ（0 が正）
+// ⑦ 電池を後ろのハッチ口から差し込む（相手 = 手順⑥まで ＝ 留め帯が既に入っている）
+if (CHK == "bat")       intersection() { sweep_y() bat_v4(); upto(6); }
+// 反例: 電池を先に入れてしまった場合、留め帯は横から入らない（0 にならないことを見るための検査）
+if (CHK == "strap_bad") intersection() { sweep_x() straps_v4(); union() { upto(5); s_bat(); } }
+// 反例: 留め帯を上からかぶせようとした場合（ツバが土手に当たる。0 にならない）
+if (CHK == "strap_top") intersection() { sweep_z() straps_v4(); upto(5); }
 // ⑧ 電流計と PowerBoost を上から座へ降ろす（相手 = 手順⑦まで）
 if (CHK == "boards")  intersection() { sweep_z(25) { ina_bat(); pb_bat(); } upto(7); }
 // ⑨ OLED を上から降ろす／上の車線と電源系（静止）↔ 手順⑧まで＋皮

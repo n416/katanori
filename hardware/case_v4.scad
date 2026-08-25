@@ -417,15 +417,20 @@ if (part == "print_tail")    translate([0, 0, -0.2]) tail_cap();
 //   それまで STL の出口が無く、刷れるのは板 9 点だけだった（CASE-V4-OPEN A-2）。
 // 帯は 3 本が別々の部品。straps_v4() は 3 本＋座を一度に作るので、Y で 1 本ぶんだけ切り出す
 //   （座・ナットの横穴・PB の足の逃げ溝も、その帯に属するぶんだけ一緒に出る）
+// 🔒 2026-08-26 ツバ（TAB_*）は帯の Y の外へ出るので、切り出しはツバ込みの端（strap_ya/strap_yb）で取る
 module strap_one(s) intersection() {
     straps_v4();
-    translate([-100, s[0] - 0.05, -100]) cube([400, s[1] + 0.1, 400]);
+    translate([-100, strap_ya(s) - 0.05, -100]) cube([400, strap_yb(s) - strap_ya(s) + 0.1, 400]);
 }
-// 帯: ⊓ の断面を寝かせる（押し出しの軸 Y を上へ向ける＝断面がベッドに平らに乗る）。
-//   断面が高さ方向に変わらないので支えが要らず、電池を抱く力の向きが層と同じ面の中に収まる。
-if (part == "print_strap_a") translate([0, 0, -STRAP_BANDS[0][0]]) rotate([90, 0, 0]) strap_one(STRAP_BANDS[0]);
-if (part == "print_strap_b") translate([0, 0, -STRAP_BANDS[1][0]]) rotate([90, 0, 0]) strap_one(STRAP_BANDS[1]);
-if (part == "print_strap_c") translate([0, 0, -STRAP_BANDS[2][0]]) rotate([90, 0, 0]) strap_one(STRAP_BANDS[2]);
+// 🔒 2026-08-26 ユーザー「帯を下にして印刷するならこうすれば確実だ」: 天板をベッドに伏せる（うつ伏せ）。
+//   絵のとおりの向き（足とツバを下・座を上）でベッドに置く。足の裏とツバの裏は同じ面なので 1 層目は平ら、
+//   ツバは上へすぼまるので庇にならない。旧版（断面を寝かせて Y を上へ向ける）は、ツバが押し出しの軸そのものへ
+//   出るため 1 層目がツバだけの島になり、その上で断面が宙に浮く。もう使えない。
+//   ⚠ この向きでは天板が足と足の間（X 15〜51 ＝ 36）を渡る。支えは要らないがブリッジになる。
+module strap_print(s) translate([0, 0, -BAT_Z]) strap_one(s);
+if (part == "print_strap_a") strap_print(STRAP_BANDS[0]);
+if (part == "print_strap_b") strap_print(STRAP_BANDS[1]);
+if (part == "print_strap_c") strap_print(STRAP_BANDS[2]);
 // キャップ: 閉じている天面をベッドに伏せる（うつ伏せ）。中の空洞と押し棒が上を向くので支えは要らない
 //   （棒の先の返り φ5 × 0.8 だけが庇になる）。z_top = Z_TOP + BTN_OUT
 if (part == "print_btn")     translate([0, 0, Z_TOP + BTN_OUT]) rotate([180, 0, 0]) button_cap();
@@ -513,9 +518,10 @@ if (part == "explode") {
     translate([EX, 0, E])  rounded4() rwall_v4();
     translate([0, 0, 0.35 * E])          brg_front();                                     // 前板（先に床の溝へ差す）
     translate([0, 0, 0.6 * E])           brg_v4();                                        // ブリッジ（掘り込みが前板のフランジに被さる）
-    translate([0, 0, 0.6 * E + 1.5 * S]) color("#f6ad55") bat_v4();                       // 電池（皿の上）
-    translate([0, 0, 0.6 * E + 2.5 * S]) { pb_bat(); ina_bat(); pbl_hous(); pbu_hous(); } // 帯の天面に載る 2 枚＋挿す線
-    translate([0, 0, 0.6 * E + 3.5 * S]) straps_v4();                                     // 留め帯 3 本（上から抱く）
+    // 🔒 2026-08-26 順を入れ替えた。留め帯は横（つまみ側 +X）から、電池は後ろ（+Y）から入る
+    translate([1.1 * S, 0, 0.6 * E + 2.0 * S]) straps_v4();                               // 留め帯 3 本（横から差す）
+    translate([0, 1.1 * E, 0.6 * E])     color("#f6ad55") bat_v4();                       // 電池（後ろから差し込む・皿と同じ高さ）
+    translate([0, 0, 0.6 * E + 4.0 * S]) { pb_bat(); ina_bat(); pbl_hous(); pbu_hous(); } // 帯の天面に載る 2 枚＋挿す線
     translate([0, 0, 2 * E]) { rounded4() top_v4(); top_group(); }                        // 天面一式（島・スピーカー・傘ごと）
     translate([0, -E, 2 * E]) rounded4() front_v4();                               // フロント（前から差す）
     translate([0, E, 2 * E]) { rounded4() hatch_v4(); tgl_v4(TAIL_ANG); translate([0, E / 2, 0]) tail_at();

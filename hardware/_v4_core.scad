@@ -325,6 +325,10 @@ module brg_hw() color("#8892a0") for (a = BRG_ANCH) {
     }
     translate([brg_scr(a)[0], brg_scr(a)[1], BRG_ZB - BRG_LDG_SKIN - 1.6]) rotate([0, 0, 30]) hex_pocket_af(4.0, 1.6);   // 締めて溝の天井（棚の肉の裏）へ上がったナット
 }
+// 土手（レール）の区間。⊓ の足が座る区間だけ途切れる。ツバの溝を彫るのに帯の側からも要るので変数に出した
+RAIL_SEG_L = [[21.45, 33.2], [42.2, 52.6], [58.6, BAT_Y0 + lipo_size()[0]]];              // 左（A の足の後ろから）
+RAIL_SEG_R = [[BAT_Y0, 15.45], [21.45, 33.2], [42.2, 52.6], [58.6, BAT_Y0 + lipo_size()[0]]];   // 右
+function rail_segs(right) = right ? RAIL_SEG_R : RAIL_SEG_L;
 module brg_v4() color("#c9d0d8") difference() {
   union() {
     prism_z(BAT_Z - BRG_T, BRG_T, BRG_CH) smooth2d(BRG_FL, BRG_RD) brg_plate2d();
@@ -333,12 +337,13 @@ module brg_v4() color("#c9d0d8") difference() {
     brg_tc_press();
     // 🔒 2026-08-25 ユーザー「A は作らない代わりに電池のレール」: 皿の縁に立つ土手（厚み2・高さ4・電池へ 0.5 逃げ）。
     //   ⊓ の足が座る区間（Y 15.45〜21.45・33.2〜42.2・52.6〜58.6）だけ途切れる
-    for (s = [[21.45, 33.2], [42.2, 52.6], [58.6, BAT_Y0 + lipo_size()[0]]])
+    for (s = RAIL_SEG_L)
         prism_y(s[0], s[1] - s[0], BRG_CH) smooth2d(BRG_FLB, BRG_RD) brg_rail2d(false);   // 左のレール（A の足の後ろから）
-    for (s = [[BAT_Y0, 15.45], [21.45, 33.2], [42.2, 52.6], [58.6, BAT_Y0 + lipo_size()[0]]])
+    for (s = RAIL_SEG_R)
         prism_y(s[0], s[1] - s[0], BRG_CH) smooth2d(BRG_FLB, BRG_RD) brg_rail2d(true);    // 右のレール
     // 🔒 2026-08-26 ユーザー「別パーツにした方がいいかもしれないね」: 脚と返しは brg_front() へ出た（下）
   }
+  tab_slots();         // 留め帯のツバを受ける溝（土手を X に貫通・下の TAB_*）
   brg_anchor_cuts();   // 箱へ留める M2 の通し穴＋座ぐり（壁の棚に載る 2 か所）
   brg_up_cuts();       // 3 点目（帯の左端の上）の通し穴＋座ぐり
   brgf_cuts();         // 前板: 首を通す抜き（皿を貫通）とフランジの掘り込み
@@ -423,7 +428,55 @@ module strap2d() {   // ⊓ の断面（X-Z）
     for (x = [BAT_X0 - 2.5, BAT_X0 + lipo_size()[1] + 0.5]) translate([x, BAT_Z]) square([STRAP_T, lipo_size()[2] + STRAP_T]);
     translate([BAT_X0 - 2.5, BAT_Z + lipo_size()[2]]) square([lipo_size()[1] + 5, STRAP_T]);
 }
-module strap_u(y0, w) prism_y(y0, w, STRAP_CH) smooth2d(STRAP_FL, STRAP_RD) strap2d();   // ⊓: 足（厚み2）は皿の縁の上（Z 23.4〜）・天板は電池の上
+// ---- ツバ（🔒 2026-08-26 ユーザー・絵 2 枚「テトリスの T 字・横からしか入れられないように」）----
+//   足の前後（±Y）にツバを出し、土手を X に貫通させた溝へ差す。ツバの上に土手の肉（1.4）が乗るので
+//   真上へは抜けない。ツバが前後どちらにも出ているので Y へも差せない。開いているのは X だけ ＝ 横差し。
+//   🔒 ユーザー「上からは入れられなくなって良いのです」——上からの落とし込みは廃止。
+//   🔒 ユーザー「このアイデアはバッテリー自体が楔になるという事なんです」:
+//     差した後に電池（X 15.5〜50.5）を後ろのハッチから入れると、足（X 13〜15 / 51〜53）と電池の隙間は
+//     左右 0.5 になる。ツバの掛かりは 2.0 なので、電池が入っている限り横へ戻せない ＝ ネジも繋ぎも要らない。
+// 🔒 2026-08-26 ユーザー「印刷を考慮するならこうだ」（3 枚目の絵）: ツバは足の**一番下**。
+//   足の裏とツバの裏が同じ面（Z 23.4 ＝ 皿の上）になるので、下に肉は残さない。土手は上にだけ肉を残す。
+TAB_L   = 2.0;    // ツバの長さ（Y）＝ 掛かり。差すときの横移動もこの量
+TAB_Z0  = BAT_Z;  // ツバの下面 ＝ 足の裏 ＝ 皿の上（23.4）
+TAB_H   = 2.0;    // ツバの高さ。TAB_L と同じ ＝ 上面がちょうど 45°（土手 23.4〜27.4 のうち上に 1.8 残る）
+TAB_CL  = 0.2;    // 溝の逃げ（上と奥。下は皿なので取らない）
+TAB_MIN = 3.5;    // これより短い土手には彫らない（右の Y 12.9〜15.45 ＝ 2.55 が該当。A の前は前後とも無し）
+function foot_x(right) = right ? BAT_X0 + lipo_size()[1] + 0.5 : BAT_X0 - 2.5;
+function tab_front(y0, right) = len([for (s = rail_segs(right)) if (abs(s[1] - y0) < 0.01 && s[1] - s[0] >= TAB_MIN) 1]) > 0;
+function tab_rear(y1, right)  = len([for (s = rail_segs(right)) if (abs(s[0] - y1) < 0.01 && s[1] - s[0] >= TAB_MIN) 1]) > 0;
+function tab_front_any(y0) = tab_front(y0, false) || tab_front(y0, true);
+function tab_rear_any(y1)  = tab_rear(y1, false) || tab_rear(y1, true);
+function strap_ya(s) = s[0] - (tab_front_any(s[0]) ? TAB_L : 0);              // 帯 1 本の Y の端（ツバ込み・印刷の切り出し用）
+function strap_yb(s) = s[0] + s[1] + (tab_rear_any(s[0] + s[1]) ? TAB_L : 0);
+//   ツバは 0.6 だけ帯の中へ食い込ませる（prism_y の面取りで凹んだ端の面を、ツバの高さの所だけ埋める）
+// 🔒 2026-08-26 ユーザー「帯を下にして印刷するならこうすれば確実だ」（4 枚目の絵）:
+//   ツバの上面を 45° に削る（下が一番長く、上へ行くほど短い）。帯は足を下にして刷ると
+//   上へすぼまる形になり、土手側の溝の天井も同じ 45° になるので、どちらも支えが要らない。
+module tab_solid(y0, w, right, rear) hull() {   // 下の面（全長）と上の稜（長さ 0）を結ぶ
+    translate([foot_x(right), rear ? y0 + w - 0.6 : y0 - TAB_L, TAB_Z0]) cube([STRAP_T, TAB_L + 0.6, 0.01]);
+    translate([foot_x(right), rear ? y0 + w - 0.6 : y0, TAB_Z0 + TAB_H - 0.01]) cube([STRAP_T, 0.6, 0.01]);
+}
+module strap_tabs(y0, w) for (right = [false, true]) {
+    if (tab_front(y0, right))     tab_solid(y0, w, right, false);
+    if (tab_rear(y0 + w, right))  tab_solid(y0, w, right, true);
+}
+//   溝は土手を X に貫通させる（＝ 横からどちら向きにでも差せる）。奥行きは掛かり ＋ 逃げ
+module tab_slot(y0, w, right, rear) hull() {   // ツバと同じく天井が 45°。X は土手を貫通（← 横から差せる理由）
+    x = foot_x(right) - 1;
+    yl = rear ? y0 + w - 0.1 : y0 - TAB_L - TAB_CL;   // 下の面（一番奥まで）
+    yu = rear ? y0 + w - 0.1 : y0 - TAB_CL;           // 上の稜
+    translate([x, yl, TAB_Z0]) cube([STRAP_T + 2, TAB_L + TAB_CL + 0.1, 0.01]);
+    translate([x, yu, TAB_Z0 + TAB_H + TAB_CL - 0.01]) cube([STRAP_T + 2, TAB_CL + 0.1, 0.01]);
+}
+module tab_slots() for (s = STRAP_BANDS) for (right = [false, true]) {
+    if (tab_front(s[0], right))          tab_slot(s[0], s[1], right, false);
+    if (tab_rear(s[0] + s[1], right))    tab_slot(s[0], s[1], right, true);
+}
+module strap_u(y0, w) {   // ⊓: 足（厚み2）は皿の縁の上（Z 23.4〜）・天板は電池の上
+    prism_y(y0, w, STRAP_CH) smooth2d(STRAP_FL, STRAP_RD) strap2d();
+    strap_tabs(y0, w);
+}
 // 🔒 2026-08-25 ユーザー「B を C と同じ ⊓ に揃える」→ 右壁寄せ +6 で「A も作れる?」→ 作れたので A も ⊓ で復活
 //   A = Y 15.45〜21.45（電力計の前穴 18.5 が中心）・B = 33.2〜42.2・C = 52.6〜58.6
 STRAP_BANDS = [[15.45, 6], [33.2, 9], [52.6, 6]];   // A / B / C（幅は取付穴をまたぐ量）
