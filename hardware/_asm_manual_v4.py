@@ -1,0 +1,601 @@
+# -*- coding: utf-8 -*-
+# 組み立てマニュアル v4（hardware/assembly_v4.html）を case_v4.scad から作り直す道具。
+#
+#   python hardware/_asm_manual_v4.py             挿絵を出し直して HTML を書く
+#   python hardware/_asm_manual_v4.py --no-render 挿絵はそのままで HTML だけ書き直す
+#
+# 手順は 1 か所（下の STEPS）にしか無い。段の中身の正は hardware/_asm_sim_v4.scad の upto()。
+# 当たりの数字は同じファイルの CHK=... を manifold で回した実測（下の CHECKS に出典を書いた）。
+# 挿絵は openscad の --render を PNG にして、背景の一色を縁から塗りつぶして透過にし、
+# 12 枚を同じ枠で切って倍率を揃えている（段を並べたときに大きさが飛ばないように）。
+import base64, os, subprocess, sys
+from collections import deque
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+IMGDIR = os.path.join(HERE, '_manual_img_v4')
+OUT = os.path.join(HERE, 'assembly_v4.html')
+OPENSCAD = os.environ.get('OPENSCAD', r'C:\Program Files\OpenSCAD (Nightly)\openscad.exe')
+
+N_STEPS = 12
+# 段の 12 枚は同じカメラ（後ろ上から。OLED が正面を塞ぐので中が見える向き）
+CAM = ['--projection=p', '--camera=43,36,22,58,0,205,330', '--imgsize=1100,850']
+SEQ = ['st%d' % n for n in range(1, N_STEPS + 1)]
+# 全体図（それぞれ viewall。こちらは正面右上から）
+#   全体図は viewall なので倍率は揃わない。カメラは 1 枚ずつ選ぶ（wires だけ後ろから）
+WIDE = [('explode', 'case_v4.scad', 'part', 'explode', '0,0,0,62,0,42,0'),
+        ('look',    'case_v4.scad', 'part', 'look',    '0,0,0,60,0,25,0'),
+        ('wires',   '_asm_sim_v4.scad', 'ST', 'wires', '0,0,0,58,0,205,0')]
+
+
+def render():
+    os.makedirs(IMGDIR, exist_ok=True)
+    for st in SEQ:
+        subprocess.run([OPENSCAD, '--backend=manifold', '--render'] + CAM +
+                       ['-o', os.path.join(IMGDIR, st + '.png'), '-D', 'ST="%s"' % st,
+                        os.path.join(HERE, '_asm_sim_v4.scad')],
+                       check=True, capture_output=True)
+        print('  ', st)
+    for name, scad, var, val, cam in WIDE:
+        subprocess.run([OPENSCAD, '--backend=manifold', '--render', '--projection=p',
+                        '--autocenter', '--viewall', '--camera=' + cam,
+                        '--imgsize=1200,950', '-o', os.path.join(IMGDIR, name + '.png'),
+                        '-D', '%s="%s"' % (var, val), os.path.join(HERE, scad)],
+                       check=True, capture_output=True)
+        print('  ', name)
+
+
+def _alpha(path):
+    """背景（角の色と同じで、縁から繋がっている画素）だけを透明にする。
+       模型の中にも同じ色があるので、色の一致ではなく縁からの塗りつぶしで判定する。"""
+    import numpy as np
+    from PIL import Image
+    im = Image.open(path).convert('RGB')
+    a = np.asarray(im).astype(np.int16)
+    near = (np.abs(a - a[0, 0]).sum(2) < 24)
+    h, w = near.shape
+    seen = np.zeros((h, w), bool)
+    q = deque()
+    for x in range(w):
+        for y in (0, h - 1):
+            if near[y, x] and not seen[y, x]:
+                seen[y, x] = True
+                q.append((y, x))
+    for y in range(h):
+        for x in (0, w - 1):
+            if near[y, x] and not seen[y, x]:
+                seen[y, x] = True
+                q.append((y, x))
+    while q:
+        y, x = q.popleft()
+        for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            ny, nx = y + dy, x + dx
+            if 0 <= ny < h and 0 <= nx < w and near[ny, nx] and not seen[ny, nx]:
+                seen[ny, nx] = True
+                q.append((ny, nx))
+    rgba = np.dstack([np.asarray(im), np.where(seen, 0, 255).astype(np.uint8)])
+    return rgba, ~seen
+
+
+def clean():
+    import numpy as np
+    from PIL import Image
+    data, boxes = {}, []
+    for n in SEQ:
+        rgba, solid = _alpha(os.path.join(IMGDIR, n + '.png'))
+        data[n] = rgba
+        ys, xs = np.nonzero(solid)
+        boxes.append((ys.min(), ys.max(), xs.min(), xs.max()))
+    y0 = max(0, min(b[0] for b in boxes) - 10); y1 = max(b[1] for b in boxes) + 11
+    x0 = max(0, min(b[2] for b in boxes) - 10); x1 = max(b[3] for b in boxes) + 11
+    for n in SEQ:                                     # 12 枚を同じ枠で切る = 倍率が揃う
+        im = Image.fromarray(data[n][y0:y1, x0:x1], 'RGBA')
+        if im.width > 900:
+            im = im.resize((900, round(im.height * 900 / im.width)), Image.LANCZOS)
+        im.save(os.path.join(IMGDIR, 'c_' + n + '.png'), optimize=True)
+    for n, *_ in WIDE:                           # 全体図はそれぞれ自前の枠で切る
+        rgba, solid = _alpha(os.path.join(IMGDIR, n + '.png'))
+        ys, xs = np.nonzero(solid)
+        im = Image.fromarray(rgba[max(0, ys.min() - 8):ys.max() + 9,
+                                  max(0, xs.min() - 8):xs.max() + 9], 'RGBA')
+        if im.width > 980:
+            im = im.resize((980, round(im.height * 980 / im.width)), Image.LANCZOS)
+        im.save(os.path.join(IMGDIR, 'c_' + n + '.png'), optimize=True)
+
+
+def img(name):
+    with open(os.path.join(IMGDIR, name), 'rb') as f:
+        return 'data:image/png;base64,' + base64.b64encode(f.read()).decode()
+
+
+# ---- 中身 -----------------------------------------------------------------
+# 番号は hardware/_asm_sim_v4.scad の upto() と同じ。段の絵は「その手順を終えた状態」。
+STEPS = [
+ dict(n='1', t='床にハブ基板を留める', img='st1', acts=[
+   '床を<b>裏返して</b>机に置き、四隅の穴に <span class="d">M3×8</span> を裏から通す。頭は裏のザグリ（<span class="d">φ6.0 × 2.2</span>）に沈む。',
+   '床を起こしてハブ基板を柱（<span class="d">φ7 × 2.5</span>）に載せ、上から <span class="d">M3</span> ナット 4 個で締める。',
+   '穴の位置は <span class="n">[9.0, 18.9] / [9.0, 64.9] / [77.0, 18.9] / [77.0, 64.9]</span>。ハブは箱の X 中央（<span class="n">X 6.0〜80.0</span>）に座る。',
+ ], note='床の裏はスタンドに載る面。ビスの頭が出ていると座らない。v3 と同じ流儀。'),
+
+ dict(n='2', t='ReSpeaker と Type-C 基板を立てる', img='st2', acts=[
+   'ReSpeaker を床の溝に上から差す。<b>ビスは無い。</b>頭は手順 10 で天面のリブ 2 本が <span class="d">0.3mm</span> 押さえる。',
+   '向きは、イヤホンジャックと ReSpeaker 自身の USB-C が<b>左の壁</b>側、XIAO の USB-C が<b>右の壁</b>側。左の壁に開いているのはイヤホンジャックの丸い口（<span class="d">φ6.05</span>）だけで、ReSpeaker 自身の USB-C は 🔒 外に出さず、壁の内側の盲ポケットが受ける。',
+   'Type-C 基板は左の壁の内面に沿わせて床に立て、口の鼻先を<b>ハッチ側（後ろ）</b>へ向ける。床の振れ止めリブの後ろへ落とす。',
+ ], warn='<b>壁より先に入れる。</b>壁を降ろした後で ReSpeaker を入れようとすると <span class="d">454mm³</span> 当たって入らない（<span class="n">CHK="rsp_after"</span>）。',
+    open_='Type-C 基板の保持は床の振れ止めリブ 1 本だけ。X に倒れる向きと Z の抜けは未対策のまま（<b>CASE-V4.md</b> §10 の ⬜）。基板そのものも未着荷・未実測。'),
+
+ dict(n='3', t='ハブの口 10 本を全部挿して、低い車線に寝かせる', img='st3', acts=[
+   '<span class="w">XIAO</span> 7・<span class="w">PHIN</span> 2・<span class="w">OLED</span> 4・<span class="w">AS5600</span> 5・<span class="w">BTN2</span> 2・<span class="w">REED</span> 2・<span class="w">PHOUT</span> 2・<span class="w">PWR</span> 3・<span class="w">INA</span> 4・<span class="w">TOGGLE</span> 2 の 10 束を、ハブ側だけ全部挿す。',
+   '<b>低い車線（Z 19）に寝かせるのは 5 束</b>: <span class="w">XIAO</span>・<span class="w">AS5600</span>・<span class="w">BTN2</span>・<span class="w">PHIN</span>・<span class="w">PHOUT</span>。皿と帯の下を通る道は、いましか通せない。',
+   '<b>上へ登る 5 束</b>（<span class="w">OLED</span>・<span class="w">INA</span>・<span class="w">TOGGLE</span>・<span class="w">REED</span>・充電）は、ハブに挿すだけにして左の溝と後ろの縦穴に寝かせておく。上げるのは手順 9。',
+   'XIAO 側は ReSpeaker に直付けした XIAO の上のピンヘッダへ。<b>使うのは 7 本だけ</b>で、残り 7 ピンは裸のまま。',
+ ], note='この後ブリッジの皿（<span class="n">Z 21.4〜23.4・X 13〜53</span>）と壁〜壁の帯（<span class="n">Y 50.5〜62.9・全幅</span>）がこの上に載る。皿の真下・帯の真下に口がある束（XIAO・つまみ・BTN2・スピーカー IN/OUT）は、載せた後では届かない。',
+    warn='逆に、上へ登る 5 束を<b>いま上げてしまうと</b>ブリッジが降ろせない（<span class="d">846mm³</span>・<span class="n">CHK="brg_bad"</span>）。'),
+
+ dict(n='4', t='左右の壁を降ろし、床の裏から 3 本で留める', img='st4', acts=[
+   '<span class="d">M2</span> ナット 3 個を、壁の下の柱の頭（<span class="n">Z 10.2〜12.0</span>）に上から落とす。',
+   '壁はまっすぐ <b>Z で</b>降ろす。傾けない。',
+   '箱は<b>伏せずに</b>机の端か台に載せ、下から <span class="d">M2×15</span> ×3。前の 2 本 <span class="n">[4.2, 4.75] / [81.8, 4.75]</span>、後ろ右 1 本 <span class="n">[82.0, 69.5]</span>（ハブの角を欠いた L 形のボス）。',
+   '<b>後ろ左のビスは無い。</b>v3 と同じ 3 本構成で、後ろの床はこの 1 本とハッチの爪 2 つ・トグルの外ナットが持つ。',
+ ], warn='ナットは落とし込んだだけで、六角のポケットは <span class="d">4.3</span>・ナットは <span class="d">4.0</span> で <b>0.3 の遊びがある</b>。箱を伏せると落ちる。',
+    note='前の 2 本のボスは <b>L 形</b>。ReSpeaker の部品の真上を全高で欠いてあるので（2026-08-25 の直し）、右のナットの座は後ろ左が開いている。開口は <span class="d">3.77</span> で二面幅 <span class="d">4.3</span> より狭く、横へは抜けない。'),
+
+ dict(n='5', t='ブリッジを上から降ろす', img='st5', acts=[
+   '前の脚（1 枚板・厚み <span class="d">2.0</span>・<span class="n">X 21.5〜44.5</span>）を床の受け溝へ入れながら、まっすぐ <b>Z で</b>降ろす。',
+   '皿（電池の受け・<span class="n">X 13〜53</span>）が下、壁〜壁の帯（<span class="n">Y 50.5〜62.9</span>）が後ろ。帯の左右の端は壁に触れるだけ。',
+ ], warn='🔴 <b>ブリッジは OLED より先。</b>OLED を先に立てると受け皿が OLED の線の帯（<span class="n">X 37.9〜48.1・Z 45〜48</span>）を通り、ヘッダのピン先とも当たる（<b>CASE-V4.md</b> §10 の <span class="n">close_desk</span>）。',
+    open_='帯の左右の端の受けと、脚の Z の抜け止めが無い（<b>CASE-V4.md</b> §10 の ⬜）。いまは前の脚が床の溝に座っているだけ。'),
+
+ dict(n='6', t='電池を皿に置く', img='st6', acts=[
+   'タブ（JST の線）が<b>後ろ＝ハッチ側</b>に来る向きで、レールの土手（高さ <span class="d">4</span>）の間へ上から落とす。前は電池ガードが受ける。',
+   '座る場所は <span class="n">X 15.5〜50.5・Y 12.9〜62.9・Z 23.4〜29.4</span>（厚み 6 が高さ）。',
+ ], note='後で交換するときは、ハッチの蓋を開けて<b>後ろへ引き出す</b>（このページの最後）。組むときだけは上から落とせる。'),
+
+ dict(n='7', t='留め帯 A・B・C をかぶせる', img='st7', acts=[
+   '<span class="d">M2</span> ナット 6 個を、帯の面に開いた<b>横穴</b>へ差し込む（6 か所とも横穴。上下を肉で挟むので、差したらどう向けても落ちない）。',
+   '⊓ の足が皿の縁のレールの切れ目（<span class="n">Y 15.45〜21.45 / 33.2〜42.2 / 52.6〜58.6</span>）に座るように、3 本とも上から電池ごと抱かせる。',
+   'A は電流計の前穴、B は電流計の後穴と PowerBoost の前 2 穴、C は PowerBoost の後ろ 2 穴を受ける。',
+ ], note='通路は帯の一番近い面へ抜けている（前へ 0.85 / 1.93、後ろへ 0.61 / 1.47 / 2.58 / 2.76）。六角の二面幅を通路の壁が挟むので回り止めにもなる。',
+    open_='帯自身の Z の抜け止めが無い。足はレールの切れ目に座るだけ（<b>CASE-V4.md</b> §10 の ⬜）。'),
+
+ dict(n='8', t='電流計と PowerBoost を座に締める', img='st8', acts=[
+   '座は板の裏と同じ <b>10°</b> の面。板を全面で当てて、<span class="d">M2</span> 6 本を<b>鉛直に</b>締める（板に直角ではない）。',
+   '電流計は 2 穴（帯 A と B）、PowerBoost は 4 穴（帯 B と C）。',
+   '<b>6 本とも <span class="d">M2×4</span>。</b>ナットの居場所（横穴の天井）が板の裏の近くにあるので、長さは 1 種類で足りる。',
+   '掛かりは <span class="n">1.34 / 1.37 / 1.56 / 1.56 / 1.6 / 1.6mm</span>（ナットの厚み 1.6 に対して）。先はどの穴も天板の裏の内側で止まる（余裕 <span class="n">0.49〜3.63mm</span>）。',
+ ], warn='上限を超えると先が天板の裏を抜けて<b>電池の頭を突く</b>（天板の裏＝電池の上面で、隙間はゼロ）。🔴 2026-08-25 夜の板の 0.5 持ち上げ（§13.7）で、先が出る穴は無くなった（一番きついのは電流計の後穴で残り <span class="n">0.49mm</span>）。長い物に替えないこと。',
+    note='<b>PowerBoost の L 字 3 ピン（5V・GND・EN）は縁の外＝後ろ（ハッチ側）向き。</b>USB のピンは上向き。板を締める前に向きを確かめる。'),
+
+ dict(n='9', t='OLED を立て、上の車線 5 束と電源系 7 本を通す', img='st9', acts=[
+   'OLED を上から降ろし、下辺の後ろのリブに当てる。この時点ではまだ宙ぶらりんで、手順 10・11 で L と窓が挟む。',
+   '<b>上の車線</b>: <span class="w">OLED</span> 4 本は左の溝（<span class="n">X 9</span>）を <span class="n">Z 45.2</span> まで上がって前を右へ。<span class="w">INA</span> の I2C 4 本は後ろの縦穴から <span class="n">X 52.8</span> を上がり、座の板の下（<span class="n">Z 39.5 / 41.0</span>）を前へ。<span class="w">TOGGLE</span> 2 本は <span class="n">Z 46.8</span>、<span class="w">REED</span> 2 本は <b>🔒 コネクタ無しの直はんだ</b>でつまみのデッキの足元へ。充電 2 本は左の壁ぎわから天井の下（<span class="n">Z 47.3</span>）を通って PowerBoost の USB ピンへ。',
+   '<b>電源系 7 本</b>: 電池のタブ → 電流計の <span class="w">INPUT</span>、電流計の <span class="w">OUT</span> → PowerBoost の JST、PowerBoost の L 字 3 ピン → ハブの <span class="w">PWR</span>。ハブ側は手順 3 で挿してあるので挿すのは PowerBoost 側だけで、道は蓋の増し肉の上の 3 車線（<span class="n">Z 32.2 / 33.7 / 35.2</span>）を右へ走ってから後ろの縦穴を下りる。',
+ ], warn='PowerBoost の L のハウジングの後端は <span class="n">Y 69.7</span>。ハッチの内面まで <span class="d">2.3mm</span> しかない。'),
+
+ dict(n='10', t='天面の小組と、天面側の配線', img='st10', acts=[
+   '天面を<b>裏返して</b>置き、AS5600 の基板をつまみの島の 4 本の柱へ <span class="d">M2×6</span> ×4（下から・ナットは柱の小判のスロット）。',
+   '会話ボタンの受けとキャップ、スピーカー（両面テープ・枠が天板の座に <span class="d">0.6mm</span> 沈む）、リードスイッチ（デッキのポケットへ直はんだ）。',
+   '線をつなぐ: <span class="w">AS5600</span> 5・<span class="w">BTN2</span> 2・<span class="w">PHOUT</span> 2・<span class="w">REED</span> 2。天面は線でつながったまま <b>箱の左に裏返して</b>置く。',
+ ], note='置き場で要る線の長さが変わる。v3 では左が最短で、手前だと BTN2 が +21mm、右だと +50mm 要った。v4 では測り直していない（下の表の ⬜）。'),
+
+ dict(n='11', t='天面を降ろし、OLED を留め、フロントを差す', img='st11', acts=[
+   '先に <span class="d">M2</span> ナット 4 個を落とす。後ろの 2 個は左右の壁の柱の頭（<span class="n">Z 46.65〜48.454</span>）、前の 2 個は耳兼用の柱。<b>この 4 個は天面を載せる前にしか入らない。</b>',
+   '天面＋つまみ＋スピーカー＋会話ボタンをまっすぐ <b>Z で</b>降ろす。ReSpeaker の頭を前リブ（<span class="n">X 31.4〜37.4</span>）と腕（<span class="n">X 50.0〜54.7</span>）が <span class="d">0.3mm</span> 押さえる。',
+   'OLED を<b>前から</b> <span class="d">M2×6</span> ×2 で天面の L に締める。ナットは L の後ろの水平のポケットへ<b>ピンセット</b>で（天面を裏返しているうちには入らない。ポケットが横向きだから）。',
+   'フロントを<b>前から +Y に</b>差し込む。',
+   '四隅を <span class="d">M2×6</span> ×4 で締める。前の 2 本は 天面 → フロントの耳 → 壁の耳柱 の <b>3 枚</b>を通る。',
+ ], warn='入れ忘れたナットは、天面を外さないと入らない。'),
+
+ dict(n='12', t='トグル・ハッチ・電池の蓋・尻尾', img='st12', acts=[
+   'トグルはハッチの穴にネジ部を通し、<b>外から六角ナット</b>で締める。アンテナ線はトグルの下のスリットへ。',
+   '電池の蓋: 磁石（<span class="d">φ6 × 2.0</span>）を蓋に 2 個・ハッチ側の座に 2 個。蓋を彫り込み帯にはめて、門形のロックを <span class="d">M2×6</span> ×1 で締める。',
+   'ハッチは下の爪 2 つを床の後ろのバーへ <span class="d">−Y</span> にまっすぐ滑り込ませる。上はトグルの外ナットが押さえる。<b>ハッチ自体のビスは無い。</b>',
+   '尻尾をトグルのレバーのボアに挿す。アンテナ線は尻尾の中の溝へ。',
+ ]),
+]
+
+# 線: 束 / 本数 / 模型の折れ線長（最長）/ 通した道
+# 出どころ: _v4_core.scad の w_*() の点列を wire() を差し替えて echo させた実測（2026-08-25）
+WIRES = [
+ ('XIAO',       '7', '62.8', 'Z19 → 右の溝 X55.35 →（上段）島の下 /（下段）X73 で Z11.9 へ下りる'),
+ ('PHIN',       '2', '87.8', 'J2 の確保空間 → 皿の下を Z19.6 / 18.0 の 2 段で右へ'),
+ ('OLED',       '4', '79.7', 'Z19 → 左の溝 X9 → Z45.2 で前を右へ → 線の帯で上がる'),
+ ('AS5600',     '5', '52.2', 'Z19 → X58 で Z13.3 → 島の下を Y36.8 へ横断'),
+ ('BTN2',       '2', '75.1', 'Z19 → X11.75 → Y17.4 で上がる → タクトの足'),
+ ('REED',       '2', '52.2', '縦穴 → Z41 で潜る → デッキの足へ <b>直はんだ</b>'),
+ ('PHOUT',      '2', '96.5', '帯の前へ抜けて右の壁ぎわ X83.3 → 天井の下 → スピーカーの下'),
+ ('TOGGLE',     '2', '58.3', '縦穴 → Z46.8 の車線 → 端子の真上'),
+ ('INA (I2C)',  '4', '80.5', '縦穴 Y67.5 → X52.8 で上がる → 座の板の下 Z39.5 / 41.0 を前へ'),
+ ('PWR',        '3', '67.9', '蓋の増し肉の上 Z32.2 / 33.7 / 35.2 を右へ → 縦穴を下りる'),
+ ('BAT → INA',  '2', '78.4', '縦穴 → 左の壁ぎわ X2.75 / 4.15 を前へ'),
+ ('INA → PB',   '2', '61.4', '左の壁ぎわ → 棚の上（Z42 / 43.5）を右へ → JST のプラグ'),
+ ('CHG',        '2', '72.5', '左の壁ぎわ → 天井の下 Z47.3 → PowerBoost の USB ピン'),
+]
+
+SCREWS = [
+ ('M3 × 8',  '4', 'ハブ基板 → 床（頭は床の裏のザグリ・ナットは基板の上）', '1'),
+ ('M2 × 15', '3', '床の裏 → 左右の壁の下の柱（前 2・後ろ右 1）', '4'),
+ ('M2 × 4',  '6', '電流計 / PowerBoost → 留め帯の座（<b>6 穴とも同じ長さ</b>・掛かり 1.34〜1.6mm）', '8'),
+ ('M2 × 6',  '4', 'AS5600 の基板 → つまみの島の柱（下から）', '10'),
+ ('M2 × 6',  '2', 'OLED → 天面の L（前から・ナットは L の後ろ）', '11'),
+ ('M2 × 6',  '4', '天面の四隅（後ろ 2 = 壁の柱 / 前 2 = 天面＋耳＋耳柱の 3 枚）', '11'),
+ ('M2 × 6',  '1', '電池の蓋のロック', '12'),
+ ('六角ナット', '1', 'トグル（ハッチの外から）', '12'),
+]
+
+NUTS = [
+ ('M3',  '4', 'ハブ基板の上（上向き）', '手で置ける'),
+ ('M2',  '3', '壁の下の柱の頭（上向き・<span class="n">Z 10.2〜12.0</span>）', '<b>箱を伏せると落ちる</b>'),
+ ('M2',  '6', '留め帯の座の<b>横穴</b>（帯の面から差す）', '差したら落ちない'),
+ ('M2',  '4', 'つまみの島の柱の小判スロット（横向き・v5 の設計）', '天面が裏返しのうちに'),
+ ('M2',  '2', 'OLED の L の後ろ（横向き・残り 0.2）', '<b>ピンセット</b>'),
+ ('M2',  '4', '天面の後ろの柱 2・前の耳柱 2（上向き）', '天面を載せる前だけ'),
+ ('M2',  '1', '電池の蓋のロック（ハッチの座）', ''),
+]
+
+# 実測（2026-08-25・openscad --backend=manifold）。0 が正。数字は _asm_sim_v4.scad の CHK / case_v4.scad の part
+CHECKS = [
+ ('壁を上から降ろす', 'CHK="wall_l" / "wall_r"', '<b>0 / 0.01mm³</b>', 'ok',
+  '2026-08-25 に前の床ボスを L 形にして解消（旧 3.1 / 29.0）。残る 0.01 は XIAO の USB の殻 ↔ 口の角で、'
+  '<b>口は殻の大きさ</b>＝逃げゼロという 🔒 の設計どおりの膜'),
+ ('ブリッジを上から降ろす', 'CHK="brg"', '<b>9.8 → 0</b>', 'ok',
+  '検査に出る 9.8mm³ は BTN2 の<b>足へ渡る最後の枝</b>で、タクトは手順 10 で載るのでこの時点では存在しない。枝を外すと 0'),
+ ('（反例）上の車線を先に通した場合', 'CHK="brg_bad"', '846mm³', 'stop',
+  '手順 3 の分け方が効いていることの裏取り'),
+ ('電池を上から降ろす', 'CHK="bat"', '<b>4.2 → 0</b>', 'ok', '同じく BTN2 の枝を除いて 0'),
+ ('留め帯 3 本をかぶせる', 'CHK="strap"', '<b>9.8 → 0</b>', 'ok', '同上'),
+ ('電流計と PowerBoost を座へ降ろす', 'CHK="boards"', '<b>3.4 → 0.4mm³</b>', 'warn',
+  'BTN2 の枝を除いても <b>0.37mm³</b> 残る。電流計の板の縁 ↔ 帯 A の座（<span class="n">X 15.48〜16.12・Y 19.60〜20.38・Z 33.01〜34.01</span>）で、静止でも同じ値が出る'),
+ ('OLED を上から降ろす', 'CHK="oled"', '<b>0</b>', 'ok', ''),
+ ('上の車線と電源系（静止）', 'CHK="whigh"', '<b>0</b>', 'ok', ''),
+ ('天面一式を降ろす', 'part="close_top"', '<b>0</b>', 'ok', 'OLED を天面に付けて一緒に降ろす形（v3 の流儀）でも 0'),
+ ('フロントを前から差す', 'part="close_front"', '<b>0</b>', 'ok', ''),
+ ('ハッチ（トグル・蓋ごと）を閉じる', 'part="close_hatch"', '<b>0</b>', 'ok', ''),
+ ('組み上がった静止（皮 6 枚 ↔ 中身）', 'part="chk_all"', '<b>0.03mm³</b>', 'ok',
+  '4 枚の膜だけ（XIAO の口に 2・充電の口に 2）。どちらも <b>口は殻の大きさ</b>で逃げゼロの設計。2026-08-25 の直しの前後で同値'),
+ ('ReSpeaker の押さえ', 'part="chk_press"', '6mm³', 'ok', '<b>これは 0 だと不合格。</b>押し代 0.3 が板に届いている証拠'),
+]
+
+BLANKS = [
+ ('① ⚠ 板を 0.5 持ち上げた代金',
+'ナット 6 個を横穴にするため、板（電流計・PowerBoost）の蝶番を天板の面から <span class="d">0.5</span> 浮かせた。代金は 2 つ: <b>天面の裏の局所ポケット</b>（PB の USB の逃げ）が深さ 1.27 → 1.77 になり<b>板の残りが 0.73</b>、<b>INA の I2C の前走り</b>が 1.5×2 本では入らなくなり 2.2 の束 1 本に戻って <b>X の余裕が 0.35 → 0</b>。どちらも実物で効くかは刷ってから',
+  '⚠ 要観察'),
+ ('② ブリッジ・留め帯・ボタンのキャップの印刷用の出力',
+  '<span class="n">part="bridge"</span> は「見る用」（電池・基板・壁ごと）で、印刷用の <span class="n">p_</span> / <span class="n">print_</span> が無い。刷る向きも未決（帯が脚の上に張り出す）。<b>会話ボタンのキャップ</b>も同じで、v3 の <span class="n">p_btncap</span> が v4 に移っていない',
+  '未整備'),
+ ('③ 支えが無い所',
+  'ブリッジの帯の左右の端の受け・脚の Z の留め・留め帯の Z の抜け止め・電池と基板の Z の抜け止め・Type-C 基板の保持',
+  '<b>CASE-V4.md</b> §10 の ⬜'),
+ ('④ 線の長さ（置いた姿勢）',
+  '表の「模型の実長」は箱の中の折れ線長。天面を箱の左に裏返して置く姿勢で足りるかは v4 では測っていない（v3 では最大 +57mm 要った束があった）',
+  '未計測'),
+ ('⑤ 部品の実測',
+  'INA226 と Type-C 基板は未着荷・未実測。ハブの実装の最高点、DuPont を横に倒したときの膨らみ（3.6 は既定値）も未取得',
+  '着荷待ち'),
+]
+
+PARTS = [
+ ('床', 'p_floor / print_floor', '外面を下'),
+ ('左の壁', 'p_lwall / print_lwall', '外面を下'),
+ ('右の壁', 'p_rwall / print_rwall', '外面を下'),
+ ('天面', 'p_top / print_top', '外面を下'),
+ ('フロント', 'p_front / print_front', '外面を下'),
+ ('ハッチ', 'p_hatch / print_hatch', '外面を下'),
+ ('電池の蓋', 'p_shutter / print_shutter', '外面を下'),
+ ('蓋のロック', 'p_lock / print_lock', '外面を下'),
+ ('尻尾', 'p_tail / print_tail', 'ボアを上'),
+ ('ブリッジ', '<b>出力が無い</b>（part="bridge" は見る用）', '⬜ 未決'),
+ ('留め帯 A / B / C', '<b>出力が無い</b>', '⬜ 未決'),
+ ('会話ボタンのキャップ', '<b>出力が無い</b>（v3 には <span class="n">p_btncap</span> があった）', '⬜ 未決'),
+ ('つまみ一式', '<b>knob_v5.scad</b> が別に持つ（この表の外）', 'v5 の指定'),
+]
+
+CSS = """
+:root {
+  --paper:#e8ebef; --card:#ffffff; --sunk:#f3f5f7; --ink:#14171c; --ink2:#525b66;
+  --rule:#ccd3db; --rule2:#dfe4ea; --accent:#8f5405; --mark:#c98a1e;
+  --stop:#a62f28; --open:#20607f; --good:#2f6f4f; --sheet:#f7f8fa; --sheetdim:1;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper:#0f1216; --card:#181c22; --sunk:#13171c; --ink:#e3e8ee; --ink2:#98a2ae;
+    --rule:#2a323c; --rule2:#222932; --accent:#f0aa33; --mark:#f0aa33;
+    --stop:#e0776f; --open:#69b6d8; --good:#7fc3a0; --sheet:#e6e9ed; --sheetdim:.86;
+  }
+}
+:root[data-theme="dark"] {
+  --paper:#0f1216; --card:#181c22; --sunk:#13171c; --ink:#e3e8ee; --ink2:#98a2ae;
+  --rule:#2a323c; --rule2:#222932; --accent:#f0aa33; --mark:#f0aa33;
+  --stop:#e0776f; --open:#69b6d8; --good:#7fc3a0; --sheet:#e6e9ed; --sheetdim:.86;
+}
+* { box-sizing: border-box; }
+body {
+  margin:0; background:var(--paper); color:var(--ink);
+  font-family:"BIZ UDPGothic","Hiragino Sans","Yu Gothic UI","Noto Sans JP",system-ui,sans-serif;
+  font-size:16px; line-height:1.85; -webkit-font-smoothing:antialiased;
+}
+.wrap { max-width:960px; margin:0 auto; padding:0 20px 96px; }
+.d, .n, .w {
+  font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-variant-numeric:tabular-nums;
+}
+.d { font-size:.92em; font-weight:700; color:var(--accent); }
+.n { font-size:.9em; }
+.w { font-size:.86em; font-weight:700; letter-spacing:.04em; }
+
+header.mast { padding:28px 0 28px; border-bottom:2px solid var(--ink); }
+.eyebrow {
+  font-family:Archivo,system-ui,sans-serif; font-weight:600; font-size:12px;
+  letter-spacing:.22em; text-transform:uppercase; color:var(--accent); margin:0 0 10px;
+}
+h1 {
+  font-family:Archivo,"BIZ UDPGothic",system-ui,sans-serif; font-weight:700;
+  font-size:clamp(34px,6vw,54px); line-height:1.08; letter-spacing:-.015em;
+  margin:0; text-wrap:balance;
+}
+h1 em { font-style:normal; color:var(--ink2); font-weight:500; }
+.sub { margin:14px 0 0; color:var(--ink2); max-width:62ch; }
+.meta { display:flex; flex-wrap:wrap; gap:8px 22px; margin:20px 0 0; font-size:13px; color:var(--ink2); }
+.meta b { color:var(--ink); font-weight:700; }
+
+.jump {
+  position:sticky; top:0; z-index:9; background:var(--paper);
+  border-bottom:1px solid var(--rule); padding:9px 0; margin-bottom:34px;
+  display:flex; flex-wrap:wrap; gap:6px; align-items:baseline;
+}
+.jump span {
+  font-family:Archivo,sans-serif; font-size:11px; letter-spacing:.16em;
+  text-transform:uppercase; color:var(--ink2); margin-right:6px;
+}
+.jump a {
+  font-family:"JetBrains Mono",monospace; font-size:13px; font-weight:700;
+  color:var(--ink2); text-decoration:none; padding:2px 8px;
+  border:1px solid var(--rule); border-radius:2px;
+}
+.jump a:hover, .jump a:focus-visible {
+  color:var(--card); background:var(--ink); border-color:var(--ink); outline:none;
+}
+
+.callout {
+  border:1px solid var(--rule); background:var(--card);
+  border-left:4px solid var(--stop); padding:16px 20px; margin:0 0 34px;
+}
+.callout h2 {
+  font-family:Archivo,sans-serif; font-size:13px; letter-spacing:.14em;
+  text-transform:uppercase; margin:0 0 8px; color:var(--stop);
+}
+.callout ul { margin:0; padding-left:1.15em; }
+
+h2.sec {
+  font-family:Archivo,"BIZ UDPGothic",sans-serif; font-weight:700; font-size:13px;
+  letter-spacing:.2em; text-transform:uppercase; color:var(--ink2);
+  margin:56px 0 18px; padding-bottom:8px; border-bottom:1px solid var(--rule);
+}
+
+.step { display:grid; grid-template-columns:76px 1fr; gap:0 22px; padding:26px 0; border-top:1px solid var(--rule2); }
+.step:first-of-type { border-top:none; }
+.num { position:relative; }
+.num span {
+  position:sticky; top:56px; display:block; font-family:Archivo,sans-serif;
+  font-weight:700; font-size:38px; line-height:1; color:var(--mark);
+  font-variant-numeric:tabular-nums;
+}
+.body h3 { font-size:20px; line-height:1.5; margin:0 0 14px; font-weight:700; text-wrap:balance; }
+.sheet { margin:0 0 16px; background:var(--sheet); border:1px solid var(--rule); padding:6px; filter:brightness(var(--sheetdim)); }
+.sheet img { display:block; width:100%; height:auto; }
+ol.acts { margin:0; padding-left:1.35em; }
+ol.acts li { margin:0 0 6px; }
+ol.acts li::marker { color:var(--ink2); font-family:"JetBrains Mono",monospace; font-size:.85em; }
+.cal { margin:14px 0 0; padding:11px 14px; background:var(--sunk); border-left:3px solid var(--rule); font-size:14.5px; line-height:1.75; }
+.cal .tag {
+  font-family:Archivo,sans-serif; font-size:11px; font-weight:700;
+  letter-spacing:.12em; text-transform:uppercase; margin-right:10px; vertical-align:1px;
+}
+.cal.warn { border-left-color:var(--stop); }
+.cal.warn .tag { color:var(--stop); }
+.cal.open { border-left-color:var(--open); }
+.cal.open .tag { color:var(--open); }
+.cal.note .tag { color:var(--ink2); }
+
+.tw { overflow-x:auto; border:1px solid var(--rule); background:var(--card); }
+table { border-collapse:collapse; width:100%; font-size:14.5px; }
+th, td { text-align:left; padding:9px 14px; border-bottom:1px solid var(--rule2); vertical-align:top; }
+thead th {
+  font-family:Archivo,sans-serif; font-size:11px; letter-spacing:.12em;
+  text-transform:uppercase; color:var(--ink2); background:var(--sunk);
+  border-bottom:1px solid var(--rule); white-space:nowrap;
+}
+tbody tr:last-child td { border-bottom:none; }
+td.n { font-family:"JetBrains Mono",monospace; font-variant-numeric:tabular-nums; white-space:nowrap; }
+td.hi { font-weight:700; color:var(--accent); }
+td.ok  { color:var(--good); font-weight:700; }
+td.stop { color:var(--stop); font-weight:700; }
+td.warn { color:var(--mark); font-weight:700; }
+figure.wide { margin:0 0 8px; background:var(--sheet); border:1px solid var(--rule); padding:8px; filter:brightness(var(--sheetdim)); }
+figure.wide img { display:block; width:100%; height:auto; }
+figcaption { font-size:13px; color:var(--ink2); margin-top:8px; }
+.two { display:grid; grid-template-columns:1fr 1fr; gap:22px; align-items:start; }
+footer { margin-top:64px; padding-top:20px; border-top:1px solid var(--rule); font-size:13px; color:var(--ink2); }
+a { color:var(--accent); }
+@media (max-width:720px) {
+  .step { grid-template-columns:1fr; gap:0; }
+  .num span { position:static; font-size:26px; margin-bottom:4px; }
+  .two { grid-template-columns:1fr; }
+  .jump { overflow-x:auto; flex-wrap:nowrap; }
+}
+@media (prefers-reduced-motion:reduce) { * { animation:none !important; transition:none !important; } }
+"""
+
+BODY = """
+<div class="wrap">
+<header class="mast">
+  <p class="eyebrow">katanori &middot; enclosure v4</p>
+  <h1>カタノリ v4<br><em>組み立て</em></h1>
+  <p class="sub">印刷部品 14 点・ビス 24 本・線 13 束 39 本を、この順番で組む。
+  順番は入れ替えられない。ナットを入れられる段と、皿と帯の下を通る線の車線が決まっているため。</p>
+  <div class="meta">
+    <span><b>外寸</b> 86.65 &times; 75.0 &times; 52.95 mm</span>
+    <span><b>内寸</b> 84.35 &times; 72 &times; 48.45 mm</span>
+    <span><b>2026-08-25</b> 版</span>
+    <span>形の出どころは <b>docs/CASE-V4.md</b></span>
+    <span>まだ 1 度も組んでいない机上の手順</span>
+  </div>
+</header>
+
+<nav class="jump"><span>手順</span>__NAV__</nav>
+
+<div class="callout">
+  <h2>始める前に</h2>
+  <ul>
+    <li><b>ハブの口 10 本は手順 3 で全部挿す。</b>手順 5 でブリッジの皿と帯が上に載ると、その下の口には届かなくなる。</li>
+    <li><b>線には低い車線と上の車線がある。</b>低い方（<span class="n">Z 19</span>・5 束）はブリッジより先、上の方（5 束）はブリッジより後。逆にすると入らない。</li>
+    <li><b>ナットのポケットは、留め帯の 6 個だけ下を向いている。</b>他は全部上向きで、落としてから締めるまで箱を傾けない。</li>
+    <li><b>ドライバは先端 φ3.2 以下。</b>座ぐりが <span class="d">φ3.4</span> なので、それより太いと頭に届かない。ほかに<b>ピンセット</b>と、トグル用の<b>六角のスパナ</b>。</li>
+    <li>この順番は CAD の軌跡検査から起こしたもので、<b>①〜⑫の原文をユーザーが書いたものではない</b>（<b>CASE-V4.md</b> §4 の ⬜ がまだ空いている）。数字の裏取りは「検査」の節。</li>
+  </ul>
+</div>
+
+<h2 class="sec">全体</h2>
+<div class="two">
+  <div>
+    <figure class="wide"><img src="__EXP__" alt="分解図"></figure>
+    <figcaption>組む向きにばらした図。床 → 壁 → ブリッジ → 電池 → 基板 → 留め帯 → 天面 → フロント → ハッチ の順に重なる。</figcaption>
+  </div>
+  <div>
+    <figure class="wide"><img src="__LOOK__" alt="完成図"></figure>
+    <figcaption>組み上がった姿。つまみは OLED から見て右（🔒 最上位の条件）。左の壁にイヤホンジャック、右の壁に XIAO の USB-C、ハッチに充電の Type-C。</figcaption>
+  </div>
+</div>
+<figure class="wide" style="margin-top:22px"><img src="__WIRES__" alt="線の図"></figure>
+<figcaption>皮を全部外して中だけ見たところ。線 13 束の通り道は 4 本 —— 左の溝（<span class="n">X 5.4〜13</span>）・右の溝（<span class="n">X 53〜80</span>）・後ろの縦穴（<span class="n">Y 62.9〜72</span>）・帯の上の棚（<span class="n">Z 31.4〜43</span>）。</figcaption>
+
+<h2 class="sec">手順</h2>
+__STEPS__
+
+<h2 class="sec">検査（この順番の裏取り）</h2>
+<p class="cal note"><span class="tag">読み</span>すべて <b>openscad --backend=manifold</b> の当たり体積。「相手」はその手順の<b>直前まで</b>に箱の中に在る物。
+<b>0 が正</b>で、<span class="n">chk_press</span> だけは 6mm³ が正。「<b>9.8 → 0</b>」は、素で回すと出るが<b>まだ存在しない相手</b>を除くと 0 になる、という意味。走らせ方は <b>hardware/_asm_sim_v4.scad</b> の頭のコメント。</p>
+<div class="tw"><table>
+<thead><tr><th>何を動かすか</th><th>走らせ方</th><th>結果</th><th>読み</th></tr></thead>
+<tbody>__CHECKROWS__</tbody>
+</table></div>
+
+<h2 class="sec">線</h2>
+<div class="tw"><table>
+<thead><tr><th>束</th><th>本数</th><th>模型の実長</th><th>通した道</th></tr></thead>
+<tbody>__WIREROWS__</tbody>
+</table></div>
+<p class="cal note"><span class="tag">読み</span>「模型の実長」は <b>_v4_core.scad</b> の <span class="n">w_*()</span> の折れ線長（束の中で一番長い 1 本・mm）。
+端子の手前で切ってあるので、<b>作る長さは実長 ＋ 40mm</b> を見る（端末処理 25 ＋ 天面を横に置く分の見込み）。
+🔴 天面を箱の左に裏返して置く姿勢で足りるかは <b>v4 ではまだ測っていない</b>。v3 の実測では最大 +57mm 要った束があった。</p>
+
+<h2 class="sec">ビスとナット</h2>
+<div class="tw"><table>
+<thead><tr><th>ビス</th><th>本数</th><th>どこ</th><th>手順</th></tr></thead>
+<tbody>__SCREWROWS__</tbody>
+</table></div>
+<p class="cal note"><span class="tag">読み</span>樹脂にネジは切らない。全部<b>貫通＋ナット</b>（<b>docs/DIMENSIONS.md</b> の方針）。長さは <span class="d">M2×4</span>・<span class="d">M2×6</span>・<span class="d">M2×15</span>・<span class="d">M3×8</span> の 4 種類。</p>
+<div class="tw" style="margin-top:18px"><table>
+<thead><tr><th>ナット</th><th>数</th><th>どこ・向き</th><th>入れ方</th></tr></thead>
+<tbody>__NUTROWS__</tbody>
+</table></div>
+
+<h2 class="sec">印刷部品</h2>
+<div class="tw"><table>
+<thead><tr><th>部品</th><th>part=</th><th>刷る向き</th></tr></thead>
+<tbody>__PARTROWS__</tbody>
+</table></div>
+<p class="cal note"><span class="tag">読み</span><span class="n">print_*</span> は外面を下・底 <span class="n">Z0</span> に置いた姿勢で出る。
+刷る前に <b>底の Z が 0 か</b>と<b>最薄肉が 0.42 を超えるか</b>を機械で見る（<b>docs/PRINT.md</b>）。</p>
+
+<h2 class="sec">電池の交換（組んだ後）</h2>
+<div class="tw"><table>
+<thead><tr><th>順</th><th>すること</th></tr></thead>
+<tbody>
+<tr><td class="n">1</td><td>ハッチの外の <span class="d">M2</span> を 1 本外し、門形のロックを外す</td></tr>
+<tr><td class="n">2</td><td>蓋を<b>下へ 5.5mm</b> ずらして、後ろへ抜く（磁石だけの保持で運用するなら工具は要らない）</td></tr>
+<tr><td class="n">3</td><td>電池の JST を抜く</td></tr>
+<tr><td class="n">4</td><td>電池を<b>後ろへ</b>引き出す（レールと留め帯は +Y にだけ開いた鞘）</td></tr>
+</tbody>
+</table></div>
+<p class="cal open"><span class="tag">未定</span>蓋の裏 ↔ 電池の尻の遊び <span class="d">8.35mm</span> の詰め物（v3 のスポンジの流儀）と、ロックを常時締める運用にするかは未決。</p>
+
+<h2 class="sec">まだ埋まっていない</h2>
+<div class="tw"><table>
+<thead><tr><th>もの</th><th>何が足りないか</th><th>いつ</th></tr></thead>
+<tbody>__BLANKROWS__</tbody>
+</table></div>
+
+<footer>
+  作り直すには <b>python hardware/_asm_manual_v4.py</b>。段の中身と軌跡検査は <b>hardware/_asm_sim_v4.scad</b>、
+  形と数字の出どころは <b>docs/CASE-V4.md</b>。線の長さは <b>_v4_core.scad</b> の <span class="n">w_*()</span> の点列から出した折れ線長。
+</footer>
+</div>
+"""
+
+
+def build():
+    IM = {k: img('c_' + k + '.png') for k in SEQ + [w[0] for w in WIDE]}
+
+    def step_html(s):
+        fig = ('<figure class="sheet"><img src="{}" alt="手順 {} を終えた状態"></figure>'
+               .format(IM[s['img']], s['n'])) if s.get('img') else ''
+        bits = []
+        if s.get('warn'):
+            bits.append('<p class="cal warn"><span class="tag">注意</span>{}</p>'.format(s['warn']))
+        if s.get('open_'):
+            bits.append('<p class="cal open"><span class="tag">未定</span>{}</p>'.format(s['open_']))
+        if s.get('note'):
+            bits.append('<p class="cal note"><span class="tag">なぜ</span>{}</p>'.format(s['note']))
+        return ('<section class="step" id="s{n}">\n'
+                '  <div class="num"><span>{n}</span></div>\n'
+                '  <div class="body">\n'
+                '    <h3>{t}</h3>\n'
+                '    {fig}\n'
+                '    <ol class="acts">{acts}</ol>\n'
+                '    {bits}\n'
+                '  </div>\n'
+                '</section>').format(
+                    n=s['n'], t=s['t'], fig=fig,
+                    acts='\n'.join('<li>{}</li>'.format(x) for x in s['acts']),
+                    bits=''.join(bits))
+
+    body = (BODY
+            .replace('__NAV__', ' '.join('<a href="#s{0}">{0}</a>'.format(s['n']) for s in STEPS))
+            .replace('__EXP__', IM['explode'])
+            .replace('__LOOK__', IM['look'])
+            .replace('__WIRES__', IM['wires'])
+            .replace('__STEPS__', '\n'.join(step_html(s) for s in STEPS))
+            .replace('__CHECKROWS__', '\n'.join(
+                '<tr><td>{}</td><td class="n">{}</td><td class="n {}">{}</td><td>{}</td></tr>'
+                .format(r[0], r[1], r[3], r[2], r[4]) for r in CHECKS))
+            .replace('__WIREROWS__', '\n'.join(
+                '<tr><td class="w">{}</td><td class="n">{}</td><td class="n hi">{}</td>'
+                '<td>{}</td></tr>'.format(*r) for r in WIRES))
+            .replace('__SCREWROWS__', '\n'.join(
+                '<tr><td class="d">{}</td><td class="n">{}</td><td>{}</td>'
+                '<td class="n">{}</td></tr>'.format(*r) for r in SCREWS))
+            .replace('__NUTROWS__', '\n'.join(
+                '<tr><td class="d">{}</td><td class="n">{}</td><td>{}</td>'
+                '<td>{}</td></tr>'.format(*r) for r in NUTS))
+            .replace('__PARTROWS__', '\n'.join(
+                '<tr><td><b>{}</b></td><td class="n">{}</td><td>{}</td></tr>'.format(*r) for r in PARTS))
+            .replace('__BLANKROWS__', '\n'.join(
+                '<tr><td><b>{}</b></td><td>{}</td><td class="n">{}</td></tr>'.format(*r) for r in BLANKS)))
+
+    html = ('<title>カタノリ v4 組み立て</title>\n'
+            '<link rel="preconnect" href="https://fonts.googleapis.com">\n'
+            '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n'
+            '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?'
+            'family=Archivo:wght@500;600;700&family=BIZ+UDPGothic:wght@400;700'
+            '&family=JetBrains+Mono:wght@400;700&display=swap">\n'
+            '<style>' + CSS + '</style>\n' + body)
+    with open(OUT, 'w', encoding='utf-8') as f:
+        f.write(html)
+    print(OUT, os.path.getsize(OUT), 'bytes')
+
+
+if __name__ == '__main__':
+    if '--no-render' not in sys.argv:
+        render()
+        clean()
+    build()
