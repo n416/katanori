@@ -244,17 +244,32 @@ BRG_PAD_T = 2.0;             // ビスの座: 腕を局所的に 2.0 → 4.0 に
 BRG_PAD_W = 6.0;             // 座の X 幅
 //         [側(-1=左/+1=右), 棚 Y0, 棚 Y1, ビスの Y, 座 Y0, 座 Y1]
 BRG_ANCH = [[-1, 30.5, 36.5, 33.5, 30.5, 36.5],
-            [ 1, 30.0, 36.0, 32.3, 30.0, 34.6],    // 座と腕は Y 34.6 まで（ハブのハウジングが 34.67 から）
+            [ 1, 30.0, 36.0, 34.0, 31.9, 36.0],    // 🔴 ビスは Y 34.0（初版 32.3 では腕が XIAO の束を踏んだ・下の BRG_ARMS）
             [ 1, 56.9, 62.9, 59.9, 56.9, 62.9]];
+// 🔴 2026-08-26 右の腕は 2 段。まっすぐな 1 枚だと、降ろす途中で **XIAO の束の車線**（上段 Y 29.9・Z 27.13 の
+//    X 55.35〜76.01 と、下段 Y 30.4・Z 11.9 の X 73.0〜81.09。束の幅ぶん Y 28.4〜31.5 を占める）を上から踏む（570mm³）。
+//    ⇒ 内側（X 53〜78）は Y 32.0 から後ろだけの細い帯にして車線を跨がず、壁ぎわ（X 78〜）だけ幅を戻してビスを置く。
+//    内側が Y 34.6 で止まるのはハブのハウジング（Y 34.67〜）を避けるため。
 BRG_ARMS = [[LW_X, 30.5, BAT_X0 - 2.5, 36.5],                        // 左の腕（皿の左縁 13 → 左の壁）
-            [BAT_X0 + lipo_size()[1] + 2.5, 30.0, IN_X, 34.6]];      // 右の腕（皿の右縁 53 → 右の壁）
+            [BAT_X0 + lipo_size()[1] + 2.5, 32.0, 78.0, 34.6],       // 右の腕・内側（皿の右縁 53 → X 78）
+            [78.0, 31.9, IN_X, 36.0]];                               // 右の腕・壁ぎわ（ビスの座を置く幅）
 function brg_ldg_x0(a) = (a[0] < 0) ? LW_X : IN_X - BRG_LDG_W;
 function brg_scr(a)    = [(a[0] < 0) ? LW_X + BRG_LDG_W / 2 : IN_X - BRG_LDG_W / 2, a[3]];
 function brg_pad_x0(a) = (a[0] < 0) ? LW_X : IN_X - BRG_PAD_W;
-// 壁の内面の棚（ナットは上から落とし、ブリッジの腕が蓋になる）。左右の壁の板がこれを呼ぶ
+// 🔴 2026-08-26 ユーザー「上から落として上から締めたら上に抜けますよね」: 初版はナットを棚の**上面**の
+//    ポケットに置いていた。それだと締めても「頭 ─ 腕 ─ ナット」を挟むだけで棚が挟まれず、
+//    逆さにすればビスとナットごと腕が抜ける ＝ **留まっていなかった**（v3 の nut_ledge も同じ形）。
+//    ⇒ 留め帯の座と同じ **横から差す捕捉溝** に替えた。棚の上の肉 BRG_LDG_SKIN を残してその下に六角の穴を開け、
+//      棚の Y の面まで幅 NUT_SLOT_W の通路でつなぐ。ナットは横から差し、上下の肉で閉じ込められる。
+//      締める順は 頭 → 腕 2.4 → 棚の肉 1.6 → ナット で、棚ごと締まる。ビスを通した後はナットは通路へ戻れない。
+BRG_LDG_SKIN = 1.6;   // 棚の上面 ↔ ナットの上面（締める力を受ける肉。4 層）
+function brg_slot_z0(a) = BRG_ZB - BRG_LDG_SKIN - NUT_SLOT_H;   // 溝の床（18.1）
+// 通路を抜く向き: +1 = +Y の面へ（3 か所とも +Y 側が空いている。左 36.5〜42・右前 36〜45・右後ろ 62.9〜）
 module brg_ledges(side) for (a = BRG_ANCH) if (a[0] == side) difference() {
     color("#b6c0cc") translate([brg_ldg_x0(a), a[1], BRG_ZB - BRG_LDG_H]) cube([BRG_LDG_W, a[2] - a[1], BRG_LDG_H]);
-    translate([brg_scr(a)[0], brg_scr(a)[1], BRG_ZB - NUT_T]) rotate([0, 0, 30]) hex_pocket(NUT_T + 1);   // ナットの座（二面幅を Y に向ける）
+    translate([brg_scr(a)[0], brg_scr(a)[1], brg_slot_z0(a)]) rotate([0, 0, 30]) hex_pocket(NUT_SLOT_H);   // ナットの座（二面幅を Y に向ける）
+    translate([brg_scr(a)[0] - NUT_SLOT_W / 2, brg_scr(a)[1], brg_slot_z0(a)])
+        cube([NUT_SLOT_W, a[2] + 0.01 - brg_scr(a)[1], NUT_SLOT_H]);                                        // 差し込む通路（+Y の面へ）
     translate([brg_scr(a)[0], brg_scr(a)[1], BRG_ZB - BRG_LDG_H - 1]) cylinder(d = SCR_D, h = BRG_LDG_H + 2, $fn = 24);
 }
 // ブリッジ側: ビスの座（腕の上の増し肉。下 1.0 は皿の中に埋めて、面取りが継ぎ目に溝を作らないようにする）
@@ -271,7 +286,7 @@ module brg_hw() color("#8892a0") for (a = BRG_ANCH) {
         cylinder(d = 3.0, h = 1.3, $fn = 24);                        // 頭（座ぐりの底に座る）
         translate([0, 0, -6]) cylinder(d = 2.0, h = 6, $fn = 24);    // 軸 M2×6
     }
-    translate([brg_scr(a)[0], brg_scr(a)[1], BRG_ZB - 1.6]) rotate([0, 0, 30]) hex_pocket_af(4.0, 1.6);   // 締めて腕の裏に上がったナット
+    translate([brg_scr(a)[0], brg_scr(a)[1], BRG_ZB - BRG_LDG_SKIN - 1.6]) rotate([0, 0, 30]) hex_pocket_af(4.0, 1.6);   // 締めて溝の天井（棚の肉の裏）へ上がったナット
 }
 module brg_v4() color("#c9d0d8") difference() {
   union() {
