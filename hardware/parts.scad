@@ -641,7 +641,7 @@ function ina_h()    = INA_T + max(INA_SMD_H,
 function ina_back_env() = (INA_HDR && INA_HDR_BACK) ? INA_BACK_ENV : 0;          // 裏の面から出る厚み
 // 原点は板の角（ネジ端子側の長辺・左）。板は XY 平面・部品は +Z に生える
 // ra: ヘッダの 2 モデルの切り替え（use<> 先から呼び分けるための引数。既定は INA_HDR_RA）
-module ina226_module(ra = INA_HDR_RA) {
+module ina226_module(ra = INA_HDR_RA, pwr_ra = true) {   // pwr_ra=false ＝ 電源の口（INPUT/OUT 4 本）を直立てに
     color("#c0392b") difference() {
         cube([INA_L, INA_W, INA_T]);
         for (h = INA_HOLES) translate([h[0], h[1], -1]) cylinder(d = INA_HOLE_D, h = INA_T + 2, $fn = 24);
@@ -659,11 +659,18 @@ module ina226_module(ra = INA_HDR_RA) {
     //    形は L 字・外向き（端子側の縁 +x の外へ水平）——PB の L 字と同じ意匠・頭が上の混雑階に届かないため
     //    （当初のストレート案は頭 Z 49 が OLED の線・ボタンの傘の階に入り、板を横に逃がす羽目になった＝設計ミスに見える・ユーザー）。
     //    ✅ 穴位置は上の商品画像実測（x ≈ 26・4 口 y 3.6〜16.4・⚠±1）。挿すハウジング込み
+    // 🔒 2026-08-26 ユーザー「左壁側のピンヘッダを垂直に」: pwr_ra=false で**直立て**（足はまっすぐ上・DuPont も縦）。
+    //   L 字は板の縁の外へ 11.8mm 伸びていて、そこが左の壁の余裕を食っていた。直立てなら縁の外へは出ない。
     if (INA_PWR_HDR) for (y = [3.6, 7.87, 12.13, 16.4]) {
         color("#222")    translate([26.0 - 1.27, y - 1.27, INA_T]) cube([2.54, 2.54, 2.5]);                        // 樹脂
-        color("#c8ccd0") translate([26.0 - 0.32, y - 0.32, -1.2]) cube([0.64, 0.64, 1.2 + INA_T + 2.5 + 1.59]);   // 足〜曲がり
-        color("#c8ccd0") translate([26.0 - 0.32, y - 0.32, INA_T + 2.5 + 1.27 - 0.32]) cube([6.32, 0.64, 0.64]);  // 板に沿うピン（+x＝縁の外へ）
-        color("#4a5568", 0.85) translate([26.0 + 0.5, y - 1.27, INA_T + 2.5]) cube([10, 2.54, 2.54]);             // DuPont（水平）
+        if (pwr_ra) {
+            color("#c8ccd0") translate([26.0 - 0.32, y - 0.32, -1.2]) cube([0.64, 0.64, 1.2 + INA_T + 2.5 + 1.59]);   // 足〜曲がり
+            color("#c8ccd0") translate([26.0 - 0.32, y - 0.32, INA_T + 2.5 + 1.27 - 0.32]) cube([6.32, 0.64, 0.64]);  // 板に沿うピン（+x＝縁の外へ）
+            color("#4a5568", 0.85) translate([26.0 + 0.5, y - 1.27, INA_T + 2.5]) cube([10, 2.54, 2.54]);             // DuPont（水平）
+        } else {
+            color("#c8ccd0") translate([26.0 - 0.32, y - 0.32, -1.2]) cube([0.64, 0.64, 1.2 + INA_T + 2.5 + 6.0]);    // 足（まっすぐ上・頭は樹脂の 6.0 上）
+            color("#4a5568", 0.85) translate([26.0 - 1.27, y - 1.27, INA_T + 2.5]) cube([2.54, 2.54, 10]);            // DuPont（縦）
+        }
     }
     // 5 ピンヘッダ（短辺 x ≈ 3.3・y 方向）。🔒 2 モデルをピン単位で持つ（INA_HDR_RA で選ぶ）
     if (INA_HDR && !INA_HDR_BACK) { if (ra) ina_hdr_ra(); else ina_hdr_straight(); }
