@@ -11,6 +11,8 @@ include <_v4_core.scad>
 //   充電口はハッチ（Type-C 基板の鼻先が 🔒 ハッチ内面に付くため）。
 //   実行例: openscad --backend=manifold -o x.stl -D 'part="chk_top"' hardware/case_v4.scad
 // ============================================================
+include <_v4_props.scad>   // 🔴 自動生成の支柱の位置（`python hardware/_v4_props.py`）。素の形を焼くときは -D PROPS_OFF=true
+PROPS_OFF = false;
 include <case_v4_shutter.scad>   // 電池の入れ替え口（後ろ抜き・v3 の蓋の型を **横（右へ）スライド**に回したもの）
 W = "none";      // _v4_core の内部スイッチ（芯だけの検査 deskseat/batchk 等はあちらの W で。皮はこの part で）
 // ---- part の一覧（v3 と同じ流儀・2026-08-25 ユーザー「V3 と同じ part を」で V/P4 を廃止）----
@@ -71,7 +73,13 @@ V4_FLOOR_SCREWS = [[0.7 + BOSS / 2, 2 + BOSS_B_DY_F / 2], [78.3 + BOSS / 2, 2 + 
 //     ② 前の当て  板の前縁の 0.25 手前に立つ壁。**ケーブルを挿す力（−Y）を受けるのはここだけ**
 //     ③ 前の返し  ②から +Y へ折れた L の腕。板の表を全高で押さえる（＝倒れ止め・前）
 //     ④ 後ろの控え ピン列の後端 61.21 と コネクタ胴の前端 65.85 の隙間に立つ全高の柱（＝倒れ止め・後ろ）
-//   Z の抜けは受けでは止まらない。ブリッジの帯の裏に付けた押さえ（_v4_core の brg_tc_press）が止める。
+//   Z の抜けは受けでは止まらない。押さえ（_v4_core の brg_tc_press）が止める。
+//   🔒 2026-08-27 ユーザー「typeC の基盤の上の支え部分は、壁側に分割しないと全部が浮いちゃいます」:
+//     押さえは**ブリッジの部品から左の壁の部品へ移した**（パーツ分割）。ブリッジ側に付いていたときは、
+//     この 1 個（0.7mm）だけが皿の裏から下がっていて、刷る向き（皿を伏せる）で皿 2233mm² 全部が
+//     この押さえ 1 本の上に浮いていた（接地 8mm²・支柱 258 本＋ラフト）。移して皿は平らにプレートへ着く。
+//     組む順は変わらない（板は手順 4 で左の壁と**一緒に**降りる ＝ close_tc 0）。押さえも一緒に降りるので、
+//     板が押さえられ始めるのが手順 5 → 手順 4 に早まるだけ。
 //   −X（壁側）は左の壁の内面そのもの。🔴 このため **Type-C 基板は左右の壁を降ろした後に立てる**（組む順が変わる）。
 //   逃げの実績: ③ の表 4.25 ↔ ハウジング 4.524 = 0.274 / ③ の後端 58.35 ↔ ピン列 58.67 = 0.32 /
 //               ④ の後端 65.5 ↔ コネクタ胴 65.85 = 0.35 / ⑤ の右 5.9 ↔ ハブの左端 6.002 = 0.102
@@ -189,6 +197,7 @@ module lwall_v4() {
             color("#b6c0cc") translate([LW_X - WALL, FY_IN, 0]) cube([WALL, IN_Y - FY_IN, IN_Z]);
             brg_ledges(-1);   // ブリッジを留める棚（Y 30.5〜36.5・ナット入り・_v4_core の「箱への固定」）
             brg_ledge_up();   // 3 点目の棚（Y 45.0〜50.4・帯の左端を**上から**留める・_v4_core の BLU_*）
+            brg_tc_press();   // 🔒 2026-08-27 ユーザー: 充電基板の抜け止めをブリッジから**この壁へ**移した（_v4_core の TC_PRESS）
             for (b = BOSSES) if (b[0] < IN_X / 2) top_boss(b, BOSS_H);
             ear_col(EAR_X[0][0], EAR_X[0][1]);
             color("#b6c0cc") difference() {
@@ -447,12 +456,28 @@ if (part == "bridge") {
     color("#f6ad55") bat_v4(); ina_bat(); pb_bat();
     rounded4() { skin1("lwall"); skin1("rwall"); }
 }
-if (part == "print_floor")   translate([0, 0, FLOOR_T]) p_one("floor");
-if (part == "print_lwall")   translate([0, 0, WALL]) rotate([0, -90, 0]) p_one("lwall");
-if (part == "print_rwall")   translate([0, 0, IN_X + WALL]) rotate([0, 90, 0]) p_one("rwall");
-if (part == "print_top")     translate([0, 0, Z_TOP]) rotate([180, 0, 0]) p_one("top");
-if (part == "print_front")   translate([0, 0, BEZ_T]) rotate([90, 0, 0]) p_one("front");
-if (part == "print_hatch")   translate([0, 0, IN_Y + HATCH_T]) rotate([-90, 0, 0]) p_one("hatch");
+// ---- 犠牲タブ（PRINT.md §4・刷る向きにだけ足す。組み立ての形（p_*・look）には出ない）----
+//   🔒 長い部品に逃げ溝を張ってはいけない: 橋（39mm）の溝が 2 回目の剥がしで蝶番になり、4 枚が破断した。
+//      長い部品は溝ではなく**犠牲タブ**。ヘラはタブの下に入れ、本体を曲げない。見本は knob_jig.scad の
+//      `bridge_print`（両端 7 x 8 x 1.2）。位置も同じ流儀で**長い軸の両端**に 1 つずつ。
+//   ⚠ 角丸のぶん、プレートに着く輪郭は外形より最大 1.9mm 内側にある（実測）。TAB_IN はそれを跨ぐ量。
+TAB_T = 1.2; TAB_W = 8.0; TAB_IN = 3.0; TAB_OUT = 7.0;
+module tab_x(xe, y, s) color("#e0a0a0") translate([s > 0 ? xe - TAB_IN : xe - TAB_OUT, y - TAB_W / 2, 0]) cube([TAB_IN + TAB_OUT, TAB_W, TAB_T]);
+module tab_y(x, ye, s) color("#e0a0a0") translate([x - TAB_W / 2, s > 0 ? ye - TAB_IN : ye - TAB_OUT, 0]) cube([TAB_W, TAB_IN + TAB_OUT, TAB_T]);
+//   長い軸が X の 4 枚（床・天面・ハッチ・フロント）は X の両端。短い方の中央は刷る向きの bbox から
+XT0 = LW_X - WALL; XT1 = IN_X + WALL;                 // -0.306 / 86.354（外形の左右）
+module tabs_x(yc) { tab_x(XT0, yc, -1); tab_x(XT1, yc, +1); }
+//   長い軸が Y の 2 枚（左右の壁）は Y の両端（＝フロントとハッチの継ぎ目の側）
+module tabs_y(xc) { tab_y(xc, FY_IN, -1); tab_y(xc, IN_Y, +1); }
+
+if (part == "print_floor") { translate([0, 0, FLOOR_T]) p_one("floor"); tabs_x((FY_IN + IN_Y) / 2); }
+if (part == "print_lwall") { translate([0, 0, WALL - LW_X]) rotate([0, -90, 0]) p_one("lwall"); tabs_y(-IN_Z / 2); }   // 🔴 2026-08-27 [0,0,WALL] だと外面（X LW_X−WALL）が Z 1.694 に浮いた。左の壁だけ内面が LW_X ぶん内側に居る
+if (part == "print_rwall") { translate([0, 0, IN_X + WALL]) rotate([0, 90, 0]) p_one("rwall"); tabs_y(IN_Z / 2); }
+if (part == "print_top") { top_print(); tabs_x(-(IN_Y + HATCH_T + FY_OUT) / 2); if (!PROPS_OFF) { props_top(); raft_top(); } }
+if (part == "print_front") { translate([0, 0, -FY_OUT]) rotate([90, 0, 0]) p_one("front"); tabs_x(-(Z_TOP + FLOOR_T) / 2 + FLOOR_T); }   // 🔴 2026-08-27 [0,0,BEZ_T] だと外面（Y FY_OUT）が Z 1.0 に浮いた。板は FRONT_DY ぶん後ろに居る
+if (part == "print_hatch") { hatch_print(); tabs_x((IN_Z + TOP_T - FLOOR_T) / 2); // ⚠ 同じ高さの天井でも、足元は 1 つではない: ハッチの 3.00 は**電池の口の上（下は空でプレートまで）**と
+   //    **板の上（0〜2.0）**の両方に跨がっている。両方の足元で立てる（重ならない場所どうしなので二重にはならない）
+   if (!PROPS_OFF) { props_hatch(); raft_hatch(); } }
 if (part == "print_shutter") translate([0, 0, SW4_YOUT]) rotate([-90, 0, 0]) battery_shutter4(0);
 if (part == "print_lock")    translate([0, 0, SW4_YOUT]) rotate([-90, 0, 0]) battery_lock4();
 if (part == "print_tail")    translate([0, 0, -0.2]) tail_cap();
@@ -472,16 +497,98 @@ module strap_one(s) intersection() {
 //   出るため 1 層目がツバだけの島になり、その上で断面が宙に浮く。もう使えない。
 //   ⚠ この向きでは天板が足と足の間（X 15〜51 ＝ 36）を渡る。支えは要らないがブリッジになる。
 module strap_print(s) translate([0, 0, -BAT_Z]) strap_one(s);
-if (part == "print_strap_a") strap_print(STRAP_BANDS[0]);
-if (part == "print_strap_b") strap_print(STRAP_BANDS[1]);
-if (part == "print_strap_c") strap_print(STRAP_BANDS[2]);
+if (part == "print_strap_a") { strap_print(STRAP_BANDS[0]); if (!PROPS_OFF) { props_strap_a(); raft_strap_a(); } }
+if (part == "print_strap_b") { strap_print(STRAP_BANDS[1]); if (!PROPS_OFF) { props_strap_b(); raft_strap_b(); } }
+if (part == "print_strap_c") { strap_print(STRAP_BANDS[2]); if (!PROPS_OFF) { props_strap_c(); raft_strap_c(); } }
 // キャップ: 閉じている天面をベッドに伏せる（うつ伏せ）。中の空洞と押し棒が上を向くので支えは要らない
 //   （棒の先の返り φ5 × 0.8 だけが庇になる）。z_top = Z_TOP + BTN_OUT
 if (part == "print_btn")     translate([0, 0, Z_TOP + BTN_OUT]) rotate([180, 0, 0]) button_cap();
 // ブリッジ: 皿を伏せる（2026-08-26・前板を別部品にしたので L 字ではなくなった）。レール・パッドは全部上を向く。
 //   ⚠ 皿の裏に 1 つだけ出っ張りが残る: 充電の Type-C の押さえ（X 1.69〜3.9・Y 58.6〜62.2・皿の裏から 0.7 下）。
 //     底の Z を 0 にするためにその押さえで置いているので、**皿は 0.7 浮く**。ここだけラフト／サポートが要る
-if (part == "print_bridge")  translate([0, 0, -TC_PRESS[2]]) brg_v4();
+// ---- ブリッジの皿を持つ支柱（モデルに入れる。つまみの `deck_props` と同じ形・同じ数字）----
+//   皿の裏は **1215mm² が 0.7mm 浮いている**（Type-C の押さえ 1 個で置いているため・上の ⚠）。
+//   0.7mm では CHITUBOX の支柱は入らないので、つまみの天板と同じく**モデルの側で持つ**。
+//   形も数字も knob_v5.scad から取る: 柱 φ2.0・先 φ1.2・先の円錐 0.4・ピッチ 3.0（渡りが 4mm を超えない実績値）。
+//   🔴 φ1.4 / 先 φ0.8（断面 0.5mm²）では 35 本 ＝ 17.6mm² しか掴めず、床が薄皮のまま面ごと剥がれた（2026-08-21 実機）。
+//   置く場所は皿そのものから取る（座標を書かない）: 刷る向きの断面を支柱の頭の高さで切り、
+//   柱の半径＋0.3 だけ内側へ縮めた形と交わらせる ＝ 皿からはみ出す支柱は出ない。
+BRG_PROP_D = 2.0; BRG_PROP_TIP = 1.2; BRG_PROP_P = 3.0;
+BRG_PROP_H = (BAT_Z - BRG_T) - TC_PRESS[2];   // 0.70 皿の裏の浮き
+//   ⚠ 皿の裏は面取り（BRG_CH）で縁が上がるので、0.71 で止めると縁の支柱が皿に**届かず**
+//      プレートに立っただけの欠片になる（2026-08-27・中身 4 個で検出）。頭を 0.3 だけ皿へ食い込ませる
+//   🔴 2026-08-27 先を円錐（つまみと同じ）にすると、皿の輪郭で横に切られた支柱が**細る側で切れて**
+//      皿に届かず、プレートに立っただけの欠片になった（中身 4 個 → 3 個）。ここは内側の部品で痕が見えないので、
+//      **太さが一定の真っ直ぐな柱**にする。横に切られても上下に必ず届く。
+BRG_PROP_BITE = 0.3;
+module brg_prop() {   // 皿は 0.7 しか浮いていないので、首だけの背丈
+    cylinder(d = BRG_PROP_D, h = max(0.01, BRG_PROP_H - 0.4), $fn = 16);
+    translate([0, 0, max(0, BRG_PROP_H - 0.4)]) cylinder(d = PROP_TIP, h = 0.4 + BRG_PROP_BITE, $fn = 12);
+}
+module brg_props() color("#e0a0a0") intersection() {
+    for (x = [0 : BRG_PROP_P : 90], y = [0 : BRG_PROP_P : 75]) translate([x, y, 0]) brg_prop();
+    linear_extrude(BRG_PROP_H + BRG_PROP_BITE + 0.02) offset(r = -BRG_PROP_D / 2 - 0.3)
+        projection(cut = true) translate([0, 0, -(BAT_Z - BRG_T) - (BRG_PROP_H + 0.2)]) brg_v4();
+}
+if (part == "print_bridge") { translate([0, 0, -(BAT_Z - BRG_T)]) brg_v4(); if (!PROPS_OFF) { props_bridge(); raft_bridge(); } }   // 🔒 2026-08-27 押さえを壁へ移したので、皿の裏（BAT_Z − BRG_T）が平らにプレートへ着く
+
+// ---- 下向きの天井を持つ支柱（一般形）----
+//   🔴 島（浮いた欠片）の検査は**縁で繋がった天井を素通りする**（つまみの皿もそれで合格する）。
+//      持たれていない天井は `python hardware/_stl_preflight.py` の「支えの無い天井」が出す。
+//   置く場所はモデルの断面から取る（座標を書かない）:
+//      天井 = 「h+0.2 に在る断面」から「h−0.2 に在る断面」と「h−0.3 より下に在るもの全部」を引いた形。
+//      そこを柱の半径＋0.3 だけ内側へ縮める ＝ 天井からはみ出す支柱も、下の物にぶつかる支柱も出ない。
+//   数字はつまみの `deck_props` から: 柱 φ2.0・ピッチ 3.0（隣まで 4mm を超えない実績値）。
+//   🔴 φ1.4（断面 0.5mm²）では 35 本 ＝ 17.6mm² しか掴めず、床が薄皮のまま面ごと剥がれた（2026-08-21 実機）。
+PROP_D = 2.0; PROP_P = 3.0; PROP_BITE = 0.3;
+//   🔴 2026-08-27 天井の下がプレートまで空いているとは限らない。ハッチの天井（3.00）の下には板（0〜2.0）が、
+//      会話ボタンの首（6.20）の下には皿の肉（2.25〜）が在る。**支柱はその上から立てる** ＝ base を渡す。
+//      base を 0 のままにすると「下に物が在る」を理由に置ける場所が全部消え、支柱が 1 本も立たない。
+//   🔴 2026-08-27 天井に φ2.0 のまま溶かすと、1 本あたり 3.14mm² で溶接したことになり**外れない**
+//      （ユーザー指摘・つまみの皿と見比べて）。つまみは先が φ1.2（断面 1.13mm²）で、そこがちぎれる。
+//      ただし円錐にすると輪郭で横に切られた支柱が細る側で切れて宙に浮くので、**首も真っ直ぐな円柱**にする:
+//      φ2.0 の胴 → 天井の手前 PROP_NECK から φ1.2 の首。横に切られても上下に必ず届く。
+PROP_TIP = 1.2; PROP_NECK = 0.8;
+module prop_grid(h, base) for (x = [-4 : PROP_P : 104], y = [-80 : PROP_P : 80]) translate([x, y, base]) {
+    cylinder(d = PROP_D, h = max(0.01, h - base - PROP_NECK), $fn = 16);
+    translate([0, 0, max(0, h - base - PROP_NECK)])
+        cylinder(d = PROP_TIP, h = min(PROP_NECK, h - base) + PROP_BITE, $fn = 12);
+}
+module sect(h) projection(cut = true) translate([0, 0, -h]) children();
+module between(a, b) projection() intersection() { children(); translate([-200, -200, a]) cube([400, 400, b - a]); }
+//   ⚠ 逃げ 0.3 は「幅 2.6mm 以上の天井」にしか立たない。ハッチの蓋のレール（幅 ≈2.5mm）や
+//      スピーカーの網の桟（≈1.2mm）はそれで全部落ちる。細い天井は mg を詰める（内側の面なので痕は見えない）
+//   🔴 2026-08-27 丸い柱は**細長い天井には入らない**。ハッチの蓋のレールは幅 ≈2.4mm で、φ2.0＋逃げを引くと
+//      芯しか残らず、格子の点がたまたま乗った所にしか立たなかった。
+//      🔴 そこで「薄い壁の格子」を天井の形で切り抜いたが、**あれは支柱ではなく模様**だった（ユーザー指摘・
+//      電池の口が格子で埋まった）。細長い天井は、天井の**芯に沿う 1 枚のヒレ**で支える。
+//      offset(-0.9) は幅 2.4 のレールから幅 0.6 の芯を残す（実績の薄壁の下限 0.3 の倍）。広い天井には使わない。
+PROP_W = 0.6;
+module ceil_fin(h, base = 0) color("#e0a0a0")
+    translate([0, 0, base]) linear_extrude(h - base + PROP_BITE) offset(r = -(PROP_W + 0.6) / 2 - 0.3) offset(r = 0)
+        intersection() {
+            difference() { sect(h + 0.2) children(); sect(h - 0.2) children(); between(base + 0.2, h - 0.3) children(); }
+            if (base > 0) sect(base - 0.1) children(); else square([400, 400], center = true);
+        }
+module ceil_props(h, base = 0, mg = 0.3) color("#e0a0a0") intersection() {
+    prop_grid(h, base);
+    translate([0, 0, base]) linear_extrude(h - base + PROP_BITE + 0.02) offset(r = -PROP_D / 2 - mg)
+        intersection() {
+            difference() { sect(h + 0.2) children(); sect(h - 0.2) children(); between(base + 0.2, h - 0.3) children(); }
+            // 🔴 足元に肉が在る所だけ。無いと支柱が base の高さで宙に浮く（2026-08-27・ハッチで 4 本）
+            if (base > 0) sect(base - 0.1) children(); else square([400, 400], center = true);
+        }
+}
+// 天井の高さ（刷る向きの Z）は検査の出力から。2026-08-27 の `_stl_preflight.py`:
+//   天板 6.70（つまみの座 373mm²）/ 2.25（会話ボタンの皿 82mm²）/ 0.60（スピーカーのへこみ 85mm²）/ 6.20（27mm²）
+//   帯 6.00（足と足の間 148〜238mm²）/ ハッチ 3.00（194mm²）
+//   🔒 壁ぎわの逃げは 3.1mm。1.1mm ではニッパーが入らず、刃が見える面に乗ってガタガタになった
+//      （つまみのラフトを 13.0 → 11.0 に縮めた実機の判断・PRINT.md §3）。
+//      壁から 3.1 の帯は支柱を置かないが、そこは**壁そのものが天井を持っている**（検査の 2.0mm 以内）。
+TOP_CEILS = [[6.70, 0, 3.1], [2.25, 0, 3.1]];   // [天井, 足元, 壁からの逃げ] 太い天井は柱
+TOP_FINS = [[6.20, 0]];   // 細い天井（会話ボタンの首）はヒレ。スピーカーの網の桟（幅 1.2）はヒレも入らない → 下の 🔴
+module top_print() { translate([0, 0, Z_TOP]) rotate([180, 0, 0]) p_one("top"); }
+module hatch_print() { translate([0, 0, IN_Y + HATCH_T]) rotate([-90, 0, 0]) p_one("hatch"); }
 // 前板（返し＋脚）: **前面を伏せて寝かせる**（🔒 2026-08-26 ユーザー「寝かせる向きでしょ」）。
 //   前面（Y 12.9）は 634mm² の 1 枚の平らな面なので、そのままベッドに着く。フランジは真上へ立つ壁になり庇は出ない
 if (part == "print_brgfront") translate([0, 0, -BAT_Y0]) rotate([90, 0, 0]) brg_front();
@@ -525,12 +632,29 @@ module seatgap_slice() intersection() {
 }
 if (part == "seatgap") seatgap_slice();
 // 充電（Type-C）基板の受け ↔ 周り。**0 が正**。
-//   受け（床の tc_seat4）と 押さえ（ブリッジの brg_tc_press）は、どちらも自分の板の一部なので
+//   受け（床の tc_seat4）と 押さえ（brg_tc_press）は、どちらも自分の板の一部なので
 //   chk_floor / chk_all では「板 ↔ 中身」の片側に入ってしまい、基板そのものとの当たりが見えない。専用に見張る。
+//   🔴 2026-08-27 押さえを左の壁へ移したので、相手の union から**押さえ自身を引く**。引かないと
+//      自分と自分が当たって、押さえの体積そのもの（5.559mm³）が出る（＝ 嘘の当たり）。
 if (part == "chk_tc") intersection() {
     union() { tc_seat4(); brg_tc_press(); }
     union() { core(); tcb_v4(); bat_v4(); pb_bat(); pbl_hous(); pbu_hous(); ina_bat(); straps_v4();
-              wires_pwr(); wires_sig(); door4(); lwall_v4(); rwall_v4(); top_v4(); front_v4(); hatch_v4(); }
+              wires_pwr(); wires_sig(); door4(); difference() { lwall_v4(); brg_tc_press(); }
+              rwall_v4(); top_v4(); front_v4(); hatch_v4(); }
+}
+// 充電基板を**上から落として**据えられるか（押さえが壁に移った 2026-08-27 の確認）。
+//   板を Z +12 の高さから下ろす軌跡 ↔ その時点で箱に在る物（床・左右の壁・ハブ・ReSpeaker）。
+//   ✅ 2026-08-27 の実測: 真下へ落とすと 5.110mm³ 当たる（落とせない）。後ろから差すのも 48.519mm³（差せない）。
+//     ⚠ どちらも**手順ではない**。板は手順 4 で左の壁と一緒に降りる（close_tc = 0）ので、この 2 つは
+//     「板だけを後から入れる道は無い」ことの裏取り（＝ 止まるのが正）。
+if (part == "chk_tc_drop") intersection() {
+    union() for (t = [0 : 0.5 : 12]) translate([0, 0, t]) tcb_v4_bare();
+    union() { floor_v4(); lwall_v4(); rwall_v4(); hub_unit(); respeaker_at(); }
+}
+// 同じ板を**後ろから（−Y へ）差し込む**軌跡。ハッチはまだ付いていないので後ろは開いている
+if (part == "chk_tc_slide") intersection() {
+    union() for (t = [0 : 0.5 : 16]) translate([0, t, 0]) tcb_v4_bare();
+    union() { floor_v4(); lwall_v4(); rwall_v4(); hub_unit(); respeaker_at(); }
 }
 
 // 組む動き（v4 の①〜⑬は ⬜ ユーザー待ち。板ごとの入れる向きだけ当てる）:

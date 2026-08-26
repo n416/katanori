@@ -17,3 +17,6 @@ __pycache__/
 # 使い捨ての検査・試作STL（317ファイル・17MB）
 hardware/scratch/
 _access_tmp/
+
+# 刷る前の検算で出した使い捨てSTL
+hardware/_pf/

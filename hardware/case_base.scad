@@ -510,9 +510,15 @@ module seam_front_half() { translate([-WALL - 1, FY_IN, IN_Z]) rotate([-45, 0, 0
 //    🔴 最初は OLED の裏（X 20〜30 / 56〜66）に耳を描いたが、OLED が前面の内側を X 8〜78・天井まで埋めていて 102mm3 当たった
 EAR_W = OLED_X0 + oled_mount()[0][0] - OLED_L_W / 2 - 0.3;   // 6.25 耳の X 幅（L の足まで 0.3）
 EAR_X = [[LW_X, EAR_W], [79.352, IN_X]]; EAR_Y0 = 2.0; EAR_Y1 = 10.0; EAR_T = 3.2;   // 🔒 2026-08-25 ユーザー「天面と底面のネジを 2mm ハッチ方向に移動」: 耳（天面の前 2 本）を 0〜8 → 2〜10   // 🔒 耳の内側の縁（左 6.652・右 79.352）は OLED の L の都合＝凍結 2026-08-25。外側の縁と幅は壁に追従
+// 🔴 2026-08-27 耳の**前端**は EAR_Y0 ではなくフロント板の内面（FY_IN）。EAR_Y0 は 🔒 ビスの位置
+//    （中心 Y 6.0）を決めるだけで、板と繋ぐ縁ではない。耳を 0〜8 → 2〜10 へ動かした 2026-08-25 に板から
+//    2.0mm 離れ、FRONT_DY = 1.0 で 1.0mm になり、**耳 2 個が板と繋がっていない欠片**になっていた
+//    （p_front の STL が中身 3 個・[CASE-V4-OPEN.md](../docs/CASE-V4-OPEN.md) T-5）。上の帯（FY_IN + 0.01 まで）と
+//    0.01 重ねて繋ぐ。ビスの中心は動かさない
 module front_ears() {
+    y0 = min(EAR_Y0, FY_IN);
     for (ex = EAR_X) difference() {
-        translate([ex[0], EAR_Y0, IN_Z - EAR_T]) cube([ex[1] - ex[0], EAR_Y1 - EAR_Y0, EAR_T]);
+        translate([ex[0], y0, IN_Z - EAR_T]) cube([ex[1] - ex[0], EAR_Y1 - y0, EAR_T]);
         translate([(ex[0] + ex[1]) / 2, (EAR_Y0 + EAR_Y1) / 2, IN_Z - EAR_T - 1]) cylinder(d = SCR_D, h = EAR_T + 2, $fn = 24);   // 🔒 ナットは持たない（下の `ear_col` へ移した）
     }
 }
