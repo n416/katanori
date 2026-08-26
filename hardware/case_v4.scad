@@ -26,7 +26,7 @@ W = "none";      // _v4_core の内部スイッチ（芯だけの検査 deskseat
 //   線     : chk_wire（WP で 1 束に絞れる・束 ↔ 部品と皮）/ chk_wire_w（束 ↔ 他の束＋電源系）/ chk_wire_pwr（電源系 7 本）
 //   充電基板: chk_tc（Type-C の受け＋押さえ ↔ 基板と周り。**0 が正**）
 //   電池   : chk_shut_slide（蓋を下へずらす）/ chk_shut_out（蓋を抜く）/ chk_swap（電池を後ろへ抜く・v3 と同名）
-part = "bridge";
+part = "t1";
 WP = "";         // chk_wire 系で束を 1 つに: xiao / oled / as5600 / btn2 / phin / phout / ina / tgl / reed / chg（"" で全部）
 
 // ---- v4 の配置（芯と同じ式。数字を増やさない） ----
@@ -552,6 +552,27 @@ if (part == "explode") {
                                translate([0, E * 0.75, 0]) { color("#8892a0") battery_lock4(); sw4_lock_screw(); }
                                sw4_magnets_wall(); sw4_lock_nut(); }   // ハッチ＋トグル＋尻尾＋電池の蓋一式
 }
+
+// ---- T-1 の現場を見る（2026-08-26。ブリッジの 3 本目がドライバで届かない件）----
+//   part="t1"     左後ろの角だけ切り出す。赤い棒が**ドライバの軸**（φ3.2 × 24 ＝ 外へ抜けるのに要る長さ）。
+//                 いまはこれが天面のボス（左の壁と一体・Z 39.454〜48.454）に 13.0mm で刺さって止まる
+//   part="t1_noboss"  同じ図から**天面のボスだけ**消した引き算。ボスさえ無ければ抜けることを見る用
+//   part="t1_top"     真上から見た図（ボスと棚と耳の重なりが分かる）
+//   どれも「見る用」で、印刷にも検査にも使わない
+T1_LO = [-2, 54, 14]; T1_HI = [17, 74, 53];
+module t1_clip() intersection() { children(); translate(T1_LO) cube([T1_HI[0]-T1_LO[0], T1_HI[1]-T1_LO[1], T1_HI[2]-T1_LO[2]]); }
+module t1_boss_box() translate([LW_X - 1, IN_Y - BOSS - 1, IN_Z - BOSS_H - 1]) cube([BOSS + 2, BOSS + 2, BOSS_H + 2]);
+module t1_driver() color("#e53e3e", 0.6) translate([BLU_SCR[0], BLU_SCR[1], BLU_PTOP - SCR_CBT]) cylinder(d = 3.2, h = 24, $fn = 32);
+module t1_body(boss = true) {
+    difference() { rounded4() lwall_v4(); if (!boss) t1_boss_box(); }   // 左の壁（棚と天面ボスごと）
+    brg_v4(); brg_ledges(-1); brg_ledge_up(); brg_hw(); brg_hw_up();     // ブリッジ・棚・耳・ネジ
+    tcb_v4();                                                            // 真下の Type-C 基板
+    color("#8899aa", 0.25) rounded4() floor_v4();
+    w_pwr3(); w_ina_i2c(); w_tgl(); w_chg();                             // 帯の上を通る線
+}
+if (part == "t1")        { t1_clip() t1_body(true);  t1_clip() t1_driver(); }
+if (part == "t1_noboss") { t1_clip() t1_body(false); t1_clip() t1_driver(); }
+if (part == "t1_top")    { t1_clip() t1_body(true);  t1_clip() t1_driver(); }
 
 echo(v4_skin = "床/左壁/右壁/天面/フロント/ハッチ", knob4 = KNOB4, btn4 = BTN4, spk4 = SPK4);
 echo(hub_holes4 = HUB_HOLES4, floor_screws = V4_FLOOR_SCREWS, chg4 = CHG4_C, in_x = IN_X);

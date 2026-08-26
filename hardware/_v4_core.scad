@@ -325,6 +325,15 @@ module brg_hw() color("#8892a0") for (a = BRG_ANCH) {
     }
     translate([brg_scr(a)[0], brg_scr(a)[1], BRG_ZB - BRG_LDG_SKIN - 1.6]) rotate([0, 0, 30]) hex_pocket_af(4.0, 1.6);   // 締めて溝の天井（棚の肉の裏）へ上がったナット
 }
+// 🔴 2026-08-26 3 本目（帯の左端の耳）は BRG_ANCH ではなく BLU_* で描いているのでこのループに入っておらず、
+//    W="brghw" の当たり検査の対象外だった。ネジも別に置く。
+module brg_hw_up() color("#8892a0") {
+    translate([BLU_SCR[0], BLU_SCR[1], BLU_PTOP - SCR_CBT]) {
+        cylinder(d = 3.0, h = 1.3, $fn = 24);                        // 頭
+        translate([0, 0, -4]) cylinder(d = 2.0, h = 4, $fn = 24);    // 軸 M2×4（🔴 2026-08-26 M2×6 だと先が棚の底から 2.0 出ていた）
+    }
+    translate([BLU_SCR[0], BLU_SCR[1], BLU_TOP - BLU_SKIN - 1.6]) rotate([0, 0, 30]) hex_pocket_af(4.0, 1.6);
+}
 // 土手（レール）の区間。⊓ の足が座る区間だけ途切れる。ツバの溝を彫るのに帯の側からも要るので変数に出した
 RAIL_SEG_L = [[21.45, 33.2], [42.2, 52.6], [58.6, BAT_Y0 + lipo_size()[0]]];              // 左（A の足の後ろから）
 RAIL_SEG_R = [[BAT_Y0, 15.45], [21.45, 33.2], [42.2, 52.6], [58.6, BAT_Y0 + lipo_size()[0]]];   // 右
@@ -779,9 +788,9 @@ if (W == "brgchk")  intersection() { brg_v4(); union() { core(); pb_bat(); ina_b
 // 箱への固定（2026-08-25）: 棚 ↔ 中身 ／ ビスとナットの現物 ↔ 周り。どちらも **0 が正**
 if (W == "brgldg")  intersection() { union() { brg_ledges(-1); brg_ledges(1); } union() { core(); bat_v4(); pb_bat(); ina_bat(); tgl_v4(); tcb_v4(); straps_v4(); wires_pwr(); wires_sig(); } }
 // 現物だけを出す（_asm_access.py が軸と頭の高さを bbox から拾う。当たり検査ではない）
-if (W == "hw_brg")  brg_hw();
+if (W == "hw_brg")  { brg_hw(); brg_hw_up(); }
 if (W == "hw_seat") seat_hw();
-if (W == "brghw")   intersection() { brg_hw(); union() { brg_v4(); v3_walls_lr(); core(); bat_v4(); tcb_v4(); straps_v4(); wires_pwr(); wires_sig(); } }
+if (W == "brghw")   intersection() { union() { brg_hw(); brg_hw_up(); } union() { brg_v4(); v3_walls_lr(); core(); bat_v4(); tcb_v4(); straps_v4(); wires_pwr(); wires_sig(); } }
 echo(v3_inner = [IN_X, IN_Y, IN_Z], v3_outer = [IN_X + 2 * WALL, IN_Y + HATCH_T, IN_Z + TOP_T + FLOOR_T]);
 echo(hub_dx = HUB_DX, hub_x = [HUB_X + HUB_DX, HUB_X + HUB_L + HUB_DX], rsp_edge = RSP_X + respeaker_L(), xiao_face = XIAO_FACE_X);
 if (W == "seatchk")  intersection() { straps_v4(); union() { ina_bat(); pb_bat(); bat_v4(); core(); brg_v4(); tgl_v4(); tcb_v4(); wires_pwr(); wires_sig(); } }   // 座＋ネジ穴を入れた帯 ↔ 全部（0 が正）
