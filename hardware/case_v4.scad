@@ -230,7 +230,7 @@ module rwall_v4() {
     difference() {
         union() {
             color("#b6c0cc") translate([IN_X, FY_IN, 0]) cube([WALL, IN_Y - FY_IN, IN_Z]);
-            brg_ledges(1);    // ブリッジを留める棚 2 つ（Y 30.0〜36.0 と 56.9〜62.9・ナット入り）
+            brg_ledges(1);    // ブリッジを留める棚（Y 56.9〜62.9・ナット入り。右は 1 つだけ ── 前の棚と長い腕は 2026-08-26 に廃止し、3 点目は左の BLU へ移った）
             for (b = BOSSES) if (b[0] > IN_X / 2) top_boss(b, BOSS_H);
             ear_col(EAR_X[1][0], EAR_X[1][1]);
             color("#b6c0cc") difference() {
