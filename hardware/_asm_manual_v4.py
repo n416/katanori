@@ -180,7 +180,7 @@ STEPS = [
  dict(n='9', t='OLED を立て、上の車線 5 束と電源系 7 本を通す', img='st9', acts=[
    'OLED を上から降ろし、下辺の後ろのリブに当てる。この時点ではまだ宙ぶらりんで、手順 10・11 で L と窓が挟む。',
    '<b>上の車線</b>: <span class="w">OLED</span> 4 本は左の溝（<span class="n">X 9</span>）を <span class="n">Z 45.2</span> まで上がって前を右へ。<span class="w">INA</span> の I2C 4 本は後ろの縦穴から <span class="n">X 52.8</span> を上がり、座の板の下（<span class="n">Z 39.5 / 41.0</span>）を前へ。<span class="w">TOGGLE</span> 2 本は <span class="n">Z 46.8</span>、<span class="w">REED</span> 2 本は <b>🔒 コネクタ無しの直はんだ</b>でつまみのデッキの足元へ。充電 2 本は左の壁ぎわから天井の下（<span class="n">Z 47.3</span>）を通って PowerBoost の USB ピンへ。',
-   '<b>電源系 7 本</b>: 電池のタブ → 電流計の <span class="w">INPUT</span>、電流計の <span class="w">OUT</span> → PowerBoost の JST、PowerBoost の L 字 3 ピン → ハブの <span class="w">PWR</span>。ハブ側は手順 3 で挿してあるので挿すのは PowerBoost 側だけで、道は蓋の増し肉の上の 3 車線（<span class="n">Z 32.2 / 33.7 / 35.2</span>）を右へ走ってから後ろの縦穴を下りる。',
+   '<b>電源系 7 本</b>: 電池のタブ → 電流計の <span class="w">INPUT</span>、電流計の <span class="w">OUT</span> → PowerBoost の JST、PowerBoost の L 字 3 ピン → ハブの <span class="w">PWR</span>。ハブ側は手順 3 で挿してあるので挿すのは PowerBoost 側だけで、道は蓋の増し肉の上の 3 車線（<span class="n">Z 35.2 / 36.7 / 38.2</span>）を右へ走ってから後ろの縦穴を下りる。',
  ], warn='PowerBoost の L のハウジングの後端は <span class="n">Y 69.7</span>。ハッチの内面まで <span class="d">2.3mm</span> しかない。'),
 
  dict(n='10', t='天面の小組と、天面側の配線', img='st10', acts=[
@@ -219,7 +219,7 @@ WIRES = [
  ('PHOUT',      '2', '96.5', '帯の前へ抜けて右の壁ぎわ X83.3 → 天井の下 → スピーカーの下'),
  ('TOGGLE',     '2', '57.4', '縦穴 → Z46.8 の車線 → 端子の真上'),
  ('INA (I2C)',  '4', '80.0', '縦穴 Y67.5（Z 22.3・口の曲がりの上）→ X52.8 で上がる → 座の板の下 Z40.6 を前へ'),
- ('PWR',        '3', '67.5', '蓋の増し肉の上 Z32.2 / 33.7 / 35.2 を右へ → 縦穴を Z21.9 まで下りる（口の曲がりの上で止める）'),
+ ('PWR',        '3', '67.5', '蓋の増し肉の上 Z35.2 / 36.7 / 38.2 を右へ → 縦穴を Z21.9 まで下りる（口の曲がりの上で止める）'),
  ('BAT → INA',  '2', '78.9', '縦穴 → 左の壁ぎわ X2.75 / 4.15 を前へ'),
  ('INA → PB',   '2', '60.4', '左の壁ぎわ → 棚の上（Z42 / 43.5）を右へ → JST のプラグ'),
  ('CHG',        '2', '72.2', '左の壁ぎわ → 天井の下 Z47.3 → PowerBoost の USB ピン'),
@@ -573,7 +573,7 @@ __STEPS__
 <thead><tr><th>順</th><th>すること</th></tr></thead>
 <tbody>
 <tr><td class="n">1</td><td>ハッチの外の <span class="d">M2</span> を 1 本外し、門形のロックを外す</td></tr>
-<tr><td class="n">2</td><td>蓋を<b>下へ 5.5mm</b> ずらして、後ろへ抜く（磁石だけの保持で運用するなら工具は要らない）</td></tr>
+<tr><td class="n">2</td><td>蓋を<b>右へ 5.5mm</b> ずらして、後ろへ抜く（磁石だけの保持で運用するなら工具は要らない）</td></tr>
 <tr><td class="n">3</td><td>電池の JST を抜く</td></tr>
 <tr><td class="n">4</td><td>電池を<b>後ろへ</b>引き出す（レールと留め帯は +Y にだけ開いた鞘）。留め帯は外さない——電池が抜けると帯の楔も外れるので、交換のあいだは帯を横へ動かさないこと</td></tr>
 </tbody>

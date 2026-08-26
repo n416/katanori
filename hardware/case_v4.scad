@@ -11,7 +11,7 @@ include <_v4_core.scad>
 //   充電口はハッチ（Type-C 基板の鼻先が 🔒 ハッチ内面に付くため）。
 //   実行例: openscad --backend=manifold -o x.stl -D 'part="chk_top"' hardware/case_v4.scad
 // ============================================================
-include <case_v4_shutter.scad>   // 電池の入れ替え口（後ろ抜き・v3 の蓋の型）
+include <case_v4_shutter.scad>   // 電池の入れ替え口（後ろ抜き・v3 の蓋の型を **横（右へ）スライド**に回したもの）
 W = "none";      // _v4_core の内部スイッチ（芯だけの検査 deskseat/batchk 等はあちらの W で。皮はこの part で）
 // ---- part の一覧（v3 と同じ流儀・2026-08-25 ユーザー「V3 と同じ part を」で V/P4 を廃止）----
 //   絵     : look（組んだ全体）/ inside（OPEN の板を外して中身）/ explode（分解・組む向き）
@@ -25,7 +25,7 @@ W = "none";      // _v4_core の内部スイッチ（芯だけの検査 deskseat
 //            close_hatch（蓋・トグルごと閉じる）/ close_desk（ブリッジを降ろす＝core の deskseat）
 //   線     : chk_wire（WP で 1 束に絞れる・束 ↔ 部品と皮）/ chk_wire_w（束 ↔ 他の束＋電源系）/ chk_wire_pwr（電源系 7 本）
 //   充電基板: chk_tc（Type-C の受け＋押さえ ↔ 基板と周り。**0 が正**）
-//   電池   : chk_shut_slide（蓋を下へずらす）/ chk_shut_out（蓋を抜く）/ chk_swap（電池を後ろへ抜く・v3 と同名）
+//   電池   : chk_shut_slide（蓋を右へずらす）/ chk_shut_out（蓋を抜く）/ chk_lock_out（ロックを後ろへ外す）/ chk_swap（電池を後ろへ抜く・v3 と同名）
 //   絵（部分）: btnslot（会話ボタンの受けに彫った溝と、そこを通る電源 2 本・INA の直立ての口）
 //              seatgap（電流計の座ぐりの断面。ネジの先 ↔ 留め帯の天板の裏＝電池の上面。SEATGAP_Y で 1 本に絞れる）
 part = "explode";
@@ -565,10 +565,11 @@ if (part == "chk_wire")   intersection() { wsel(); wire_obst(); }
 if (part == "chk_wire_w") intersection() { wsel(); union() { wires_pwr(); if (WP != "") wsig_except(); } }
 if (part == "chk_wire_pwr") intersection() { wires_pwr(); union() { core(); bat_v4(); pb_bat(); pbl_hous(); pbu_hous(); ina_bat(); tgl_v4(); tcb_v4(); brg_v4(); brg_front(); straps_v4(); skin_all(); door4(); } }
 
-// 電池の入れ替えの動き: ロックを外す → 蓋を下へずらす → 蓋を後ろへ抜く → JST を抜く → 電池を後ろへ抜く
+// 電池の入れ替えの動き: ロックを外す → 蓋を右へずらす → 蓋を後ろへ抜く → JST を抜く → 電池を後ろへ抜く
 module world_no_door() { core(); bat_v4(); pb_bat(); pbl_hous(); pbu_hous(); ina_bat(); tgl_v4(); tcb_v4(); brg_v4(); brg_front(); straps_v4(); wires_pwr(); wires_sig(); skin_all(); }
 module world_no_door_bat() { core(); pb_bat(); pbl_hous(); pbu_hous(); ina_bat(); tgl_v4(); tcb_v4(); brg_v4(); brg_front(); straps_v4(); w_pwr3(); w_batout(); wires_sig(); skin_all(); }   // 電池のタブ側の線（w_batin）は JST で外して抜くので入れない
-if (part == "chk_shut_slide") intersection() { union() for (t = [0 : 0.5 : SHUT_SLIDE]) translate([0, 0, -t]) battery_shutter4(0); world_no_door(); }
+if (part == "chk_shut_slide") intersection() { union() for (t = [0 : 0.5 : SHUT_SLIDE]) translate([t, 0, 0]) battery_shutter4(0); world_no_door(); }   // 🔴 2026-08-26 下 → 右
+if (part == "chk_lock_out")    intersection() { union() for (t = [0 : STEP : 20]) translate([0, t, 0]) battery_lock4(); union() { world_no_door(); battery_shutter4(0); } }   // ロックはビスを抜いて後ろへ外す（蓋より先）
 if (part == "chk_shut_out")   intersection() { union() for (t = [0 : STEP : 20]) translate([0, t, 0]) battery_shutter4(1); world_no_door(); }
 if (part == "chk_swap")       intersection() { union() for (t = [0 : STEP : 45]) translate([0, t, 0]) bat_v4(); world_no_door_bat(); }
 
