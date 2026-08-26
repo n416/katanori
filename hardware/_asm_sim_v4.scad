@@ -75,8 +75,14 @@ if (CHK == "rsp_after") intersection() { sweep_z() respeaker_at(); union() { s_f
 if (CHK == "walls")   intersection() { sweep_z() { lwall_v4(); rwall_v4(); } upto(3); }
 if (CHK == "wall_l")  intersection() { sweep_z() lwall_v4(); upto(3); }
 if (CHK == "wall_r")  intersection() { sweep_z() rwall_v4(); upto(3); }
-// ⑤ ブリッジを上から降ろす（相手 = 手順④まで）
-if (CHK == "brg")     intersection() { sweep_z() brg_v4(); upto(4); }
+// ⑤ 🔴 2026-08-27（7 度目の机上の通し）: ブリッジは **2 部品**。前板（brg_front・電池の返し＋前の脚）を
+//   先に床の溝へ差してから、ブリッジ本体を真上から降ろす（🔒 2026-08-26 に切り離した・_v4_core.scad の brg_front）。
+//   ここまで掃引していたのは本体（brg_v4）だけで、前板を差す動きは一度も当てていなかった
+if (CHK == "brgf")    intersection() { sweep_z() brg_front(); upto(4); }
+// 反例: 前板をブリッジの後から差そうとした場合（皿の裏の掘り込みが被さっているので入らない）
+if (CHK == "brgf_bad") intersection() { sweep_z() brg_front(); upto(5); }
+// ⑤ ブリッジ本体を上から降ろす（相手 = 手順④まで ＋ **先に差した前板**。upto(4) に前板は居ないので足す）
+if (CHK == "brg")     intersection() { sweep_z() brg_v4(); union() { upto(4); brg_front(); } }
 // 反例: 上の車線を先に通してしまった場合（0 にならないことを見るための検査）
 if (CHK == "brg_bad") intersection() { sweep_z() brg_v4(); union() { upto(4); w_high(); s_oled(); oled_hous(); } }
 // 🔒 2026-08-26 ⑥⑦ は上からではなくなった。⑥ は横（つまみ側から −X へ 2.0）・⑦ は後ろから（−Y へ）
@@ -94,9 +100,15 @@ if (CHK == "bat")       intersection() { sweep_y() bat_v4(); upto(6); }
 if (CHK == "strap_bad") intersection() { sweep_x() straps_v4(); union() { upto(5); s_bat(); } }
 // 反例: 留め帯を上からかぶせようとした場合（ツバが土手に当たる。0 にならない）
 if (CHK == "strap_top") intersection() { sweep_z() straps_v4(); upto(5); }
+// ⑥ の前半（🆕 2026-08-27）: 押し込む前に、帯を **+2.0 ずらした位置へ上から降ろす**動き。
+//   足が皿の縁のレールの外（左足は電池の座の中・右足はレールの右）へ落ちるので、ツバは土手に掛からない
+if (CHK == "strap_down") intersection() { translate([TAB_L, 0, 0]) sweep_z() straps_v4(); upto(5); }
 // ⑧ 電流計と PowerBoost を上から座へ降ろす（相手 = 手順⑦まで）
 if (CHK == "boards")  intersection() { sweep_z(25) { ina_bat(); pb_bat(); } upto(7); }
-// ⑨ OLED を上から降ろす／上の車線と電源系（静止）↔ 手順⑧まで＋皮
+// ⑨ OLED を上から降ろす（相手 = 手順⑧まで）。🔴 2026-08-27 マニュアルは前からこの CHK の結果 0 を載せていたが、
+//   ここに if が無く、打っても**空のモデル**が出るだけだった（＝ 一度も測っていなかった）。書いて回すと 0
+if (CHK == "oled")    intersection() { sweep_z() s_oled(); upto(8); }
+// ⑨ 上の車線と電源系（静止）↔ 手順⑧まで＋皮
 // ⑩ 天面一式を降ろす（相手 = 手順⑨まで）。OLED を L に留めてから一緒に降ろす形も 0（T-2 の調べ）
 if (CHK == "top_oled") difference() { intersection() {
     union() for (t = [0 : STEP : 25]) translate([0, 0, t]) { s_top(); s_oled(); oled_hous(); }; upto(8); } rsp_press_zone(); }
