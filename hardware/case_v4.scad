@@ -26,7 +26,7 @@ W = "none";      // _v4_core の内部スイッチ（芯だけの検査 deskseat
 //   線     : chk_wire（WP で 1 束に絞れる・束 ↔ 部品と皮）/ chk_wire_w（束 ↔ 他の束＋電源系）/ chk_wire_pwr（電源系 7 本）
 //   充電基板: chk_tc（Type-C の受け＋押さえ ↔ 基板と周り。**0 が正**）
 //   電池   : chk_shut_slide（蓋を下へずらす）/ chk_shut_out（蓋を抜く）/ chk_swap（電池を後ろへ抜く・v3 と同名）
-part = "t1";
+part = "bridge";
 WP = "";         // chk_wire 系で束を 1 つに: xiao / oled / as5600 / btn2 / phin / phout / ina / tgl / reed / chg（"" で全部）
 
 // ---- v4 の配置（芯と同じ式。数字を増やさない） ----
@@ -198,6 +198,7 @@ module lwall_v4() {
             // bottom_boss_bl();   // ⬜ 後ろ左は保留: 立てるには充電基板を帯の上（口 Z≈33.5）へ上げる必要がある（帯は切らない 🔒）。判断待ち
         }
         lwall_port_cut4();
+        brg_clip_groove();   // 🔒 2026-08-26 留め金の舌の溝（前から差す）
     }
 }
 
@@ -571,6 +572,18 @@ module t1_body(boss = true) {
     w_pwr3(); w_ina_i2c(); w_tgl(); w_chg();                             // 帯の上を通る線
 }
 if (part == "t1")        { t1_clip() t1_body(true);  t1_clip() t1_driver(); }
+// part="t1f" … OLED 側（前）から帯の左端を見る。ツバ／留め金を考える用なので**ビスとドライバは出さない**。
+//   切り出しを前へ広げて（Y 40〜72）、左の壁ぎわに何が居るかを一緒に出す
+module t1f_clip() intersection() { children(); translate([-2, 40, 14]) cube([19, 32, 39]); }
+if (part == "p_clip")     brg_clip();
+if (part == "print_clip") translate([CLIP_TG, -CLIP_Y0, -CLIP_Z0]) brg_clip();   // 舌を下・本体を上（底 Z0）
+if (part == "t1f") t1f_clip() {
+    rounded4() lwall_v4();
+    brg_v4(); brg_ledges(-1); brg_ledge_up();          // ブリッジ・棚・耳（ビスは出さない）
+    tcb_v4(); color("#8899aa", 0.25) rounded4() floor_v4();
+    color("#f6ad55") bat_v4(); straps_v4();            // 電池と留め帯（前から差すときの相手）
+    wires_pwr(); wires_sig();                          // 左の壁ぎわの線
+}
 if (part == "t1_noboss") { t1_clip() t1_body(false); t1_clip() t1_driver(); }
 if (part == "t1_top")    { t1_clip() t1_body(true);  t1_clip() t1_driver(); }
 
