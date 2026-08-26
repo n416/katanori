@@ -26,7 +26,7 @@ W = "none";      // _v4_core の内部スイッチ（芯だけの検査 deskseat
 //   線     : chk_wire（WP で 1 束に絞れる・束 ↔ 部品と皮）/ chk_wire_w（束 ↔ 他の束＋電源系）/ chk_wire_pwr（電源系 7 本）
 //   充電基板: chk_tc（Type-C の受け＋押さえ ↔ 基板と周り。**0 が正**）
 //   電池   : chk_shut_slide（蓋を下へずらす）/ chk_shut_out（蓋を抜く）/ chk_swap（電池を後ろへ抜く・v3 と同名）
-part = "t1";
+part = "explode";
 WP = "";         // chk_wire 系で束を 1 つに: xiao / oled / as5600 / btn2 / phin / phout / ina / tgl / reed / chg（"" で全部）
 
 // ---- v4 の配置（芯と同じ式。数字を増やさない） ----
@@ -185,7 +185,7 @@ module lwall_v4() {
         union() {
             color("#b6c0cc") translate([LW_X - WALL, FY_IN, 0]) cube([WALL, IN_Y - FY_IN, IN_Z]);
             brg_ledges(-1);   // ブリッジを留める棚（Y 30.5〜36.5・ナット入り・_v4_core の「箱への固定」）
-            brg_ledge_up();   // 3 点目の棚（Y 63.2〜69.2・帯の左端を**上から**留める・_v4_core の BLU_*）
+            brg_ledge_up();   // 3 点目の棚（Y 45.0〜50.4・帯の左端を**上から**留める・_v4_core の BLU_*）
             for (b = BOSSES) if (b[0] < IN_X / 2) top_boss(b, BOSS_H);
             ear_col(EAR_X[0][0], EAR_X[0][1]);
             color("#b6c0cc") difference() {
@@ -475,6 +475,13 @@ module rsp_press_zone() {   // リブ 2 本の足元（押し代の領域）
 for (k = SKINS) if (part == str("chk_", k)) difference() { intersection() { skin1(k); union() { innards4(); skin_except(k); } } rsp_press_zone(); }
 if (part == "chk_all") difference() { intersection() { skin_all(); innards4(); } rsp_press_zone(); }
 if (part == "chk_press") intersection() { top_v4(); respeaker_at(); }   // ≈6mm3 が正（0 なら押さえが板に届いていない）
+// ドライバの道（T-1）: 3 点目の頭から φ3.2 × 24 の軸を立てて、**その時点で箱に入っている物**に当てる。**0 が正**。
+//   ビスを締めるのは手順 5（ブリッジを降ろした直後）なので、PowerBoost に繋がる線 ── 電源 3 本（w_pwr3）も
+//   充電 2 本（w_chg）も ── はまだ通っていない。板は天面より前なので天面も無い。
+if (part == "chk_t1") intersection() {
+    t1_driver();
+    union() { lwall_v4(); rwall_v4(); floor_v4(); core(); tcb_v4(); brg_v4(); brg_ledges(-1); brg_ledge_up(); wires_low(); }
+}
 // 充電（Type-C）基板の受け ↔ 周り。**0 が正**。
 //   受け（床の tc_seat4）と 押さえ（ブリッジの brg_tc_press）は、どちらも自分の板の一部なので
 //   chk_floor / chk_all では「板 ↔ 中身」の片側に入ってしまい、基板そのものとの当たりが見えない。専用に見張る。
@@ -553,13 +560,14 @@ if (part == "explode") {
                                sw4_magnets_wall(); sw4_lock_nut(); }   // ハッチ＋トグル＋尻尾＋電池の蓋一式
 }
 
-// ---- T-1 の現場を見る（2026-08-26。ブリッジの 3 本目がドライバで届かない件）----
-//   part="t1"     左後ろの角だけ切り出す。赤い棒が**ドライバの軸**（φ3.2 × 24 ＝ 外へ抜けるのに要る長さ）。
-//                 いまはこれが天面のボス（左の壁と一体・Z 39.454〜48.454）に 13.0mm で刺さって止まる
-//   part="t1_noboss"  同じ図から**天面のボスだけ**消した引き算。ボスさえ無ければ抜けることを見る用
-//   part="t1_top"     真上から見た図（ボスと棚と耳の重なりが分かる）
-//   どれも「見る用」で、印刷にも検査にも使わない
-T1_LO = [-2, 54, 14]; T1_HI = [17, 74, 53];
+// ---- T-1 の現場を見る（2026-08-26。ブリッジの 3 本目がドライバで届かない件 ＝ **解決済み**）----
+//   ✅ 3 点目を帯の前（OLED 側・Y 45.0〜50.4）へ移して抜けるようになった（_v4_core の BLU_*）。
+//      移す前は天面のボス（左の壁と一体・Z 39.454〜48.454）に軸が 9.0mm 刺さって止まっていた。
+//   part="t1"     左の壁の前後をまとめて切り出す。赤い棒が**ドライバの軸**（φ3.2 × 24 ＝ 外へ抜けるのに要る長さ）
+//   part="t1_noboss"  同じ図から**天面のボスだけ**消した引き算（移す前の比較用に残す）
+//   part="t1_top"     真上から見た図
+//   part="chk_t1" が数字の側。**0 が正**（下の当たり検査に入れた）
+T1_LO = [-2, 40, 14]; T1_HI = [17, 74, 53];
 module t1_clip() intersection() { children(); translate(T1_LO) cube([T1_HI[0]-T1_LO[0], T1_HI[1]-T1_LO[1], T1_HI[2]-T1_LO[2]]); }
 module t1_boss_box() translate([LW_X - 1, IN_Y - BOSS - 1, IN_Z - BOSS_H - 1]) cube([BOSS + 2, BOSS + 2, BOSS_H + 2]);
 module t1_driver() color("#e53e3e", 0.6) translate([BLU_SCR[0], BLU_SCR[1], BLU_PTOP - SCR_CBT]) cylinder(d = 3.2, h = 24, $fn = 32);
