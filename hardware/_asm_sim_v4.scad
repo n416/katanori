@@ -60,6 +60,10 @@ for (n = [1 : 12]) if (ST == str("st", n)) upto(n);
 
 // 中身だけ（線の通り道の全体図。皮は出さない）
 // 天面の小組だけ（箱から外した状態。T-2 の「裏返して L にナットを入れる」を測る用）
+// 線を除いた「剛体だけ」の段（2026-08-27）。コネクタを挿す道は、**その口に付いている線ごと**動くので、
+//   線を障害物に数えると口の真上の自分の線で止まる。挿す道の検査（_asm_access.py の ⑧）はこちらを相手にする。
+if (ST == "st9r")  { upto(8); s_oled(); oled_hous(); }              // 手順 9（OLED は立てた・上の車線はまだ）
+if (ST == "st10r") { upto(8); s_oled(); oled_hous(); s_top(); }     // 天面を載せた後（線は除く）
 if (ST == "topsub") s_top();
 if (ST == "wires") { core(); s_bat(); s_boards(); s_tcb(); brg_v4(); straps_v4(); tgl_v4(); wires_pwr(); wires_sig(); }
 

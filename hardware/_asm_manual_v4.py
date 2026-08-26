@@ -126,7 +126,8 @@ STEPS = [
  dict(n='3', t='ハブの口 10 本を全部挿して、低い車線に寝かせる', img='st3', acts=[
    '<span class="w">XIAO</span> 7・<span class="w">PHIN</span> 2・<span class="w">OLED</span> 4・<span class="w">AS5600</span> 5・<span class="w">BTN2</span> 2・<span class="w">REED</span> 2・<span class="w">PHOUT</span> 2・<span class="w">PWR</span> 3・<span class="w">INA</span> 4・<span class="w">TOGGLE</span> 2 の 10 束を、ハブ側だけ全部挿す。',
    '<b>低い車線（Z 19）に寝かせるのは 5 束</b>: <span class="w">XIAO</span>・<span class="w">AS5600</span>・<span class="w">BTN2</span>・<span class="w">PHIN</span>・<span class="w">PHOUT</span>。皿と帯の下を通る道は、いましか通せない。',
-   '<b>上へ登る 5 束</b>（<span class="w">OLED</span>・<span class="w">INA</span>・<span class="w">TOGGLE</span>・<span class="w">REED</span>・充電）は、ハブに挿すだけにして左の溝と後ろの縦穴に寝かせておく。上げるのは手順 9。',
+   '<b>上へ登る 5 束</b>（<span class="w">OLED</span>・<span class="w">INA</span>・<span class="w">TOGGLE</span>・<span class="w">REED</span>・<span class="w">PWR</span>）は、ハブに挿すだけにして左の溝と後ろの縦穴に寝かせておく。上げるのは手順 9。<b>充電の 2 本はハブには挿さらない</b>——ハブの口は上の 10 本で全部で、充電は Type-C 基板と PowerBoost をつなぐ線（手順 4 と 9）。',
+   '🆕 <b>スピーカー IN（<span class="w">PHIN</span>）は、ReSpeaker の J2 側もここで挿す。</b>手順 5 でブリッジの皿（<span class="n">X 9〜49・Z 21.4〜23.4</span>）が J2 の真上に載るので、後からでは届かない（真上からピンセット φ5 が <span class="d">22.6mm</span>＝口の頭の <span class="d">3.9mm</span> 上で止まる）。',
    'XIAO 側は ReSpeaker に直付けした XIAO の上のピンヘッダへ。<b>使うのは 7 本だけ</b>で、残り 7 ピンは裸のまま。',
  ], note='この後ブリッジの皿（<span class="n">Z 21.4〜23.4・X 9〜49</span>）と壁〜壁の帯（<span class="n">Y 50.5〜62.9・全幅</span>）がこの上に載る。皿の真下・帯の真下に口がある束（XIAO・つまみ・BTN2・スピーカー IN/OUT）は、載せた後では届かない。',
     warn='逆に、上へ登る 5 束を<b>いま上げてしまうと</b>ブリッジが降ろせない（<span class="d">1037mm³</span>・<span class="n">CHK="brg_bad"</span>）。'),
@@ -135,6 +136,7 @@ STEPS = [
    '<span class="d">M2</span> ナット 3 個を、壁の下の柱の頭（<span class="n">Z 10.2〜12.0</span>）に上から落とす。',
    '🆕 <b>壁を寝かせたまま、ブリッジの棚に <span class="d">M2</span> ナットをもう 3 個、横から差す。</b>棚は左の壁に 1 つ（<span class="n">Y 30.5〜36.5</span>）・右の壁に 2 つ（<span class="n">Y 30.0〜36.0</span> と <span class="n">56.9〜62.9</span>）。口は棚の<b>ハッチ側（+Y）の面</b>にあり、奥まで押すと上下の肉に挟まれて落ちない。<b>壁を立てても落ちない</b>ので、ここで入れておく。',
    '壁はまっすぐ <b>Z で</b>降ろす。傾けない。',
+   '🆕 🔴 <b>Type-C 基板に充電の 2 本を挿すのは、板を手に持っているうち。</b>口は <span class="n">X 4.52〜7.07・Y 48.67〜58.67</span> の縦 2 段（<span class="n">Z 3.99〜9.07</span> と <span class="n">14.15〜19.23</span>）で、<b>下の口は上の口の真下</b>。壁を降ろした後は真上から届くのが上の口の頭までで、下の口には触れない。手順 5 でブリッジの帯（<span class="n">Y 50.5〜62.9・全幅</span>）が載ると、上の口も <span class="d">23.6mm</span>（頭の <span class="d">7.2mm</span> 上）で止まる。線は左の溝へ垂らしたまま降ろし、PowerBoost 側は手順 9 で挿す。',
    '🔴 <b>左の壁は Type-C 基板を抱いて降ろす。</b>基板の板の裏を左の壁の内面に当て、口の鼻先を<b>ハッチ側（後ろ）</b>へ向けたまま、壁と基板を一緒にまっすぐ下ろす。板の下端が床の受け（前の当て・後ろの控え・底の座）に入れば座る。<b>先に立てることも、壁の後から真上に落とすことも出来ない</b>——前者は板の裏を受ける面が左壁の内面そのものなので <span class="d">−X</span> へ倒れ、後者は天面の後ろ左のボスが板の真上を <span class="d">75.6mm³</span> 塞ぐ（<span class="n">close_tc</span>）。',
    '箱は<b>伏せずに</b>机の端か台に載せ、下から <span class="d">M2×15</span> ×3。前の 2 本 <span class="n">[4.2, 4.75] / [81.8, 4.75]</span>、後ろ右 1 本 <span class="n">[82.0, 69.5]</span>（ハブの角を欠いた L 形のボス）。',
    '<b>後ろ左のビスは無い。</b>v3 と同じ 3 本構成で、後ろの床はこの 1 本とハッチの爪 2 つ・トグルの外ナットが持つ。',
@@ -201,6 +203,7 @@ STEPS = [
 
  dict(n='12', t='トグル・ハッチ・電池の蓋・尻尾', img='st12', acts=[
    'トグルはハッチの穴にネジ部を通し、<b>外から六角ナット</b>で締める。アンテナ線はトグルの下のスリットへ。',
+   '🆕 <b>トグルの 2 本は、ハッチを箱から離したまま繋ぐ。</b>天面もフロントも既に載っていて中から手は入らないので、ここだけは「箱の外での配線」になる。<b>ハッチは外の面を下にして、上下を返して（トグルが箱側に来るように）箱の後ろの机へ置く</b>——そのとき要る長さは <span class="d">71.6mm</span>（組んだ姿勢 57.4 の <span class="d">+14.3</span>）で、線の増し <span class="d">+40</span> の中に収まる。<b>そのまま（レバーが奥）置くと <span class="d">+45.1</span> 要って足りない。</b>数字は <b>hardware/_asm_wirepose.py</b> の <span class="n">hatch()</span>。',
    '電池の蓋: 磁石（<span class="d">φ6 × 2.0</span>）を蓋に 2 個・ハッチ側の座に 2 個。蓋を彫り込み帯の逃がし口へ入れて<b>左へ <span class="d">5.5</span> ずらし</b>、門形のロックを <span class="d">M2×6</span> ×1 で締める。🔒 2026-08-26 に下スライドをやめて<b>横スライド</b>にした（下だと自重が開く向きに効いて、ロックのビスが構造材になっていた）。外すときは右へ 5.5。',
    'ハッチは下の爪 2 つを床の後ろのバーへ <span class="d">−Y</span> にまっすぐ滑り込ませる。上はトグルの外ナットが押さえる。<b>ハッチ自体のビスは無い。</b>',
    '尻尾をトグルのレバーのボアに挿す。アンテナ線は尻尾の中の溝へ。',
@@ -328,7 +331,9 @@ BLANKS = [
   '1mm の格子で塊に割ると <b>186,185mm³ が 1 つながり</b>（残り 142 個は合計 1,000mm³ 足らずの隅）。'
   '4 束ぶんの余りは 2.2mm の束 × 40mm × 4 ＝ <b>約 600mm³</b> なので、行き場はある。'
   '🔴 ただし空いていても<b>置いてはいけない道</b>が 3 本ある——電池の抜き道・蓋の横スライド・ハッチの爪。'
-  'たるみは後ろの縦穴（27,865mm³）と右の溝（65,944mm³）へ逃がす',
+  'たるみは後ろの縦穴（27,865mm³）と右の溝（65,944mm³）へ逃がす。'
+  '🆕 2026-08-27 に<b>手順 12（ハッチの姿勢）</b>も測った——<span class="w">TOGGLE</span> は上下を返して置けば <b>+14.3mm</b>、'
+  'そのまま置くと <b>+45.1mm</b> で足りない。残る ⬜ はアンテナ線（同軸の実物が未取得）だけ',
   '✅ 測った'),
  ('⑤ 部品の実測',
   '<b>Type-C 基板（秋月 115426）が未注文</b>（2026-08-24 時点）。ハブの実装の最高点、DuPont を横に倒したときの膨らみ（3.6 は既定値）、PH2.0 がトップ型かサイド型かも未取得。'
@@ -549,7 +554,11 @@ __STEPS__
 その手順のときに箱の中に在る物へ向けて、円筒を撃って真っ直ぐ何 mm 入るかを測り直した
 （<b>hardware/_asm_access.py</b>・v3 の <span class="n">_asm_probe.py</span> の光線をそのまま使う）。
 ドライバの先端は <span class="d">φ3.2</span>、M2 ナットは二面幅 <span class="d">4.3</span>、ピンセットは <span class="d">φ5</span>、指は <span class="d">φ12</span> で撃っている。
-<b>この表はマニュアルを作り直すたびに測り直す</b>ので、古くならない。</p>
+<b>この表はマニュアルを作り直すたびに測り直す</b>ので、古くならない。
+🆕 2026-08-27 に<b>コネクタを挿す道</b>を足した（4 度目の机上の通し）。それまでは<b>ビスとナットと指</b>だけで、
+「口に挿す」動きを一度も当てていなかった。口の座標は手で写さず、<b>hardware/_asm_plugs.scad</b> が口だけを STL に出し、その bbox から取る。
+<b>挿し代</b>はピンの長さ <span class="d">6.0</span>（<span class="n">parts.scad</span> の足の出）を要る mm にしている。
+<b>止まる（反例）</b>と書いた行は<b>止まるのが正</b>で、「その手順でしか挿せない」ことの裏取り。</p>
 <div class="tw"><table>
 <thead><tr><th>何を入れるか</th><th>手順</th><th>道具</th><th>φ</th><th>要る mm</th><th>通った mm</th><th>結果</th><th>備考</th></tr></thead>
 <tbody>__ACCESS__</tbody>
@@ -572,7 +581,9 @@ __STEPS__
 </table></div>
 <p class="cal note"><span class="tag">読み</span>「模型の実長」は <b>_v4_core.scad</b> の <span class="n">w_*()</span> の折れ線長（束の中で一番長い 1 本・mm）。
 端子の手前で切ってあるので、<b>作る長さは実長 ＋ 65mm</b> を見る（端末処理 <span class="n">25</span> ＋ 手順 10 の置き場の増し <span class="n">40</span>）。🆕 2026-08-26 に増しを測った（<b>hardware/_asm_wirepose.py</b>）。手順 10 の置き方（奥へ返して左へ 25）で、<span class="w">AS5600</span> +39.5・<span class="w">REED</span> +38.3・<span class="w">PHOUT</span> +31.1・<span class="w">BTN2</span> +29.0。🔴 旧版の「＋40mm」は端末処理込みの数字で、置き場の増しを 15 と見ていた。<b>置き方を間違えると 3 倍要る</b>（左に倒すと REED が +120）。
-✅ 2026-08-26 に測った。天面を<b>奥へ返して置く</b>姿勢での増しは 4 束とも +29〜+40mm（<b>hardware/_asm_wirepose.py</b>）。</p>
+✅ 2026-08-26 に測った。天面を<b>奥へ返して置く</b>姿勢での増しは 4 束とも +29〜+40mm（<b>hardware/_asm_wirepose.py</b>）。
+🆕 2026-08-27 に <span class="w">TOGGLE</span> も測った。この束だけは<b>手順 12</b>（ハッチを箱から離したまま繋ぐ）で引かれる。ハッチを外の面を下に、
+<b>上下を返して</b>箱の後ろへ置くと <b>+14.3mm</b>（一番短い置き方で +11.4）。<b>そのまま（レバーが奥）置くと +45.1mm で、+40 の増しに入らない。</b></p>
 
 <h2 class="sec">ビスとナット</h2>
 <div class="tw"><table>
@@ -629,9 +640,11 @@ def access_rows():
     out = []
     ACCESS_STOPS.clear()
     for what, step, tool, dia, need, got, ok, note in _asm_access.run():
-        if ok != '通る': ACCESS_STOPS.append((what, step, got))
-        cls = 'ok' if ok == '通る' else 'stop'
-        mark = '<b>通る</b>' if ok == '通る' else '<b>🔴 止まる</b>'
+        cex = ok.startswith('止まる（反例）')   # 止まるのが正の行（その手順でしかできないことの裏取り）
+        if not cex and ok != '通る': ACCESS_STOPS.append((what, step, got))
+        cls = 'ok' if ok == '通る' or cex else 'stop'
+        mark = ('<b>通る</b>' if ok == '通る' else
+                '止まる（<b>反例</b>）' if cex else '<b>🔴 止まる</b>')
         out.append('<tr><td>{}</td><td class="n">{}</td><td>{}</td><td class="n">φ{}</td>'
                    '<td class="n">{}</td><td class="n {}">{}</td><td class="{}">{}</td><td>{}</td></tr>'
                    .format(what, step, tool, dia, need, cls, got, cls, mark, note))

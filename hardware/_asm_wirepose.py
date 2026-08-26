@@ -180,3 +180,76 @@ def best():
 
 if __name__ != '__main__':
     pass
+
+
+# ---- 手順 12（ハッチを手に持ったままトグルへ繋ぐ）の姿勢（2026-08-27 追記）------
+# 天面（手順 10）と違って、ハッチに付く物は**箱を閉じた後**につながる。天面もフロントも既に載って
+# いるので中から手は入らず、トグルの 2 本は**ハッチを箱から離したまま**繋ぐしかない。
+# 上の best() は天面の置き場の話なので、ハッチのぶんはここで別に測る。
+#
+#   固定点   : 線が後ろの縦穴の頭で前へ折れる角（TGL_FIX）。ここから先は後ろの口へ引き出せる
+#   置いた姿勢: ハッチを机（Z=0）に**外の面を下**にして置く。トグルは上を向き、端子の先は
+#              板の厚み ＋ 箱の中へ出ていた分（72 − 54）＝ 20.0mm の高さに立つ
+HATCH_T2 = 2.0
+BOX_OUT  = (-2.0, 86.354, -1.0, 74.0)          # 箱の外形（x0, x1, y0, y1）
+PLATE_W, PLATE_H = 86.65, 52.954               # ハッチの板（世界の X と Z）
+TGL_TERM = [(40.0, 43.5), (44.7, 43.5)]        # 端子（板の中での位置。w_tgl の終点）
+PLATE_ORG = (-1.15, -2.0)                      # 板の左下（世界 X, Z）
+TERM_UP  = HATCH_T2 + (72.0 - 54.0)            # 机に置いたときの端子の先の高さ = 20.0
+TGL_ROUTE = [[49.35, 64.76, 21.9], [49.35, 64.76, 22.3], [55.2, 64.76, 22.3],
+             [55.2, 64.76, 46.8], [55.2, 55.4, 46.8], [40, 55.4, 46.8], [40, 55.4, 44.75]]
+FIX_I = 3                                      # 縦穴の頭の角（ここまでは動かない）
+
+
+def _plate_corners(deg, tx, ty):
+    """机に置いた板の四隅（外の面が下・水平に deg 回して置く）"""
+    th = np.radians(deg)
+    R = np.array([[np.cos(th), -np.sin(th)], [np.sin(th), np.cos(th)]])
+    c = np.array([PLATE_W / 2, PLATE_H / 2])
+    P = np.array([[0, 0], [PLATE_W, 0], [PLATE_W, PLATE_H], [0, PLATE_H]], float)
+    return (P - c) @ R.T + np.array([tx, ty]), R, c
+
+
+def _term_on_desk(deg, tx, ty, t):
+    P, R, c = _plate_corners(deg, tx, ty)
+    u = np.array([t[0] - PLATE_ORG[0], t[1] - PLATE_ORG[1]])
+    xy = (u - c) @ R.T + np.array([tx, ty])
+    return np.array([xy[0], xy[1], TERM_UP])
+
+
+def hatch():
+    fix = np.asarray(TGL_ROUTE[FIX_I], float)
+    to_fix = plen(TGL_ROUTE[:FIX_I + 1])           # 口 → 縦穴の頭（動かない分）
+    built = plen(TGL_ROUTE)                        # 組んだ姿勢の全長
+    box = np.array([[BOX_OUT[0], BOX_OUT[2]], [BOX_OUT[1], BOX_OUT[2]],
+                    [BOX_OUT[1], BOX_OUT[3]], [BOX_OUT[0], BOX_OUT[3]]], float)
+    CLR2 = 10.0                                    # 箱とハッチのすきま
+    CX = (BOX_OUT[0] + BOX_OUT[1]) / 2             # 箱の X の真ん中（ずらし 0 = 箱の後ろの真ん中）
+    best = None
+    for deg in range(0, 360, 5):
+        P0, _, _ = _plate_corners(deg, 0, 0)
+        for slide in range(-60, 61, 5):
+            ty = BOX_OUT[3] + CLR2 - P0[:, 1].min()   # 箱の後ろへ置く
+            P, _, _ = _plate_corners(deg, CX + slide, ty)
+            if _overlap(box, P):
+                continue
+            need = max(to_fix + float(np.linalg.norm(_term_on_desk(deg, CX + slide, ty, t) - fix))
+                       for t in TGL_TERM)
+            if best is None or need < best[0]:
+                best = (need, deg, slide)
+    need, deg, slide = best
+    print('TOGGLE 2 本（手順 12・ハッチを机に置いて繋ぐ）')
+    print('  組んだ姿勢 %.1f mm／固定点まで %.1f mm' % (built, to_fix))
+    print('  一番要らない置き方: 外の面を下にして水平に %d° 回し、箱の後ろへ %+d mm ずらして置く'
+          % (deg, slide))
+    print('    そのとき要る長さ %.1f mm（組んだ姿勢との差 %+.1f mm）' % (need, need - built))
+    for nm, d in (('そのまま置く（レバーが奥）', 0), ('上下を返して置く（トグルが箱側）', 180)):
+        P0, _, _ = _plate_corners(d, 0, 0)
+        ty = BOX_OUT[3] + CLR2 - P0[:, 1].min()
+        n = max(to_fix + float(np.linalg.norm(_term_on_desk(d, CX, ty, t) - fix)) for t in TGL_TERM)
+        print('  %-24s %6.1f mm（%+.1f）' % (nm, n, n - built))
+
+
+if __name__ == '__main__':
+    print()
+    hatch()
