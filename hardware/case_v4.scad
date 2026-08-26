@@ -486,7 +486,7 @@ module rsp_press_zone() {   // リブ 2 本の足元（押し代の領域）
 }
 for (k = SKINS) if (part == str("chk_", k)) difference() { intersection() { skin1(k); union() { innards4(); skin_except(k); } } rsp_press_zone(); }
 if (part == "chk_all") difference() { intersection() { skin_all(); innards4(); } rsp_press_zone(); }
-if (part == "chk_press") intersection() { top_v4(); respeaker_at(); }   // ≈6mm3 が正（0 なら押さえが板に届いていない）
+if (part == "chk_press") intersection() { top_v4(); respeaker_at(); }   // ≈4.7mm3 が正（0 なら押さえが板に届いていない）。前リブ 3.33 ＋ 腕 1.33。🔴 2026-08-26 のつまみ／スピーカー −4 で 6 → 4.7
 // ドライバの道（T-1）: 3 点目の頭から φ3.2 × 24 の軸を立てて、**その時点で箱に入っている物**に当てる。**0 が正**。
 //   ビスを締めるのは手順 5（ブリッジを降ろした直後）なので、PowerBoost に繋がる線 ── 電源 3 本（w_pwr3）も
 //   充電 2 本（w_chg）も ── はまだ通っていない。板は天面より前なので天面も無い。
