@@ -268,10 +268,10 @@ function blu_slot_z0() = BLU_TOP - BLU_SKIN - NUT_SLOT_H;   // 21.1 溝の床（
 // 壁側の棚（左の壁の内面に立つ。ナットは +Y の面から差して上下の肉で閉じ込める）
 module brg_ledge_up() difference() {
     color("#b6c0cc") translate([LW_X, BLU_Y0, BLU_BOT]) cube([BLU_W, BLU_Y1 - BLU_Y0, BLU_TOP - BLU_BOT]);
-//  🔒 2026-08-26 ビスは廃止（ドライバが入らない）。留め金 brg_clip が上から押さえる: translate([BLU_SCR[0], BLU_SCR[1], blu_slot_z0()]) rotate([0, 0, 30]) hex_pocket(NUT_SLOT_H);
-//  🔒 2026-08-26 ビスは廃止（ドライバが入らない）。留め金 brg_clip が上から押さえる: translate([BLU_SCR[0] - NUT_SLOT_W / 2, BLU_SCR[1], blu_slot_z0()])
-//  🔒 2026-08-26 ビスは廃止（ドライバが入らない）。留め金 brg_clip が上から押さえる: cube([NUT_SLOT_W, BLU_Y1 + 0.01 - BLU_SCR[1], NUT_SLOT_H]);
-//  🔒 2026-08-26 ビスは廃止（ドライバが入らない）。留め金 brg_clip が上から押さえる: translate([BLU_SCR[0], BLU_SCR[1], BLU_BOT - 1]) cylinder(d = SCR_D, h = BLU_TOP - BLU_BOT + 2, $fn = 24);
+    translate([BLU_SCR[0], BLU_SCR[1], blu_slot_z0()]) rotate([0, 0, 30]) hex_pocket(NUT_SLOT_H);
+    translate([BLU_SCR[0] - NUT_SLOT_W / 2, BLU_SCR[1], blu_slot_z0()])
+        cube([NUT_SLOT_W, BLU_Y1 + 0.01 - BLU_SCR[1], NUT_SLOT_H]);
+    translate([BLU_SCR[0], BLU_SCR[1], BLU_BOT - 1]) cylinder(d = SCR_D, h = BLU_TOP - BLU_BOT + 2, $fn = 24);
 }
 // ブリッジ側: 帯の左端の増し肉（帯の上面 → 耳の天面）と、棚に載る耳
 module brg_up_pad() {
@@ -279,8 +279,8 @@ module brg_up_pad() {
     translate([LW_X, BRG_Y1, BLU_TOP]) cube([BLU_W, BLU_Y1 - BRG_Y1, BLU_PTOP - BLU_TOP]);    // 耳（棚の上に載る）
 }
 module brg_up_cuts() {
-//  🔒 2026-08-26 ビスは廃止（ドライバが入らない）。留め金 brg_clip が上から押さえる: translate([BLU_SCR[0], BLU_SCR[1], BLU_TOP - 1]) cylinder(d = SCR_D, h = BLU_PTOP - BLU_TOP + 2, $fn = 24);
-//  🔒 2026-08-26 ビスは廃止（ドライバが入らない）。留め金 brg_clip が上から押さえる: translate([BLU_SCR[0], BLU_SCR[1], BLU_PTOP - SCR_CBT]) cylinder(d = SCR_CB, h = SCR_CBT + 1, $fn = 32);
+    translate([BLU_SCR[0], BLU_SCR[1], BLU_TOP - 1]) cylinder(d = SCR_D, h = BLU_PTOP - BLU_TOP + 2, $fn = 24);
+    translate([BLU_SCR[0], BLU_SCR[1], BLU_PTOP - SCR_CBT]) cylinder(d = SCR_CB, h = SCR_CBT + 1, $fn = 32);
 }
 // 🔴 2026-08-26 右の腕は 2 段。まっすぐな 1 枚だと、降ろす途中で **XIAO の束の車線**（上段 Y 29.9・Z 27.13 の
 //    X 55.35〜76.01 と、下段 Y 30.4・Z 11.9 の X 73.0〜81.09。束の幅ぶん Y 28.4〜31.5 を占める）を上から踏む（570mm³）。
@@ -332,32 +332,8 @@ module brg_hw_up() color("#8892a0") {
         cylinder(d = 3.0, h = 1.3, $fn = 24);                        // 頭
         translate([0, 0, -4]) cylinder(d = 2.0, h = 4, $fn = 24);    // 軸 M2×4（🔴 2026-08-26 M2×6 だと先が棚の底から 2.0 出ていた）
     }
-
-
     translate([BLU_SCR[0], BLU_SCR[1], BLU_TOP - BLU_SKIN - 1.6]) rotate([0, 0, 30]) hex_pocket_af(4.0, 1.6);
 }
-
-// ---- 留め金（🔒 2026-08-26 ユーザー「OLED 側からハッチ側に対する留め金を描く」）----
-//   ブリッジの 3 本目はドライバが入らない（頭上 13.4mm・要 22mm）。ビスをやめて、
-//   **前（OLED 側）から後ろ（ハッチ側）へ差し込む別部品**で帯の左端を上から押さえる。
-//   下からは棚（brg_ledge_up）が耳を受けているので、上下で挟んで Z が決まる。工具は要らない。
-//   舌は左の壁の内面に彫った溝へ入り、溝の天井が留め金を押さえる。
-CLIP_X0 = LW_X;              // 留め金の右端は壁の内面から
-CLIP_W  = BLU_W;             // 幅は棚と同じ 5.0
-CLIP_T  = 1.3;               // 厚み。🔴 2.0 だと左の壁ぎわの電池線（腹 Z 27.75）に 14.9mm³ 当たる。
-                             //    耳の天面 26.4 から線の腹まで 1.35 しか無いので、そこへ収める
-CLIP_Z0 = BLU_PTOP;          // 底 ＝ 耳の天面 26.4（ここを押さえる）
-CLIP_Y0 = 52.0;              // 前端（帯の上を通る。帯は Y 50.5〜62.9・頭 23.4 なので 3.0 上を通る）
-CLIP_Y1 = 70.5;              // 後端（ハッチの内面 72 まで 1.5）
-CLIP_TG = 1.0;               // 舌の出（壁へ食い込む量。壁は 2.0 厚なので半分）
-CLIP_CL = 0.15;              // 溝との隙間（片側）
-module brg_clip() color("#ed8936") {
-    translate([CLIP_X0, CLIP_Y0, CLIP_Z0]) cube([CLIP_W, CLIP_Y1 - CLIP_Y0, CLIP_T]);          // 本体
-    translate([CLIP_X0 - CLIP_TG, CLIP_Y0, CLIP_Z0]) cube([CLIP_TG, CLIP_Y1 - CLIP_Y0, CLIP_T]);  // 舌
-}
-// 左の壁に彫る溝（舌の通り道）。前は開けっ放しで、後ろは留め金の後端まで
-module brg_clip_groove() translate([CLIP_X0 - CLIP_TG - CLIP_CL, CLIP_Y0 - 8, CLIP_Z0 - CLIP_CL])
-    cube([CLIP_TG + CLIP_CL, (CLIP_Y1 + 0.5) - (CLIP_Y0 - 8), CLIP_T + 2 * CLIP_CL]);
 // 土手（レール）の区間。⊓ の足が座る区間だけ途切れる。ツバの溝を彫るのに帯の側からも要るので変数に出した
 RAIL_SEG_L = [[21.45, 33.2], [42.2, 52.6], [58.6, BAT_Y0 + lipo_size()[0]]];              // 左（A の足の後ろから）
 RAIL_SEG_R = [[BAT_Y0, 15.45], [21.45, 33.2], [42.2, 52.6], [58.6, BAT_Y0 + lipo_size()[0]]];   // 右
@@ -812,15 +788,9 @@ if (W == "brgchk")  intersection() { brg_v4(); union() { core(); pb_bat(); ina_b
 // 箱への固定（2026-08-25）: 棚 ↔ 中身 ／ ビスとナットの現物 ↔ 周り。どちらも **0 が正**
 if (W == "brgldg")  intersection() { union() { brg_ledges(-1); brg_ledges(1); } union() { core(); bat_v4(); pb_bat(); ina_bat(); tgl_v4(); tcb_v4(); straps_v4(); wires_pwr(); wires_sig(); } }
 // 現物だけを出す（_asm_access.py が軸と頭の高さを bbox から拾う。当たり検査ではない）
-// 留め金: 静止（相手＝耳以外の全部。0 が正）と、前から差す動き（+Y へ 20）
-if (W == "clipchk")  intersection() { brg_clip(); union() { core(); brg_v4(); brg_ledges(-1); brg_ledge_up(); bat_v4(); straps_v4(); ina_bat(); pb_bat(); tgl_v4(); tcb_v4(); wires_pwr(); wires_sig(); } }
-// 留め金は**ブリッジの直後**に差す（上の車線の線はまだ通っていない）。相手はその時点の中身
-if (W == "clipseat") intersection() { union() for (t = [0 : STEP : 20]) translate([0, -t, 0]) brg_clip();
-                                      union() { core(); brg_v4(); brg_ledges(-1); brg_ledge_up(); tcb_v4(); } }
-if (W == "lookclip") { brg_v4(); brg_ledges(-1); brg_ledge_up(); brg_clip(); }
-if (W == "hw_brg")  brg_hw();   // 🔒 3 本目は留め金（brg_clip）に置き換えたので現物は 2 本
+if (W == "hw_brg")  { brg_hw(); brg_hw_up(); }
 if (W == "hw_seat") seat_hw();
-if (W == "brghw")   intersection() { brg_hw(); union() { brg_v4(); v3_walls_lr(); core(); bat_v4(); tcb_v4(); straps_v4(); wires_pwr(); wires_sig(); } }
+if (W == "brghw")   intersection() { union() { brg_hw(); brg_hw_up(); } union() { brg_v4(); v3_walls_lr(); core(); bat_v4(); tcb_v4(); straps_v4(); wires_pwr(); wires_sig(); } }
 echo(v3_inner = [IN_X, IN_Y, IN_Z], v3_outer = [IN_X + 2 * WALL, IN_Y + HATCH_T, IN_Z + TOP_T + FLOOR_T]);
 echo(hub_dx = HUB_DX, hub_x = [HUB_X + HUB_DX, HUB_X + HUB_L + HUB_DX], rsp_edge = RSP_X + respeaker_L(), xiao_face = XIAO_FACE_X);
 if (W == "seatchk")  intersection() { straps_v4(); union() { ina_bat(); pb_bat(); bat_v4(); core(); brg_v4(); tgl_v4(); tcb_v4(); wires_pwr(); wires_sig(); } }   // 座＋ネジ穴を入れた帯 ↔ 全部（0 が正）
