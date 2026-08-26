@@ -23,6 +23,8 @@ DRIVER = 3.2      # 🔒 ドライバの先端（座ぐり φ3.4 に入る上限
 GRIP   = 20.0     # 柄。箱の外でしか要らないが、外に出た後に何 mm 空いているかを見る
 TWEEZ  = 5.0      # ピンセットの先（v3 と同じ φ5）
 NUT_M2 = 4.3      # M2 ナットの二面幅（落とす道）
+NUT_M3_D = 6.7    # M3 ナットの対角（二面幅 5.8 ÷ cos30）。落とす道はこの太さが要る
+NUT_DRV_OD = 9.0  # 📄 5.5mm ナットドライバのボックス外径（HOZAN D-840-5.5 の寸法表・2026-08-26 に確認）
 FINGER = 12.0     # 指の腹
 
 
@@ -46,6 +48,20 @@ def hardware(w):
     if not os.path.exists(p):
         scad(p, ['-D', 'W="%s"' % w, os.path.join(HERE, '_v4_core.scad')])
     return p
+
+
+def hub_ports():
+    """ハブの口 10 本（名前・中心・挿し切ったときの頭 Z）。座標は手で写さず _asm_plugs.scad の echo から取る"""
+    out = []
+    r = subprocess.run([OPENSCAD, '--backend=manifold', '--export-format=binstl',
+                        '-o', os.path.join(TMP, 'hub.stl'), '-D', 'P="hub"',
+                        os.path.join(HERE, '_asm_plugs.scad')],
+                       check=True, capture_output=True, text=True, encoding='utf-8', errors='replace')
+    for ln in ((r.stdout or '') + (r.stderr or '')).splitlines():
+        if 'PORT|' in ln:
+            f = ln.split('PORT|')[1].rstrip('"').split('|')
+            out.append((f[0],) + tuple(float(v) for v in f[1:]))
+    return out
 
 
 def load(p):
@@ -81,6 +97,19 @@ def clumps(T, tol=3):
 
 def probe(stl, origin, axis, sign, dia, maxlen=200.0):
     return clear_len(load(stl), np.asarray(origin, float), axis, sign, dia, maxlen)
+
+
+def widest(stl, x, y, z_top, target, lo=4.0, hi=20.0):
+    """(x, y) の真上から降ろして target の高さまで届く**一番太い円筒**（二分）。
+       ナットを回す工具が入るかは、口の太さではなくこの値で決まる"""
+    f = lambda d: z_top - probe(stl, (x, y, z_top), 2, -1, d) <= target + 1e-6
+    if f(hi):
+        return hi
+    for _ in range(12):
+        mid = (lo + hi) / 2
+        if f(mid): lo = mid
+        else: hi = mid
+    return lo
 
 
 ROWS = []
@@ -218,6 +247,60 @@ def run():
         q = list(p); q[ax] += sg * 0.01
         row('%s を挿す（挿し代）' % nm, '9', '口そのもの', dia, PINL,
             probe(st9r, q, ax, sg, dia), note)
+
+    # ---- ⑨ 口を「持つ道」（2026-08-27・5 度目の机上の通し）-------------------
+    #   🔴 ⑧ は**口そのものの太さ**（φ3.6）でしか撃っていなかった。口は指かピンセットに掌まれて動くので、
+    #   φ3.6 が通っても道具が通るとは限らない。2026-08-26 に OLED の L のナットで同じ間違いをしている
+    #   （φ2.0 で撃って通し、実際は二面幅 4.3 のナットが 0.19mm で止まっていた）。
+    for nm, x, y, z, top, wl0, wl1 in hub_ports():
+        d = probe(st2, (x, y, top - 0.01), 2, +1, TWEEZ)
+        row('ハブの口 %s を摑む (%.1f, %.1f)' % (nm, x, y), '3', 'ピンセット', TWEEZ, PINL, d,
+            '口の頭 Z %.1f から真上。壁もブリッジもまだ無い' % top)
+        d = probe(st2, (x, y, top - 0.01), 2, +1, FINGER)
+        row('同 指 φ12 で %s' % nm, '3', '指 φ12', FINGER, PINL, d, '')
+    for nm, p, ax, sg, dia, note in CONN:
+        q = list(p); q[ax] += sg * 0.01
+        row('%s を摑んだまま 6 動かす' % nm, '9', 'ピンセット', TWEEZ, PINL,
+            probe(st9r, q, ax, sg, TWEEZ), '⑧ と同じ軌を φ5 で')
+
+    # ---- ⑩ 手順 1 の M3 ナット 4 個を**回す**道（2026-08-27・5 度目の机上の通し）----
+    #   🔴 それまでの検査は M2 のナットを**落とす／差す**道だけだった。ハブの M3 だけは
+    #   ビスの頭が丸いザグリ（φ6.0 × 2.2・回り止め無し）なので、ナットを回すあいだ下から頭を押さえる。
+    #   ＝ ナットの側に**工具の外径**ぶんの縦の道が要る。落ちる道（対角 6.7）とは別の数字。
+    st1 = stage(1)
+    NUT_SEAT = 4.1   # ハブ基板の上面（BOARD_Z 2.5 ＋ 板 1.6）＝ナットの座
+    for (x, y, nm) in [(9.002, 18.9, '前左'), (77.002, 18.9, '前右'),
+                       (9.002, 64.9, '後ろ左'), (77.002, 64.9, '後ろ右')]:
+        d = probe(st1, (x, y, 50.0), 2, -1, NUT_M3_D)
+        row('M3 ナットを落とす %s (%.1f, %.1f)' % (nm, x, y), '1', 'ナット 対角 6.7', NUT_M3_D,
+            50.0 - NUT_SEAT, d, '座は Z 4.1')
+        w = widest(st1, x, y, 50.0, NUT_SEAT)
+        # 🔒 2026-08-26 ユーザー決定: 後ろ左はナットドライバを使わず、ピンセットで押さえて下からビスを回す。
+        #    なので後ろ左のこの行は**反例**（止まるのが正）。図面を触って通るようになったら、その時に外す
+        row('同 ナットを回す工具 %s' % nm, '1', '工具の外径', w, NUT_DRV_OD, w,
+            '座 Z 4.1 まで届く一番太い円筒。要る %.1f は 📄 HOZAN D-840-5.5（M3 用）のボックス外径。'
+            % NUT_DRV_OD +
+            ('🔒 後ろ左はここが止まるのが正（ピンセットで押さえる運用）' if nm == '後ろ左' else ''),
+            cex=(nm == '後ろ左'))
+        grip = (w - 5.5) / 2
+        row('同 ナットを摘まむ隙間 %s' % nm, '1', 'ピンセットの先', grip, 0.8, grip,
+            'ナットの二面幅 5.5 を挟むので、先の厚みがこの値（片側）より薄いピンセットしか入らない。'
+            '要る 0.8 は ✅ ユーザーの手持ち（2026-08-26「鋭いですからね」）')
+        d = probe(st1, (x, y, -2.0 + 0.01), 2, +1, DRIVER)
+        row('同 ビスの頭を下から押さえる %s' % nm, '1', 'ドライバ', DRIVER, 2.2, d,
+            'ザグリ φ6.0 × 2.2 は丸くて回り止めが無いので、ナットを回すあいだ押さえる。'
+            '要る 2.2 はザグリの深さ。⚠ 床が机にベタ置きだとそもそも入らない（台に載せる）')
+
+    # 横から寄るスパナ（⚠ 平たい顎を φ6 の円筒で代用している。ナットの中心まで 2.75 に寄れば掴める）
+    for (ax, sg, start, lbl) in ((0, +1, -30.0, '左から'), (1, -1, 120.0, '後ろから')):
+        o = [9.002, 64.9, 5.3]; o[ax] = start
+        d = probe(st1, o, ax, sg, 6.0)
+        c = 9.002 if ax == 0 else 64.9
+        need = abs(c - start) - 2.75        # ナットの中心まで 2.75（＝二面幅の半分）に寄れないと掴めない
+        row('後ろ左のナットへ %sスパナ' % lbl, '1', 'スパナ ⚠ φ6', 6.0, need, d,
+            'ナットの高さ Z 5.3 で横から寄る。⚠ 平たい顎を円筒で代用。'
+            '止まるのが正 ＝「横からは掴めない」ことの裏取り（残り %.1fmm）' % abs(start + sg * d - c),
+            cex=True)
 
     return ROWS
 

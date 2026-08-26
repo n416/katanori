@@ -18,3 +18,14 @@ if (P == "oled") oled_hous();
 if (P == "tcb")  tcb_v4();      // Type-C 基板（挿した DuPont ごと）
 if (P == "tcbh") difference() { tcb_v4(); tcb_v4_bare(); }   // 充電の DuPont だけ（板・L ピンを引いた残り）
 if (P == "tgl")  tgl_v4();      // トグル（ハッチに付く。端子は箱の中を向く）
+
+// ハブの口 10 本の座標（手で写さないための echo。_asm_access.py が読む）。
+//   実行: openscad -D 'P="hub"' -o x.stl hardware/_asm_plugs.scad   → 標準出力の PORT| 行
+if (P == "hub") {
+    for (id = PLUGGED_9) {
+        p = port_at(id); wl = port_wl(id);
+        top = p[2] + ((id == "PHIN" || id == "PHOUT") ? 6.0 : 2.5 + HOUS_H);   // 挿し切ったときの口の頭
+        echo(str("PORT|", id, "|", HUB_DX + p[0], "|", HUB_DY + p[1], "|", p[2], "|", top, "|", wl[0], "|", wl[1]));
+    }
+    translate([HUB_DX, HUB_DY, 0]) for (id = PLUGGED_9) housing(id);
+}
