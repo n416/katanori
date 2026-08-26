@@ -59,6 +59,8 @@ module upto(n) {
 for (n = [1 : 12]) if (ST == str("st", n)) upto(n);
 
 // 中身だけ（線の通り道の全体図。皮は出さない）
+// 天面の小組だけ（箱から外した状態。T-2 の「裏返して L にナットを入れる」を測る用）
+if (ST == "topsub") s_top();
 if (ST == "wires") { core(); s_bat(); s_boards(); s_tcb(); brg_v4(); straps_v4(); tgl_v4(); wires_pwr(); wires_sig(); }
 
 // ---- 入れる軌跡の検査（0 が正。相手は「その手順の直前まで」）------------------
@@ -91,7 +93,9 @@ if (CHK == "strap_top") intersection() { sweep_z() straps_v4(); upto(5); }
 // ⑧ 電流計と PowerBoost を上から座へ降ろす（相手 = 手順⑦まで）
 if (CHK == "boards")  intersection() { sweep_z(25) { ina_bat(); pb_bat(); } upto(7); }
 // ⑨ OLED を上から降ろす／上の車線と電源系（静止）↔ 手順⑧まで＋皮
-if (CHK == "oled")    intersection() { sweep_z() oled_at(); upto(8); }
+// ⑩ 天面一式を降ろす（相手 = 手順⑨まで）。OLED を L に留めてから一緒に降ろす形も 0（T-2 の調べ）
+if (CHK == "top_oled") difference() { intersection() {
+    union() for (t = [0 : STEP : 25]) translate([0, 0, t]) { s_top(); s_oled(); oled_hous(); }; upto(8); } rsp_press_zone(); }
 if (CHK == "whigh")   intersection() { union() { w_high(); s_wpwr(); } union() { upto(8); s_oled(); oled_hous(); s_top(); s_front(); s_hatch(); } }
 
 // ---- 箱と留め具の座標（マニュアルの表の裏取り）------------------------------
