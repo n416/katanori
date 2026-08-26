@@ -27,6 +27,7 @@ W = "none";      // _v4_core の内部スイッチ（芯だけの検査 deskseat
 //   充電基板: chk_tc（Type-C の受け＋押さえ ↔ 基板と周り。**0 が正**）
 //   電池   : chk_shut_slide（蓋を下へずらす）/ chk_shut_out（蓋を抜く）/ chk_swap（電池を後ろへ抜く・v3 と同名）
 //   絵（部分）: btnslot（会話ボタンの受けに彫った溝と、そこを通る電源 2 本・INA の直立ての口）
+//              seatgap（電流計の座ぐりの断面。ネジの先 ↔ 留め帯の天板の裏＝電池の上面。SEATGAP_Y で 1 本に絞れる）
 part = "explode";
 WP = "";         // chk_wire 系で束を 1 つに: xiao / oled / as5600 / btn2 / phin / phout / ina / tgl / reed / chg（"" で全部）
 
@@ -504,6 +505,16 @@ if (part == "btnslot") {
     w_batout();
     color("#38a169", 0.35) translate([9.3, 17.8, 45.9]) cube([5.0, 4.8, 3.0]);   // 彫った溝そのもの（緑の透け）
 }
+// 電流計の座ぐりの断面（🔒 2026-08-26・INA を水平にしたので座が 2.5 しか無い）。
+//   ネジ 2 本は world X 21.2・Y 34.02 と 18.42。留め帯の天板は Z 29.4〜31.4 で、**裏の 29.4 が電池の上面**。
+//   ネジの先はそこまで 0.1mm。X 21.2 を挟む厚さ 2.4 のスライスを、横（−X 側）から見る絵。
+//   橙＝留め帯と座／灰＝M2×4 の頭と軸／濃灰＝ナット／赤＝INA226 の板／黄＝電池。
+SEATGAP_Y = 0;   // 0 = 2 本とも / 34.02 か 18.42 で 1 本だけ
+module seatgap_slice() intersection() {
+    union() { straps_v4(); seat_hw(); ina_bat(); color("#f6ad55") bat_v4(); }
+    translate([20.0, SEATGAP_Y == 0 ? -5 : SEATGAP_Y - 6, 26]) cube([2.4, SEATGAP_Y == 0 ? 85 : 12, 22]);
+}
+if (part == "seatgap") seatgap_slice();
 // 充電（Type-C）基板の受け ↔ 周り。**0 が正**。
 //   受け（床の tc_seat4）と 押さえ（ブリッジの brg_tc_press）は、どちらも自分の板の一部なので
 //   chk_floor / chk_all では「板 ↔ 中身」の片側に入ってしまい、基板そのものとの当たりが見えない。専用に見張る。

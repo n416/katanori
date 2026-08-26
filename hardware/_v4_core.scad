@@ -130,6 +130,12 @@ INA_DX = -4.7; THETA = 10;   // THETA は PowerBoost の傾斜（🔒 2026-08-25
 //    柱まで 8.0mm 空く ＝ **電池も帯も基板も動かさずに済む**。傾斜を外すのは、直立ての口の頭を 2.06mm 下げるため。
 //    座（パッド・ネジ・ナットの溝）は板ごとの角度で作る（下の seat_* は th 引数を取る。既定は THETA＝PB 用）。
 INA_THETA = 0;
+// 🔒 2026-08-26 電流計だけ座が薄い（水平にしたので 2.5）。M2×4 の先と帯の天板の裏（＝電池の上面）が 0.1 しか
+//    残らないので、**電流計だけ板の浮きを増やす**。ナットは座の**天井**（板の裏から 0.4 下）に居て板と一緒に
+//    上がるため、**ネジは M2×4 のままで掛かりは変わらない**。増えるのはナットの下の床だけ。
+//    実測（_seat_probe.scad）: 掛かり 1.6 → 1.6・床 0.4 → 0.9・**ネジの先 → 電池の上面 0.1 → 0.6**。
+//    板の頭（直立ての口）は 46.0 → 46.5 になるので、そこから出る電源 4 本の高さも 46.8 → 47.3 へ追従させた。
+INA_LIFT = 1.0;
 // 🔒 2026-08-26 PowerBoost も同じ理由で左へ。板・座・パッド・ネジ・ナット・ハウジング・天板の USB 逃げ・線が
 //    全部この 1 つに追従する（pb_frame を通す物は自動・通らない物は下でそれぞれ PB_DX を足してある）。
 PB_DX = 0;   // 帯ごと動かすようになったので PB 単独の逃げは要らない（配線は残す）
@@ -142,7 +148,7 @@ function ina_wx(x) = x + (BAT_X0 - 15.5);   // 2026-08-25 島 −1.5 に追従�
 // I2C ヘッダは直立て（ra=false）: L 字横出しだと PB の JST プラグ（X 36.4〜44.3・Z 33〜38.2）に入るため。
 //   直立ての頭 X 34.2 は、ボタンの傘（〜31）と OLED の線の帯（37.9〜）の隙間
 // 板の座標系（原点 = 後縁の蝶番・z=0 が板の裏の面・+y が板に沿って前へ）。板・座・ネジは全部これを通すので THETA を動かせば全部追従する
-module ina_frame() translate([INA_DX + BAT_X0 + (lipo_size()[1] - ina_size()[0]) / 2 + ina_size()[0], PAIR_Y0 + ina_size()[1], BAT_TOP + STRAP_T + BOARD_LIFT]) rotate([-INA_THETA, 0, 0]) rotate([0, 0, 180]) children();
+module ina_frame() translate([INA_DX + BAT_X0 + (lipo_size()[1] - ina_size()[0]) / 2 + ina_size()[0], PAIR_Y0 + ina_size()[1], BAT_TOP + STRAP_T + INA_LIFT]) rotate([-INA_THETA, 0, 0]) rotate([0, 0, 180]) children();
 module ina_bat() ina_frame() ina226_module(ra = true, pwr_ra = false);   // 🔒 2026-08-25「天面にぶつかるので L 字必須」＝I2C の 5 ピン（ra）。
 //   🔒 2026-08-26 ユーザー「左壁側のピンヘッダを垂直に」＝**電源の口（INPUT/OUT 4 本）**の方（pwr_ra=false）
 // 2026-08-25 ユーザー「PowerBoost を Z 軸まわりに 180 度」（占有する場所は同じ・向きだけ反転）
@@ -540,7 +546,7 @@ SEAT_PAD_D = 5.0;   // ビスの座（パッド）の径。ここだけ板の裏
 // 🔴 ネジは**鉛直**に立てる（板に直角ではない）。直角にするとナットが 10° 傾き、
 //   角が天板の裏（Z 29.4）から 0.35 はみ出して**電池の頭を突く**（seathw 6mm³ で出た）。
 //   鉛直ならナットは天板の裏に平らに座る。頭は 10° の板に片当たりになるが、M2 の頭 φ3.0 では実害が出ない。
-function seat_d(hy, th = THETA) = hy * sin(th) + STRAP_T + BOARD_LIFT;   // 板の裏から天板の裏までの**鉛直**距離（板の持ち上げ込み）
+function seat_d(hy, th = THETA, lift = BOARD_LIFT) = hy * sin(th) + STRAP_T + lift;   // 板の裏から天板の裏までの**鉛直**距離（板の持ち上げ込み）
 module seat_vert(th = THETA) rotate([0, 0, 180]) rotate([th, 0, 0]) children();   // frame の回転を打ち消して世界の鉛直に戻す
 //   🔴 座は素の cube で作る。prism_y（ext_ch → roof）を通すと ① roof は実験機能で GUI 既定では無効
 //   ② プレビューの CSG 正規化が跳ね上がる。板の footprint で切るので X の端は天板の内側に収まり、面取りは見えない
@@ -572,7 +578,7 @@ module seats_v4() intersection() {
 //   ⚠ 0.6 は蝶番寄りの 3 穴の現物の限界（天板 2.0 ＋ 座 0.39〜0.90 しか無い）。この 3 穴は深さ 1.8 のまま
 SEAT_NUT_DEEP = 2.8;   // ポケットの深さの上限
 SEAT_NUT_TOP  = 0.6;   // 天井の上に残す肉
-function seat_nut_d(hy, th = THETA) = max(NUT_T, min(SEAT_NUT_DEEP, seat_d(hy, th) - SEAT_NUT_TOP));   // 天板の裏からのポケットの深さ
+function seat_nut_d(hy, th = THETA, lift = BOARD_LIFT) = max(NUT_T, min(SEAT_NUT_DEEP, seat_d(hy, th, lift) - SEAT_NUT_TOP));   // 天板の裏からのポケットの深さ
 // ---- 横から差すナットの捕捉溝（2026-08-25 ユーザー「留め帯の形状を変えても構いません・パーツを追加してもいい」）----
 //   下向きのポケットは帯を起こすとナットが落ちる。**横穴**に替えると落ちない: 六角の穴を高さ 1.7 で開け、
 //   帯の一番近い面まで幅 4.3 の通路でつなぐ。ナットは横から差して、上（天井）と下（床）の肉で閉じ込められる。
@@ -589,18 +595,18 @@ function band_of(y) = [for (b = STRAP_BANDS) if (y >= b[0] - 0.01 && y <= b[0] +
 function slot_out(y) = (y - band_of(y)[0] <= band_of(y)[0] + band_of(y)[1] - y) ? -1 : 1;   // 近い方の面へ抜く（−1 = 前）
 function slot_len(y) = (slot_out(y) < 0) ? (y - band_of(y)[0]) : (band_of(y)[0] + band_of(y)[1] - y);
 function slot_ceil(y, th = THETA) = NUT_SLOT_TOP + ((slot_out(y) > 0) ? (slot_len(y) + 1) : NUT_AF / cos(30) / 2) * tan(th);
-function slot_ok(hy, y, th = THETA) = seat_d(hy, th) - slot_ceil(y, th) - NUT_SLOT_H >= NUT_SLOT_FLOOR;   // 肉が足りる穴だけ横穴にする
-function seat_nut_ceil(hy, y, th = THETA) = slot_ok(hy, y, th) ? -slot_ceil(y, th) : -seat_d(hy, th) + seat_nut_d(hy, th);   // 締めたときのナットの上面
+function slot_ok(hy, y, th = THETA, lift = BOARD_LIFT) = seat_d(hy, th, lift) - slot_ceil(y, th) - NUT_SLOT_H >= NUT_SLOT_FLOOR;   // 肉が足りる穴だけ横穴にする
+function seat_nut_ceil(hy, y, th = THETA, lift = BOARD_LIFT) = slot_ok(hy, y, th, lift) ? -slot_ceil(y, th) : -seat_d(hy, th, lift) + seat_nut_d(hy, th, lift);   // 締めたときのナットの上面
 function seat_scr_l(hy, y) = 4;   // 🔒 6 本とも M2×4（天井を上げたので長さは 1 種類で足りる）
-module seat_hole(hy, wy, th = THETA) seat_vert(th) {   // 通し穴＋ナットの居場所（どちらも鉛直）
-    translate([0, 0, -seat_d(hy, th) - 3]) cylinder(d = SCR_D, h = seat_d(hy, th) + 6, $fn = 24);
-    if (slot_ok(hy, wy, th)) {                               // 横から差す捕捉溝
+module seat_hole(hy, wy, th = THETA, lift = BOARD_LIFT) seat_vert(th) {   // 通し穴＋ナットの居場所（どちらも鉛直）
+    translate([0, 0, -seat_d(hy, th, lift) - 3]) cylinder(d = SCR_D, h = seat_d(hy, th, lift) + 6, $fn = 24);
+    if (slot_ok(hy, wy, th, lift)) {                         // 横から差す捕捉溝
         z0 = -slot_ceil(wy, th) - NUT_SLOT_H;
         l  = slot_len(wy) + 1;
         translate([0, 0, z0]) rotate([0, 0, 30]) hex_pocket(NUT_SLOT_H);            // 二面幅を X へ（通路の壁が回り止め）
         translate([-NUT_SLOT_W / 2, slot_out(wy) > 0 ? 0 : -l, z0]) cube([NUT_SLOT_W, l, NUT_SLOT_H]);   // 通路
     } else {                                                 // ⚠ 肉が足りない蝶番寄りの 2 穴は下向きのポケットのまま
-        translate([0, 0, -seat_d(hy, th) - 3]) hex_pocket(seat_nut_d(hy, th) + 3);
+        translate([0, 0, -seat_d(hy, th, lift) - 3]) hex_pocket(seat_nut_d(hy, th, lift) + 3);
     }
 }
 // 穴の世界の Y（帯のどの面が近いかを決めるのに要る）。frame は 180° 回っているので local +y ＝ 世界 −Y
@@ -609,18 +615,18 @@ function pb_frame_y()  = PAIR_Y0 + ina_size()[1] + 0.5 + PB_W;
 function ina_hole_wy(hy) = ina_frame_y() - hy * cos(INA_THETA);
 function pb_hole_wy(hy)  = pb_frame_y()  - hy * cos(THETA);
 module seat_screws() {
-    for (h = ina_holes()) ina_frame() translate([h[0], h[1], 0]) seat_hole(h[1], ina_hole_wy(h[1]), INA_THETA);
+    for (h = ina_holes()) ina_frame() translate([h[0], h[1], 0]) seat_hole(h[1], ina_hole_wy(h[1]), INA_THETA, INA_LIFT);
     for (h = pb_mount())  pb_frame()  translate([h[0], h[1], 0]) seat_hole(h[1], pb_hole_wy(h[1]), THETA);
 }
-module seat_bolt(hy, t, wy, th = THETA) seat_vert(th) {   // 🔴 現物の長さで描く（旧版は「入る上限の長さ」を描いていた＝実在しないネジ）
+module seat_bolt(hy, t, wy, th = THETA, lift = BOARD_LIFT) seat_vert(th) {   // 🔴 現物の長さで描く（旧版は「入る上限の長さ」を描いていた＝実在しないネジ）
     l = seat_scr_l(hy, wy);
     color("#8899aa") { translate([0, 0, t]) cylinder(d = 3.0, h = 1.3, $fn = 24);       // 頭 ✅ φ3.0 × 1.3
                        translate([0, 0, t - l]) cylinder(d = 2.0, h = l + 1.3, $fn = 16); }   // 軸 M2（首下 l）
-    color("#4a5568") translate([0, 0, seat_nut_ceil(hy, wy, th) - (NUT_T - 0.2)])
-        rotate([0, 0, slot_ok(hy, wy, th) ? 30 : 0]) hex_pocket_af(4.0, NUT_T - 0.2);   // ナット（呼び 4.0 × 1.6・締めた位置＝天井）
+    color("#4a5568") translate([0, 0, seat_nut_ceil(hy, wy, th, lift) - (NUT_T - 0.2)])
+        rotate([0, 0, slot_ok(hy, wy, th, lift) ? 30 : 0]) hex_pocket_af(4.0, NUT_T - 0.2);   // ナット（呼び 4.0 × 1.6・締めた位置＝天井）
 }
 module seat_hw() {   // ネジとナットの現物（検査と絵の用。straps_v4 には入れない）
-    for (h = ina_holes()) ina_frame() translate([h[0], h[1], 0]) seat_bolt(h[1], ina_size()[2], ina_hole_wy(h[1]), INA_THETA);
+    for (h = ina_holes()) ina_frame() translate([h[0], h[1], 0]) seat_bolt(h[1], ina_size()[2], ina_hole_wy(h[1]), INA_THETA, INA_LIFT);
     for (h = pb_mount())  pb_frame()  translate([h[0], h[1], 0]) seat_bolt(h[1], pb_pcb_t(), pb_hole_wy(h[1]), THETA);
 }
 
@@ -655,8 +661,8 @@ module w_pwr3() {
 //   🔴 2026-08-25 壁 LW_X 1.694: 壁ぎわの車線を 2 → 2.75（壁＋0.3）・3.5 → 4.15 へ（基板 0.5〜20.5 の上を通る）
 module w_batin() {
     // 🔒 2026-08-26 INA の INPUT が直立てになった: 壁ぎわを上がって、口の頭（Z 46.0）の上から下ろす
-    color("#e53e3e") wire([[33.0, 64.7, 27], [33.0, 64.7, 28.5], [4.15, 64.7, 28.5], [4.15, 32.67, 28.5], [4.15, 32.67, 46.8], [11.8, 32.67, 46.8]]);
-    color("#222222") wire([[35.0, 64.7, 27], [35.0, 64.7, 30], [2.75, 64.7, 30], [2.75, 28.40, 30], [2.75, 28.40, 46.8], [11.8, 28.40, 46.8]]);
+    color("#e53e3e") wire([[33.0, 64.7, 27], [33.0, 64.7, 28.5], [4.15, 64.7, 28.5], [4.15, 32.67, 28.5], [4.15, 32.67, 47.3], [11.8, 32.67, 47.3]]);
+    color("#222222") wire([[35.0, 64.7, 27], [35.0, 64.7, 30], [2.75, 64.7, 30], [2.75, 28.40, 30], [2.75, 28.40, 47.3], [11.8, 28.40, 47.3]]);
 }
 // INA の OUT の口 → PB の JST（プラグは坂で持ち上がり Z 37〜43。前面 Y 32.1 から受ける）
 module w_batout() {
@@ -671,8 +677,8 @@ module w_batout() {
     //    2 枚の板は Y で重なっていて（INA 16.17〜36.27・PB 32.77〜66.31）**間に廊下は無い**。
     //    口の柱（X 10.53〜13.07・Z 36〜46）も横切れないので、**柱の頭の上 Z 46.8** を東へ走って PB の JST の上で降りる。
     //    GND の口（Y 19.87）は会話ボタンの受けの真下なので、受けに幅 5 の縦の溝を彫って +Y へ抜く（下の btn_pad_relief）
-    color("#e53e3e") wire([[11.8, 24.14, 46.8], [pb_wx(40), 24.14, 46.8], [pb_wx(40), 24.14, 41 + BOARD_LIFT], [pb_wx(40), 32.1, 41 + BOARD_LIFT]]);
-    color("#222222") wire([[11.8, 19.87, 46.8], [11.8, 26.5, 46.8], [pb_wx(42), 26.5, 46.8], [pb_wx(42), 26.5, 41 + BOARD_LIFT], [pb_wx(42), 32.1, 41 + BOARD_LIFT]]);
+    color("#e53e3e") wire([[11.8, 24.14, 47.3], [pb_wx(40), 24.14, 47.3], [pb_wx(40), 24.14, 41 + BOARD_LIFT], [pb_wx(40), 32.1, 41 + BOARD_LIFT]]);
+    color("#222222") wire([[11.8, 19.87, 47.3], [11.8, 26.5, 47.3], [pb_wx(42), 26.5, 47.3], [pb_wx(42), 26.5, 41 + BOARD_LIFT], [pb_wx(42), 32.1, 41 + BOARD_LIFT]]);
 }
 
 // ---- 残りの結線（2026-08-25・CASE-V4 §9 の ⬜ 10 束）。同じ道具（1.5 角・直角のみ）。⚠ 経路は仮・見て判断する用 ----
@@ -859,7 +865,7 @@ if (W == "seathw")   intersection() { seat_hw(); union() { core(); bat_v4(); brg
 if (W == "lookseat") { straps_v4(); seat_hw(); color("#f6ad55") bat_v4(); ina_bat(); pb_bat(); brg_v4(); }
 if (W == "seatbolt") intersection() { seat_hw(); union() { ina_bat(); pb_bat(); } }   // ネジの軸 ↔ 板（穴に通っていれば 0）
 module seat_shaft_only() {
-    for (h = ina_holes()) ina_frame() translate([h[0], h[1], 0]) seat_vert(INA_THETA) translate([0, 0, -seat_d(h[1], INA_THETA)]) cylinder(d = 2.0, h = seat_d(h[1], INA_THETA) + ina_size()[2], $fn = 32);
+    for (h = ina_holes()) ina_frame() translate([h[0], h[1], 0]) seat_vert(INA_THETA) translate([0, 0, -seat_d(h[1], INA_THETA, INA_LIFT)]) cylinder(d = 2.0, h = seat_d(h[1], INA_THETA, INA_LIFT) + ina_size()[2], $fn = 32);
     for (h = pb_mount())  pb_frame()  translate([h[0], h[1], 0]) seat_vert(THETA)     translate([0, 0, -seat_d(h[1], THETA)]) cylinder(d = 2.0, h = seat_d(h[1], THETA) + pb_pcb_t(), $fn = 32);
 }
 if (W == "seatshaft") intersection() { seat_shaft_only(); union() { ina_bat(); pb_bat(); } }
