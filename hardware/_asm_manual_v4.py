@@ -144,7 +144,7 @@ STEPS = [
  dict(n='5', t='ブリッジを上から降ろす', img='st5', acts=[
    '前の脚（1 枚板・厚み <span class="d">2.0</span>・<span class="n">X 21.5〜44.5</span>）を床の受け溝へ入れながら、まっすぐ <b>Z で</b>降ろす。',
    '皿（電池の受け・<span class="n">X 9〜49</span>。🔒 2026-08-26 に<b>前左の角だけ <span class="n">X 10.2</span> まで欠いた</b>——ReSpeaker の J2 のソケットを逃がすため）が下、壁〜壁の帯（<span class="n">Y 50.5〜62.9</span>）が後ろ。皿から左右の壁へ<b>腕</b>が伸びていて、手順 4 で入れたナットの上に載る。',
-   '🆕 <b>載ったら上から <span class="d">M2×6</span> を 3 本締める</b>: <span class="n">[4.2, 33.5]</span>（左・前）/ <span class="n">[4.2, 66.2]</span>（左・後ろの耳）/ <span class="n">[81.9, 59.9]</span>（右）。頭は座ぐり（<span class="d">φ3.4 × 1.6</span>）に沈む。締まる順は <b>頭 → 腕 2.4 → 棚の肉 1.6 → ナット</b>。<b>電池より先に締める。</b>',
+   '🆕 <b>載ったら上から 3 本締める</b>: <span class="n">[4.2, 33.5]</span>（左・前・<span class="d">M2×6</span>）/ <span class="n">[4.2, 47.7]</span>（左・帯の前＝OLED 側・<b>この 1 本だけ <span class="d">M2×4</span></b>）/ <span class="n">[81.9, 59.9]</span>（右・<span class="d">M2×6</span>）。頭は座ぐり（<span class="d">φ3.4 × 1.6</span>）に沈む。締まる順は <b>頭 → 腕 2.4 → 棚の肉 1.6 → ナット</b>。<b>電池より先に締める。</b>',
    '帯の裏の左端に <b>Type-C 基板の押さえ</b>（<span class="n">X 1.694〜3.9・Y 58.6〜62.2</span>・下端 <span class="n">Z 20.7</span>）が付いている。ここが基板の Z の抜け止めなので、<b>ブリッジを載せるまで基板は上へ抜ける。</b>',
  ], warn='🔴 <b>ブリッジは OLED より先。</b>OLED を先に立てると受け皿が OLED の線の帯（<span class="n">X 37.9〜48.1・Z 45〜48</span>）を通り、ヘッダのピン先とも当たる（<span class="n">close_desk</span> 156mm³ ・<b>CASE-V4-LOG.md</b> §10）。',
     note='✅ 2026-08-26 <b>3 本目は帯の前（OLED 側・<span class="n">X 4.194, Y 47.7</span>）へ移した。</b>'
@@ -162,7 +162,7 @@ STEPS = [
 
  dict(n='7', t='電池を後ろから差し込む', img='st7', acts=[
    'タブ（JST の線）が<b>後ろ＝ハッチ側</b>に来る向きで、ハッチ口から <span class="d">−Y</span> へまっすぐ差し込む。皿が床・足が左右・帯の天板が天井の、<b>+Y にだけ開いた鞘</b>を滑らせる。前は電池ガードが受ける。',
-   '座る場所は <span class="n">X 15.5〜50.5・Y 12.9〜62.9・Z 23.4〜29.4</span>（厚み 6 が高さ）。',
+   '座る場所は <span class="n">X 11.5〜46.5・Y 13.9〜63.9・Z 23.4〜29.4</span>（厚み 6 が高さ）。',
    '🔴 <b>入れた電池がそのまま帯の楔になる。</b>足と電池の隙間は左右 <span class="d">0.5</span>、ツバの掛かりは <span class="d">2.0</span>。電池が居る限り帯は横へ戻せず、ツバが外れない。ビスは 1 本も要らない。',
  ], note='後で交換するときも同じ道を逆に通る（このページの最後）。もう上からは落とせない。'),
 
@@ -193,7 +193,7 @@ STEPS = [
    '先に <span class="d">M2</span> ナット 4 個を落とす。後ろの 2 個は左右の壁の柱の頭（<span class="n">Z 46.65〜48.454</span>）、前の 2 個は耳兼用の柱。<b>この 4 個は天面を載せる前にしか入らない。</b>',
    '天面＋つまみ＋スピーカー＋会話ボタンをまっすぐ <b>Z で</b>降ろす。ReSpeaker の頭を前リブ（<span class="n">X 31.4〜37.4</span>）と腕（<span class="n">X 50.0〜52.4</span>）が <span class="d">0.3mm</span> 押さえる。',
    'OLED を<b>前から</b> <span class="d">M2×6</span> ×2 で天面の L に締める。ビスの道は左右とも外まで開いている。',
-   'ナットは L の裏のポケットへ<b>後ろから差す</b>。L の後ろの空きは左が外まで、<b>右は <span class="d">15.7mm</span></b>（ナットの厚み <span class="d">1.6</span> に対して）。'
+   'ナットは L の裏のポケットへ<b>後ろから差す</b>。L の後ろの空きは<b>左が <span class="d">3.4mm</span>・右が <span class="d">4.45mm</span></b>（ナットの厚み <span class="d">1.6</span> に対して）。'
    '✅ 2026-08-26 まではここが <span class="d">1.3mm</span> しか無くて入らなかった（塞いでいたのはスピーカーの右前の丸み）。つまみとスピーカーを内側へ 4 動かして解決（<b>CASE-V4-OPEN.md</b> の T-2）。',
    'フロントを<b>前から +Y に</b>差し込む。',
    '四隅を <span class="d">M2×6</span> ×4 で締める。前の 2 本は 天面 → フロントの耳 → 壁の耳柱 の <b>3 枚</b>を通る。',
@@ -230,7 +230,7 @@ SCREWS = [
  ('M2 × 15', '3', '床の裏 → 左右の壁の下の柱（前 2・後ろ右 1）', '4'),
  ('M2 × 4',  '6', '電流計 / PowerBoost → 留め帯の座（<b>6 穴とも同じ長さ</b>・掛かり 1.34〜1.6mm）', '8'),
  ('M2 × 6',  '2', 'ブリッジ → 壁の棚（左前・右。上から。<b>ナットは棚に横から差す</b>）', '5'),
- ('M2 × 4',  '1', 'ブリッジ → 帯の左端の耳（左後ろ）。🔴 M2×6 だと先が棚の底から 2.0mm 出る', '5'),
+ ('M2 × 4',  '1', 'ブリッジ → 帯の前の棚（左・OLED 側 <span class="n">[4.2, 47.7]</span>）。🔴 M2×6 だと先が棚の底から 2.0mm 出る', '5'),
  ('M2 × 6',  '4', 'AS5600 の基板 → つまみの島の柱（下から）', '10'),
  ('M2 × 6',  '2', 'OLED → 天面の L（前から・ナットは L の後ろ）', '11'),
  ('M2 × 6',  '4', '天面の四隅（後ろ 2 = 壁の柱 / 前 2 = 天面＋耳＋耳柱の 3 枚）', '11'),
@@ -554,15 +554,16 @@ __STEPS__
 <thead><tr><th>何を入れるか</th><th>手順</th><th>道具</th><th>φ</th><th>要る mm</th><th>通った mm</th><th>結果</th><th>備考</th></tr></thead>
 <tbody>__ACCESS__</tbody>
 </table></div>
-<p class="cal ok"><span class="tag">通った</span><b>いまは全部通る（止まったもの 0）。</b>
-2026-08-26 に初めて当てたときは 2 か所で止まっていた。
+<p class="cal ok"><span class="tag">結果</span>__ACCESSSUM__
+2026-08-26 に当てた 3 か所が止まっていて、どれも同日に片付いた。
 ① <b>ブリッジの 3 本目</b>は、頭から真上 <span class="d">13.0mm</span> で天面の後ろ左の柱に当たっていた
 → 🔒 ユーザー「OLED 側から留めれば上には何もありません」で留め金ごと帯の前（<span class="n">X 4.194, Y 47.7</span>）へ移して解決。
 ② <b>OLED の右のナット</b>は、L の後ろの空きが <span class="d">1.3mm</span> しか無くナット（厚み <span class="d">1.6</span>）が入らなかった。
 塞いでいたのは<b>スピーカーの右前の丸み</b>（初版は「天面のつまみの島」と書いたが取り違えで、島は <span class="n">Y 22.3</span> より奥にしか無い）。
 → 🔒 ユーザー「両方を +4 移動させてください」で<b>つまみとスピーカーを内側（−X）へ 4</b> 動かし、
 そのぶん <b>電池・皿・脚・帯・座・両基板も丸ごと −4</b>、<b>電流計は水平＋電源の口を直立て</b>にして解決。
-空きは <span class="d">1.3 → 15.7mm</span> になった（<b>CASE-V4-OPEN.md</b> の「済んだもの」）。</p>
+空きは <span class="d">1.3 → 15.7mm</span> になった（<b>CASE-V4-OPEN.md</b> の「済んだもの」）。
+③ <b>OLED の左のナット</b>は、②を φ2.0 の円筒で撃っていたせいで見落としていた。<b>二面幅 4.3 で撃ち直すと 0.19mm で止まる</b>——L の裏 0.19 のところに会話ボタンの受け（前面 <span class="n">Y 6.8</span>・底 <span class="n">Z 47.1</span>）が立っていて、ナットの上の角（<span class="n">X 9.5〜12.15・Z 47.1〜48.25</span>）が中に入る。→ 受けの<b>手前左の角</b>（<span class="n">X 9.3〜12.4・Y 6.7〜10.0</span>・受けの厚みの全部）を欠いて <b>0.19 → 3.4mm</b>。タクトの胴は <span class="n">X 19〜25</span>、皿の縁は <span class="n">X 12.4</span> なので、どちらにも掛かっていない（絵は <b>hardware/_t3_blocker.png</b>）。</p>
 
 <h2 class="sec">線</h2>
 <div class="tw"><table>
@@ -618,12 +619,17 @@ __STEPS__
 """
 
 
+ACCESS_STOPS = []
+
+
 def access_rows():
     """工具・ナット・指の道を毎回測り直す（hardware/_asm_access.py）。数字は手で写さない。"""
     sys.path.insert(0, HERE)
     import _asm_access
     out = []
+    ACCESS_STOPS.clear()
     for what, step, tool, dia, need, got, ok, note in _asm_access.run():
+        if ok != '通る': ACCESS_STOPS.append((what, step, got))
         cls = 'ok' if ok == '通る' else 'stop'
         mark = '<b>通る</b>' if ok == '通る' else '<b>🔴 止まる</b>'
         out.append('<tr><td>{}</td><td class="n">{}</td><td>{}</td><td class="n">φ{}</td>'
@@ -665,6 +671,10 @@ def build():
             .replace('__WIRES__', IM['wires'])
             .replace('__STEPS__', '\n'.join(step_html(s) for s in STEPS))
             .replace('__ACCESS__', access_rows())
+            .replace('__ACCESSSUM__',
+                     '<b>いまは全部通る（止まったもの 0）。</b>' if not ACCESS_STOPS else
+                     '🔴 <b>いま %d か所で止まっている。</b>' % len(ACCESS_STOPS) +
+                     '・'.join('%s（手順 %s・%s mm で止まる）' % r for r in ACCESS_STOPS) + '。')
             .replace('__CHECKROWS__', '\n'.join(
                 '<tr><td>{}</td><td class="n">{}</td><td class="n {}">{}</td><td>{}</td></tr>'
                 .format(r[0], r[1], r[3], r[2], r[4]) for r in CHECKS))
