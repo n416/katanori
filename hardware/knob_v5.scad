@@ -48,7 +48,8 @@
 //   ④ 天板の裏から、軸の溝にEリングを横から差す。🔒 **向きは ±Y のみ**（口を手前に）。
 //      ⚠ ±X から入れると島のねじの胴（±7.9, 0）に当たる。柱の細い区間も通す。
 //      ✅ 2026-08-20 に実体で検査した（part="eringpath" が空／"eringpathx" は非空）
-//   ⑤ AS5600 基板を柱に留める
+//   ⑤ AS5600 基板を 4 本の柱に通し、基板の裏から **E リング（呼び3）を 3 つ**横から差す。
+//      🔒 2026-08-28 ユーザー案。ねじとナットは廃止（下の「AS5600 の柱」）
 //
 // ---- 🔒 治具から引き継ぐ実績値（作り直さない）----
 //   SHRINK 0.1 / MAG_D 4.10 / BORE_CLEAR 0.25 / CHIP_GAP 1.1
@@ -85,7 +86,7 @@
 // ---- ⬜ まだ入っていないもの ----
 //   ・刷り直したらゼロ点を取り直す（knobzero）
 
-part = "all";
+part = "explode";
 raft = (part == "deck");   // サポートの床。刷るときだけ。-D raft=true/false
 $fn  = 96;
 
@@ -106,13 +107,12 @@ SLOT_LEN   = 0;    // 🔒 2026-08-27 ユーザー「小判型辞めようよ。
 //   逃げとしても不要: AS5600 の穴は φ3.5 以上で M2 に対し既に ±0.75 以上ある（二重に持っていた）。
 //   0 にすると post_oval / M2 の通し穴 / 六角ポケット / 逃げ穴 の hull が全部 1 個の円・六角に潰れる
 STANDOFF_D = 6.0;
-M2_D       = 2.0 + SHRINK + 0.3;
-M2_NUT_AF  = 4.0 + 0.3;
-M2_NUT_T   = 1.6;
-M2_SHELF   = 1.8;   // 🔒 2026-08-27 ユーザー「だったら厚くしろとしか言えないよね」: 1.2 → 1.8。
-//   座面から 1.0 彫った逃げ（post_relief）の天井と、ナットが座る面のあいだに残る肉が
-//   0.2mm しか無かった（印刷の下限 0.42 を割る）。1.8 にすると 0.8mm 残る
-STANDOFF_D_LO = 8.0;
+// 🔒 2026-08-28 **基板を留める M2 のねじ・ナット・座金は廃止した**（ユーザー案）。
+//   経緯: AS5600 の穴は φ3.5 で M2 ではない。ねじでは片側 0.75 以上ガタついて基板の位置が
+//   決まらず、座金で締めても座面 φ8 がヘッダのはんだ足を踏んで 4 本が同じ高さに座らなかった
+//   （ユーザー「ほんとガタガタしてる」）。⇒ 穴に合う φ3.5 の棒を通し、基板の裏で E リングが受ける。
+//   これで消えたもの: M2_D / M2_NUT_AF / M2_NUT_T / M2_SHELF / STANDOFF_D_LO / WASHER_* /
+//   横入れの口 / 六角ポケット / 座面の扇形（post_relief）。
 
 // ---- 島を留めるねじ 2 本 ----
 // 🔒 **2026-08-23、M2.5 ナイロン → M2 に変更**（ユーザー「knob_v5 のも 2 で揃えましょう」。筐体 v3 はハブ以外 M2）。
@@ -130,13 +130,7 @@ M25_LEN    = 6.0;          // ✅ 手持ちの M2×6。⚠ 変わったら echo 
 //    横入れの口が柱の外へ抜ける所の外縁で切れて見えるだけ（絵: ref/top_layer1630.png）。
 //    起きるのは「落下」ではなく「幅 5mm ほどのブリッジ」。ナットを柱の中に持つ限り必ず出る。
 //    ⬜ 実機で外縁の垂れを見る（2026-08-27 時点で未印刷）
-WASHER_OD  = 5.0;
-WASHER_ID  = 2.2;
-WASHER_T   = 0.3;
-module as5600_washer() color("#9aa0a6") difference() {
-    cylinder(d = WASHER_OD, h = WASHER_T);
-    translate([0, 0, -0.5]) cylinder(d = WASHER_ID, h = WASHER_T + 1);
-}
+// 🔒 2026-08-28 座金も廃止（ねじが無くなったので居場所が無い）。上の M2 の項を見ること
 
 // ---- ナット（2026-08-21・貫通＋ナットへ移行。ユーザー指示「6角形を掘る」）----
 // 🔒 樹脂にネジを切らない。[DIMENSIONS.md](../docs/DIMENSIONS.md) 418行に既にある方針
@@ -361,15 +355,58 @@ SCR_CB_D   = M25_HEAD_D + 0.4;         // 5.4
 SCR_CB_T   = M25_HEAD_T + 0.5;         // 1.8 頭が 0.5 沈む（M2.5 のときは 3.5・底 0.4）。底は 2.1 残る
 SCR_D      = 2.0 + SHRINK + 0.4;       // 2.5 島側の通し穴（逃げ。頭が島を押し下げて留める）。M2.5 のときは 3.0
 
-// ---- AS5600 の柱 ----
-// 🔒 下端（ナットの座 3.5）は v4 のまま。その上は**細い丸柱 φ3.6** に絞る。
-//    理由: Eリングは横からしか入らない。柱が太いと、リングが柱のあいだを通れない。
-//    v4 で柱を外へ開いていた理由（ツメとの干渉）は、ツメが天板の上へ移った時点で消えている
+// ---- AS5600 の柱（🔒 2026-08-28 ユーザー案: 穴に合う棒＋E リング）----
+// 上から下まで **φ3.5 の一本の棒**。基板の穴を通り抜け、裏側の溝に E リングが座って基板を受ける。
+//   ・段（座面）は無い。**基板はリングの上に座る**ので、3 点で必ず座る（4 点はどれかが浮く）
+//   ・太くする理由も無い。以前の φ8 はナットのポケットを彫るためだけの太さだった
+//     （ユーザー「なんで柱は太くしないといけないんですか？ずっと 3.5mm でいいじゃないですか」）
 POST_XY_LO = HOLE_PITCH / 2;   // 8.5 基板の穴の位置（ここは動かせない）
-POST_THIN  = 3.6;          // 細い区間の径。⚠ echo ⑤ でリングの通り道を必ず見る
-POST_STRAIGHT = 4.2;       // 🔒 下端はまっすぐ（M2 ナットの座を彫る区間）
-//   🔒 2026-08-27 3.5 → 4.2。棚を 1.8 にした分だけ伸ばす（棚 1.8 ＋ ナット 1.6 ＝ 3.4 の上に
-//   天井 0.8 を残す）。3.5 のままだと天井が 0.1mm になる
+// 🔒 2026-08-28 **基板を上で止める段**（ユーザー「筐体が揺れたら as5600 が上に行っちゃうかも」）。
+//   リングは下から受けるだけなので、段が無いと基板は棒を 10.7mm 上まで滑る＝磁石とチップの
+//   距離が変わる。持ち歩く機械なので通らない。
+//   ⚠ 前の φ8 には戻さない。あれが踏んでいたのは穴の中心から 4.40mm にあるはんだ足だった。
+//   段は穴（φ3.55）より太ければ用が足りる。
+//   🔒 2026-08-28 ユーザー「4mm でも良いと思いますよ。ストッパーがある程度で。
+//      全体を太くするのはもうやめましょう」→ φ4.0。半径 2.0・はんだ足まで 2.40 空く。
+//   高さは 2.0 だけ。上まで太くすると、軸の E リングが柱のあいだを通る道（echo ⑤）が狭くなる。
+POST_COLLAR_D = 4.0;
+POST_COLLAR_H = 2.0;
+POST_D     = 3.5;   // ✅ 2026-08-28 現物合わせ。印刷した φ3.5 が穴に入り φ3.6 は入らない
+//   （hole_gauge.scad・4 つの穴とも。**印刷物で出した値なので収縮を足し引きしない**）
+// ---- 基板を受ける E リング（呼び3・箱の「3mm」。手元に 12 個）----
+// 📄 規格値（呼び ＝ 溝径であって軸径ではない・docs/KNOB-ENCODER.md）。適用軸 3.2〜4 に φ3.5 が入る
+ERING3_OD    = 7.0;    // 📄 外径。⬜ 現物未実測（呼び6 は実測 12.0 で規格どおりだった）
+ERING3_T     = 0.6;    // 📄 厚み
+ERING3_GRV_D = 3.0;    // 📄 溝径 d2（φ3.5 の棒に片側 0.25 彫る＝芯は φ3.0 残る）
+ERING3_GRV_W = 0.65;   // 溝の幅。⚠ 規格 m 0.7 より 0.05 狭くしてある。
+//   軸のリング（ERING_GRV_W 0.95）は「引き上げ量」を作るために広げたが、こちらは逆で、
+//   **基板がリングの上に座る**ので遊びは基板の高さのずれになる。厚み 0.6 ＋ 0.05 だけにする
+// 🔴 2026-08-28 未解決: ユーザーの案は「3 点を E リング、DIR 角の 1 本はダボ」。
+//   だが **どの角が DIR かは基板の取付回転で決まり、その記述が repo の中で食い違っている**:
+//   _v4_core.scad は「R は ⚠ 仮 R0」、case_v4.scad は「2026-08-26 に R0 と決めた」と書いてあり、
+//   後者は parts.scad にピン列の rotate 90 を入れる**前**の記述なので、そのままでは角を特定できない。
+//   ⇒ 決まるまでは **4 本とも同じ溝**にしておく。組むときにリングを 3 つだけ入れれば同じ物になる。
+//   取付回転が決まったら DOWEL_XY にその角を入れる（溝が 1 本消えてダボになる）。
+function _rect_d(px, py, x0, x1, y0, y1) =
+    sqrt(pow(max(x0 - px, 0, px - x1), 2) + pow(max(y0 - py, 0, py - y1), 2));
+// s 側の列（rotate 90 後の矩形）: [x0, x1, y0, y1]
+function _hdr_rect(s) =
+    let (xr = s * (as5600_pcb() / 2 - as5600_edge_in_s(s)),   // 🔒 列ごと（4.2 / 4.8）
+         row = (s < 0) ? as5600_row_l() : as5600_row_r(),
+         ya = min(row) - 1.27, yb = ya + len(row) * 2.54)
+    [-yb, -ya, xr - 1.27, xr + 1.27];
+function _hdr_d(px, py) =
+    min([for (s = [-1, 1]) let (r = _hdr_rect(s)) _rect_d(px, py, r[0], r[1], r[2], r[3])]);
+// 角の呼び名（rotate 90 後の座標で）。DIR は 4 本列の端で、そこがいちばん狭い
+HDR_CORNERS = [[[ 1,  1], "DIR角"], [[-1,  1], "GPO角"],
+               [[ 1, -1], "VCC角"], [[-1, -1], "GND角"]];
+// 🔒 2026-08-28 ダボにする角は**書かずに計算する**（ユーザー案「3 点 E リング・1 個ダボ」）。
+//   リングの外周がヘッダの樹脂に食い込む角＝そこにはリングを入れられない＝ダボ。
+//   座標を手で書くと、基板の取付回転（R）や parts.scad の実物合わせを直したときに嘘になる。
+//   いまの値では DIR 角（[1, 1]）だけが該当する（⑤b の echo が内訳を出す）。
+DOWEL_XY = [for (c = HDR_CORNERS)
+               if (_hdr_d(c[0][0] * POST_XY_LO, c[0][1] * POST_XY_LO) - ERING3_OD / 2 < 0)
+                   c[0]];
 
 // ---- 面取り ----
 GRIP_CH = 0.8;
@@ -398,6 +435,12 @@ Z_MAG2_BOT = Z_MAG2_TOP - MAG2_PART_D;              // -2.45
 Z_CHIP_TOP = Z_MAG_BOT - CHIP_GAP;       // -17.0
 Z_PCB_TOP  = Z_CHIP_TOP - CHIP_H;        // -18.1
 Z_PCB_BOT  = Z_PCB_TOP - PCB_T;          // -19.7
+// 棒の溝（基板の裏に E リングが座る）。🔒 溝の**上端 ＝ 基板の裏**。ここが基板の高さを決める
+Z_PIN_GRV_T = Z_PCB_BOT;                      // -19.7
+Z_PIN_GRV_B = Z_PIN_GRV_T - ERING3_GRV_W;     // -20.35
+Z_PIN_BOT   = Z_PIN_GRV_B - 0.55;             // -20.9 棒の下端（リングを差すときの掴みしろ）
+// ⚠ knob_deep() は 19.7（基板の裏）のまま動かさない。棒はそこから 1.2mm 下へ出るが、
+//   その下には既にピンヘッダ（6mm）と DuPont（基板の裏から 16.1mm）が居るので、箱は元から空いている
 SCR_TIP_Z  = (Z_WALL_T - SCR_CB_T) - M25_LEN;   // -12.0 ねじの先（増し肉を貫通して下へ出る）
 
 function knob_deep()   = -Z_PCB_BOT;             // 19.7（v4 と同じ）
@@ -683,84 +726,49 @@ module wall_part() {
 // ============================================================
 // 天板側 ── 筐体の天板に union / difference で組み込む
 // ============================================================
-// 柱に開ける M2 の長穴・ナットのポケット・横入れの口。
-// 🔒 ここは**ねじとナットの居場所**なので、印刷の支柱を立ててはいけない。
-//    _v4_props.py が避けるために外から呼ぶので、数字を二重に持たないよう module にしてある。
-module knob_station_post_cut(x, y) {
-    translate([x * POST_XY_LO, y * POST_XY_LO, 0]) {
-        translate([0, 0, Z_PCB_TOP - 1]) hull() for (s = [-1, 1])
-            translate([s * SLOT_LEN / 2, 0, 0])
-                cylinder(d = M2_D, h = M2_SHELF + 1.01);
-        translate([0, 0, Z_PCB_TOP + M2_SHELF]) {
-            hull() for (s = [-1, 1]) translate([s * SLOT_LEN / 2, 0, 0])
-                cylinder(d = M2_NUT_AF / cos(30), h = M2_NUT_T + 0.2, $fn = 6);
-            scale([x, 1, 1]) translate([0, -M2_NUT_AF / 2, 0])
-                cube([9, M2_NUT_AF, M2_NUT_T + 0.2]);
-            hull() for (s = [-1, 1]) translate([s * SLOT_LEN / 2, 0, 0])
-                cylinder(d = M2_D, h = M2_NUT_T + 2);
-        }
-    }
-}
-module knob_station_post_cuts() { for (x = [-1, 1], y = [-1, 1]) knob_station_post_cut(x, y); }
+// 🔒 2026-08-28 knob_station_post_cut() / knob_station_post_cuts() は**削除した**。
+//    中身は M2 の長穴・六角ポケット・横入れの口で、ねじ止めをやめた時点で行き場が無くなった。
+//    いま柱に彫るのは E リングの溝だけで、それは post_solid() が自分で持っている。
+//    （外から呼んでいるファイルは無いことを確認済み: grep knob_station_post_cut）
 
 module knob_station_add() {
     translate([0, 0, Z_PAD_BOT]) linear_extrude(PAD_T) knob_station_pad2d();
     // 中央の段。ナットの六角ポケットはこの中だけに掘る（外周は薄いまま）
     translate([0, 0, Z_BOSS_BOT]) cylinder(d = BOSS_D, h = BOSS_T + 0.01);
-    for (x = [-1, 1], y = [-1, 1]) difference() {
-        post_solid(x, y);
-        knob_station_post_cut(x, y);
-    }
+    for (x = [-1, 1], y = [-1, 1]) post_solid(x, y);
 }
 
-module post_oval(h, d) {
-    hull() for (s = [-1, 1]) translate([s * SLOT_LEN / 2, 0, 0])
-        cylinder(d = d, h = h);
-}
-
-// 🔴 2026-08-27 未解決: **この柱の設計は実物で成立していない**（ユーザー「ほんとガタガタしてる」）。
-//    ・AS5600 の穴は φ3.5 以上（M2 ではない・ユーザー実物）。座面 φ8 が基板へ触るのは幅 2.25mm の輪だけ
-//    ・ピンヘッダのはんだ側の足が基板から 2.5mm 出ていて、DIR は穴まで 1mm 未満（ユーザー実物）。
+// 🔴 2026-08-27 の未解決（「この柱の設計は実物で成立していない」「ほんとガタガタしてる」）は、
+//    2026-08-28 のユーザー案で解いた。当時の記録は残す:
+//    ・AS5600 の穴は φ3.5 以上（M2 ではない）。座面 φ8 が基板へ触るのは幅 2.25mm の輪だけ
+//    ・ピンヘッダのはんだ側の足が基板から 2.5mm 出ていて、DIR は穴まで 1mm 未満。
 //      足が座面の下に入ると、その柱はそこで 2.5mm 持ち上げられ 4 本が同じ高さで座らない
-//    ・case_v4 の欠き ③ はその逃げだが **手前の列にしか無く**、柱の座面の内側 1.93mm を削るので
-//      残った接触が基板の外縁（穴の外 1.25mm）に寄る
-//    ・触る面積（実測ではなく作図から）: 奥 41.36mm² / 手前 32.27mm²
-//    ⇒ 穴を囲む閉じた筒では締められない。直し方は未決（ユーザーの判断待ち）
-// 柱: 下からナットの座（小判 φ8 × 3.5）→ 45度で絞る → 細い丸柱 φ3.6 で増し肉へ。
-// 🔒 細くするのは Eリングの通り道のため（echo ⑤）。基板は 3g なので強度は足りる
-// 🔒 2026-08-27 ユーザーの図（基板の写真に赤で C 字）: 座面は輪のまま残し、**その穴のいちばん近い
-//    パッドの方へ細い扇形で開く**。上下で向きが逆の、左右対称の 2 組になる。
-//    深さは「はんだの盛り上がりを逃がすぶん」だけ。ナットのポケットは座面の M2_SHELF (1.2) 上に
-//    あるので、六角は丸ごと残る ＝ 柱の強さは落ちない。
-//    🔒 2026-08-27 ユーザー 2 枚目の図＋「切り欠きが全然足らない」「これくらい入れた方が意図的に
-//       見えて良い」→ 30 → 90 度。**削った跡ではなく C 字として読める大きさにする**
-//    🔒 向きは 3 枚目の図: **基板の中心へ斜め（45 度）**。写真でもパッドの列は穴より内側にある
-//       （模型の AS5600_EDGE_IN 2.3 ＝ 穴より外、は誤り）
-POST_RELIEF_ANG  = 90;    // 扇形の開き
-POST_RELIEF_DEEP = 1.0;   // 座面から彫る深さ（< M2_SHELF）
-module post_relief(x, y)
-    translate([x * POST_XY_LO, y * POST_XY_LO, Z_PCB_TOP - 0.01])
-        rotate([0, 0, atan2(-y, -x)])             // 🔒 2026-08-27 ユーザーの図（3 枚目）: **基板の中心へ斜めに開く**
-            linear_extrude(POST_RELIEF_DEEP + 0.01)
-                polygon(concat([[0, 0]],
-                    [for (a = [-POST_RELIEF_ANG / 2 : POST_RELIEF_ANG / 8 : POST_RELIEF_ANG / 2])
-                        [12 * cos(a), 12 * sin(a)]]));
+//    ⇒ **座面をやめた**。基板は 3 つの E リングの上に座る。3 点なので必ず座る。
+//       はんだ足（穴の中心から 4.40mm）は、φ3.5 の棒（半径 1.75）からも
+//       リングの外周（半径 3.5）からも外れている。
+//    🔒 これに伴い post_relief（座面の扇形・2026-08-27 ユーザーの図 3 枚）も削除した。
+//       扇形は「座面がはんだの盛りを踏むのを逃がす」ための物で、座面そのものが無くなった。
+//       残したままだと、棒の途中に意味の無い切り欠きを作ってしまう。
+//    🔒 post_oval() も削除（小判型は SLOT_LEN=0 で既に円だった）。
+
+// E リングの溝（棒をぐるりと 1 周）
+module post_groove(x, y)
+    translate([x * POST_XY_LO, y * POST_XY_LO, Z_PIN_GRV_B]) difference() {
+        cylinder(d = POST_D + 2, h = ERING3_GRV_W);
+        translate([0, 0, -0.01]) cylinder(d = ERING3_GRV_D, h = ERING3_GRV_W + 0.02);
+    }
+// この角はダボか（DOWEL_XY に入っていれば溝を切らない）
+function is_dowel(x, y) = len([for (d = DOWEL_XY) if (d[0] == x && d[1] == y) 1]) > 0;
+
 module post_solid(x, y) difference() {
     post_body(x, y);
-    post_relief(x, y);
+    if (!is_dowel(x, y)) post_groove(x, y);
 }
-module post_body(x, y) {
-    translate([x * POST_XY_LO, y * POST_XY_LO, Z_PCB_TOP]) {
-        post_oval(POST_STRAIGHT, STANDOFF_D_LO);
-        hull() {
-            translate([0, 0, POST_STRAIGHT - 0.01]) post_oval(0.01, STANDOFF_D_LO);
-            translate([0, 0, POST_STRAIGHT + (STANDOFF_D_LO - POST_THIN) / 2])
-                cylinder(d = POST_THIN, h = 0.01);
-        }
-        translate([0, 0, POST_STRAIGHT + (STANDOFF_D_LO - POST_THIN) / 2])
-            cylinder(d = POST_THIN, h = Z_PAD_BOT - Z_PCB_TOP - POST_STRAIGHT
-                                        - (STANDOFF_D_LO - POST_THIN) / 2 + 0.01);
-    }
+// 棒: 外周の裏（Z_PAD_BOT）から、基板を貫いて Z_PIN_BOT まで φ3.5。
+//   基板の表（Z_PCB_TOP）から上へ POST_COLLAR_H だけ φ4.5 の段（基板の上限を決める面）
+module post_body(x, y) translate([x * POST_XY_LO, y * POST_XY_LO, 0]) {
+    translate([0, 0, Z_PIN_BOT]) cylinder(d = POST_D, h = Z_PAD_BOT - Z_PIN_BOT);
+    translate([0, 0, Z_PCB_TOP]) cylinder(d = POST_COLLAR_D, h = POST_COLLAR_H);
 }
 
 // 板の輪郭。四隅を PAD_R で丸め、−Y は PAD_Y0 まで（中身が使っていない所だけを落としてある）
@@ -972,21 +980,29 @@ module ering_wedge(a0, a1, r) {
                    [for (a = [a0 : 3 : a1]) [r * cos(a), r * sin(a)]],
                    [[r * cos(a1), r * sin(a1)]]));
 }
-module ering_profile() {
+// ⚠ 2026-08-28 引数化した（既定は呼び6のまま・呼び3 の絵にも使うため）
+ERING3_RELIEF = 5.0;   // ⬜ 呼び6 の 8.6 を外径比で写しただけ。絵のためだけの値
+ERING3_GAP_W  = 2.3;   // ⬜ 同上（4.0 の写し）
+module ering_profile(od = ERING_OD, bore = ERING_BORE, relief = ERING_RELIEF, gap = ERING_GAP_W) {
     difference() {
-        circle(d = ERING_OD);
-        // 内側の逃げ。3つの爪だけ ERING_BORE まで残す
+        circle(d = od);
+        // 内側の逃げ。3つの爪だけ bore まで残す
         difference() {
-            circle(d = ERING_RELIEF);
+            circle(d = relief);
             for (a = ERING_PRONG_ANG) intersection() {
-                ering_wedge(a - ERING_PRONG / 2, a + ERING_PRONG / 2, ERING_RELIEF);
-                difference() { circle(d = ERING_RELIEF); circle(d = ERING_BORE); }
+                ering_wedge(a - ERING_PRONG / 2, a + ERING_PRONG / 2, relief);
+                difference() { circle(d = relief); circle(d = bore); }
             }
         }
         // 口。🔒 実物は**平行な2面**で切られている（放射状の楔ではない）
-        translate([-ERING_GAP_W / 2, -ERING_OD, 0]) square([ERING_GAP_W, ERING_OD]);
+        translate([-gap / 2, -od, 0]) square([gap, od]);
     }
 }
+// 基板を受けるリング（呼び3）。溝の上端＝基板の裏に上面を合わせる
+module ering3_part(x, y, ang = 0)
+    translate([x * POST_XY_LO, y * POST_XY_LO, Z_PIN_GRV_T - ERING3_T])
+        rotate([0, 0, ang]) linear_extrude(ERING3_T)
+            ering_profile(ERING3_OD, ERING3_GRV_D + 0.05, ERING3_RELIEF, ERING3_GAP_W);
 // 溝に嵌まった位置。⚠ 口の向きは組む順④の差し込み方向（+Y から入れる）に合わせる
 module ering_part(ang = 0) {
     rotate([0, 0, ang]) translate([0, 0, Z_GRV_T - ERING_T])
@@ -1012,7 +1028,7 @@ module stop_nuts() {
 
 // 組む単位で取り出せる形にした（2026-08-23）。筐体の explode 図が
 //   「持ち手・島・ねじ・E リング・基板」を別々に散らすため。assembly() はこれを順に呼ぶだけ
-KNOB_PARTS = ["knob", "mag", "screw", "wall", "nut", "ering", "pnut", "pcb", "pscr", "pwas"];   // pwas = AS5600 の座金（2026-08-27 追加）
+KNOB_PARTS = ["knob", "mag", "screw", "wall", "nut", "ering", "pcb", "pring"];   // 🔒 2026-08-28 pscr/pnut/pwas（基板の M2・ナット・座金）→ pring（E リング）
 function knob_parts() = KNOB_PARTS;   // use<> では変数が見えないので関数で渡す
 module knob_group(g) {
     if (g == "knob")  color("#d8dde3") knob_part();
@@ -1020,17 +1036,14 @@ module knob_group(g) {
     if (g == "screw") color("#e8e8e8") stop_screws();
     if (g == "nut")   color("#b8b8b8") stop_nuts();
     if (g == "ering") color("#c0c0c0") ering_part();
-    if (g == "pcb")   translate([0, 0, Z_PCB_BOT]) as5600(show_connector = false);
-    if (g == "pscr")  color("#e8e8e8") for (x = [-1, 1], y = [-1, 1])
-        translate([x * POST_XY_LO, y * POST_XY_LO, Z_PCB_BOT]) {
-            translate([0, 0, -WASHER_T - M25_HEAD_T]) cylinder(d = M25_HEAD_D, h = M25_HEAD_T);   // 頭（実測 φ3.0 × 1.3）
-            cylinder(d = 2.0, h = PCB_T + M2_SHELF + M2_NUT_T);
-        }
-    if (g == "pwas")  for (x = [-1, 1], y = [-1, 1])                                              // 座金（頭と基板のあいだ）
-        translate([x * POST_XY_LO, y * POST_XY_LO, Z_PCB_BOT - WASHER_T]) as5600_washer();
-    if (g == "pnut")  color("#888") for (x = [-1, 1], y = [-1, 1])
-        translate([x * POST_XY_LO, y * POST_XY_LO, Z_PCB_TOP + M2_SHELF])
-            cylinder(d = M2_NUT_AF / cos(30), h = M2_NUT_T, $fn = 6);
+    // 🔒 2026-08-28 ユーザー指示で false → true。**基板はヘッダを付けたまま描く。**
+    //   ヘッダは基板にはんだ付けされている物なので、基板の模型が持つのが正しい。
+    //   false だった理由は 2026-08-21 の 0177c20 以来ひとつも記録が無い（AI が後から
+    //   「as_conn が別に描くから」と説明したが、as_conn の初出は 4 日あとの 08-25 で成り立たない）
+    if (g == "pcb")   translate([0, 0, Z_PCB_BOT]) as5600(show_connector = true);
+    // 基板を受ける E リング。⚠ 絵は 4 本ぜんぶに描く（DOWEL_XY が決まったらそこだけ消える）
+    if (g == "pring") color("#c0c0c0") for (x = [-1, 1], y = [-1, 1])
+        if (!is_dowel(x, y)) ering3_part(x, y);
     if (g == "mag") {
         color("#bbb") translate([0, 0, Z_MAG_BOT]) cylinder(d = 4.0, h = 2.0);
         // ⚠ 絵も B向き（軸は +X＝接線）。ポケットと同じ角度へ回す。
@@ -1048,9 +1061,8 @@ function knob_exp_dz(g) =
     : g == "wall"  ?  0.7      // 島（へこみに落ちる）
     : g == "nut"   ? -0.6      // 島のナット ×2（天板の段の裏のポケット）
     : g == "ering" ? -1.2      // E リング（軸の溝へ横から）
-    : g == "pnut"  ? -1.8      // 基板の M2 ナット ×4（柱の座）
-    : g == "pcb"   ? -2.4      // AS5600 基板
-    : g == "pscr"  ? -3.0 : 0; // 基板の M2 ×4（下から）
+    : g == "pcb"   ? -2.4      // AS5600 基板（4 本の棒に通す）
+    : g == "pring" ? -3.0 : 0; // 基板を受ける E リング（呼び3）×3（裏から横に差す）
 
 module assembly(show_deck = true) {
     if (show_deck) color("#9aa5b1", 0.75) deck_test(props = false);
@@ -1063,10 +1075,14 @@ module exploded() {
     translate([0, 0, -14]) color("#c0c0c0") ering_part();
     translate([0, 0, -20]) color("#e8e8e8") stop_screws();
     color("#9aa5b1", 0.8) deck_test();
-    translate([0, 0, -30]) {
-        color("#2b6b3f") translate([-PCB / 2, -PCB / 2, Z_PCB_BOT]) cube([PCB, PCB, PCB_T]);
-        color("#333") translate([-2.5, -2, Z_PCB_TOP]) cube([5, 4, CHIP_H]);
-    }
+    // 🔒 2026-08-28 ここは板とチップを自前の箱で描いていた（穴もピン列も無い模型）。
+    //    parts.scad に実物合わせの as5600() があるのに二重に持っていただけなので、そちらへ差し替えた。
+    //    ピン列まで出るので、E リングとヘッダの樹脂の近さが**絵で見える**ようになる
+    translate([0, 0, -30]) translate([0, 0, Z_PCB_BOT]) as5600(show_connector = true);
+    // 🔒 2026-08-28 基板を受ける E リング。ここに描いていなかったので、
+    //    ねじ止めだった頃から**留め具が 1 つも出てこない分解図**になっていた
+    translate([0, 0, -38]) color("#c0c0c0")
+        for (x = [-1, 1], y = [-1, 1]) if (!is_dowel(x, y)) ering3_part(x, y);
     translate([0, 0, 24]) color("#bbb") translate([0, 0, Z_MAG_BOT]) cylinder(d = 4.0, h = 2.0);
 }
 
@@ -1189,7 +1205,7 @@ echo(str("   受け面の掛かり: リングの外周 r ", ERING_OD / 2, " ↔ 
          "（z ", Z_BOSS_BOT, " の段の裏）→ 半径で ", ERING_OD / 2 - HOLE_D / 2,
          "mm 重なる ⚠ 負なら穴を素通りする"));
 echo(str("   差し込みの向き: 🔒 ±Y のみ。柱まで 半径で ",
-         POST_XY_LO - POST_THIN / 2 - ERING_OD / 2, "mm ／ ねじの胴まで ",
+         POST_XY_LO - POST_D / 2 - ERING_OD / 2, "mm ／ ねじの胴まで ",
          SCREW_R - 2.5 / 2 - ERING_OD / 2,
          "mm ⚠ ±X は不可（ねじが y=0 に居る）。実体の検査は part=\"eringpath\"（空なら通る）"));
 echo(str("   溝の下端 ", Z_GRV_B, " → 磁石ポケットの上端 ", Z_MAG_BOT + MAG_DEPTH,
@@ -1274,12 +1290,51 @@ echo(str("④ 軸受け: 島の穴 ", ISL_BORE, " ↔ 軸 ", SHAFT_D, "（遊び
          ISL_BORE - SHAFT_D, "・長さ ", WALL_T, "mm）"));
 echo(str("   磁石ポケットの壁 ", (SHAFT_D - MAG_D) / 2, "mm ⚠ 実績は 1.95。割れたら接着へ"));
 // ---- ⑤ Eリングの通り道（横からしか入らない）----
-POST_GAP = 2 * (POST_XY_LO - POST_THIN / 2);
-echo(str("⑤ リングの通り道: 細い柱 φ", POST_THIN, " のあいだ ", POST_GAP,
+POST_GAP = 2 * (POST_XY_LO - POST_D / 2);
+echo(str("⑤ 軸のリングの通り道: 柱 φ", POST_D, " のあいだ ", POST_GAP,
          "mm ↔ リング外径 ", ERING_OD, " → 余裕 ", POST_GAP - ERING_OD,
-         "mm ⚠ 負なら入らない。⬜ 実物の外径で必ず見直す"));
-echo(str("   細い柱の区間 z ", Z_PCB_TOP + POST_STRAIGHT + (STANDOFF_D_LO - POST_THIN) / 2,
-         " 〜 ", Z_PAD_BOT, " ／ リングは z ", Z_GRV_B - 0.2, " 付近を通る ⚠ 区間の外なら太い柱に当たる"));
+         "mm ⚠ 負なら入らない。🔒 太いのは基板の上の段（φ", POST_COLLAR_D, " × ",
+         POST_COLLAR_H, "・z ", Z_PCB_TOP, "〜", Z_PCB_TOP + POST_COLLAR_H,
+         "）だけで、リングが通る z ", Z_GRV_B, " 付近には無い"));
+// ---- ⑤b 基板を受けるリング（呼び3）----
+// 相手はヘッダの樹脂（基板の裏に密着して 2.5mm）。
+// 🔒 2026-08-28 ここは **parts.scad から計算する**（ユーザー指摘「ピンヘッダーの位置を出さない理由は？」）。
+//   前は 2.88 / 3.98 … と手で書き写していた。数字を二重に持つと、実物合わせで parts.scad を
+//   直したときにこちらだけ古いまま残る。
+//   樹脂の外形は as5600() と同じ数え方: 列の中心 x = ±(PCB/2 − EDGE_IN)、幅 2.54、
+//   長さ = ピン数 × 2.54、そして基板の絵と同じ rotate 90 を掛ける（列は上下の縁にある）。
+
+echo(str("⑤b 基板のリング 呼び3（外径 ", ERING3_OD, "・厚 ", ERING3_T, "・溝 φ",
+         ERING3_GRV_D, " × ", ERING3_GRV_W, "）: 溝の深さ 片側 ",
+         (POST_D - ERING3_GRV_D) / 2, "mm ／ 溝で棒の芯は φ", ERING3_GRV_D,
+         " 残る ⚠ 印刷の下限 0.42 は径ではなく肉厚の話なので、ここは径で見る"));
+// ヘッダ位置の残る誤差。① 列ごとの EDGE_IN（4.2 / 4.8）と ② 列の長さ（2.54 ピッチが正）は
+//   2026-08-28 に解決した。残るのは写真読みそのものの ±0.3 だけ（parts.scad の 🔴 を見ること）
+HDR_ERR = 0.3;
+echo(str("   ダボにする角（計算値）: ", DOWEL_XY,
+         " ／ リングを入れる角は残りの ", 4 - len(DOWEL_XY), " 本"));
+for (c = HDR_CORNERS) {
+    d = _hdr_d(c[0][0] * POST_XY_LO, c[0][1] * POST_XY_LO);
+    echo(str("   ", c[1], ": 柱の中心 → ヘッダの樹脂 ", d,
+             " ／ 穴の縁（φ", as5600_hole(), "）から ", d - as5600_hole() / 2,
+             " ／ リング外周（半径 ", ERING3_OD / 2, "）から ", d - ERING3_OD / 2,
+             d - ERING3_OD / 2 < 0 ? "mm 🔴 当たる。**ここにはリングを入れない**"
+             : (d - ERING3_OD / 2 < HDR_ERR
+                ? str("mm ⚠ 誤差 ", HDR_ERR, " の中。有ると言い切れない")
+                : "mm")));
+}
+echo(str("   基板の高さ: リングの上面 z ", Z_PIN_GRV_T, " に基板が座る → 基板の表 ",
+         Z_PIN_GRV_T + PCB_T, "（🔒 ", Z_PCB_TOP, " のまま＝磁石とチップの距離は変えていない）",
+         " ／ 溝の遊び ", ERING3_GRV_W - ERING3_T, "mm ⚠ この分だけ基板は下がりうる"));
+echo(str("   段（基板の上限）: φ", POST_COLLAR_D, " × ", POST_COLLAR_H,
+         "（z ", Z_PCB_TOP, " から上）→ 基板に触る輪の幅 片側 ",
+         (POST_COLLAR_D - as5600_hole()) / 2,
+         "mm ／ 基板の遊びは 上下とも 0（下はリング・上はこの段）"));
+echo(str("   段とはんだ足: 足は穴の中心から ", 4.40, "mm（parts.scad の実物合わせ）↔ 段の半径 ",
+         POST_COLLAR_D / 2, " → ", 4.40 - POST_COLLAR_D / 2,
+         "mm 空く ⚠ 前の φ8（半径 4.0）はここを踏んでいた（残り 0.40）"));
+echo(str("   棒の下端 z ", Z_PIN_BOT, "（基板の裏から ", Z_PCB_BOT - Z_PIN_BOT,
+         "mm 下へ出る）⚠ knob_deep() は ", -Z_PCB_BOT, " のまま。箱はこの下にヘッダの 16.1mm を既に空けてある"));
 // ---- ⑥ 可動域 ----
 echo(str("⑥ 可動域 ", 360 - LUG_ARC - TAB_ARC, "度（ツメ ", LUG_ARC, " ＋ タブ ",
          TAB_ARC, "）⚠ 315 ちょうどでなければ計算を疑う"));

@@ -114,11 +114,12 @@ if (W == "riblook") {
 }
 // ---- ④⑤ AS5600 の取付回転 × ヘッダの形（4 × 2 ＝ 8 通り）--------------------
 //   基板は knob_v5 の位置（KNOB_AT・裏面 Z = Z_TOP − knob_deep()）。探針はコネクタだけ
-//   （as5600(true) − as5600(false)）。相手は箱の全部（つまみの島・柱・天板・線・電源系）
+//   （as5600_headers()。2026-08-28 まで as5600(true) − as5600(false) と書いていた）。相手は箱の全部（つまみの島・柱・天板・線・電源系）
 R  = 0;      // 取付回転 0 / 90 / 180 / 270
 RA = false;  // ヘッダの形（false = 直立て / true = L 字横出し）
+// 🔒 2026-08-28 _v4_core.scad と同じ直し（「基板＋コネクタ − 基板」はプレビューで基板が残る）
 module as_conn() translate(KNOB_AT) translate([0, 0, -knob_deep()]) rotate([0, 0, R])
-    difference() { as5600(true, ra = RA); as5600(false); }
+    as5600_headers(RA);
 if (W == "asc") intersection() { as_conn(); union() { others("none"); } }
 if (W == "ascx") as_conn();   // 探針の単体出し（空検査の検算用）
 ASCW = "ina";                 // asc の who 検査: ina / lipo / xh / knob / top / hub
