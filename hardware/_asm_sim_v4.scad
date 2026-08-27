@@ -74,6 +74,10 @@ if (ST == "st10r") { upto(8); s_oled(); oled_hous(); s_top(); }     // 天面を
 // 🆕 2026-08-27 電池の交換の姿: 組み上がりからロックと蓋だけ外した（ハッチ本体は付いたまま）
 if (ST == "swap")  { upto(11); rounded4() hatch_v4(); tgl_v4(TAIL_ANG); tail_at(); }
 if (ST == "topsub") s_top();
+// 🆕 2026-08-27（12 度目の机上の通し）手順 10 ②の手の道を撃つ用。
+//   **天面と、へこみに置いた島だけ。** つまみ・E リング・AS5600 の基板・スピーカー・会話ボタンはまだ付いていない。
+//   島のナットは天面の裏の**下向き**ポケット（置いておけない）なので、下から押さえる手の道がここで要る。
+if (ST == "topnut") { rounded4() top_v4(); translate([-2.5, 7, 0]) translate(KNOB_AT) knob_group("wall"); }
 if (ST == "straponly") straps_v4();
 if (ST == "tchous") translate([-64.47 + LW_X, IN_Y - 0.50, 0]) rotate([0, 0, -90]) tcb_hous();   // 🆕 2026-08-27 充電の口 2 つ（上下）。頭の Z を手で写さないための出口   // 🆕 2026-08-27 手順 6 の手の道を撃つ用（_asm_access.py が連結成分に割って 3 本の bbox を取る）
 if (ST == "wires") { core(); s_bat(); s_boards(); s_tcb(); brg_v4(); straps_v4(); tgl_v4(); wires_pwr(); wires_sig(); }
