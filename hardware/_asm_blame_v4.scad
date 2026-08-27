@@ -84,3 +84,54 @@ if (P=="strapfoot") intersection(){ straps_v4(); translate([0,12,23.4]) cube([20
 if (P=="raill")     intersection(){ brg_v4();    translate([0,12,23.5]) cube([20,18,3.0]); }
 DX = 0;
 if (P=="shiftboards") intersection(){ translate([DX,0,0]) union(){ ina_bat(); pb_bat(); pbl_hous(); pbu_hous(); } s_top(); }
+
+// ============================================================
+// 天面を降ろす軌跡（part="close_top"）の切り分け — 🔴 2026-08-27（13 度目の机上の通し）
+//   close_top が 0 → 30.24mm³ になったので、動く側・相手・束を 1 つずつ当てた。
+//   犯人は「AS5600 に挿したデュポンの腹 ↔ XIAO の上段 4 本」だった。
+//   使い方: openscad --backend=manifold -D 'P="ct_asconn"' -o x.stl hardware/_asm_blame_v4.scad
+// ============================================================
+module ct_sw(h = 25) union() for (t = [0 : STEP : h]) translate([0, 0, t]) children();
+module ct_stage() { lower_group(); brg_v4(); brg_front(); bat_v4(); pb_bat(); ina_bat(); straps_v4();
+                    pbl_hous(); pbu_hous(); wires_pwr(); wires_sig(); floor_v4(); lwall_v4(); rwall_v4(); }
+// 動く側を 1 つずつ（相手は close_top と同じ stage_top）
+if (P == "ct_shell")  intersection() { ct_sw() top_v4();     ct_stage(); }   // 4.66 ＝ ReSpeaker の押し代（close_top では引かれる）
+if (P == "ct_knob")   intersection() { ct_sw() top_knob();   ct_stage(); }
+if (P == "ct_asconn") intersection() { ct_sw() top_asconn(); ct_stage(); }   // 🔴 30.24
+if (P == "ct_spk")    intersection() { ct_sw() top_spk();    ct_stage(); }
+if (P == "ct_btn")    intersection() { ct_sw() top_btn();    ct_stage(); }
+// 相手を 1 つずつ（動く側は天面一式）
+module ct_mv() ct_sw() { top_v4(); top_group(); }
+if (P == "ct_o_lower")  intersection() { ct_mv(); lower_group(); }
+if (P == "ct_o_wsig")   intersection() { ct_mv(); wires_sig(); }             // 🔴 30.24
+if (P == "ct_o_wpwr")   intersection() { ct_mv(); wires_pwr(); }
+if (P == "ct_o_brg")    intersection() { ct_mv(); union() { brg_v4(); brg_front(); } }
+if (P == "ct_o_skin")   intersection() { ct_mv(); union() { floor_v4(); lwall_v4(); rwall_v4(); } }
+// デュポン ↔ 束を 1 束ずつ／止まった姿でも重なる（13.26mm³）
+if (P == "ct_w_xiao")   intersection() { ct_sw() top_asconn(); w_xiao(); }   // 🔴 30.24
+if (P == "ct_w_as")     intersection() { ct_sw() top_asconn(); w_as5600(); }
+if (P == "ct_static")   intersection() { top_asconn(); wires_sig(); }        // 🔴 13.26（止まった姿）
+if (P == "ct_asconn_only") top_asconn();                                     // コネクタの居場所だけ（bbox 取り）
+// XIAO の上段の車線に、どれだけ Y の逃げ場があるか。角材 3×3 を Z 27.13 に置いて Y を振る
+//   実測（2026-08-27）: Y 29.9 → 13.26 ／ 29.4 → 5.64 ／ 29.0 → 0.15 ／ 28.9 → 0.57 ／ 28.4 → 2.68
+//   ＝ 逃げ場は **Y 29.0 の一点だけ**で、向こう側は ReSpeaker の板。空きは束の太さ 3.0mm ちょうど
+PY = 29.9;
+module ct_lane() translate([55.35, PY - 1.5, 27.13 - 1.5]) cube([68.0 - 55.35, 3.0, 3.0]);
+if (P == "ct_lane") intersection() { ct_lane(); union() { respeaker_at(); xiao_hous(); top_knob(); top_asconn(); } }
+// 車線の断面を見る（2026-08-27）: Z 25.63〜28.63 の帯を Y 22〜32 まで広げて、何が張り出しているかを出す
+if (P == "ct_slab") intersection() {
+    translate([55.35, 22, 27.13 - 1.5]) cube([68.0 - 55.35, 10.0, 3.0]);
+    union() { respeaker_at(); xiao_hous(); top_knob(); top_asconn(); }
+}
+if (P == "ct_slab_rsp")  intersection() { translate([55.35, 22, 27.13 - 1.5]) cube([12.65, 10.0, 3.0]); respeaker_at(); }
+if (P == "ct_slab_xh")   intersection() { translate([55.35, 22, 27.13 - 1.5]) cube([12.65, 10.0, 3.0]); xiao_hous(); }
+if (P == "ct_slab_knob") intersection() { translate([55.35, 22, 27.13 - 1.5]) cube([12.65, 10.0, 3.0]); top_knob(); }
+// つまみの 5 本 ↔ 相手を 1 つずつ（2026-08-27 の引き直しの検算）
+if (P == "as_hub")   intersection() { w_as5600(); hub_unit(); }
+if (P == "as_rsp")   intersection() { w_as5600(); union() { respeaker_at(); xiao_hous(); rsp_j2_space(); } }
+if (P == "as_knob")  intersection() { w_as5600(); top_knob(); }
+if (P == "as_conn")  intersection() { w_as5600(); top_asconn(); }
+if (P == "as_brg")   intersection() { w_as5600(); union() { brg_v4(); brg_front(); straps_v4(); } }
+if (P == "as_rest")  intersection() { w_as5600(); union() { bat_v4(); pb_bat(); ina_bat(); tgl_v4(); tcb_v4(); v3_walls_lr(); } }
+if (P == "hub_slice") intersection() { hub_unit(); translate([55, 40, 10]) cube([15, 12, 10]); }
+if (P == "hub_slice2") intersection() { hub_unit(); translate([50, 38, 4]) cube([35, 30, 14]); }

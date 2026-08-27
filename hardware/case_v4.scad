@@ -38,7 +38,7 @@ W = "none";      // _v4_core の内部スイッチ（芯だけの検査 deskseat
 //   電池   : chk_shut_slide（蓋を右へずらす）/ chk_shut_out（蓋を抜く）/ chk_lock_out（ロックを後ろへ外す）/ chk_swap（電池を後ろへ抜く・v3 と同名）
 //   絵（部分）: btnslot（会話ボタンの受けに彫った溝と、そこを通る電源 2 本・INA の直立ての口）
 //              seatgap（電流計の座ぐりの断面。ネジの先 ↔ 留め帯の天板の裏＝電池の上面。SEATGAP_Y で 1 本に絞れる）
-part = "inside";
+part = "explode";
 WP = "";         // chk_wire 系で束を 1 つに: xiao / oled / as5600 / btn2 / phin / phout / ina / tgl / reed / chg（"" で全部）
 
 // ---- v4 の配置（芯と同じ式。数字を増やさない） ----
@@ -837,7 +837,14 @@ if (part == "close_rwall") intersection() { union() for (t = [0 : STEP : 30]) tr
 module stage_top() { lower_group(); brg_v4(); brg_front(); bat_v4(); pb_bat(); ina_bat(); straps_v4(); pbl_hous(); pbu_hous();
                      wires_pwr(); wires_sig(); floor_v4(); lwall_v4(); rwall_v4(); }
 if (part == "close_top") difference() { intersection() { union() for (t = [0 : STEP : 25]) translate([0, 0, t]) { top_v4(); top_group(); }
-                                          stage_top(); } rsp_press_zone(); }   // 押し代は除外。🔒 つまみ +2 後の 2mm³ は「AS5600 の線の逃げ予約（3.6 角）↔ PHIN」。実体同士は Z で 2.15 離れて非接触（2026-08-25 ユーザー確認・PHIN の曲がりは 1.5 に修正済み）。これだけが正
+                                          stage_top(); } rsp_press_zone(); }   // 押し代は除外。
+//   🔴 2026-08-27（13 度目の机上の通し）ここは一度 **11.45mm³** になった。中身は「AS5600 の口から
+//      出る線の逃げ予約（3.6 角）↔ XIAO の上段の束」で、実体（デュポンのハウジング）は 0 だった。
+//   ✅ 2026-08-28（14 度目の机上の通し）**0 に戻っている。**原因は 2 つとも同日に消えた ——
+//      ① ASC_DY（コネクタの模型だけを Y へ −2 動かしていた値）が削除されて、コネクタが基板の上へ戻った
+//      ② その幻を避けるために寄せてあった XIAO の上段の車線を 29.03 → 29.9（通り道のど真ん中）へ戻した
+//      いまの通り道は Y 27.535〜32.230 ＝ 4.695mm で、束 3.0 に対して片側 0.85mm ずつ空く。
+//      旧「2mm³ ＝ 同じ予約 ↔ PHIN」（2026-08-25 ユーザー確認）は、ピン列を実物に直したときに行き先が変わった
 if (part == "close_front") intersection() { union() for (t = [0 : STEP : 20]) translate([0, -t, 0]) front_v4();
                                             union() { stage_noskin(); lwall_v4(); rwall_v4(); top_v4(); } }
 if (part == "close_hatch") intersection() { union() for (t = [0 : STEP : 20]) translate([0, t, 0]) { hatch_v4(); tgl_v4(); door4(); }
