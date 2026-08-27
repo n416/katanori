@@ -38,7 +38,7 @@ W = "none";      // _v4_core の内部スイッチ（芯だけの検査 deskseat
 //   電池   : chk_shut_slide（蓋を右へずらす）/ chk_shut_out（蓋を抜く）/ chk_lock_out（ロックを後ろへ外す）/ chk_swap（電池を後ろへ抜く・v3 と同名）
 //   絵（部分）: btnslot（会話ボタンの受けに彫った溝と、そこを通る電源 2 本・INA の直立ての口）
 //              seatgap（電流計の座ぐりの断面。ネジの先 ↔ 留め帯の天板の裏＝電池の上面。SEATGAP_Y で 1 本に絞れる）
-part = "look";
+part = "inside";
 WP = "";         // chk_wire 系で束を 1 つに: xiao / oled / as5600 / btn2 / phin / phout / ina / tgl / reed / chg（"" で全部）
 
 // ---- v4 の配置（芯と同じ式。数字を増やさない） ----
@@ -675,6 +675,54 @@ TOP_CEILS = [[6.70, 0, 3.1], [2.25, 0, 3.1]];   // [天井, 足元, 壁からの
 TOP_FINS = [[6.20, 0]];   // 細い天井（会話ボタンの首）はヒレ。スピーカーの網の桟（幅 1.2）はヒレも入らない → 下の 🔴
 module top_print() { translate([0, 0, Z_TOP]) rotate([180, 0, 0]) p_one("top"); }
 module hatch_print() { translate([0, 0, IN_Y + HATCH_T]) rotate([-90, 0, 0]) p_one("hatch"); }
+
+// ---- 支柱を立ててはいけない体積（keepout）----
+// 🔴 2026-08-27 ユーザー「ネジ穴や回転部分にサポートが立っている。これはまずい」。
+//    _v4_props.py は**天井の輪郭**しか見ていないので、ネジの通し穴・ナットのポケット・軸の穴の
+//    天井にも柱を立てていた。そこの柱は折っても取れないし、取れてもねじとナットが入らない。
+//    ⇒ 「空いていなければならない体積」をここに名前で置き、生成器が避ける。
+//    🔒 数字は書かない。**実際に彫っている cut の module をそのまま呼ぶ**（形を変えれば keepout も追従する）。
+module keepout_top() {
+    for (b = BOSSES) translate([b[0] + BOSS / 2, b[1] + BOSS / 2, 0]) {   // 天面のビス（後ろの柱 2）
+        translate([0, 0, IN_Z - 1]) cylinder(d = SCR_D, h = TOP_T + 2, $fn = 24);
+        translate([0, 0, Z_TOP - SCR_CBT]) cylinder(d = SCR_CB, h = SCR_CBT + 1, $fn = 32);
+    }
+    for (ex = EAR_X) translate([(ex[0] + ex[1]) / 2, (EAR_Y0 + EAR_Y1) / 2, 0]) {   // 天面のビス（耳 2）
+        translate([0, 0, IN_Z - 1]) cylinder(d = SCR_D, h = TOP_T + 2, $fn = 24);
+        translate([0, 0, Z_TOP - SCR_CBT]) cylinder(d = SCR_CB, h = SCR_CBT + 1, $fn = 32);
+    }
+    translate([BTN4[0], BTN4[1], Z_BTN_PAD - 1]) cylinder(d = BTN_HOLE_D, h = BTN_PAD_T + 2, $fn = 32);   // 会話ボタンの首（動く）
+    // つまみの座: **軸の穴・留めねじとナット・リードの穴・柱の M2 とナット**だけ。
+    // 🔒 皿（見える面のへこみ）と床の掘り下げは入れない。ただの広いへこみで、そこの天井は柱で支える所。
+    translate(KNOB4) { knob_station_shaft_cut(); knob_station_screw_cut();
+                       knob_station_reed_cut(); knob_station_post_cuts(); }
+}
+module keepout_hatch() {
+    translate([TGL_AT[0], IN_Y - 1, TGL_AT[1]]) rotate([-90, 0, 0]) mts102_hole(HATCH_T + 2);   // トグルの胴
+    sw4_lock_cut();                                   // ロックのねじ穴とナットの座（ロックは回る）
+    sw4_magnets(sw4_yg() - SHUT_MAG_H, SHUT_MAG_H + 0.01);   // 磁石の座
+    hatch_chg_cut4();                                 // 充電の口（プラグが通る）
+}
+module keepout_bridge() { brg_anchor_cuts(); brg_up_cuts(); brgf_cuts(); tab_slots(); }   // M2 の通し穴・座ぐり・ツバの溝（帯が滑る）
+module keepout_seat() { for (h = HUB_HOLES4) translate([h[0], h[1], -1]) cylinder(d = HUB_POST_D + 0.6, h = BOARD_Z + 1, $fn = 32); }   // ハブの柱が入る
+module keepout_strap() { }   // 留め帯は穴もねじも持たない
+
+// 刷る向きへ（それぞれ print_<部品> と同じ変換）。_v4_props.py が -D part="keepout_<部品>" で焼く
+module keepout_print_top()      translate([0, 0, Z_TOP]) rotate([180, 0, 0]) keepout_top();
+module keepout_print_hatch()    translate([0, 0, IN_Y + HATCH_T]) rotate([-90, 0, 0]) keepout_hatch();
+module keepout_print_bridge()   translate([0, 0, -(BAT_Z - BRG_T)]) keepout_bridge();
+module keepout_print_seat()     translate([TC4_ZT, 0, -LW_X]) rotate([0, -90, 0]) keepout_seat();
+module keepout_print_strap_a()  translate([0, 0, -BAT_Z]) keepout_strap();
+module keepout_print_strap_b()  translate([0, 0, -BAT_Z]) keepout_strap();
+module keepout_print_strap_c()  translate([0, 0, -BAT_Z]) keepout_strap();
+for (k = ["top", "hatch", "bridge", "seat", "strap_a", "strap_b", "strap_c"])
+    if (part == str("keepout_", k)) {
+        if (k == "top")     keepout_print_top();
+        if (k == "hatch")   keepout_print_hatch();
+        if (k == "bridge")  keepout_print_bridge();
+        if (k == "seat")    keepout_print_seat();
+        if (k == "strap_a" || k == "strap_b" || k == "strap_c") keepout_print_strap_a();
+    }
 // 前板（返し＋脚）: **前面を伏せて寝かせる**（🔒 2026-08-26 ユーザー「寝かせる向きでしょ」）。
 //   前面（Y 12.9）は 634mm² の 1 枚の平らな面なので、そのままベッドに着く。フランジは真上へ立つ壁になり庇は出ない
 if (part == "print_brgfront") translate([0, 0, -BAT_Y0]) rotate([90, 0, 0]) brg_front();

@@ -642,25 +642,33 @@ module wall_part() {
 // ============================================================
 // 天板側 ── 筐体の天板に union / difference で組み込む
 // ============================================================
+// 柱に開ける M2 の長穴・ナットのポケット・横入れの口。
+// 🔒 ここは**ねじとナットの居場所**なので、印刷の支柱を立ててはいけない。
+//    _v4_props.py が避けるために外から呼ぶので、数字を二重に持たないよう module にしてある。
+module knob_station_post_cut(x, y) {
+    translate([x * POST_XY_LO, y * POST_XY_LO, 0]) {
+        translate([0, 0, Z_PCB_TOP - 1]) hull() for (s = [-1, 1])
+            translate([s * SLOT_LEN / 2, 0, 0])
+                cylinder(d = M2_D, h = M2_SHELF + 1.01);
+        translate([0, 0, Z_PCB_TOP + M2_SHELF]) {
+            hull() for (s = [-1, 1]) translate([s * SLOT_LEN / 2, 0, 0])
+                cylinder(d = M2_NUT_AF / cos(30), h = M2_NUT_T + 0.2, $fn = 6);
+            scale([x, 1, 1]) translate([0, -M2_NUT_AF / 2, 0])
+                cube([9, M2_NUT_AF, M2_NUT_T + 0.2]);
+            hull() for (s = [-1, 1]) translate([s * SLOT_LEN / 2, 0, 0])
+                cylinder(d = M2_D, h = M2_NUT_T + 2);
+        }
+    }
+}
+module knob_station_post_cuts() { for (x = [-1, 1], y = [-1, 1]) knob_station_post_cut(x, y); }
+
 module knob_station_add() {
     translate([-PAD_X / 2, -PAD_Y / 2, Z_PAD_BOT]) cube([PAD_X, PAD_Y, PAD_T]);
     // 中央の段。ナットの六角ポケットはこの中だけに掘る（外周は薄いまま）
     translate([0, 0, Z_BOSS_BOT]) cylinder(d = BOSS_D, h = BOSS_T + 0.01);
     for (x = [-1, 1], y = [-1, 1]) difference() {
         post_solid(x, y);
-        translate([x * POST_XY_LO, y * POST_XY_LO, 0]) {
-            translate([0, 0, Z_PCB_TOP - 1]) hull() for (s = [-1, 1])
-                translate([s * SLOT_LEN / 2, 0, 0])
-                    cylinder(d = M2_D, h = M2_SHELF + 1.01);
-            translate([0, 0, Z_PCB_TOP + M2_SHELF]) {
-                hull() for (s = [-1, 1]) translate([s * SLOT_LEN / 2, 0, 0])
-                    cylinder(d = M2_NUT_AF / cos(30), h = M2_NUT_T + 0.2, $fn = 6);
-                scale([x, 1, 1]) translate([0, -M2_NUT_AF / 2, 0])
-                    cube([9, M2_NUT_AF, M2_NUT_T + 0.2]);
-                hull() for (s = [-1, 1]) translate([s * SLOT_LEN / 2, 0, 0])
-                    cylinder(d = M2_D, h = M2_NUT_T + 2);
-            }
-        }
+        knob_station_post_cut(x, y);
     }
 }
 
@@ -685,21 +693,22 @@ module post_solid(x, y) {
     }
 }
 
-module knob_station_cut() {
-    // 通し穴（軸 φ7 が通るだけ）
+// 🔒 2026-08-27 ここを 3 つに割った（形は 1mm³ も変えていない）。理由は _v4_props.py が
+//    「印刷の支柱を立ててはいけない体積」＝ **軸・ねじ・ナット・リード**だけを名指しで呼べるように。
+//    皿（見える面のへこみ）と床の掘り下げは、ただの広いへこみなので支柱を立ててよい（そこは避けない）。
+module knob_station_shaft_cut() {   // 通し穴（軸 φ7 が通るだけ・回る）
     translate([0, 0, Z_BOSS_BOT - 1]) cylinder(d = HOLE_D, h = -Z_BOSS_BOT + 2);
-    // 見える面のへこみ。島の下面まで一気に落とす
-    translate([0, 0, Z_WALL_B]) cylinder(d = DISH_D, h = -Z_WALL_B + 1);
-    ch_hole_top(DISH_D / 2, 0, CH_S);
-    // 床の掘り下げ。①でダボ台座（掘り残し3点）を削除したので、ここは全面フラット
-    translate([0, 0, Z_RELIEF]) cylinder(d = DISH_D + 0.02, h = RELIEF_D + 0.01);
-    // リードの穴（横・水平・磁石の高さ）。へこみの壁のすぐ外。
-    // 裏 -9.0 から呼び込み（3.95角）で上がり、z -4.0 から圧入の座（3.25角）、
-    // 天井 -0.5 で突き当たる。⚠ へこみの壁との肉は x=0 で 0.4（端ほど厚くなる）
+}
+module knob_station_screw_cut() {   // 留めねじ2本の通し穴と、裏から落とす六角ポケット
+    for (a = SCREW_ANG) rotate([0, 0, a]) {
+        translate([SCREW_R, 0, Z_BOSS_BOT - 1])
+            cylinder(d = SCR_THRU, h = -Z_BOSS_BOT + 2);
+        translate([SCREW_R, 0, Z_BOSS_BOT - 0.01]) rotate([0, 0, 30])
+            cylinder(d = NUT_POCK_AF / cos(30), h = NUT_POCK_T + 0.01, $fn = 6);
+    }
+}
+module knob_station_reed_cut() {    // リードの穴（圧入）と足の通り道
     hull() {
-        // 🔴 2026-08-21: 呼び込みの広げは **+Y と ±X だけ**。以前は -Y（へこみ側）にも
-        //    0.35 広がっていて、へこみの床の高さで肉が 0.21mm まで落ちていた。
-        //    実機でそこが消えて、へこみとリードの穴が1つの大穴になった
         translate([-REED_L / 2 - REED_LOOSE, REED_IN, Z_PAD_BOT - 1])
             cube([REED_L + 2 * REED_LOOSE, REED_W + REED_LOOSE, 1 + 0.01]);
         translate([-REED_L / 2, REED_IN, REED_TOP - REED_TIGHT_H])
@@ -707,22 +716,31 @@ module knob_station_cut() {
     }
     translate([-REED_L / 2, REED_IN, REED_TOP - REED_TIGHT_H - 0.01])
         cube([REED_L, REED_W, REED_TIGHT_H + 0.01]);
-    // 足の通り道（両端・縦）。下へ曲げた足がここを通って裏へ出る
     for (sx = [-1, 1]) translate([sx * (REED_L / 2 + LEAD_CH_W / 2),
             REED_IN + REED_W / 2 - LEAD_CH_W / 2, Z_PAD_BOT - 0.01])
         translate([-LEAD_CH_W / 2, 0, 0])
             cube([LEAD_CH_W, LEAD_CH_W, -(Z_PAD_BOT) + REED_TOP + 0.01]);
-    // 留めねじ2本。天板は**通し穴**で、裏から六角ポケットへナットを落として締める。
+}
+
+module knob_station_cut() {
+    knob_station_shaft_cut();
+    // 見える面のへこみ。島の下面まで一気に落とす
+    translate([0, 0, Z_WALL_B]) cylinder(d = DISH_D, h = -Z_WALL_B + 1);
+    ch_hole_top(DISH_D / 2, 0, CH_S);
+    // 床の掘り下げ。①でダボ台座（掘り残し3点）を削除したので、ここは全面フラット
+    translate([0, 0, Z_RELIEF]) cylinder(d = DISH_D + 0.02, h = RELIEF_D + 0.01);
+    // リードの穴（横・水平・磁石の高さ）＝ knob_station_reed_cut()
+    //   裏 -9.0 から呼び込み（3.95角）で上がり、z -4.0 から圧入の座（3.25角）、天井 -0.5 で突き当たる。
+    //   ⚠ へこみの壁との肉は x=0 で 0.4（端ほど厚くなる）
+    //   🔴 2026-08-21: 呼び込みの広げは **+Y と ±X だけ**。以前は -Y（へこみ側）にも 0.35 広がっていて、
+    //      へこみの床の高さで肉が 0.21mm まで落ちていた。実機でそこが消えて、へこみとリードの穴が1つの大穴になった
+    knob_station_reed_cut();
+    // 留めねじ2本 ＝ knob_station_screw_cut()。天板は**通し穴**で、裏から六角ポケットへナットを落として締める。
     // 🔒 E リングは裏面（Z_PAD_BOT）より下の z -9.3〜-10.25 を横に滑って入る。だから
     //    **ナットが裏面より下へ出ないこと**が、リングに当たらない条件そのもの。
     //    ポケットは裏面から上へ NUT_POCK_T 掘るだけで、下へは 1mm も出さない（echo ③）
-    for (a = SCREW_ANG) rotate([0, 0, a]) {
-        translate([SCREW_R, 0, Z_BOSS_BOT - 1])
-            cylinder(d = SCR_THRU, h = -Z_BOSS_BOT + 2);
-        // 六角は**平面を内側へ向ける**（角を向けると軸の通し穴までの肉が 0.84 まで落ちる）
-        translate([SCREW_R, 0, Z_BOSS_BOT - 0.01]) rotate([0, 0, 30])
-            cylinder(d = NUT_POCK_AF / cos(30), h = NUT_POCK_T + 0.01, $fn = 6);
-    }
+    //    六角は**平面を内側へ向ける**（角を向けると軸の通し穴までの肉が 0.84 まで落ちる）
+    knob_station_screw_cut();
 }
 
 // ============================================================

@@ -43,6 +43,17 @@ def bake(part):
     return p
 
 
+def bake_keepout(part):
+    """空いていなければならない体積（case_v4.scad の keepout_<部品>）を刷る向きで焼く。
+       中身が空の部品は OpenSCAD が STL を書かないので None を返す。"""
+    p = os.path.join(TMP, 'ko_%s.stl' % part)
+    if os.path.exists(p): os.remove(p)
+    subprocess.run([OPENSCAD, '--backend=manifold', '--export-format=binstl', '-o', p,
+                    '-D', 'part="keepout_%s"' % part,
+                    os.path.join(HERE, 'case_v4.scad')], capture_output=True)   # 空なら OpenSCAD は 1 で終わる
+    return p if os.path.exists(p) else None
+
+
 def dil(a):
     o = a.copy()
     o[1:, :] |= a[:-1, :]; o[:-1, :] |= a[1:, :]
@@ -72,10 +83,56 @@ out = ['// 🔴 自動生成。手で直さない。作り直しは `python hard
        '        cylinder(d = PROP_TIP2, h = min(PROP_NECK2, h - base) + PROP_BITE2, $fn = 12);',
        '}', '']
 rep = []
+def sq_dilate(a, r):
+    o = a.copy()
+    for _ in range(r):
+        n = o.copy()
+        n[1:, :] |= o[:-1, :]; n[:-1, :] |= o[1:, :]
+        n[:, 1:] |= o[:, :-1]; n[:, :-1] |= o[:, 1:]
+        o = n
+    return o
+
+
+n_dropped = {}
 for part in PARTS:
     tris = read_stl(bake(part))
     col, zs, ze, us, vs, nu, nv = zcolumns(tris, P)
     z0 = zs.min(); cell = P * P
+    # 🔴 2026-08-27 ユーザー「ネジ穴や回転部分にサポートが立っている。これはまずい」。
+    #    空いていなければならない体積（keepout）に柱の胴（φPROP_D）＋逃げ MIN_GAP が
+    #    1mm³ でも入るなら、その柱は**立てない**。天井は持たれないまま残る（＝短いブリッジになる）。
+    kp = bake_keepout(part)
+    KR = int(np.ceil((PROP_D / 2 + MIN_GAP) / P))     # 柱の胴＋逃げ（セル）
+    if kp is None:
+        kcol = kzs = kze = None
+    else:
+        ktris = read_stl(kp)
+        kcol, kzs, kze, kus, kvs, knu, knv = zcolumns(ktris, P)
+        # keepout の格子は部品の格子と原点が違う → 部品の格子の座標へ載せ替える
+        ki = np.clip(np.searchsorted(us, kus[kcol // knv]) - 1, 0, nu - 1)
+        kj = np.clip(np.searchsorted(vs, kvs[kcol % knv]) - 1, 0, nv - 1)
+        kcol = ki * nv + kj
+    kcache = {}
+
+    def keepout_at(z):
+        """高さ z で「柱を立てられない」セルの地図（keepout を柱の太さ分ふくらませた物）"""
+        if kcol is None: return None
+        key = round(z, 3)
+        if key not in kcache:
+            m = np.zeros(nu * nv, bool)
+            m[kcol[(kzs <= z) & (kze > z)]] = True
+            kcache[key] = sq_dilate(m.reshape(nu, nv), KR)
+        return kcache[key]
+
+    def blocked(i, j, base, h):
+        """base〜h のどこかで keepout に触るなら True"""
+        if kcol is None: return False
+        z = base + 0.05
+        while z < h:
+            m = keepout_at(round(z, 2))
+            if m is not None and m[i, j]: return True
+            z += 0.2
+        return False
     nr = int(round(REACH / P))
     picks = []
     # 🔴 間隔と覆いの帳簿は**層ごと**に取る。全層で 1 つの帳簿にすると、会話ボタンの受け（天井 6.20）の真下に
@@ -132,6 +189,8 @@ for part in PARTS:
             for i, j in band:
                 if not needD[i, j]: continue                       # この辺りの天井は縁が持っている
                 if h - basegrid[i, j] < 0.4: continue              # 下の肉がほぼ届いている ＝ 柱は要らない
+                if blocked(i, j, basegrid[i, j], h):                   # ネジ・ナット・軸・回る物の居場所
+                    n_dropped[part] = n_dropped.get(part, 0) + 1; continue
                 if any((i - a) ** 2 + (j - b) ** 2 < ps2 for a, b in placed): continue
                 is_outer = (r < PROP_D / 2 + MIN_GAP + P and
                             comp_outer[max(0, i - ro):min(nu, i + ro + 1), max(0, j - ro):min(nv, j + ro + 1)].any())
@@ -147,6 +206,8 @@ for part in PARTS:
         for i, j in sorted(np.argwhere(rem).tolist(), key=lambda c: -dist[c[0], c[1]]):
             if not rem[i, j]: continue
             if h - basegrid[i, j] < 0.4: continue
+            if blocked(i, j, basegrid[i, j], h):                    # 持たれないまま残す（残りの面積に出る）
+                n_dropped[part] = n_dropped.get(part, 0) + 1; continue
             if any((i - a) ** 2 + (j - b) ** 2 < fs2 for a, b in placed): continue
             picks.append((us[i], vs[j], basegrid[i, j], h, basegrid[i, j] < 0.01)); placed.append((i, j))
             rem[max(0, i - nr):min(nu, i + nr + 1), max(0, j - nr):min(nv, j + nr + 1)] = False
@@ -176,3 +237,5 @@ for part in PARTS:
 io.open(os.path.join(HERE, '_v4_props.scad'), 'w', encoding='utf-8').write('\n'.join(out) + '\n')
 print('%-9s %7s %12s %6s %6s %12s' % ('部品', '天井Z', '要る面積', '輪', '埋め', '残り'))
 for r in rep: print('%-9s %7.2f %9.1f mm2 %6d %6d %9.1f mm2' % r)
+print('keepout（ネジ・ナット・軸・回る物）で落とした柱:',
+      ' '.join('%s %d' % kv for kv in sorted(n_dropped.items())) or 'なし')
