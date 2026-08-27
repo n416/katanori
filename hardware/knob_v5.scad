@@ -765,7 +765,7 @@ module post_solid(x, y) difference() {
     if (!is_dowel(x, y)) post_groove(x, y);
 }
 // 棒: 外周の裏（Z_PAD_BOT）から、基板を貫いて Z_PIN_BOT まで φ3.5。
-//   基板の表（Z_PCB_TOP）から上へ POST_COLLAR_H だけ φ4.5 の段（基板の上限を決める面）
+//   基板の表（Z_PCB_TOP）から上へ POST_COLLAR_H だけ φ4.0 の段（基板の上限を決める面）
 module post_body(x, y) translate([x * POST_XY_LO, y * POST_XY_LO, 0]) {
     translate([0, 0, Z_PIN_BOT]) cylinder(d = POST_D, h = Z_PAD_BOT - Z_PIN_BOT);
     translate([0, 0, Z_PCB_TOP]) cylinder(d = POST_COLLAR_D, h = POST_COLLAR_H);
