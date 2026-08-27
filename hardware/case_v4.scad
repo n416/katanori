@@ -18,8 +18,9 @@ W = "none";      // _v4_core の内部スイッチ（芯だけの検査 deskseat
 // ---- part の一覧（v3 と同じ流儀・2026-08-25 ユーザー「V3 と同じ part を」で V/P4 を廃止）----
 //   絵     : look（組んだ全体）/ inside（OPEN の板を外して中身）/ explode（分解・組む向き）
 //   板     : p_floor p_lwall p_rwall p_top p_front p_hatch p_shutter p_lock p_tail（印刷部品・角丸込み）
+//   受け   : p_seat（充電基板の受け。🔒 2026-08-27 に床から出て独立した印刷部品になった・D-1）
 //            bridge（ブリッジ＋電池・電流計・PowerBoost・左右の壁・結束バンド。🔒 単体では見えないのでこの一式で出す）
-//   刷る向き: print_floor 〜 print_hatch print_shutter print_lock print_tail（外面を下に・底 Z0）
+//   刷る向き: print_floor 〜 print_hatch print_shutter print_lock print_tail（外面を下に・底 Z0）/ print_seat（壁に当たる面を伏せる）
 //   静止   : chk_floor chk_lwall chk_rwall chk_top chk_front chk_hatch（板 ↔ 中身＋他の板）/ chk_all（皮全部 ↔ 中身）
 //            chk_top_spk（天板 ↔ SPK_LIFT で持ち上げたスピーカー。枠ごと板に入るので専用に見張る）
 //            —— **全部 0 が正**（押し代は除外済み）。chk_press だけは **≈6mm3 が正**（ReSpeaker の押さえが板に届いている証拠）
@@ -27,6 +28,9 @@ W = "none";      // _v4_core の内部スイッチ（芯だけの検査 deskseat
 //            close_hatch（蓋・トグルごと閉じる）/ close_desk（ブリッジを降ろす＝core の deskseat）
 //   線     : chk_wire（WP で 1 束に絞れる・束 ↔ 部品と皮）/ chk_wire_w（束 ↔ 他の束＋電源系）/ chk_wire_pwr（電源系 7 本）
 //   充電基板: chk_tc（Type-C の受け＋押さえ ↔ 基板と周り。**0 が正**）
+//            chk_seat_in（受けを床の枠へ入れる道。SEAT_DIR z/y/x ＋ SEAT_STAGE early/step3/late。
+//            **early と step3 で 0・late で止まるのが正** ＝「入れられるのは手順 4 の頭だけ」の裏取り）
+//            chk_tc_pocket / _z / _x（受けを**壁の部品にした場合**に板が入るか。全部止まる ＝ 壁の案を落とした根拠）
 //   電池   : chk_shut_slide（蓋を右へずらす）/ chk_shut_out（蓋を抜く）/ chk_lock_out（ロックを後ろへ外す）/ chk_swap（電池を後ろへ抜く・v3 と同名）
 //   絵（部分）: btnslot（会話ボタンの受けに彫った溝と、そこを通る電源 2 本・INA の直立ての口）
 //              seatgap（電流計の座ぐりの断面。ネジの先 ↔ 留め帯の天板の裏＝電池の上面。SEATGAP_Y で 1 本に絞れる）
@@ -92,7 +96,17 @@ TC4_GX1 = 4.25;               // 返しの表（ハウジング 4.524 へ 0.274�
 TC4_BX1 = 4.70;               // 控えの表
 TC4_FY1 = TC4_Y0 - TC4_CL;    // 前の当ての後ろ面（57.15）
 TC4_FY0 = TC4_FY1 - 1.2;      // 前の当ての前面（55.95）
-module tc_seat4() {
+module tc_seat4() difference() {
+    tc_seat4_raw();
+    // 🔴 2026-08-27（D-1）ハブの柱（φ7・Z 0〜2.5）を 0.3 の逃げ付きで欠く。
+    //   ⑤ の後ろの三角は後ろ左の柱（[9.0, 64.9]・左端 X 5.5）と **0.85mm³ 重なっていた**。
+    //   受けが床の一部だった間は同じ部品どうしなので union で溶けて見えなかったが、壁の部品になった今は
+    //   別々の印刷物が同じ場所を取り合う（chk_floor 0 → 0.85 / chk_lwall 0.06 → 0.92 で出た）。
+    //   ⚠ 逃げの実績の行にある「⑤ の右 5.9 ↔ ハブの左端 6.002 = 0.102」は**基板の縁**との距離で、
+    //     その下の柱を見ていなかった。柱の側が 0.5 手前まで来ている。
+    for (h = HUB_HOLES4) translate([h[0], h[1], -1]) cylinder(d = HUB_POST_D + 0.6, h = BOARD_Z + 1, $fn = 32);
+}
+module tc_seat4_raw() {
     // ① 底の座（板の下端 Z 0.5 を受ける。床の後端 IN_Y までで切る）
     translate([LW_X, TC4_FY0, 0]) cube([3.9 - LW_X, IN_Y - TC4_FY0, 0.5]);
     // ② 前の当て（−Y を止める壁・全高）
@@ -101,12 +115,37 @@ module tc_seat4() {
     translate([TC4_GX0, TC4_FY1, 0]) cube([TC4_GX1 - TC4_GX0, 58.35 - TC4_FY1, TC4_ZT]);
     // ④ 後ろの控え（ピン列とコネクタ胴の間・全高）
     translate([TC4_GX0, 62.0, 0]) cube([TC4_BX1 - TC4_GX0, 65.5 - 62.0, TC4_ZT]);
-    // ⑤ 補強の三角（② は 1.2 厚で 20.5 立つので前へ、④ は右へ。どちらも Z の途中で消える）
-    translate([LW_X, 0, 0]) rotate([90, 0, 90]) linear_extrude(TC4_GX1 - LW_X)
-        polygon([[TC4_FY0 - 3.75, 0], [TC4_FY0, 0], [TC4_FY0, 12.0]]);
+    // ⑤ 補強の三角（④ は右へ。Z の途中で消える）
+    //   🔒 2026-08-27 ユーザー了解（D-1）: **前の三角は落とした。**② の前面を床の枠（seat_frame4）が
+    //   Z 0〜8.5 で直接受けるようになったので、② を前へ突っ張る役目は枠へ移った。
+    //   落とした理由は 2 つ: ①三角の斜面に噛む枠は**庇**になり、受けを真上から落とせなくなる
+    //   （持ち上げるほど斜面が前へ出る）。②垂直の枠だと当たるのが三角の先端 Z 0 だけで、
+    //   ケーブルの力（口の中心 Z 10.5）に対して腕が 10.5mm 残る。三角を落とすと ② の前面が
+    //   Z 0 から平らに出るので、枠が Z 8.5 まで面で受けられる（腕 2.0mm）。
+    //   ⚠ 代わりに、受けが単体（箱に入る前）のときは ② が 2.556 × 1.2 × 20.5 の柱になって折れやすい。
     translate([0, 65.5, 0]) rotate([90, 0, 0]) linear_extrude(65.5 - 62.0)
         polygon([[TC4_BX1, 0], [5.9, 0], [TC4_BX1, 10.0]]);
 }
+// ---- 受けを落とす枠（床の側・🔒 2026-08-27 ユーザー「①で落とし終わったらストッパーをねじ止め」の後継）----
+//   ストッパーは**ビスの座が置けない**ので採らなかった: 受けの前は 壁（X 1.694）と デュポンのハウジング
+//   （X 4.524）に挟まれた **2.83mm 幅**のスリットしか無く、M2 の通し穴 φ2.5 ＋ 肉に要る 4.1mm が入らない。
+//   前の上（Z 9〜20）・後ろ（Y 68.6〜72）・後ろの上も、ナット（二面幅 4.3）の座 5.5 角が取れなかった。
+//   ⇒ ⑤ 前の三角を落として、枠が ② の前面を面で受ける形にした（ユーザー了解済み）。
+//   受けが動ける向きと、それを止める物:
+//     −Y ケーブルを挿す力  → **この枠**（Z 0〜8.5 の面）
+//     −X 壁の側            → 左の壁の内面（受けの裏の面がそのまま X 1.694）。手順 4 で降りる
+//     +X ハブの側          → ハブの後ろ左の柱（φ7・左端 X 5.5）。⑤ 後ろの三角の右 5.9 が 0.3 で当たる
+//     +Y ハッチの側        → ① 底の座の後端 Y 72 ＝ ハッチの内面。手順 12 で閉じる
+//     +Z 上へ              → 何も載らないので効かない（ケーブルの力は −Y だけ）
+//   🔴 2026-08-27 枠の背を 8.5 にして刷る背が 8.50 → 10.50 に伸びた。**床の刷る背 8.50 は
+//      床板の厚み 2.0 を含んだ数字**で、床の上に立っている物の頭は世界の **Z 6.5** が一番高い
+//      （ReSpeaker の溝の壁）。ここを越えると床が伸びる。6.5 なら伸びない（実測 8.50 のまま）。
+SEAT_FR_H  = 6.5;                       // 🔒 枠の背 ＝ 床の上に立っている物の頭（世界 Z 6.5）。ここまでは刷る背が変わらない
+SEAT_FR_T  = 1.2;                       // ⚠ AI 仮 枠の厚み（② と同じ 1.2）
+SEAT_FR_Y1 = TC4_FY0 - TC4_CL;          // 55.70 枠の後ろ面（② の前面 55.95 から 0.25 逃げる）
+SEAT_FR_Y0 = SEAT_FR_Y1 - SEAT_FR_T;    // 54.50 枠の前面
+//   ⚠ 枠は ② の真ん前だけに立てる。前へ伸ばすと、壁を降ろすときに通る 3 点目の棚（Y 45.0〜50.4）に当たる
+module seat_frame4() translate([LW_X, SEAT_FR_Y0, 0]) cube([TC4_GX1 - LW_X, SEAT_FR_T, SEAT_FR_H]);
 
 // ---- 床 ----
 //   v3 の床（まな板）と同じ形。違いは ① ハブのビス穴と柱が +4（HUB_DY）② ブリッジの前の脚の受け溝 ③ 後ろ右の床ビスの位置
@@ -131,10 +170,13 @@ module floor_v4() {
             //    → 前縁をハブの後端 + 0.5 ＝ Y 68.4 へ。バーは Y 68.4〜70 に痩せるが、爪の唇（〜Y 68.2）はまだ 1.6 掛かる。
             //    ⚠ バーの前面とハブの半田面の予約の隙間は 0.1（予約は包絡。実際の足はまばら）
             color("#9aa5b1") translate([RSP_RIB_X0, HUB_Y0 + HUB_DY + HUB_W + 0.5, 0]) cube([RSP_RIB_X1 - RSP_RIB_X0, IN_Y - (HUB_Y0 + HUB_DY + HUB_W + 0.5), CLAW_STRIP_H]);
-            // 充電（Type-C）基板の受け 🔒 2026-08-25（形はユーザー検収済み）
-            //   🔴 ここには「前の振れ止めリブ」（X LW_X〜4.694・Y 47.7〜48.4・Z 0〜3.0）が立っていたが、
+            // 🔒 2026-08-27 ユーザー決定（D-1）: 充電（Type-C）基板の受け（tc_seat4）は **床から出して
+            //   独立した印刷部品にした**。床でここに立っていたときは、床の他が全部 Z 8.5 で平らなのに
+            //   この受けだけが Z 20.5 まで立っていて、床の刷る背が 8.5 → 22.5・層数 170 → 450 になっていた。
+            //   床に残るのは受けを落とす枠（seat_frame4・Z 0〜8.5）だけ。
+            //   🔴 ここには「前の振れ止めリブ」（X LW_X〜4.694・Y 47.7〜48.4・Z 0〜3.0）も立っていたが、
             //      板の前縁を 48.67 と読み違えたもので、実際の板は Y 57.4〜。リブは何にも触っていなかったので廃止。
-            color("#9aa5b1") tc_seat4();
+            color("#9aa5b1") seat_frame4();
             // ブリッジの前の脚（1 枚板・厚み 2.0）の受け溝 ⚠ AI 仮（ReSpeaker の「溝＋押さえ」の型の写し。Z の留めは無し・⬜）
             //   脚 X 21.5〜44.5・Y 12.9〜14.9。溝は ±0.25、壁は前 1.6・後ろ 0.45（🔴 ハブの前縁 15.9（⚠ HUB_DY=4 仮）から 0.3 逃げた残り）
             color("#9aa5b1") difference() {
@@ -198,6 +240,10 @@ module lwall_v4() {
             brg_ledges(-1);   // ブリッジを留める棚（Y 30.5〜36.5・ナット入り・_v4_core の「箱への固定」）
             brg_ledge_up();   // 3 点目の棚（Y 45.0〜50.4・帯の左端を**上から**留める・_v4_core の BLU_*）
             brg_tc_press();   // 🔒 2026-08-27 ユーザー: 充電基板の抜け止めをブリッジから**この壁へ**移した（_v4_core の TC_PRESS）
+            // 🔴 2026-08-27（D-1）ここへ受け（tc_seat4）を移す案は**落とした**。壁の部品にすると板が受けに入らない:
+            //    横から壁の面へ当てる 111.4mm³（③④ が板の表を覆う）／後ろから差す 48.5mm³（④ ↔ 板の L 字コネクタ）／
+            //    壁の面を真下へ滑らせる 61.6mm³（天面の後ろ左のボス 56.5 ＋ 押さえ 5.1）。受けが床に在る間は
+            //    板が受けに対して真下へ入るので当たらなかった。⇒ 受けは**独立した印刷部品**にした（下の p_seat）
             for (b = BOSSES) if (b[0] < IN_X / 2) top_boss(b, BOSS_H);
             ear_col(EAR_X[0][0], EAR_X[0][1]);
             color("#b6c0cc") difference() {
@@ -433,7 +479,9 @@ module skin1(k) {
 SKINS = ["floor", "lwall", "rwall", "top", "front", "hatch"];
 module skin_all() for (k = SKINS) skin1(k);
 module skin_except(k) for (n = SKINS) if (n != k) skin1(n);
-module innards4(tgl = 0) { core(); color("#f6ad55") bat_v4(); pb_bat(); pbl_hous(); pbu_hous(); ina_bat(); tgl_v4(tgl); if (tgl != 0) tail_at(); tcb_v4(); brg_v4(); brg_front(); straps_v4(); wires_pwr(); wires_sig(); door4(0, tgl != 0); }   // tgl: レバーの角度。絵は TAIL_ANG ＋ 尻尾＋蓋のビスの絵付き。door4 = 電池の蓋一式（閉）
+// 🆕 2026-08-27（D-1）受けは印刷部品だが皮（SKINS）でも芯（core）でもないので、ここで箱の中身に混ぜる。
+//    こうしないと chk_floor / chk_lwall / chk_all が受けを一度も見ない
+module innards4(tgl = 0) { core(); color("#f6ad55") bat_v4(); pb_bat(); pbl_hous(); pbu_hous(); ina_bat(); tgl_v4(tgl); if (tgl != 0) tail_at(); tcb_v4(); color("#8d99a6") tc_seat4(); brg_v4(); brg_front(); straps_v4(); wires_pwr(); wires_sig(); door4(0, tgl != 0); }   // tgl: レバーの角度。絵は TAIL_ANG ＋ 尻尾＋蓋のビスの絵付き。door4 = 電池の蓋一式（閉）
 
 if (part == "look") { rounded4() skin_all(); innards4(TAIL_ANG); }
 OPEN = ["floor", "lwall", "rwall", "top"];   // 🔒 2026-08-25 ユーザー「inside は本来 壁なし・床なし・天井なし（v3 から壊れてた）」。残すのはフロントとハッチ
@@ -478,6 +526,13 @@ if (part == "print_front") { translate([0, 0, -FY_OUT]) rotate([90, 0, 0]) p_one
 if (part == "print_hatch") { hatch_print(); tabs_x((IN_Z + TOP_T - FLOOR_T) / 2); // ⚠ 同じ高さの天井でも、足元は 1 つではない: ハッチの 3.00 は**電池の口の上（下は空でプレートまで）**と
    //    **板の上（0〜2.0）**の両方に跨がっている。両方の足元で立てる（重ならない場所どうしなので二重にはならない）
    if (!PROPS_OFF) { props_hatch(); raft_hatch(); } }
+// 充電基板の受け（🔒 2026-08-27 ユーザー決定・D-1 で床から独立した部品になった）。
+//   刷る向き: **壁に当たる面（−X）を伏せて寝かせる。** 世界の X がそのまま刷る Z になり、部品の背は 4.21mm。
+//   立てて（世界のまま）刷ると 4.21 × 19.8 の足で 20.5 の塔になる。寝かせれば ①②（壁に当たる面）が
+//   そのままプレートに着く。⚠ 接地は 33mm² と小さいので ラフトを敷く（props/raft は _v4_props.py が出す）。
+if (part == "p_seat")     tc_seat4();
+if (part == "print_seat") { translate([TC4_ZT, 0, -LW_X]) rotate([0, -90, 0]) tc_seat4();
+                            if (!PROPS_OFF) { props_seat(); raft_seat(); } }
 if (part == "print_shutter") translate([0, 0, SW4_YOUT]) rotate([-90, 0, 0]) battery_shutter4(0);
 if (part == "print_lock")    translate([0, 0, SW4_YOUT]) rotate([-90, 0, 0]) battery_lock4();
 if (part == "print_tail")    translate([0, 0, -0.2]) tail_cap();
@@ -636,11 +691,13 @@ if (part == "seatgap") seatgap_slice();
 //   chk_floor / chk_all では「板 ↔ 中身」の片側に入ってしまい、基板そのものとの当たりが見えない。専用に見張る。
 //   🔴 2026-08-27 押さえを左の壁へ移したので、相手の union から**押さえ自身を引く**。引かないと
 //      自分と自分が当たって、押さえの体積そのもの（5.559mm³）が出る（＝ 嘘の当たり）。
+//   🆕 2026-08-27（D-1）受けは独立した印刷部品になったので、相手には**床（枠ごと）**を入れる。
+//      受け ↔ 枠は 0.25 逃げているので 0 が正。受けの底面と床の上面は面で接するだけ（体積は出ない）。
 if (part == "chk_tc") intersection() {
     union() { tc_seat4(); brg_tc_press(); }
     union() { core(); tcb_v4(); bat_v4(); pb_bat(); pbl_hous(); pbu_hous(); ina_bat(); straps_v4();
               wires_pwr(); wires_sig(); door4(); difference() { lwall_v4(); brg_tc_press(); }
-              rwall_v4(); top_v4(); front_v4(); hatch_v4(); }
+              floor_v4(); rwall_v4(); top_v4(); front_v4(); hatch_v4(); }
 }
 // 充電基板を**上から落として**据えられるか（押さえが壁に移った 2026-08-27 の確認）。
 //   板を Z +12 の高さから下ろす軌跡 ↔ その時点で箱に在る物（床・左右の壁・ハブ・ReSpeaker）。
@@ -655,6 +712,32 @@ if (part == "chk_tc_drop") intersection() {
 if (part == "chk_tc_slide") intersection() {
     union() for (t = [0 : 0.5 : 16]) translate([0, t, 0]) tcb_v4_bare();
     union() { floor_v4(); lwall_v4(); rwall_v4(); hub_unit(); respeaker_at(); }
+}
+
+// 🆕 2026-08-27（D-1）受けが壁の部品になったので、板は**箱の外で壁に組む**。その動きを当てる。
+//   相手は左の壁だけ（床も他の板もまだ無い）。板は受けのポケットへ入るので、入る向きは 1 つしかない。
+//   chk_tc_pocket   後ろ（+Y 側）から −Y へ滑り込ませる ── **0 が正**（これが入れ方）
+//   chk_tc_pocket_z 真上から落とす ── **止まるのが正**（天面の後ろ左のボスが footprint を塞ぐ）
+//   chk_tc_pocket_x 壁の内面へ真横（−X）から当てる ── **止まるのが正**（③④ の返しが板の表を覆う）
+if (part == "chk_tc_pocket")   intersection() { union() for (t = [0 : STEP : 18]) translate([0, t, 0]) tcb_v4_bare(); lwall_v4(); }
+if (part == "chk_tc_pocket_z") intersection() { union() for (t = [0 : STEP : 24]) translate([0, 0, t]) tcb_v4_bare(); lwall_v4(); }
+if (part == "chk_tc_pocket_x") intersection() { union() for (t = [0 : STEP : 12]) translate([t, 0, 0]) tcb_v4_bare(); lwall_v4(); }
+
+// 🆕 2026-08-27（D-1）受けを**別部品**にしたとき、板を壁の面に当てた後から受けを入れられるか。
+//   相手は「その時点で箱に在る物」＝ 床・左右の壁（どちらからも受けを引く）・ハブ・ReSpeaker・Type-C 基板。
+//   SEAT_DIR: "z" 真上から落とす / "y" 後ろ（+Y 側）から −Y へ差す / "x" ハブ側（+X）から −X へ差す
+//   **0 が正**（＝ その向きから入る）。
+//   SEAT_STAGE: "late" 板と壁が入った後 / "early" 手順 1 の直後（床とハブだけ）/ "step3" 手順 3 の後（線まで通した段）
+SEAT_DIR = "z"; SEAT_STAGE = "early";
+module seat_world_noseat() {
+    floor_v4(); hub_unit();
+    if (SEAT_STAGE != "early") { respeaker_at(); wires_low(); }
+    if (SEAT_STAGE == "late") { lwall_v4(); rwall_v4(); tcb_v4_bare(); }
+}
+if (part == "chk_seat_in") intersection() {
+    union() for (t = [0 : STEP : 20])
+        translate(SEAT_DIR == "z" ? [0, 0, t] : SEAT_DIR == "y" ? [0, t, 0] : [t, 0, 0]) tc_seat4();
+    seat_world_noseat();
 }
 
 // 組む動き（v4 の①〜⑬は ⬜ ユーザー待ち。板ごとの入れる向きだけ当てる）:
@@ -711,6 +794,7 @@ EXPLODE4 = 40; EX4 = 22; S4 = 6;
 if (part == "explode") {
     E = EXPLODE4; EX = EX4; S = S4;
     rounded4() floor_v4(); hub_unit(); respeaker_at(); xiao_hous(); oled_at(); oled_hous(); tcb_v4();
+    translate([0, 0, 0.25 * E]) color("#8d99a6") tc_seat4();   // 🆕 受け（手順 4 の頭に床の枠へ落とす別部品）
     translate([-EX, 0, E]) rounded4() lwall_v4();
     translate([EX, 0, E])  rounded4() rwall_v4();
     translate([0, 0, 0.35 * E])          brg_front();                                     // 前板（先に床の溝へ差す）

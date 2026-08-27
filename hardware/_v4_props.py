@@ -32,7 +32,7 @@ PROP_D = 2.0      # 柱の径（knob_v5 実績。φ1.4 は薄皮のまま面ご�
 MIN_GAP = 0.3     # 柱と輪郭の逃げ
 PITCH = 3.0       # 輪の間隔・輪の上の間隔（隣まで 4mm を超えない実績値）
 FILL_PITCH = 2.4  # 埋めの最小間隔（隣との隙間 0.4 ＝ 癒着の実績 0.36 の外）
-PARTS = ['top', 'hatch', 'bridge', 'strap_a', 'strap_b', 'strap_c']
+PARTS = ['top', 'hatch', 'bridge', 'strap_a', 'strap_b', 'strap_c', 'seat']   # seat = 充電基板の受け（2026-08-27・D-1 で独立した部品になった）
 
 
 def bake(part):
@@ -155,7 +155,8 @@ for part in PARTS:
     BARE = {'top': 'top_print()', 'hatch': 'hatch_print()',
             'bridge': 'translate([0, 0, -(BAT_Z - BRG_T)]) brg_v4()',
             'strap_a': 'strap_print(STRAP_BANDS[0])', 'strap_b': 'strap_print(STRAP_BANDS[1])',
-            'strap_c': 'strap_print(STRAP_BANDS[2])'}[part]
+            'strap_c': 'strap_print(STRAP_BANDS[2])',
+            'seat': 'translate([TC4_ZT, 0, -LW_X]) rotate([0, -90, 0]) tc_seat4()'}[part]
     out.append('module props_%s() { %s }' % (part, ' '.join(
         'one_prop(%.2f, %.2f, %.2f, %.2f);' % p[:4] for p in picks)))
     layers = {}

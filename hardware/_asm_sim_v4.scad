@@ -26,6 +26,7 @@ module s_hub()    translate([HUB_DX, HUB_DY, 0]) hub_at();                      
 module s_plugs()  translate([HUB_DX, HUB_DY, 0]) for (id = PLUGGED_9) housing(id);   // ハブの口 10 本に挿した DuPont
 module s_rsp()    { respeaker_at(); rsp_j2_space(); }
 module s_tcb()    tcb_v4();
+module s_seat()   color("#8d99a6") tc_seat4();   // 🆕 2026-08-27（D-1）充電基板の受け。床から出て独立した印刷部品になり、手順 4 の頭で床の枠へ落とす
 module s_walls()  rounded4() { lwall_v4(); rwall_v4(); }
 module s_brg()    { brg_v4(); brg_front(); brg_hw(); }   // brg_hw = 箱へ留める M2×6 とナット 3 組（手順 5 で締める）。前板は先に床の溝へ差す（2026-08-26 に別部品になった）
 module s_oled()   oled_at();
@@ -38,7 +39,7 @@ module s_front()  rounded4() front_v4();
 module s_hatch()  { rounded4() hatch_v4(); tgl_v4(TAIL_ANG); tail_at(); door4(0, true); }
 
 // ---- 手順の段（累積）------------------------------------------------------
-//  1 床にハブ / 2 ReSpeaker / 3 ハブの口 10 本＋低い車線 / 4 左右の壁＋Type-C（壁と一緒に降ろす）/ 5 ブリッジ
+//  1 床にハブ / 2 ReSpeaker / 3 ハブの口 10 本＋低い車線 / 4 受けを落とす＋左右の壁＋Type-C（壁と一緒に降ろす）/ 5 ブリッジ
 //  🔒 2026-08-26 6 と 7 を入れ替えた。留め帯のツバは横からしか入らず、電池が先に居ると差せない
 //  6 留め帯（横から差す）/ 7 電池（後ろから差し込む）/ 8 電流計と PowerBoost / 9 OLED と上の車線と電源系の線
 // 10 天面一式 / 11 フロント / 12 ハッチ
@@ -46,7 +47,7 @@ module upto(n) {
     if (n >= 1)  { s_floor(); s_hub(); }
     if (n >= 2)  s_rsp();
     if (n >= 3)  { s_plugs(); xiao_hous(); w_low(); }
-    if (n >= 4)  { s_walls(); s_tcb(); }   // 🔒 2026-08-25 Type-C は左の壁と一緒に降ろす（CASE-V4-OPEN.md A-13）
+    if (n >= 4)  { s_seat(); s_walls(); s_tcb(); }   // 🔒 2026-08-25 Type-C は左の壁と一緒に降ろす（CASE-V4-OPEN.md A-13）。🆕 受けはその前に床の枠へ落とす（D-1）
     if (n >= 5)  s_brg();
     if (n >= 6)  s_strap();
     if (n >= 7)  s_bat();

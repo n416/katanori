@@ -43,3 +43,9 @@ module raft_strap_c() difference() {
     // 部品がプレートに着く足の周り 0.5 を空ける（手本のラフト ↔ ピンの隙間 0.4 と同等）
     translate([0, 0, -0.1]) linear_extrude(0.6) offset(r = 0.5) projection(cut = true) translate([0, 0, -0.15]) strap_print(STRAP_BANDS[2]);
 }
+module props_seat() { one_prop(18.88, 63.06, 0.00, 1.85); one_prop(15.88, 63.06, 0.00, 1.85); one_prop(12.88, 63.06, 0.00, 1.85); one_prop(10.13, 64.31, 0.00, 1.85); one_prop(7.13, 64.31, 0.00, 1.85); one_prop(4.13, 64.31, 0.00, 1.85); one_prop(1.13, 64.31, 0.00, 1.85); one_prop(0.13, 62.06, 0.00, 1.85); one_prop(2.63, 62.06, 0.00, 1.85); one_prop(5.13, 62.06, 0.00, 1.85); one_prop(8.13, 62.06, 0.00, 1.85); one_prop(13.88, 65.31, 0.00, 1.85); one_prop(16.88, 65.31, 0.00, 1.85); }
+module raft_seat() difference() {
+    linear_extrude(0.3) union() { hull() { translate([0.13, 62.06]) circle(d = PROP_D2, $fn = 16); translate([2.63, 62.06]) circle(d = PROP_D2, $fn = 16); translate([5.13, 62.06]) circle(d = PROP_D2, $fn = 16); translate([8.13, 62.06]) circle(d = PROP_D2, $fn = 16); translate([13.88, 65.31]) circle(d = PROP_D2, $fn = 16); translate([16.88, 65.31]) circle(d = PROP_D2, $fn = 16); } }
+    // 部品がプレートに着く足の周り 0.5 を空ける（手本のラフト ↔ ピンの隙間 0.4 と同等）
+    translate([0, 0, -0.1]) linear_extrude(0.6) offset(r = 0.5) projection(cut = true) translate([0, 0, -0.15]) translate([TC4_ZT, 0, -LW_X]) rotate([0, -90, 0]) tc_seat4();
+}
