@@ -195,6 +195,19 @@ Z_BTN_DISH = Z_TOP - BTN_DISH_T; BTN_PAD_T = 1.6; Z_BTN_PAD = Z_BTN_DISH - BTN_P
 Z_NECK0 = Z_BTN_PAD - 0.2; Z_NECK1 = Z_NECK0 - BTN_CLIP_T - BTN_TRAVEL - 0.2; Z_TIP = Z_NECK1 - BTN_LIP_H;
 Z_TSW_TOP = Z_TIP - (tsw_h() - tsw_body_h()); Z_TSW_BOT = Z_TSW_TOP - tsw_body_h();
 BTN_PAD_X = 25.0; BTN_PAD_Y = 15.0; BTN_CLAW_W = 5.0; BTN_CLAW_G = 0.5; BTN_PKT_T = 1.2; BTN_POST_I = 3.6;
+// 🔒 2026-08-27 ユーザー「あっちもカクカクで」「削れる所あるかみてくれる？」→「1.6 で」。
+//    受けの板は 25 x 15 の長方形だったが、支えているのは皿（19.2 x 13.2 の小判）の底だけで、
+//    隅の 80.0mm²（21%・肉 108mm³）は空気だった。皿の輪郭に壁 1.6 を残して沿わせる。
+//    ⚠ 外へは広げない（BTN_PAD_X x BTN_PAD_Y の中で切るだけ）。皿＋1.6 は Y で 16.4 になり
+//      元の 15.0 を超えるので、そこは元の縁で止まる。
+//    🔴 この板の隅は 2026-08-26 に 2 度、手で欠いてある（case_v4 の INA の線の逃げ／OLED の
+//       ナットの座）。1 度目は皿の底を抜いて表に穴が開いた。板が皿に沿っていれば要らない欠き。
+BTN_PAD_WALL = 1.6;
+module btn_pad_2d() intersection() {
+    offset(r = BTN_PAD_WALL) hull() for (s = [-1, 1])
+        translate([s * (BTN_DISH_L - BTN_DISH_W) / 2, 0]) circle(d = BTN_DISH_W, $fn = 64);
+    square([BTN_PAD_X, BTN_PAD_Y], center = true);
+}
 BTN_AT = [TOP_MARGIN + BTN_DISH_L / 2, TOP_MARGIN + SPK_EMB_D + TOP_MARGIN + BTN_DISH_W / 2];
 KNOB_AT = [65.704, KNOB_YC, Z_TOP];   // 🔒 X は凍結 2026-08-25（旧式 IN_X-13-dish/2+6.8 を IN_X=86.004 で評価・全配線検証済み）
 // ReSpeaker の頭を押さえるリブ（v2: 前のリブ X 39.1〜45.1 と右の腕。押し代 0.3）
@@ -455,7 +468,7 @@ module grille_xy(cx, cy, w, d, z0, t, dia = 2.6, pitch = 4.2) {
 }
 module btn_socket() {   // v2 §4.7 そのまま
     B = tsw_body(); yi = B / 2 + 0.3;
-    translate([-BTN_PAD_X / 2, -BTN_PAD_Y / 2, Z_BTN_PAD]) cube([BTN_PAD_X, BTN_PAD_Y, IN_Z - Z_BTN_PAD]);
+    translate([0, 0, Z_BTN_PAD]) linear_extrude(IN_Z - Z_BTN_PAD) btn_pad_2d();   // 皿の輪郭 ＋ 壁 BTN_PAD_WALL
     difference() {
         translate([-BTN_POST_I - BTN_PKT_T, -BTN_POST_I - BTN_PKT_T, Z_TSW_TOP]) cube([(BTN_POST_I + BTN_PKT_T) * 2, (BTN_POST_I + BTN_PKT_T) * 2, Z_NECK1 - Z_TSW_TOP]);
         translate([0, 0, Z_TSW_TOP - 1]) cylinder(d = BTN_HOLE_D, h = Z_NECK1 - Z_TSW_TOP + 2, $fn = 32);

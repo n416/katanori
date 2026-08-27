@@ -119,6 +119,17 @@ STANDOFF_D_LO = 8.0;
 M25_HEAD_D = 3.0;          // ✅ 2026-08-23 ユーザー実測（M2 × 6・鉄）。旧 M2.5 ナイロン 5.0
 M25_HEAD_T = 1.3;          // ✅ 2026-08-23 ユーザー実測。旧 M2.5 ナイロン 3.0
 M25_LEN    = 6.0;          // ✅ 手持ちの M2×6。⚠ 変わったら echo ③ を見ること
+// 🔒 2026-08-27 ユーザー「一応座金を入れて対応してたよ」。AS5600 の穴は φ3.5 以上で、
+//    M2 の頭（φ3.0 実測）は**穴を素通りする**。座金が無いと締め付けが基板に伝わらない。
+//    実物では既に座金で対応済み。模型に入っていなかったので検査から見えていなかった。
+//    ⚠ 寸法は JIS の M2 平座金の呼び値（外径 5.0 / 内径 2.2 / 厚み 0.3）。現物は未実測
+WASHER_OD  = 5.0;
+WASHER_ID  = 2.2;
+WASHER_T   = 0.3;
+module as5600_washer() color("#9aa0a6") difference() {
+    cylinder(d = WASHER_OD, h = WASHER_T);
+    translate([0, 0, -0.5]) cylinder(d = WASHER_ID, h = WASHER_T + 1);
+}
 
 // ---- ナット（2026-08-21・貫通＋ナットへ移行。ユーザー指示「6角形を掘る」）----
 // 🔒 樹脂にネジを切らない。[DIMENSIONS.md](../docs/DIMENSIONS.md) 418行に既にある方針
@@ -994,7 +1005,7 @@ module stop_nuts() {
 
 // 組む単位で取り出せる形にした（2026-08-23）。筐体の explode 図が
 //   「持ち手・島・ねじ・E リング・基板」を別々に散らすため。assembly() はこれを順に呼ぶだけ
-KNOB_PARTS = ["knob", "mag", "screw", "wall", "nut", "ering", "pnut", "pcb", "pscr"];
+KNOB_PARTS = ["knob", "mag", "screw", "wall", "nut", "ering", "pnut", "pcb", "pscr", "pwas"];   // pwas = AS5600 の座金（2026-08-27 追加）
 function knob_parts() = KNOB_PARTS;   // use<> では変数が見えないので関数で渡す
 module knob_group(g) {
     if (g == "knob")  color("#d8dde3") knob_part();
@@ -1005,9 +1016,11 @@ module knob_group(g) {
     if (g == "pcb")   translate([0, 0, Z_PCB_BOT]) as5600(show_connector = false);
     if (g == "pscr")  color("#e8e8e8") for (x = [-1, 1], y = [-1, 1])
         translate([x * POST_XY_LO, y * POST_XY_LO, Z_PCB_BOT]) {
-            translate([0, 0, -1.3]) cylinder(d = 3.8, h = 1.3);
+            translate([0, 0, -WASHER_T - M25_HEAD_T]) cylinder(d = M25_HEAD_D, h = M25_HEAD_T);   // 頭（実測 φ3.0 × 1.3）
             cylinder(d = 2.0, h = PCB_T + M2_SHELF + M2_NUT_T);
         }
+    if (g == "pwas")  for (x = [-1, 1], y = [-1, 1])                                              // 座金（頭と基板のあいだ）
+        translate([x * POST_XY_LO, y * POST_XY_LO, Z_PCB_BOT - WASHER_T]) as5600_washer();
     if (g == "pnut")  color("#888") for (x = [-1, 1], y = [-1, 1])
         translate([x * POST_XY_LO, y * POST_XY_LO, Z_PCB_TOP + M2_SHELF])
             cylinder(d = M2_NUT_AF / cos(30), h = M2_NUT_T, $fn = 6);
