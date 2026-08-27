@@ -34,7 +34,7 @@ W = "none";      // _v4_core の内部スイッチ（芯だけの検査 deskseat
 //   電池   : chk_shut_slide（蓋を右へずらす）/ chk_shut_out（蓋を抜く）/ chk_lock_out（ロックを後ろへ外す）/ chk_swap（電池を後ろへ抜く・v3 と同名）
 //   絵（部分）: btnslot（会話ボタンの受けに彫った溝と、そこを通る電源 2 本・INA の直立ての口）
 //              seatgap（電流計の座ぐりの断面。ネジの先 ↔ 留め帯の天板の裏＝電池の上面。SEATGAP_Y で 1 本に絞れる）
-part = "explode";
+part = "look";
 WP = "";         // chk_wire 系で束を 1 つに: xiao / oled / as5600 / btn2 / phin / phout / ina / tgl / reed / chg（"" で全部）
 
 // ---- v4 の配置（芯と同じ式。数字を増やさない） ----
