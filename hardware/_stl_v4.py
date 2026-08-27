@@ -28,6 +28,7 @@ PARTS = [(k, CASE, 'print_%s' % k) for k in
 ]
 # 🔒 2026-08-27 ユーザー「rod と deck は要らない・wall と knob だけで」。
 #    rod はリードを押し込む**道具**、deck は卓上テスト用の**天板**で、どちらも機械の部品ではない。
+#    🔒 2026-08-27 ユーザー「rod はもう完全にいりませんね」で、rod は knob_v5.scad ごと削除した（part="rod" はもう無い）。
 NAMES = [k for k, _, _ in PARTS]
 
 want = sys.argv[1:] or NAMES
