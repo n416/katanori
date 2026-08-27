@@ -1255,8 +1255,11 @@ KNOB_YC = (SPK_C[1] + BTN_AT[1]) / 2;
 //      基板の右端 76.4 と PowerBoost 79.2 の間は 2.8mm 空いている。⇒ 板の角を逃がす
 KNOB_DX = 6.8;
 KNOB_AT = [IN_X - TOP_MARGIN - KNOB_DISH_D / 2 + KNOB_DX, KNOB_YC, Z_TOP];
-KNOB_Y0 = KNOB_YC - knob_bay_y() / 2;
-KNOB_Y1 = KNOB_Y0 + knob_bay_y();
+// 🔒 2026-08-27 knob_v5 の座の板が Y に対称でなくなり、knob_bay_y() が 39 → 35.5 になった。
+//    v2 の座はこの版の当時の 39 で決めてあるので、ここで凍結して動かさない（v2 は現物が無い）。
+KNOB_BAY_Y_V2 = 39.0;
+KNOB_Y0 = KNOB_YC - KNOB_BAY_Y_V2 / 2;
+KNOB_Y1 = KNOB_Y0 + KNOB_BAY_Y_V2;
 
 // ---- 前の押さえリブ（§4.8）の X。左右の余白がそろう位置に置く ----
 // 🔒 **両隣から出す。** 左はスピーカーの右端、右はつまみの座の左端。
