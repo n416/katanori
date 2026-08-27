@@ -6,6 +6,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "--", "--port", "5199"],
       "port": 5199
+    },
+    {
+      "name": "manual",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "5233", "--directory", "hardware"],
+      "port": 5233
     }
   ]
 }

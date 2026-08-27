@@ -72,11 +72,36 @@ if (ST == "wires") { core(); s_bat(); s_boards(); s_tcb(); brg_v4(); straps_v4()
 
 // ---- 入れる軌跡の検査（0 が正。相手は「その手順の直前まで」）------------------
 module sweep_z(h = 30) union() for (t = [0 : STEP : h]) translate([0, 0, t]) children();
+// ① ハブ基板を柱（φ7 × 2.5）へ真上から載せる（相手 = 床＋下から通した M3 のビス）。
+//   🔴 2026-08-27（10 度目の机上の通し）: ①には工具の道（_asm_access.py）はあったが、**基板を載せる動き**は掃引していなかった
+if (CHK == "hub")       intersection() { sweep_z(20) s_hub(); s_floor(); }
 // ② ReSpeaker を床の溝へ上から差す（相手 = 手順①まで＝床＋ハブ＋M3 の頭）。
 //   🔴 2026-08-27（9 度目の机上の通し）: ここは反例（rsp_after）しか無く、**入れる動きそのもの**は一度も掃引していなかった
 if (CHK == "rsp")       intersection() { sweep_z() { respeaker_at(); xiao_hous(); } union() { s_floor(); s_hub(); } }
 // ② 反例: ReSpeaker を壁の後に入れようとした場合（0 にならないことを見るための検査）
 if (CHK == "rsp_after") intersection() { sweep_z() respeaker_at(); union() { s_floor(); s_hub(); s_walls(); } }
+// ④ 手順 4 の**頭**: 充電基板の受け（tc_seat4）を床の枠へ真上から落とす（相手 = 手順③まで＝床・ハブ・ReSpeaker・低い車線）。
+//   🔴 2026-08-27（10 度目の机上の通し）: 受けは 🔒 同日に床から出た別部品で、case_v4 に chk_seat_in はあったが
+//   既定が SEAT_STAGE="early"（手順①の直後）で、**実際に落とす段（手順③の後）では一度も回していなかった**。
+//   マニュアルの検査表にも行が無かった
+if (CHK == "seat")      intersection() { sweep_z(20) s_seat(); upto(3); }
+// 反例: 受けを Type-C 基板（＝壁）の後に落とそうとした場合（底の座が板の下へ入るので入らない）
+if (CHK == "seat_bad")  intersection() { sweep_z(20) s_seat(); union() { upto(3); s_walls(); s_tcb(); } }
+// ④ ブリッジを留める棚の M2 ナット 3 個を、**壁を寝かせたまま**横穴へ差す（相手 = その壁の板だけ。箱にはまだ何も無い）。
+//   🔴 2026-08-27（10 度目）: 本文は「口の向きは 1 つだけ逆」と向きまで書いてあるのに、差す動きを掃引していなかった。
+//   ldg_nut(dy) の dy は差す向き: 左前と右は通路が +Y の面へ抜けているので −Y へ、3 本目（BLU）だけ +Y へ入る
+module m2_nut() rotate([0, 0, 30]) hex_pocket_af(4.0, 1.6);
+module nut_sweep(dy, d = 6) union() for (t = [0 : STEP : d]) translate([0, dy * t, 0]) children();
+LDG_LF = [-1, 30.5, 36.5, 33.5, 30.5, 36.5];
+LDG_R  = [ 1, 56.9, 62.9, 59.9, 56.9, 62.9];
+module ldg_nut_lf() translate([brg_scr(LDG_LF)[0], LDG_LF[3], brg_slot_z0(LDG_LF) + 0.05]) m2_nut();
+module ldg_nut_lb() translate([BLU_SCR[0], BLU_SCR[1], blu_slot_z0() + 0.05]) m2_nut();
+module ldg_nut_r()  translate([brg_scr(LDG_R)[0],  LDG_R[3],  brg_slot_z0(LDG_R)  + 0.05]) m2_nut();
+if (CHK == "ldgnut_lf") intersection() { nut_sweep(+1) ldg_nut_lf(); lwall_v4(); }
+if (CHK == "ldgnut_lb") intersection() { nut_sweep(-1) ldg_nut_lb(); lwall_v4(); }
+if (CHK == "ldgnut_r")  intersection() { nut_sweep(+1) ldg_nut_r();  rwall_v4(); }
+// 反例: 3 本目を +Y の面から差そうとした場合（通路は −Y の面へしか抜けていない）
+if (CHK == "ldgnut_bad") intersection() { nut_sweep(+1) ldg_nut_lb(); lwall_v4(); }
 // ④ 左右の壁を上から降ろす（相手 = 手順③まで）
 //   🔴 2026-08-27（9 度目）: 受け（tc_seat4）は 🔒 2026-08-27 に床から出て、手順 4 の**頭**で先に落とす部品になった。
 //   壁はその後に降りるので、受けは相手に居なければならない。upto(3) には居ないので s_seat() を足した版が下の 2 本
