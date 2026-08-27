@@ -754,28 +754,32 @@ figcaption { font-size:13px; color:var(--ink2); margin-top:8px; }
 .bulb { border:0; background:none; padding:0 1px 0 3px; margin:0; cursor:pointer; font-size:.82em;
         line-height:1; opacity:.42; vertical-align:1px; filter:grayscale(1); transition:opacity .15s, filter .15s; }
 .bulb:hover, .bulb:focus-visible { opacity:1; filter:none; outline:none; }
-.rail .card.hot { box-shadow:0 0 0 2px var(--mark); }
+.rail .card.hot { box-shadow:0 0 0 3px var(--mark); border-color:var(--mark); }
 .run { display:grid; grid-template-columns:minmax(0,1fr) 360px; gap:34px; align-items:start; }
-.rail { position:sticky; top:56px; max-height:calc(100vh - 76px); overflow-y:auto; }
+.rail { position:sticky; top:56px; max-height:calc(100vh - 76px); overflow-y:auto; padding:0 5px; }
 .railhead { font-family:Archivo,sans-serif; font-size:11px; letter-spacing:.16em; text-transform:uppercase;
             color:var(--ink2); margin:0 0 10px; padding-bottom:6px; border-bottom:1px solid var(--rule); }
 .rail .card { margin:0 0 14px; grid-column:auto; }
-.rail .card img { max-height:230px; width:auto; margin:0 auto; }
-.rail .card figure { display:flex; justify-content:center; }
+.rail .card figure { height:180px; }
 .rail .card .txt { padding:9px 11px 11px; }
 .rail .card h4 { font-size:15px; }
-.rail .card p { font-size:13px; line-height:1.7; }
+.rail .card .txt p { font-size:13px; line-height:1.7; }
 .rail .card { opacity:0; transform:translateY(10px); transition:opacity .3s ease, transform .3s ease; }
 .rail .card.on { opacity:1; transform:none; }
 @media (max-width:1180px) { .run { grid-template-columns:1fr; } .rail { display:none; } }
 .gloss .w2 { grid-column:span 2; }
+.gloss .w2 figure { height:340px; }
 @media (max-width:720px) { .gloss .w2 { grid-column:span 1; } }
-.gloss .card figure { margin:0; background:var(--sheet); filter:brightness(var(--sheetdim)); padding:6px; border-bottom:1px solid var(--rule2); }
-.gloss .card img { display:block; width:100%; height:auto; }
-.gloss .card .txt { padding:12px 14px 14px; }
-.gloss .card h4 { margin:0 0 2px; font-size:17px; font-weight:700; }
-.gloss .card .kind { font-family:Archivo,sans-serif; font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink2); margin:0 0 8px; }
-.gloss .card p { margin:0; font-size:14.5px; line-height:1.75; }
+.card .head { padding:10px 14px 9px; background:var(--sunk); border-bottom:1px solid var(--rule); }
+.card h4 { margin:0; font-size:17px; font-weight:700; line-height:1.35; }
+.card .kind { margin:1px 0 0; font-family:Archivo,sans-serif; font-size:11px;
+              letter-spacing:.1em; text-transform:uppercase; color:var(--ink2); }
+.card figure { margin:0; height:210px; display:flex; align-items:center; justify-content:center;
+               background:var(--sheet); filter:brightness(var(--sheetdim)); padding:6px;
+               border-bottom:1px solid var(--rule2); }
+.card figure img { display:block; max-width:100%; max-height:100%; width:auto; height:auto; }
+.card .txt { padding:12px 14px 14px; }
+.card .txt p { margin:0; font-size:14.5px; line-height:1.75; }
 .two { display:grid; grid-template-columns:1fr 1fr; gap:22px; align-items:start; }
 footer { margin-top:64px; padding-top:20px; border-top:1px solid var(--rule); font-size:13px; color:var(--ink2); }
 a { color:var(--accent); }
@@ -1125,8 +1129,9 @@ def gloss_row(r, steps):
     cls = 'card w2' if key in ('mizo', 'tateana', 'low', 'high') else 'card'
     import html as _h
     return ('<div class="' + cls + '" data-term="' + _h.escape(name, True)
-            + '" data-steps="' + ' '.join(steps.get(name, [])) + '">{}<div class="txt">'
-            '<h4>{}</h4><p class="kind">{}</p><p>{}</p></div></div>'.format(fig, name, kind, desc))
+            + '" data-steps="' + ' '.join(steps.get(name, [])) + '">'
+            '<div class="head"><h4>{}</h4><p class="kind">{}</p></div>{}'
+            '<div class="txt"><p>{}</p></div></div>'.format(name, kind, fig, desc))
 
 
 def build():
