@@ -30,10 +30,16 @@ module s_seat()   color("#8d99a6") tc_seat4();   // 🆕 2026-08-27（D-1）充�
 module s_walls()  rounded4() { lwall_v4(); rwall_v4(); }
 module s_brg()    { brg_v4(); brg_front(); brg_hw(); }   // brg_hw = 箱へ留める M2×6 とナット 3 組（手順 5 で締める）。前板は先に床の溝へ差す（2026-08-26 に別部品になった）
 module s_oled()   oled_at();
-module s_bat()    color("#f6ad55") bat_v4();
+// 🆕 2026-08-27（11 度目の机上の通し）: 電池のコネクタ対は**手順 7 で電池と一緒に入る**。
+//   手順 8 で板が載ると、ポケットの真上は板の腹（Z 35.03）で塞がって上から手が入らない（_asm_access.py ⑬）。
+//   延長は左の溝へ垂らすだけで、上げて INA へ挿すのは手順 9（s_wpwr）
+module s_bat()    { color("#f6ad55") bat_v4(); w_bat_tab(); bat_con(); w_bat_slack(); }
 module s_strap()  straps_v4();
 module s_boards() { ina_bat(); pb_bat(); pbl_hous(); pbu_hous(); seat_hw(); }
-module s_wpwr()   wires_pwr();
+module s_wpwr()   { w_pwr3(); w_bat_ext(); w_batout(); }
+//   延長（w_bat_ext）は手順 9。手順 7 では左の溝へ垂らしておくだけで、上げて INA へ挿すのは他の
+//   「上の道」の束と同じ段。🔴 ここを手順 7 に入れると、板を降ろす検査（CHK="boards"）が
+//   **その板に挿さる自分の線**で 9.1mm³ 止まった（口の真上に線の端が居るため）
 module s_top()    { rounded4() top_v4(); top_group(); }
 module s_front()  rounded4() front_v4();
 module s_hatch()  { rounded4() hatch_v4(); tgl_v4(TAIL_ANG); tail_at(); door4(0, true); }
@@ -65,6 +71,8 @@ for (n = [1 : 12]) if (ST == str("st", n)) upto(n);
 //   線を障害物に数えると口の真上の自分の線で止まる。挿す道の検査（_asm_access.py の ⑧）はこちらを相手にする。
 if (ST == "st9r")  { upto(8); s_oled(); oled_hous(); }              // 手順 9（OLED は立てた・上の車線はまだ）
 if (ST == "st10r") { upto(8); s_oled(); oled_hous(); s_top(); }     // 天面を載せた後（線は除く）
+// 🆕 2026-08-27 電池の交換の姿: 組み上がりからロックと蓋だけ外した（ハッチ本体は付いたまま）
+if (ST == "swap")  { upto(11); rounded4() hatch_v4(); tgl_v4(TAIL_ANG); tail_at(); }
 if (ST == "topsub") s_top();
 if (ST == "straponly") straps_v4();
 if (ST == "tchous") translate([-64.47 + LW_X, IN_Y - 0.50, 0]) rotate([0, 0, -90]) tcb_hous();   // 🆕 2026-08-27 充電の口 2 つ（上下）。頭の Z を手で写さないための出口   // 🆕 2026-08-27 手順 6 の手の道を撃つ用（_asm_access.py が連結成分に割って 3 本の bbox を取る）
@@ -137,6 +145,9 @@ module upto5_dry() { s_floor(); s_hub(); s_rsp(); s_plugs(); xiao_hous(); s_wall
 if (CHK == "strap_dry") intersection() { sweep_x() straps_v4(); upto5_dry(); }   // 線を除いた剛体だけ（0 が正）
 // ⑦ 電池を後ろのハッチ口から差し込む（相手 = 手順⑥まで ＝ 留め帯が既に入っている）
 if (CHK == "bat")       intersection() { sweep_y() bat_v4(); upto(6); }
+//   🆕 2026-08-27 電池は**素で**差し込む。コネクタを先に嵌めると、電池の尻を押す指の前に
+//   コネクタが居る（指 φ12 が通るのは X 14 あたりだけ・_asm_access.py ⑬）。座ってから真上で嵌める。
+//   引き抜くときは逆に**繋いだまま**出せる（case_v4 の chk_swap がその姿）
 // 反例: 電池を先に入れてしまった場合、留め帯は横から入らない（0 にならないことを見るための検査）
 if (CHK == "strap_bad") intersection() { sweep_x() straps_v4(); union() { upto(5); s_bat(); } }
 // 反例: 留め帯を上からかぶせようとした場合（ツバが土手に当たる。0 にならない）

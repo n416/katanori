@@ -817,11 +817,15 @@ if (part == "chk_wire_pwr") intersection() { wires_pwr(); union() { core(); bat_
 
 // 電池の入れ替えの動き: ロックを外す → 蓋を右へずらす → 蓋を後ろへ抜く → JST を抜く → 電池を後ろへ抜く
 module world_no_door() { core(); bat_v4(); pb_bat(); pbl_hous(); pbu_hous(); ina_bat(); tgl_v4(); tcb_v4(); brg_v4(); brg_front(); straps_v4(); wires_pwr(); wires_sig(); skin_all(); }
-module world_no_door_bat() { core(); pb_bat(); pbl_hous(); pbu_hous(); ina_bat(); tgl_v4(); tcb_v4(); brg_v4(); brg_front(); straps_v4(); w_pwr3(); w_batout(); wires_sig(); skin_all(); }   // 電池のタブ側の線（w_batin）は JST で外して抜くので入れない
+// 🆕 2026-08-27（11 度目の机上の通し）: ここは w_batin を**丸ごと**障害物から外していた。
+//   実物には外れる所が無かったので、それは「検査が穴を隠していた」だけだった。
+//   🔒 ユーザー「後ろの 8.35mm にコネクタ対を置きましょ」でコネクタが入ったので、外すのは
+//   **電池側（タブの線 2 本＋嵌合したコネクタ）だけ**。箱に残る延長（w_bat_ext）は障害物に入れる
+module world_no_door_bat() { core(); pb_bat(); pbl_hous(); pbu_hous(); ina_bat(); tgl_v4(); tcb_v4(); brg_v4(); brg_front(); straps_v4(); w_pwr3(); w_bat_ext(); w_batout(); wires_sig(); skin_all(); }
 if (part == "chk_shut_slide") intersection() { union() for (t = [0 : 0.5 : SHUT_SLIDE]) translate([t, 0, 0]) battery_shutter4(0); world_no_door(); }   // 🔴 2026-08-26 下 → 右
 if (part == "chk_lock_out")    intersection() { union() for (t = [0 : STEP : 20]) translate([0, t, 0]) battery_lock4(); union() { world_no_door(); battery_shutter4(0); } }   // ロックはビスを抜いて後ろへ外す（蓋より先）
 if (part == "chk_shut_out")   intersection() { union() for (t = [0 : STEP : 20]) translate([0, t, 0]) battery_shutter4(1); world_no_door(); }
-if (part == "chk_swap")       intersection() { union() for (t = [0 : STEP : 45]) translate([0, t, 0]) bat_v4(); world_no_door_bat(); }
+if (part == "chk_swap")       intersection() { union() for (t = [0 : STEP : 45]) translate([0, t, 0]) { bat_v4(); w_bat_tab(); bat_con(); } world_no_door_bat(); }   // 🆕 コネクタは電池について電池口から出る（口の中で横へ引かない）
 
 // explode（分解図）。🔒 2026-08-27 ユーザー「電池帯の X 軸がおかしい・explode の座標全般・電池は一番外側」で組み直した
 //   段（Z）は **組む手順そのもの**。手順 1〜3 が地面（動かさない）で、そこから 4 → 12 の順に上へ積む。
