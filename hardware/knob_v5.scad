@@ -179,6 +179,17 @@ PAD_X  = 32.0;             // 30 → 32。へこみが r14.1 になったので�
 //    外形は外の都合の数字なので、次に動かすときも必ずユーザーに聞くこと。
 //    ⬜ case_v2 側に余地があるかは別途確認する（この版では case_v2 を触っていない）
 PAD_Y  = 39.0;             // 35 → 37 → 39。リードの穴は y 14.5〜18.1（入口）
+// 🔒 2026-08-27 ユーザー「この台座部分、なんで四角なんですかね」「配線がシビアなので無駄な肉は落としたい」。
+//    板は素の cube で、輪郭を決めた形跡が無かった。中身（皿・柱・リード・ねじ）が使っていない所は
+//    302mm²＝footprint の 24%（肉 1966mm³）。そのうち**今より薄くなる所を 1 か所も作らずに**
+//    落とせるのが、隅の丸めと −Y の詰めで 1180mm³。
+//    ⚠ ±X の 16 は動かない（皿 r14.1 ＋ 壁 1.9）。真円にすると柱の小判の角（対角 r18.4）で逆に太る。
+//    ⚠ +Y の 19.5 も動かない（リードの穴 17.8 ＋ 壁 1.7 ＝ この板の最薄）。
+PAD_R  = 9.0;              // 隅の丸め。r10 にすると最薄が 1.70 → 1.62 に落ちる（＝今より薄くなる）ので 9 が上限
+PAD_Y0 = -PAD_X / 2;       // −Y の端 −16.0。ここは皿しか無いので ±X と同じ壁 1.9 で足りる
+                           //   （旧 −19.5 は、リードで伸ばした +Y に四角を合わせただけの余り）
+// 🔴 板は Y に対称ではなくなった。knob_bay_y() は**＋Y の端 ×2**であって footprint の深さではない。
+//    −Y の端が要るときは knob_pad_y0() を使う（case_v4 の k4y1 は +Y 側なのでそのまま）
 DISH_D = GRIP_D + RIB_D + 1.2;   // 28.2（r14.1）
 DISH_T = 2.5;
 
@@ -367,7 +378,9 @@ function knob_deep()   = -Z_PCB_BOT;             // 19.7（v4 と同じ）
 function knob_grip_h() = Z_GRIP_B + GRIP_H;      // 5.5
 function knob_dish_d() = DISH_D;   // 筐体はこれで置き場所を決める（🔒 数字を二重に持たない）
 function knob_bay_x()  = PAD_X;
-function knob_bay_y()  = PAD_Y;
+function knob_bay_y()  = PAD_Y;        // ⚠ +Y の端 ×2（2026-08-27 以降、板は Y に対称ではない）
+function knob_pad_y0() = PAD_Y0;       // 板の −Y の端
+function knob_pad_y1() = PAD_Y / 2;    // 板の +Y の端（リード側）
 function knob_pad_h()  = DECK_T + PAD_T;
 
 function post_inner_r() =
@@ -663,7 +676,7 @@ module knob_station_post_cut(x, y) {
 module knob_station_post_cuts() { for (x = [-1, 1], y = [-1, 1]) knob_station_post_cut(x, y); }
 
 module knob_station_add() {
-    translate([-PAD_X / 2, -PAD_Y / 2, Z_PAD_BOT]) cube([PAD_X, PAD_Y, PAD_T]);
+    translate([0, 0, Z_PAD_BOT]) linear_extrude(PAD_T) knob_station_pad2d();
     // 中央の段。ナットの六角ポケットはこの中だけに掘る（外周は薄いまま）
     translate([0, 0, Z_BOSS_BOT]) cylinder(d = BOSS_D, h = BOSS_T + 0.01);
     for (x = [-1, 1], y = [-1, 1]) difference() {
@@ -692,6 +705,11 @@ module post_solid(x, y) {
                                         - (STANDOFF_D_LO - POST_THIN) / 2 + 0.01);
     }
 }
+
+// 板の輪郭。四隅を PAD_R で丸め、−Y は PAD_Y0 まで（中身が使っていない所だけを落としてある）
+module knob_station_pad2d()
+    offset(r = PAD_R) offset(r = -PAD_R)
+        translate([-PAD_X / 2, PAD_Y0]) square([PAD_X, PAD_Y / 2 - PAD_Y0]);
 
 // 🔒 2026-08-27 ここを 3 つに割った（形は 1mm³ も変えていない）。理由は _v4_props.py が
 //    「印刷の支柱を立ててはいけない体積」＝ **軸・ねじ・ナット・リード**だけを名指しで呼べるように。

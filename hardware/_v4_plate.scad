@@ -47,5 +47,5 @@ module plate_all() {
     color(PLATE_COLOR) translate([6.486, 326.936, 0]) import("stl/v4/v4_tail.stl");
     plate_label(0.000, 309.450, "tail", "13.0 x 13.0 x 33.8  08-27 15:24");
     color(PLATE_COLOR) translate([120.214, 84.996, 0]) import("stl/v4/v4_top.stl");
-    plate_label(112.908, 0.000, "top", "100.7 x 74.6 x 18.1  08-27 15:24");
+    plate_label(112.908, 0.000, "top", "100.7 x 74.6 x 18.1  08-27 16:37");
 }
