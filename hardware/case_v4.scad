@@ -13,6 +13,7 @@ include <_v4_core.scad>
 // ============================================================
 include <_v4_props.scad>   // 🔴 自動生成の支柱の位置（`python hardware/_v4_props.py`）。素の形を焼くときは -D PROPS_OFF=true
 PROPS_OFF = false;
+use <icon_headphone.scad>   // ミニプラグの印（ユーザーの EPS → icon_headphone.svg → gen_icon_svg.py）
 include <case_v4_shutter.scad>   // 電池の入れ替え口（後ろ抜き・v3 の蓋の型を **横（右へ）スライド**に回したもの）
 W = "none";      // _v4_core の内部スイッチ（芯だけの検査 deskseat/batchk 等はあちらの W で。皮はこの part で）
 // ---- part の一覧（v3 と同じ流儀・2026-08-25 ユーザー「V3 と同じ part を」で V/P4 を廃止）----
@@ -210,7 +211,7 @@ module floor_v4() {
 //   ついでの発見（初出）: **左壁は ReSpeaker のイヤホンジャック（J1）の口を塞いでいた**。壁が寄った結果、
 //   筒の先（X 0.424）が外面（-0.306）の 0.73 裏に来る ＝ ハッチの充電口と同じ 1 段の口が開けられる → 開けた。
 //   ⚠ J1 の模型は 📄 STEP の角箱（先端の断面 Y 10.0〜15.0 × Z 5.9〜13.3）。実物の筒は丸のはずなので
-//     口は包絡＋0.6 の仮。⬜ 実測（筒の φ と中心）で丸口に直す。印は無し（印の絵はユーザーの SVG 規則）。
+//     口は包絡＋0.6 の仮。⬜ 実測（筒の φ と中心）で丸口に直す。印（ヘッドホン）は下の ICON_JACK。
 //   上端の小さい張り出し（X 1.14〜・Z 34.7〜35.9・⚠ 正体未確認）は盲ポケット。
 //   🔒 ユーザー「（ReSpeaker 側の）USB ポートは出さなくていい」: 模型では左端に USB の張り出しは無い（⚠ 実物照合待ち。
 //     張り出しがあれば盲ポケットで受ける）
@@ -220,6 +221,26 @@ module floor_v4() {
 //     J1 の金属カバー = Y 13.17〜17.56・Z 6.15〜11.40・X 1.32 まで
 LJACK_C = [12.52, 9.00];   // 口の中心 [Y, Z]（筒の軸・📄）
 LJACK_D = 5.45 + 0.6;      // 口の径（筒 ＋ 0.6）
+// 印（ヘッドホン）── 🔒 2026-08-27 ユーザー「ミニプラグの横に、ヘッドホンのマーク印字しておきたい」。
+//   🔒 印の絵はユーザーの SVG（AI が決めるのは場所と大きさだけ）。2026-08-27 に受け取った Illustrator の EPS
+//   （hardware/icon_headphone.eps）の作画ブロックをそのまま icon_headphone.svg へ写し、gen_icon_svg.py で起こした。
+//   絵を差し替えるときは: python hardware/gen_icon_svg.py hardware/icon_headphone.svg
+//   規則は v2 から共通: 丈は口の丈の 7 割・彫り 0.4・縁から 1.5。
+//   🔒 2026-08-27 置く側はユーザー「左の方がいいですね」＝ **外から見て口の左（+Y ＝ 後ろ寄り）**。
+//   （右壁の印の「口の右」に倣って前寄りに置いたが、絵を見てユーザーが左を選んだ）
+//   左の壁は外から見る向きが右の壁と逆（外＝−X から見ると +Y は画面の左）なので mirror([1, 0]) を掛ける（v3 の充電の稲妻と同じ）。
+ICON_JACK   = "svg";                 // "svg" ＝ 元絵／"box" ＝ 大きさと位置だけ見る当て物
+JACK_ICON_H = 0.7 * LJACK_D;         // 4.235（口の径の 7 割）
+JACK_ICON_SC = JACK_ICON_H / icon_headphone_size()[1];                          // 元絵（SVG 単位）→ mm
+JACK_ICON_W = JACK_ICON_SC * icon_headphone_size()[0];                          // 5.68（元絵が 41.06 × 30.61 の横長）
+JACK_ICON_Y = LJACK_C[0] + (LJACK_D / 2 + PORT_BEV + ICON_GAP + JACK_ICON_W / 2);   // 20.16（外から見て口の左 ＝ +Y ＝ 後ろ寄り）
+module jack_icon2d() {
+    if (ICON_JACK == "box") square([JACK_ICON_W, JACK_ICON_H], center = true);
+    else scale(JACK_ICON_SC) icon_headphone(max(icon_headphone_sw(), SVC_MIN_W / JACK_ICON_SC));   // 細い線は彫れる太さ（0.5mm）まで太らせる
+}
+module lwall_icon_cut4() {
+    translate([LW_X - WALL - 1.0, JACK_ICON_Y, LJACK_C[1]]) rotate([90, 0, 90]) linear_extrude(ICON_D + 1.0) mirror([1, 0]) jack_icon2d();
+}
 module lwall_port_cut4() {
     translate([LW_X - WALL - 1, LJACK_C[0], LJACK_C[1]]) rotate([0, 90, 0]) cylinder(d = LJACK_D, h = WALL + 2, $fn = 48);   // 丸口（貫通）
     hull() {                                                                            // 外面のベベル
@@ -232,6 +253,7 @@ module lwall_port_cut4() {
     translate([1.17, 12.87, -0.5]) cube([LW_X - 1.17 + 0.01, 17.87 - 12.87, 11.9 + 0.5]);
     // 盲ポケット＋道③: USB1（🔒 出さない・X 0.99 まで・皮 1.29）
     translate([0.99, 9.97, -0.5]) cube([LW_X - 0.99 + 0.01, 13.73 - 9.97, 35.03 + 0.5]);
+    if (ICONS_ON) lwall_icon_cut4();   // 印（外から見て口の左）
 }
 module lwall_v4() {
     difference() {
