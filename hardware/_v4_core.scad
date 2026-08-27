@@ -39,31 +39,25 @@ module rsp_j2_space() color("#16a085", 0.4) at_rsp() { j = respeaker_spk_j2(); t
 module xiao_hous() at_rsp() respeaker_xiao_housings();
 module at_oled() translate([OLED_X0, OLED_Y1, OLED_Z0]) rotate([90, 0, 0]) children();
 module oled_hous() at_oled() oled_i2c_housing();
-// 🔴 2026-08-28 未解決: **この -2 は指示の曲解である**（ユーザー「2mm ずらしてって指示を
-//   曲解してるとしか思えない」「ノブ全体に決まってるじゃん」）。
-//   「AS5600 を Y 方向に少しさげる」が指していたのは**ノブ全体**で、コネクタの模型だけを
-//   動かす話ではなかった。コネクタは基板にはんだ付けされている物なので、基板から 2mm ずれた
-//   模型は現物では成立しない。
-//   ⚠ 🔴 **この 2mm 自体が古い言質である**（ユーザー・2026-08-28）:
-//   「かつて、その作業を依頼した。でも結局それは間違いで X 方向だったんだよ。
-//    その間違った言質をいきなりやるってのはどうかしてる」
-//   「そもそもその 2mm おかしい事だけは分かってる。直すのであれば、2mm 動かすべきはノブじゃない」
-//   ⇒ つまり ①方向は Y ではなく **X** ②動かす相手は **ノブではない**。
-//   ⬜ では何を動かすのかは未確定。**ユーザーが指すまで、誰も勝手に決めないこと。**
-//   ⚠ case_v4.scad の「🔒 2026-08-25 ユーザー『つまみも 2mm 移動』で +5 → +7」も、
-//     同じ古い言質から来ている可能性がある。🔒 が付いているが、上の指摘と矛盾する。
-//     **どちらかを消さないこと。**この 🔴 が解けるまで両方残す。
-//   ⚠ **直すのは今ではない**（ユーザー・2026-08-28）。0 にするとコネクタと、そこから出る
-//   線の端点 5 本が +2 動く。実測: `chk_wire` はいま（-2 のまま）26 頂点で、0 にすると 18 頂点。
-//   **どちらも空ではない**＝この検査は元から通っていない。だから 0 にする作業は、配線を
-//   引き直して chk_wire を空に戻す仕事とセットでなければ意味がない。値はいま **-2 のまま**。
-ASC_DY = -2;
+// 🔴 2026-08-28 **ASC_DY を削除した**（ユーザー「そんな変数は削除してほしい」）。
+//   これは「AS5600 を Y 方向に少しさげる」を**コネクタの模型だけ −2 動かす**と読んだ結果の変数で、
+//   ユーザーの指摘は 3 段階だった:
+//     ① 「2mm ずらしてって指示を曲解してるとしか思えない」「ノブ全体に決まってるじゃん」
+//     ② 「かつて、その作業を依頼した。でも結局それは間違いで **X 方向**だったんだよ。
+//        その間違った言質をいきなりやるってのはどうかしてる」
+//     ③ 「そもそもその 2mm おかしい事だけは分かってる。直すのであれば、2mm 動かすべきはノブじゃない」
+//   ⇒ Y へ −2 という値そのものに根拠が無い。コネクタは基板にはんだ付けされている物なので、
+//     基板から 2mm ずれた模型は現物では成立しない。**コネクタも線の端点も基板の上へ戻した。**
+//   ⬜ 「本当は X 方向に、ノブ以外の何かを 2mm」は**未確定のまま**。ユーザーが指すまで誰も決めないこと。
+//   ⚠ case_v4.scad の「🔒 2026-08-25 ユーザー『つまみも 2mm 移動』で +5 → +7」も同じ古い言質から
+//     来ている可能性がある。🔒 が付いているので消していない。この ⬜ が解けるまで両方残す。
+
 module knob_at_v4() translate(KNOB_AT) assembly(show_deck = false);   // 旧 one("knob") の直呼び
 // 🔒 2026-08-28 「基板＋コネクタ − 基板」をやめ、コネクタだけの module を呼ぶ。
 //   前の書き方は --render では正しかったが、プレビュー（OpenCSG）が完全一致した面の引き算を
 //   描き切れず、**基板がゴーストで残っていた**（ユーザー発見。`inside` で AS5600 の穴が
 //   三日月に見えた正体。ゴーストは当時の ASC_DY = -2 だけずれて本物の基板に重なっていた）
-module as_conn() translate(KNOB_AT) translate([0, ASC_DY, -knob_deep()]) rotate([0, 0, R])
+module as_conn() translate(KNOB_AT) translate([0, 0, -knob_deep()]) rotate([0, 0, R])
     as5600_headers(RA);
 
 // ---- 固定群の機体（線・挿さる空間ごと）----
@@ -83,10 +77,10 @@ module core() {
     //    入らない）の直し。右の L の裏の空きはスピーカーの右前の丸みで決まるので、右壁から 4 離すと 1.29 → 8.00。
     //    つまみも同じだけ動かすのは、天面のメッシュとつまみの X 中央が合って見える並びを崩さないため（+1.5 → −2.5）。
     // 🔒 2026-08-28 as_conn() を外した。knob_v5 の基板が show_connector = true になり、
-    //   **ヘッダは基板の模型が正しい位置で持つ**ようになったので、as_conn() は ASC_DY で
-    //   2mm ずれた重複でしかなくなった。当たり検査に入る実体は減っていない（場所が正しくなった）。
-    //   ⚠ module as_conn() 自体は残してある（_v4_asm.scad が別に持っている検査と対にするため）。
-    //   ⚠ 線の端点（as_plug）はまだ ASC_DY を通っている。そちらは上の 🔴 の宿題
+    //   **ヘッダは基板の模型が正しい位置で持つ**ようになったので、ここで as_conn() を
+    //   重ねて描く必要が無くなった（当たり検査に入る実体は減っていない）。
+    //   ⚠ module as_conn() 自体は残してある。core_rest() と top_asconn()（_asm_blame_v4.scad が
+    //     8 か所から呼ぶ）が使っていて、ASC_DY を消したいまは基板のヘッダと同じ場所に重なる。
     translate([-2.5, 7, 0]) knob_at_v4();                                    // つまみ一式（天面から下りる島・柱・基板・ヘッダ込み）
     // 🔒 2026-08-25 ユーザー「スピーカーと会話ボタンを平置きのまま Z 軸で 90 度」（どちらも自分の中心で回す）
     // 🔒 2026-08-25 ユーザー「OLED から見ると直線上にスピーカー、その後ろにつまみ」:
@@ -815,7 +809,7 @@ module w_oled() color("#2980b9")     // OLED 4 本: 口 → Z19 で左の溝（X
 function as_plug(s, r) =
     let (e = s * (as5600_pcb() / 2 - as5600_edge_in_s(s)))   // 🔒 2026-08-28 列ごと（4.2 / 4.8）。ピンの実体と同じ式にする
     [KNOB_AT[0] - 2.5 + (-r * cos(R) - e * sin(R)),
-     KNOB_AT[1] + 7 + ASC_DY + (-r * sin(R) + e * cos(R))];
+     KNOB_AT[1] + 7 + (-r * sin(R) + e * cos(R))];
 AS_PLUGS_L = [for (i = as5600_used_l()) as_plug(-1, as5600_row_l()[i])];   // R=0 では [60.664, 31.8] と [65.744, 31.8]
 AS_PLUGS_R = [for (i = as5600_used_r()) as_plug( 1, as5600_row_r()[i])];   // 同 [59.394 / 61.934 / 64.474, 45.8]
 assert(len(AS_PLUGS_L) == 2 && len(AS_PLUGS_R) == 3,
@@ -918,7 +912,7 @@ module wsel() { if (WP == "" ) wires_sig();
 module core_rest() {
     respeaker_at(); xiao_hous(); rsp_j2_space();
     oled_at(); oled_hous();
-    knob_at_v4(); as_conn();
+    knob_at_v4();   // 🔒 2026-08-28 as_conn() は外した（基板がヘッダを持つので同じ場所に重なる）
     translate([SPK_X, SPK_Y, IN_Z - spk_th() - 0.2 + SPK_LIFT]) speaker_112495();
     translate([BTN_AT[0], BTN_AT[1], Z_TSW_BOT]) tactswitch();
     translate([BTN_AT[0], BTN_AT[1], 0]) button_cap();
@@ -995,7 +989,10 @@ module top_btn() {   // 会話ボタン（中のタクトスイッチ＋外の�
     translate([22, 22.3 - 0.5 - spk_w() / 2, Z_TSW_BOT]) rotate([0, 0, 180]) tactswitch();
     color("#d8dde3") translate([22, 22.3 - 0.5 - spk_w() / 2, 0]) rotate([0, 0, 180]) button_cap();   // button_cap は素のモジュール（色を持たない）。付け忘れると既定の黄色で出る
 }
-module top_group() { top_knob(); top_asconn(); top_spk(); top_btn(); }
+// 🔒 2026-08-28 top_asconn() を外した。ASC_DY を消したいま、コネクタは基板のヘッダと
+//   完全に同じ場所に来るので、両方描くと当たり検査が自分自身を数える（chk_all 1299 → 1697 になった）。
+//   module top_asconn() は残す（_asm_blame_v4.scad が 8 か所から直接呼んでいる）
+module top_group() { top_knob(); top_spk(); top_btn(); }
 if (W == "deskseat") intersection() { union() for (t = [0 : STEP : 30]) translate([0, 0, t]) brg_v4(); lower_group(); }
 if (W == "topseat")  intersection() { union() for (t = [0 : STEP : 25]) translate([0, 0, t]) top_group();
                                       union() { lower_group(); brg_v4(); straps_v4(); bat_v4(); pb_bat(); ina_bat(); tgl_v4(); } }
