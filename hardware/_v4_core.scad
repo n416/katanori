@@ -876,12 +876,18 @@ if (W == "pts") {
 }
 // 組み立ての軌跡検査（2026-08-25）: 机を上から降ろす／天板一式を最後に降ろす
 module lower_group() { hub_unit(); respeaker_at(); xiao_hous(); rsp_j2_space(); oled_at(); oled_hous(); tcb_v4(); }
-module top_group() {   // 天板にぶら下がって一緒に降りる物（core() と同じ置き方。core を変えたらここも合わせる）
-    translate([-2.5, 7, 0]) { knob_at_v4(); as_conn(); }
-    translate([KNOB_AT[0] - 2.5, 22.3 - 0.5 - spk_w() / 2, IN_Z - spk_th() - 0.2 + SPK_LIFT]) translate([-SPK_L / 2, -SPK_W / 2, 0]) speaker_112495();
+// 天板にぶら下がって一緒に降りる物（core() と同じ置き方。core を変えたらここも合わせる）。
+// 🆕 2026-08-27 ユーザー「つまみや会話ボタンも分離して」で **1 つずつ取り出せる形に割った**。
+// top_group() の中身は割る前と同じ —— 分解図（case_v4.scad の part="explode"）が
+// つまみと会話ボタンを別々に持ち上げるために、名前を付けただけ。
+module top_knob()   translate([-2.5, 7, 0]) knob_at_v4();
+module top_asconn() translate([-2.5, 7, 0]) as_conn();   // AS5600 のデュポン（分解図では出さない）
+module top_spk()    translate([KNOB_AT[0] - 2.5, 22.3 - 0.5 - spk_w() / 2, IN_Z - spk_th() - 0.2 + SPK_LIFT]) translate([-SPK_L / 2, -SPK_W / 2, 0]) speaker_112495();
+module top_btn() {   // 会話ボタン（中のタクトスイッチ＋外のキャップ）
     translate([22, 22.3 - 0.5 - spk_w() / 2, Z_TSW_BOT]) rotate([0, 0, 180]) tactswitch();
     color("#d8dde3") translate([22, 22.3 - 0.5 - spk_w() / 2, 0]) rotate([0, 0, 180]) button_cap();   // button_cap は素のモジュール（色を持たない）。付け忘れると既定の黄色で出る
 }
+module top_group() { top_knob(); top_asconn(); top_spk(); top_btn(); }
 if (W == "deskseat") intersection() { union() for (t = [0 : STEP : 30]) translate([0, 0, t]) brg_v4(); lower_group(); }
 if (W == "topseat")  intersection() { union() for (t = [0 : STEP : 25]) translate([0, 0, t]) top_group();
                                       union() { lower_group(); brg_v4(); straps_v4(); bat_v4(); pb_bat(); ina_bat(); tgl_v4(); } }

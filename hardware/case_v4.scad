@@ -789,26 +789,55 @@ if (part == "chk_lock_out")    intersection() { union() for (t = [0 : STEP : 20]
 if (part == "chk_shut_out")   intersection() { union() for (t = [0 : STEP : 20]) translate([0, t, 0]) battery_shutter4(1); world_no_door(); }
 if (part == "chk_swap")       intersection() { union() for (t = [0 : STEP : 45]) translate([0, t, 0]) bat_v4(); world_no_door_bat(); }
 
-// explode（v3 の part="explode" の v4 版。組む向きへ散らす）
-EXPLODE4 = 40; EX4 = 22; S4 = 6;
+// explode（分解図）。🔒 2026-08-27 ユーザー「電池帯の X 軸がおかしい・explode の座標全般・電池は一番外側」で組み直した
+//   段（Z）は **組む手順そのもの**。手順 1〜3 が地面（動かさない）で、そこから 4 → 12 の順に上へ積む。
+//   横へ振るのは 2 種類だけで、混ぜない:
+//     ① **見せるための開き** —— 左右の壁（±EX4）・フロント（−Y）・ハッチ一式（+Y）。この 3 つは実際は Z で降ろす／差す物
+//     ② **本当に横から入る物** —— 電池（+Y）。ハッチ口から −Y へ差すので、逆向きの +Y へ引く
+//   直した中身:
+//     ・留め帯の X を **+6.6 → 0**（旧 1.1 × S4）。同じ列の他（皿・電池・電流計・PowerBoost）が全部 X 0 なので、
+//       1 つだけ 6.6 ずれていて**図がずれて見えていた**。横（+X）から差す話は 手順 6 と CHK="strap_bad" が持っている。
+//       絵でも見せたくなったら EX_STRAP だけ動かす（当たらずに振れるのは +40 くらいまで）。
+//     ・電池を **Y +44 → +80**。旧値だと胴の前半分が箱の中（ブリッジの帯の高さ）に残っていた。いまは Y 93.9〜143.9 で、
+//       箱の後ろ（Y 74）から完全に外＝この段の一番外側に出る。
+//     ・OLED を **前へ 30 引いた**。手順 9 で上から降ろす物だが、押さえるのは前の窓なのでフロント側に置く。
+//       地面に置いたままだと背が 48.1 あって、ブリッジが 92.6mm3・充電基板の受けが 12.9mm3 突き抜けていた。
+//     ・Type-C 基板を **左の壁に付けて動かす**（🔒 手順 4「左の壁は Type-C 基板を抱いて降ろす」）。
+//     ・0.25E / 0.35E / 0.6E + 2.0S のような分数をやめて、段は手順ごとの名前付きの数字にした。
+//   🔒 2026-08-27 ユーザー「つまみや会話ボタンも分離して。explode ではデュポンのハウジングなどのコネクタは見える必要が無い」:
+//     ・**つまみ（top_knob）と会話ボタン（top_btn）を天板から上へ抜いた**（EZ_TOPSUB）。どちらも天板を上下に跨ぐので、
+//       抜き量は「板の天面 ↔ 部品の下端」が離れる 21mm 以上が要る。26 にしてある。
+//       スピーカーは両面テープで天板に貼る物なので、分けずに天板と一緒に降ろす（top_spk）。
+//     ・**コネクタを全部落とした**: XIAO/ReSpeaker のデュポン（xiao_hous）・OLED の I2C（oled_hous）・
+//       AS5600（top_asconn）・PowerBoost の L と USB（pbl_hous / pbu_hous）。Type-C 基板は
+//       ハウジング付きの tcb_v4() ではなく **tcb_v4_bare()**（板＋コネクタ＋L 型ピンだけ）で出す。
+//       🔴 落としたのは**この図だけ**。線とハウジングの当たり検査（chk_wire 系・close_*）は今まで通り全部入りで回る。
+EX4 = 24;                                     // ① 左右の壁を開く X
+EZ_SEAT = 12;  EZ_WALL = 20;                  // 手順 4（受けが先・壁が後）
+EZ_BRGF = 26;  EZ_BRG  = 38;                  // 手順 5（前板 → ブリッジ）
+EZ_STRAP = 50; EZ_BAT  = 50;                  // 手順 6・7（同じ段。電池だけ Y で外へ出る）
+EZ_BOARD = 62;                                // 手順 8（電流計・PowerBoost）
+EZ_TOP   = 88;                                // 手順 11・12（天板＋スピーカー・フロント・ハッチ一式）
+EZ_TOPSUB = 114;                              // 手順 10（つまみ・会話ボタン。天板から上へ抜く）
+EX_STRAP = 0;  EY_BAT = 80;  EY_OLED = -30;   // ② と、地面に置けない 2 つ
+EY_FRONT = -44; EY_HATCH = 44; EY_SHUT = 66; EY_LOCK = 78;
 if (part == "explode") {
-    E = EXPLODE4; EX = EX4; S = S4;
-    rounded4() floor_v4(); hub_unit(); respeaker_at(); xiao_hous(); oled_at(); oled_hous(); tcb_v4();
-    translate([0, 0, 0.25 * E]) color("#8d99a6") tc_seat4();   // 🆕 受け（手順 4 の頭に床の枠へ落とす別部品）
-    translate([-EX, 0, E]) rounded4() lwall_v4();
-    translate([EX, 0, E])  rounded4() rwall_v4();
-    translate([0, 0, 0.35 * E])          brg_front();                                     // 前板（先に床の溝へ差す）
-    translate([0, 0, 0.6 * E])           brg_v4();                                        // ブリッジ（掘り込みが前板のフランジに被さる）
-    // 🔒 2026-08-26 順を入れ替えた。留め帯は横（つまみ側 +X）から、電池は後ろ（+Y）から入る
-    translate([1.1 * S, 0, 0.6 * E + 2.0 * S]) straps_v4();                               // 留め帯 3 本（横から差す）
-    translate([0, 1.1 * E, 0.6 * E])     color("#f6ad55") bat_v4();                       // 電池（後ろから差し込む・皿と同じ高さ）
-    translate([0, 0, 0.6 * E + 4.0 * S]) { pb_bat(); ina_bat(); pbl_hous(); pbu_hous(); } // 帯の天面に載る 2 枚＋挿す線
-    translate([0, 0, 2 * E]) { rounded4() top_v4(); top_group(); }                        // 天面一式（島・スピーカー・傘ごと）
-    translate([0, -E, 2 * E]) rounded4() front_v4();                               // フロント（前から差す）
-    translate([0, E, 2 * E]) { rounded4() hatch_v4(); tgl_v4(TAIL_ANG); translate([0, E / 2, 0]) tail_at();
-                               translate([0, E / 2, 0]) { color("#c8ced6") battery_shutter4(0); sw4_magnets_shutter(); }
-                               translate([0, E * 0.75, 0]) { color("#8892a0") battery_lock4(); sw4_lock_screw(); }
-                               sw4_magnets_wall(); sw4_lock_nut(); }   // ハッチ＋トグル＋尻尾＋電池の蓋一式
+    rounded4() floor_v4(); hub_unit(); respeaker_at();                                  // 手順 1〜3（地面）
+    translate([0, EY_OLED, 0]) oled_at();                                               // OLED は前の窓が挟む（手順 9）
+    translate([0, 0, EZ_SEAT]) color("#8d99a6") tc_seat4();                             // 受け（手順 4 の頭に床の枠へ落とす別部品）
+    translate([-EX4, 0, EZ_WALL]) { rounded4() lwall_v4(); tcb_v4_bare(); }             // 🔒 左の壁は Type-C 基板を抱いて降ろす
+    translate([EX4, 0, EZ_WALL])  rounded4() rwall_v4();
+    translate([0, 0, EZ_BRGF])    brg_front();                                          // 前板（先に床の溝へ差す）
+    translate([0, 0, EZ_BRG])     brg_v4();                                             // ブリッジ（掘り込みが前板のフランジに被さる）
+    translate([EX_STRAP, 0, EZ_STRAP]) straps_v4();                                     // 留め帯 3 本（実際は横から差す・手順 6）
+    translate([0, EY_BAT, EZ_BAT]) color("#f6ad55") bat_v4();                           // 電池（ハッチ口から差す・図の一番外側）
+    translate([0, 0, EZ_BOARD]) { pb_bat(); ina_bat(); }                                // 帯の天面に載る 2 枚
+    translate([0, 0, EZ_TOP]) { rounded4() top_v4(); top_spk(); }                       // 天板＋スピーカー（両面テープで天板と一体）
+    translate([0, 0, EZ_TOPSUB]) { top_knob(); top_btn(); }                             // つまみ・会話ボタン（天板から上へ抜く）
+    translate([0, EY_FRONT, EZ_TOP]) rounded4() front_v4();                             // フロント（前から差す）
+    translate([0, EY_HATCH, EZ_TOP]) { rounded4() hatch_v4(); tgl_v4(TAIL_ANG); sw4_magnets_wall(); sw4_lock_nut(); }
+    translate([0, EY_SHUT,  EZ_TOP]) { tail_at(); color("#c8ced6") battery_shutter4(0); sw4_magnets_shutter(); }
+    translate([0, EY_LOCK,  EZ_TOP]) { color("#8892a0") battery_lock4(); sw4_lock_screw(); }
 }
 
 // ---- T-1 の現場を見る（2026-08-26。ブリッジの 3 本目がドライバで届かない件 ＝ **解決済み**）----
