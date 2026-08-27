@@ -5,6 +5,7 @@
    ⚠ 出力先は書き出す前に必ず消す（OpenSCAD は空だと STL を書かないので、古いファイルを読む事故が起きる）。
    ⚠ 支柱とラフトは _v4_props.scad（`python hardware/_v4_props.py`）が持っている。形を変えたら先にあちらを回す。
    書き出したら `python hardware/_stl_preflight.py "hardware/stl/v4/*.stl"` を通す（PRINT.md §4）。
+   書き出しの最後に _v4_plate.py を回すので、case_v4.scad の part="plate"（刷る物を全部並べた絵）も一緒に付いてくる。
 """
 import os, subprocess, sys, time
 
@@ -30,3 +31,6 @@ for k in want:
     if not os.path.exists(dst):
         print('%-10s ❌ 書けなかった\n%s' % (k, r.stderr[-800:])); continue
     print('%-10s %8d bytes  %5.1fs' % (k, os.path.getsize(dst), time.time() - t))
+
+# 並べた絵（part="plate"）を焼いた STL に合わせて作り直す
+subprocess.run([sys.executable, os.path.join(HERE, '_v4_plate.py')])

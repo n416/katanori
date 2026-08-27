@@ -33,11 +33,26 @@ def scad(out, args):
                    check=True, capture_output=True)
 
 
+def newest_scad():
+    """hardware/*.scad の一番新しい更新時刻。焼いた STL がこれより古ければ作り直す"""
+    return max(os.path.getmtime(os.path.join(HERE, f))
+               for f in os.listdir(HERE) if f.endswith('.scad'))
+
+
+def fresh(p):
+    """🔴 2026-08-27（9 度目の机上の通し）: ここは `if not os.path.exists(p)` だけで、
+    **形が変わっても焼き直さなかった**。この日 `_access_tmp` に 6 時間前の STL が残っていて、
+    充電基板の受けを床から出す前の姿で測り続け、手順 1 の「後ろ左 φ10.1」が φ7.19 に化けていた。
+    マニュアルは「この表は作り直すたびに測り直すので古くならない」と書いてあるが、
+    それが本当になるのはこの判定を入れてから"""
+    return os.path.exists(p) and os.path.getmtime(p) >= newest_scad()
+
+
 def stage(n):
     """手順 n を終えた状態（皮も中身も）。n に "topsub" を渡すと天面の小組だけ"""
     name = n if isinstance(n, str) else 'st%d' % n
     p = os.path.join(TMP, '%s.stl' % name)
-    if not os.path.exists(p):
+    if not fresh(p):
         scad(p, ['-D', 'ST="%s"' % name, os.path.join(HERE, '_asm_sim_v4.scad')])
     return p
 
@@ -45,7 +60,7 @@ def stage(n):
 def hardware(w):
     """ネジとナットの現物だけ（W="hw_brg" / "hw_seat"）"""
     p = os.path.join(TMP, '%s.stl' % w)
-    if not os.path.exists(p):
+    if not fresh(p):
         scad(p, ['-D', 'W="%s"' % w, os.path.join(HERE, '_v4_core.scad')])
     return p
 
@@ -204,6 +219,25 @@ def run():
         row('ハブの口へ手を入れる %s (%.1f, %.1f)' % (nm, x, y), '3', '指 φ12', FINGER, 40.0, d,
             '壁もブリッジもまだ無い')
 
+    # ---- ⑦-2 留め帯を置いて押し込む手（🆕 2026-08-27・9 度目の机上の通し）--------
+    #   🔴 手順 6 はこの表に 1 行も無かった。帯は「+2.0 ずらした位置へ上から降ろして、まっすぐ −X へ 2.0 押す」
+    #   という**手でしか出来ない動き**なのに、当てていたのは部品の軌跡（CHK="strap" / "strap_down"）だけ。
+    #   帯の位置は手で写さない: ST="straponly" の STL を連結成分に割って 3 本の bbox から取る。
+    straps = clumps(load(stage('straponly')))
+    for (lo, hi), nm in zip(straps, ('A（電流計の前）', 'B（電流計の後＋PB の前）', 'C（PB の後ろ）')):
+        cx, cy, ztop = (lo[0] + hi[0]) / 2 + 2.0, (lo[1] + hi[1]) / 2, hi[2]
+        for dia, tool in ((FINGER, '指 φ12'), (TWEEZ, 'ピンセット')):
+            d = probe(st5, (cx, cy, 60.0), 2, -1, dia)
+            row('帯 %s を上から摘まむ' % nm, '6', tool, dia, 60.0 - ztop, d,
+                '天板の頭 Z %.1f まで。+2.0 ずらした位置（押し込む前）で撃つ' % ztop)
+        # −X へ 2.0 押す道。天板に指を載せたまま押すのが本番だが、横から棒を当てる道も見ておく
+        need_x = 84.0 - (hi[0] + 2.0)
+        df = probe(st5, (84.0, cy, ztop - 1.0), 0, -1, FINGER)
+        d = probe(st5, (84.0, cy, ztop - 1.0), 0, -1, DRIVER)
+        row('帯 %s を −X へ 2.0 押す（横から棒）' % nm, '6', '棒 φ3.2', DRIVER, need_x, d,
+            '指 φ12 を横から差し込む道は %.1fmm で止まる（右の溝の高さが足りない）。'
+            '押すのは上から天板に指を載せたまま' % df)
+
     # ---- ⑧ コネクタを挿す道（2026-08-27 に初めて当てた）------------------------
     #   それまでの検査は**ビスとナットと指**だけで、「口に挿す」動きを一度も見ていなかった。
     #   口の座標は手で写さない: _asm_plugs.scad が口だけを STL に出し、その bbox から取る。
@@ -221,15 +255,19 @@ def run():
     row('（反例）J2 の口へ ブリッジの後から', '5', 'ピンセット', TWEEZ, 50.0 - 23.5 - 0.1, d5,
         '皿（X 9〜49・Z 21.4〜23.4）が真上に載る。手順 5 以降は挿せないことの裏取り', cex=True)
 
-    # ⑧-2 充電の 2 本（Type-C 基板の DuPont・X 4.52〜7.07・Y 48.67〜58.67・上 Z 14.15〜19.23／下 3.99〜9.07）
+    # ⑧-2 充電の 2 本（Type-C 基板の DuPont）。🔴 2026-08-27（9 度目）まで口の頭 Z を 19.23 / 9.07 と
+    #   **直書き**していた。板の Z（CHG_C_LW）を 0.25 上げたら、測る側だけ動いて要る mm が古いまま残り、
+    #   「上の口へ真上から」が 0.25 足りずに赤くなった。ハブの口と同じで、口の座標は模型から取る。
+    hous = clumps(load(stage('tchous')))          # 下の口・上の口（連結成分 2 つ）
     CHG = (5.8, 53.0)
+    z_lo, z_hi = sorted(h[2] for _, h in hous)    # それぞれの頭の Z
     d4 = probe(st4, (CHG[0], CHG[1], 50.0), 2, -1, TWEEZ)
-    row('充電の口（上）へ真上から', '4', 'ピンセット', TWEEZ, 50.0 - 19.23 - 0.1, d4,
-        '口の頭 Z 19.2 まで 30.8 要る。指 φ12 は左の溝（幅 7.6）に入らない')
-    row('充電の口（下）へ真上から', '4', 'ピンセット', TWEEZ, 50.0 - 9.07 - 0.1, d4,
+    row('充電の口（上）へ真上から', '4', 'ピンセット', TWEEZ, 50.0 - z_hi - 0.1, d4,
+        '口の頭 Z %.1f まで %.1f 要る。指 φ12 は左の溝（幅 7.6）に入らない' % (z_hi, 50.0 - z_hi - 0.1))
+    row('充電の口（下）へ真上から', '4', 'ピンセット', TWEEZ, 50.0 - z_lo - 0.1, d4,
         '下の口は上の口の**真下**（同じ X・Y）なので真上からは触れない。⇒ 2 本とも壁を降ろす前に板へ挿す', cex=True)
     d5c = probe(st5, (CHG[0], CHG[1], 50.0), 2, -1, TWEEZ)
-    row('（反例）充電の口へ ブリッジの後から', '5', 'ピンセット', TWEEZ, 50.0 - 19.23 - 0.1, d5c,
+    row('（反例）充電の口へ ブリッジの後から', '5', 'ピンセット', TWEEZ, 50.0 - z_hi - 0.1, d5c,
         '帯（Y 50.5〜62.9・全幅）が真上に載る。手順 5 以降は挿せないことの裏取り', cex=True)
 
     # ⑧-3 手順 9 で挿す口の**挿し代**（軸方向に 6.0 動けるか）。座標は _asm_plugs.scad の bbox

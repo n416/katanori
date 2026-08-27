@@ -66,14 +66,29 @@ for (n = [1 : 12]) if (ST == str("st", n)) upto(n);
 if (ST == "st9r")  { upto(8); s_oled(); oled_hous(); }              // 手順 9（OLED は立てた・上の車線はまだ）
 if (ST == "st10r") { upto(8); s_oled(); oled_hous(); s_top(); }     // 天面を載せた後（線は除く）
 if (ST == "topsub") s_top();
+if (ST == "straponly") straps_v4();
+if (ST == "tchous") translate([-64.47 + LW_X, IN_Y - 0.50, 0]) rotate([0, 0, -90]) tcb_hous();   // 🆕 2026-08-27 充電の口 2 つ（上下）。頭の Z を手で写さないための出口   // 🆕 2026-08-27 手順 6 の手の道を撃つ用（_asm_access.py が連結成分に割って 3 本の bbox を取る）
 if (ST == "wires") { core(); s_bat(); s_boards(); s_tcb(); brg_v4(); straps_v4(); tgl_v4(); wires_pwr(); wires_sig(); }
 
 // ---- 入れる軌跡の検査（0 が正。相手は「その手順の直前まで」）------------------
 module sweep_z(h = 30) union() for (t = [0 : STEP : h]) translate([0, 0, t]) children();
+// ② ReSpeaker を床の溝へ上から差す（相手 = 手順①まで＝床＋ハブ＋M3 の頭）。
+//   🔴 2026-08-27（9 度目の机上の通し）: ここは反例（rsp_after）しか無く、**入れる動きそのもの**は一度も掃引していなかった
+if (CHK == "rsp")       intersection() { sweep_z() { respeaker_at(); xiao_hous(); } union() { s_floor(); s_hub(); } }
 // ② 反例: ReSpeaker を壁の後に入れようとした場合（0 にならないことを見るための検査）
 if (CHK == "rsp_after") intersection() { sweep_z() respeaker_at(); union() { s_floor(); s_hub(); s_walls(); } }
 // ④ 左右の壁を上から降ろす（相手 = 手順③まで）
+//   🔴 2026-08-27（9 度目）: 受け（tc_seat4）は 🔒 2026-08-27 に床から出て、手順 4 の**頭**で先に落とす部品になった。
+//   壁はその後に降りるので、受けは相手に居なければならない。upto(3) には居ないので s_seat() を足した版が下の 2 本
 if (CHK == "walls")   intersection() { sweep_z() { lwall_v4(); rwall_v4(); } upto(3); }
+if (CHK == "wall_l_seat") intersection() { sweep_z() lwall_v4(); union() { upto(3); s_seat(); } }
+if (CHK == "wall_r_seat") intersection() { sweep_z() rwall_v4(); union() { upto(3); s_seat(); } }
+// ④ 左の壁が Type-C 基板を**抱いて**降りる本番の動き（相手 = 手順③まで ＋ 先に落とした受け）。
+//   🔴 2026-08-27（9 度目）: case_v4 の close_tc は板を tcb_v4_bare（デュポン**抜き**）で掃いていて、相手も
+//   core()+floor で**受けが居ない**。手順 4 の本文は 🔒「充電の 2 本は板を手に持っているうちに挿す」なので、
+//   降ろすときハウジング 4 個（X 4.524〜7.065）は板に付いている。その姿で当てたのはこの検査が初めて
+if (CHK == "tcwall")      intersection() { sweep_z() { lwall_v4(); tcb_v4(); } union() { upto(3); s_seat(); } }
+if (CHK == "tcwall_bare") intersection() { sweep_z() { lwall_v4(); tcb_v4_bare(); } union() { upto(3); s_seat(); } }
 if (CHK == "wall_l")  intersection() { sweep_z() lwall_v4(); upto(3); }
 if (CHK == "wall_r")  intersection() { sweep_z() rwall_v4(); upto(3); }
 // ⑤ 🔴 2026-08-27（7 度目の机上の通し）: ブリッジは **2 部品**。前板（brg_front・電池の返し＋前の脚）を
@@ -114,6 +129,38 @@ if (CHK == "oled")    intersection() { sweep_z() s_oled(); upto(8); }
 if (CHK == "top_oled") difference() { intersection() {
     union() for (t = [0 : STEP : 25]) translate([0, 0, t]) { s_top(); s_oled(); oled_hous(); }; upto(8); } rsp_press_zone(); }
 if (CHK == "whigh")   intersection() { union() { w_high(); s_wpwr(); } union() { upto(8); s_oled(); oled_hous(); s_top(); s_front(); s_hatch(); } }
+
+// ---- 中身どうしの静止の総当たり（🆕 2026-08-27・9 度目の机上の通し）----------
+//   🔴 ここまでの静止の検査は **皮 ↔ 中身**（chk_all ほか）と **1 対 1 の名指し**（chk_tc など）だけで、
+//   中身どうしを総当たりで当てたことが一度も無かった。だから「Type-C 基板のデュポン ↔ ハブ基板」の
+//   1.169mm³（Z で 0.11 の重なり）が、どの検査にも映らないまま 8 度の机上の通しを素通りした。
+//   走らせ方: python hardware/_asm_pairs.py（PAIR_A だけ渡すと「その部品 ↔ 他の全部」）
+PAIR_N = 20;
+PAIR_A = -1; PAIR_B = -1;
+module PAIR_P(i) {
+    if (i == 0)  s_floor();
+    if (i == 1)  s_hub();
+    if (i == 2)  s_plugs();
+    if (i == 3)  { respeaker_at(); xiao_hous(); }
+    if (i == 4)  s_seat();
+    if (i == 5)  lwall_v4();
+    if (i == 6)  rwall_v4();
+    if (i == 7)  s_tcb();
+    if (i == 8)  brg_v4();
+    if (i == 9)  brg_front();
+    if (i == 10) brg_hw();
+    if (i == 11) straps_v4();
+    if (i == 12) s_bat();
+    if (i == 13) ina_bat();
+    if (i == 14) { pb_bat(); pbl_hous(); pbu_hous(); }
+    if (i == 15) { s_oled(); oled_hous(); }
+    if (i == 16) { top_v4(); top_group(); }
+    if (i == 17) front_v4();
+    if (i == 18) { hatch_v4(); tgl_v4(); }
+    if (i == 19) door4(0, false);
+}
+if (PAIR_A >= 0 && PAIR_B >= 0) intersection() { PAIR_P(PAIR_A); PAIR_P(PAIR_B); }
+if (PAIR_A >= 0 && PAIR_B <  0) intersection() { PAIR_P(PAIR_A); union() for (i = [0 : PAIR_N - 1]) if (i != PAIR_A) PAIR_P(i); }
 
 // ---- 箱と留め具の座標（マニュアルの表の裏取り）------------------------------
 if (WIRELEN) {

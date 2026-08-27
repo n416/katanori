@@ -12,6 +12,7 @@ include <_v4_core.scad>
 //   実行例: openscad --backend=manifold -o x.stl -D 'part="chk_top"' hardware/case_v4.scad
 // ============================================================
 include <_v4_props.scad>   // 🔴 自動生成の支柱の位置（`python hardware/_v4_props.py`）。素の形を焼くときは -D PROPS_OFF=true
+include <_v4_plate.scad>   // 🔴 自動生成の並べ方（`python hardware/_v4_plate.py`）。part="plate" で使う
 PROPS_OFF = false;
 use <icon_headphone.scad>   // ミニプラグの印（ユーザーの EPS → icon_headphone.svg → gen_icon_svg.py）
 include <case_v4_shutter.scad>   // 電池の入れ替え口（後ろ抜き・v3 の蓋の型を **横（右へ）スライド**に回したもの）
@@ -22,6 +23,8 @@ W = "none";      // _v4_core の内部スイッチ（芯だけの検査 deskseat
 //   受け   : p_seat（充電基板の受け。🔒 2026-08-27 に床から出て独立した印刷部品になった・D-1）
 //            bridge（ブリッジ＋電池・電流計・PowerBoost・左右の壁・結束バンド。🔒 単体では見えないのでこの一式で出す）
 //   刷る向き: print_floor 〜 print_hatch print_shutter print_lock print_tail（外面を下に・底 Z0）/ print_seat（壁に当たる面を伏せる）
+//   棚卸し: plate（stl/v4/*.stl を全部並べる。焼いた STL そのものなので支柱・ラフト・犠牲タブ込み。
+//           Z は動かしていないので浮きも見える。赤 ＝ 前の回の焼き残り。並べ直しは `python hardware/_v4_plate.py`）
 //   静止   : chk_floor chk_lwall chk_rwall chk_top chk_front chk_hatch（板 ↔ 中身＋他の板）/ chk_all（皮全部 ↔ 中身）
 //            chk_top_spk（天板 ↔ SPK_LIFT で持ち上げたスピーカー。枠ごと板に入るので専用に見張る）
 //            —— **全部 0 が正**（押し代は除外済み）。chk_press だけは **≈6mm3 が正**（ReSpeaker の押さえが板に届いている証拠）
@@ -90,7 +93,8 @@ V4_FLOOR_SCREWS = [[0.7 + BOSS / 2, 2 + BOSS_B_DY_F / 2], [78.3 + BOSS / 2, 2 + 
 //               ④ の後端 65.5 ↔ コネクタ胴 65.85 = 0.35 / ⑤ の右 5.9 ↔ ハブの左端 6.002 = 0.102
 TC4_XF  = LW_X + 1.6;         // 板の表（3.294）
 TC4_Y0  = 57.4; TC4_Y1 = 72.4;   // 板の前縁・後縁（後縁はハッチの内面 IN_Y に 0.4 入る）
-TC4_ZT  = 20.5;               // 板の上端
+TC4_ZT  = TCB_ZTOP;           // 板の上端（20.75）。🔴 2026-08-27 まで 20.5 の直書きで、口の中心 CHG_C_LW と別々に動けた
+TC4_ZB  = TC4_ZT - tc_size()[0];   // 板の下端（0.75）＝ ① 底の座の高さ
 TC4_CL  = 0.25;               // 板と受けの隙間
 TC4_GX0 = TC4_XF + TC4_CL;    // 返し・控えの内面（3.544）
 TC4_GX1 = 4.25;               // 返しの表（ハウジング 4.524 へ 0.274）
@@ -108,8 +112,8 @@ module tc_seat4() difference() {
     for (h = HUB_HOLES4) translate([h[0], h[1], -1]) cylinder(d = HUB_POST_D + 0.6, h = BOARD_Z + 1, $fn = 32);
 }
 module tc_seat4_raw() {
-    // ① 底の座（板の下端 Z 0.5 を受ける。床の後端 IN_Y までで切る）
-    translate([LW_X, TC4_FY0, 0]) cube([3.9 - LW_X, IN_Y - TC4_FY0, 0.5]);
+    // ① 底の座（板の下端 Z 0.75 を受ける。床の後端 IN_Y までで切る）
+    translate([LW_X, TC4_FY0, 0]) cube([3.9 - LW_X, IN_Y - TC4_FY0, TC4_ZB]);
     // ② 前の当て（−Y を止める壁・全高）
     translate([LW_X, TC4_FY0, 0]) cube([TC4_GX1 - LW_X, 1.2, TC4_ZT]);
     // ③ 前の返し（L の腕・板の表を全高で押さえる）
@@ -444,7 +448,7 @@ module knob_station_add4() difference() {
 //   プラグが面まで届くのでポケットは不要——**口（殻の大きさ）＋ベベルだけ**。右壁の XIAO の口と同じ顔で意匠が揃う。
 //   位置はプローブの bbox（_v4_skin_probe.scad）→ 中心 [3.23, 10.5]・縦の口。印（稲妻）は口の左（+X。右は板の縁）。
 //   🔴 経緯: 初版は「内面に鼻先・外から局所薄肉 0.8 のポケット」で、輪郭 3 重＋角の丸みに食い込む顔だった（ユーザー「変」）
-CHG4_C = [3.23 + LW_X, 10.5]; TC_PORT_V4 = [3.86, 9.54];   // 基板は左壁ベタ付け（LW_X に追従）
+CHG4_C = [3.23 + LW_X, CHG_C_LW[1]]; TC_PORT_V4 = [3.86, 9.54];   // 基板は左壁ベタ付け（LW_X に追従）。🔴 2026-08-27 まで Z が 10.5 の直書きで、板の Z（CHG_C_LW）と別々に動けた。口と板がずれると挿さらないので式にした
 module hatch_chg_cut4() {
     c = CHG4_C;
     translate([c[0], 0, c[1]]) rotate([-90, 0, 0]) {
@@ -558,6 +562,11 @@ if (part == "print_seat") { translate([TC4_ZT, 0, -LW_X]) rotate([0, -90, 0]) tc
 if (part == "print_shutter") translate([0, 0, SW4_YOUT]) rotate([-90, 0, 0]) battery_shutter4(0);
 if (part == "print_lock")    translate([0, 0, SW4_YOUT]) rotate([-90, 0, 0]) battery_lock4();
 if (part == "print_tail")    translate([0, 0, -0.2]) tail_cap();
+
+// ---- 刷る物を全部並べて見る（stl/v4/*.stl をそのまま読む・支柱もラフトも付いた状態）----
+//   🔴 モデルを描き直して並べているのではない。**焼いた STL を読んでいる**ので、
+//      ここに見えている物 ＝ スライサへ持って行く物。焼き直したら `python hardware/_v4_plate.py`
+if (part == "plate") plate_all();
 
 // ---- 2026-08-26 ここから 5 点（ブリッジ・留め帯 A/B/C・会話ボタンのキャップ）----
 //   それまで STL の出口が無く、刷れるのは板 9 点だけだった（CASE-V4-OPEN A-2）。
@@ -723,17 +732,20 @@ if (part == "chk_tc") intersection() {
 }
 // 充電基板を**上から落として**据えられるか（押さえが壁に移った 2026-08-27 の確認）。
 //   板を Z +12 の高さから下ろす軌跡 ↔ その時点で箱に在る物（床・左右の壁・ハブ・ReSpeaker）。
-//   ✅ 2026-08-27 の実測: 真下へ落とすと 5.110mm³ 当たる（落とせない）。後ろから差すのも 48.519mm³（差せない）。
+//   ✅ 2026-08-27 の実測: 真下へ落とすと 3.285mm³ 当たる（落とせない）。後ろから差すのも 47.986mm³（差せない）。
+//   🔴 2026-08-27（9 度目の机上の通し）: 相手に**受け（tc_seat4）が入っていなかった**。受けは D-1 で床から出た
+//     別部品で、この時点（手順 4 の頭）では既に箱に在る。床の一部だった頃は floor_v4() に含まれていたので
+//     気付かれず、独立した瞬間に相手から消えていた。後ろから差す道は 48.519 → **0（＝ 差せる）**に化けていた。
 //     ⚠ どちらも**手順ではない**。板は手順 4 で左の壁と一緒に降りる（close_tc = 0）ので、この 2 つは
 //     「板だけを後から入れる道は無い」ことの裏取り（＝ 止まるのが正）。
 if (part == "chk_tc_drop") intersection() {
     union() for (t = [0 : 0.5 : 12]) translate([0, 0, t]) tcb_v4_bare();
-    union() { floor_v4(); lwall_v4(); rwall_v4(); hub_unit(); respeaker_at(); }
+    union() { floor_v4(); tc_seat4(); lwall_v4(); rwall_v4(); hub_unit(); respeaker_at(); }
 }
 // 同じ板を**後ろから（−Y へ）差し込む**軌跡。ハッチはまだ付いていないので後ろは開いている
 if (part == "chk_tc_slide") intersection() {
     union() for (t = [0 : 0.5 : 16]) translate([0, t, 0]) tcb_v4_bare();
-    union() { floor_v4(); lwall_v4(); rwall_v4(); hub_unit(); respeaker_at(); }
+    union() { floor_v4(); tc_seat4(); lwall_v4(); rwall_v4(); hub_unit(); respeaker_at(); }
 }
 
 // 🆕 2026-08-27（D-1）受けが壁の部品になったので、板は**箱の外で壁に組む**。その動きを当てる。
