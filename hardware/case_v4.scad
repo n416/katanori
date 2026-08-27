@@ -24,7 +24,7 @@ W = "none";      // _v4_core の内部スイッチ（芯だけの検査 deskseat
 //            bridge（ブリッジ＋電池・電流計・PowerBoost・左右の壁・結束バンド。🔒 単体では見えないのでこの一式で出す）
 //   刷る向き: print_floor 〜 print_hatch print_shutter print_lock print_tail（外面を下に・底 Z0）/ print_seat（壁に当たる面を伏せる）
 //   棚卸し: plate（stl/v4/*.stl を全部並べる。焼いた STL そのものなので支柱・ラフト・犠牲タブ込み。
-//           Z は動かしていないので浮きも見える。赤 ＝ 前の回の焼き残り。並べ直しは `python hardware/_v4_plate.py`）
+//           Z は動かしていないので浮きも見える。🔒 色分けはしない（焼いた時刻は名札に出る）。並べ直しは `python hardware/_v4_plate.py`）
 //   静止   : chk_floor chk_lwall chk_rwall chk_top chk_front chk_hatch（板 ↔ 中身＋他の板）/ chk_all（皮全部 ↔ 中身）
 //            chk_top_spk（天板 ↔ SPK_LIFT で持ち上げたスピーカー。枠ごと板に入るので専用に見張る）
 //            —— **全部 0 が正**（押し代は除外済み）。chk_press だけは **≈6mm3 が正**（ReSpeaker の押さえが板に届いている証拠）
