@@ -354,16 +354,20 @@ v5 でも生きている。🔒 **角度と掛かりの現行値は `.scad` の 
 書き出しは `part` を変える。**全部プレート直置き・サポート不要**で、置き方は
 `.scad` の 🔒 コメントのとおり（つまみは天面を下・島はへこみの底を下・天板は見える面を下）。
 
+🔒 2026-08-27 ユーザー「v4 ディレクトリにまとまるのが筋」「rod と deck は要らない・wall と knob だけで」。
+**機械の部品である 2 点は [_stl_v4.py](../hardware/_stl_v4.py) が筐体と一緒に `stl/v4/` へ焼きます**。
+道具である押し棒と卓上テストの天板は、これまでどおり手で `stl/` へ書き出します。
+
 ```bash
-"C:\Program Files\OpenSCAD (Nightly)\openscad.exe" --backend=manifold -o hardware/stl/knob_v5_knob.stl -D 'part="knob"' hardware/knob_v5.scad
+python hardware/_stl_v4.py knob knobwall
 ```
 
 | STL | 中身 | 刷る |
 |---|---|---|
-| [knob_v5_knob.stl](../hardware/stl/knob_v5_knob.stl) | つまみφ27 ＋ 軸φ7 ＋ AS5600磁石ポケット ＋ リード磁石ポケット ＋ ツメ ＋ Eリング溝 | ✅ 刷ってよい |
-| [knob_v5_rod.stl](../hardware/stl/knob_v5_rod.stl) | 段付きの押し棒。リードスイッチを座へ押し込む道具 | ✅ 刷ってよい |
-| [knob_v5_wall.stl](../hardware/stl/knob_v5_wall.stl) | 島（座金＋タブ） | 🔴 **待て**（下） |
-| [knob_v5_deck.stl](../hardware/stl/knob_v5_deck.stl) | 卓上テスト用の天板 | 🔴 **待て**（下） |
+| [v4_knob.stl](../hardware/stl/v4/v4_knob.stl) | つまみφ27 ＋ 軸φ7 ＋ AS5600磁石ポケット ＋ リード磁石ポケット ＋ ツメ ＋ Eリング溝 | ✅ 刷ってよい（v4 の 18 点の 1 つ） |
+| [v4_knobwall.stl](../hardware/stl/v4/v4_knobwall.stl) | 島（座金＋タブ） | ✅ 刷ってよい（v4 の 18 点の 1 つ） |
+| [knob_v5_rod.stl](../hardware/stl/knob_v5_rod.stl)（道具） | 段付きの押し棒。リードスイッチを座へ押し込む道具 | ✅ 刷ってよい。⚠ 実体は 2026-08-21 版のまま（`.scad` は 8/23）。刷る前に `-D 'part="rod"'` で焼き直す |
+| [knob_v5_deck.stl](../hardware/stl/knob_v5_deck.stl)（道具） | 卓上テスト用の天板 | ✅ 刷ってよい。⚠ 上と同じ（`-D 'part="deck"'`） |
 | ~~knob_v5_half.stl~~（2026-08-18） | 半月。v5 で廃止した部品の残骸 | ❌ 刷らない |
 
 ✅ **4つとも刷ってよい**（2026-08-20 に E リングの外径が 12.0 で確定）。
