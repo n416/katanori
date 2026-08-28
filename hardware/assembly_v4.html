@@ -430,174 +430,12 @@ a { color:var(--accent); }
   </aside>
 </div>
 
-<h2 class="sec">検査（この順番の裏取り）</h2>
-<p class="cal note"><span class="tag">読み</span>ここから下は<b>組む人が読む必要のない、CAD で当てた記録</b>。
-「その手順で部品を動かしたとき、すでに箱に在る物と何 mm³ ぶつかるか」を機械で測ったもので、<b>0 が正</b>。
-<b>反例</b>と書いた行は、わざと間違った順で動かして<b>ぶつかることを確かめた</b>もの。
-数字は <b>hardware/_asm_sim_v4.scad</b> を走らせて出す。</p>
-<div class="tw"><table>
-<thead><tr><th>何を動かすか</th><th>走らせ方</th><th>結果</th><th>読み</th></tr></thead>
-<tbody><tr><td>ハブ基板を柱へ載せる</td><td class="n">CHK="hub"</td><td class="n ok"><b>0</b></td><td>相手は床と、下から通した M3 のビス</td></tr>
-<tr><td>ReSpeaker を床の溝へ差す</td><td class="n">CHK="rsp"</td><td class="n ok"><b>0</b></td><td>相手は手順 1 まで</td></tr>
-<tr><td>反例: ReSpeaker を壁の後から入れる</td><td class="n">CHK="rsp_after"</td><td class="n stop"><b>444mm³</b></td><td>入らない。<b>ReSpeaker が壁より先</b>であることの裏取り</td></tr>
-<tr><td>充電基板の受けを床の枠へ落とす</td><td class="n">CHK="seat"</td><td class="n ok"><b>0</b></td><td>相手は手順 3 まで。手順 4 の頭で落とす</td></tr>
-<tr><td>反例: 受けを壁と基板の後から落とす</td><td class="n">CHK="seat_bad"</td><td class="n stop"><b>383mm³</b></td><td>受けの底の座が Type-C 基板の下へ入るので、真上からは落ちない</td></tr>
-<tr><td>棚の M2 ナットを横穴へ差す（3 か所）</td><td class="n">CHK="ldgnut_lf" / "ldgnut_lb" / "ldgnut_r"</td><td class="n ok"><b>0 / 0 / 0</b></td><td>壁 1 枚だけを相手にした、ナットの通り道。左の前と右はハッチ側から、3 本目は OLED 側から</td></tr>
-<tr><td>反例: 3 本目を逆の面から差す</td><td class="n">CHK="ldgnut_bad"</td><td class="n stop"><b>5.1mm³</b></td><td>3 本目の通路は OLED 側にしか抜けていない</td></tr>
-<tr><td>左右の壁を上から降ろす</td><td class="n">CHK="wall_l" / "wall_r"</td><td class="n ok"><b>0 / 0.01mm³</b></td><td>0.01 は厚みゼロの膜で、実体の重なりではない</td></tr>
-<tr><td>壁を降ろす（相手に受けを入れて）</td><td class="n">CHK="wall_l_seat" / "wall_r_seat"</td><td class="n ok"><b>0 / 0.01mm³</b></td><td>受けを先に落としてあっても変わらない</td></tr>
-<tr><td>左の壁が Type-C 基板を抱いて降りる</td><td class="n">CHK="tcwall"</td><td class="n ok"><b>0</b></td><td>基板にコネクタ 4 個が付いた姿で降ろす。ハブ基板の上面との逃げは <b>0.14mm</b></td></tr>
-<tr><td>前板を床の溝へ差す</td><td class="n">CHK="brgf"</td><td class="n ok"><b>0</b></td><td>ブリッジより先</td></tr>
-<tr><td>反例: 前板をブリッジの後から差す</td><td class="n">CHK="brgf_bad"</td><td class="n stop"><b>1450mm³</b></td><td>皿の裏の掘り込みが上から被さっているので入らない</td></tr>
-<tr><td>ブリッジ本体を上から降ろす</td><td class="n">CHK="brg"</td><td class="n warn"><b>46mm³</b>（形のある物は 0）</td><td>残りは会話ボタンの線の枝（そのタクトは手順 10 の部品で、まだ箱に居ない）と、J2 のプラグのために空けてある予約の箱</td></tr>
-<tr><td>ブリッジを箱へ留める（棚・ビス・本体）</td><td class="n">W="brgldg" / "brghw" / "brgchk"</td><td class="n warn"><b>0 / 0 / 16mm³</b></td><td>16 は J2 のプラグの予約の箱。<b>コネクタの尻の実測が出るまで保留</b>している</td></tr>
-<tr><td>反例: 上の道を先に通す</td><td class="n">CHK="brg_bad"</td><td class="n stop"><b>1037mm³</b></td><td>手順 3 の「低い方と上に分ける」が効いていることの裏取り</td></tr>
-<tr><td>留め帯 3 本を横へ 2mm 押し込む</td><td class="n">CHK="strap" / "strap_dry"</td><td class="n ok"><b>0.57 / 0.57mm³</b></td><td>帯 A の左足の角が J2 のソケットの頭に <b>0.09mm</b> 触れる分。手の精度より小さい</td></tr>
-<tr><td>留め帯を、押し込む前の位置へ上から降ろす</td><td class="n">CHK="strap_down"</td><td class="n warn"><b>15mm³</b>（形のある物は 0）</td><td>残りは会話ボタンの線。この時点ではまだ低い方の道に寝ているので、<b>指でよける</b></td></tr>
-<tr><td>反例: 留め帯を上からかぶせる / 電池を先に入れる</td><td class="n">CHK="strap_top" / "strap_bad"</td><td class="n stop"><b>81 / 201mm³</b></td><td>ツバが土手の肉に当たる／電池が居て横へ動かせない。どちらも成立しない</td></tr>
-<tr><td>留め帯の抜け止め（ツバ ↔ 土手）</td><td class="n">case_v4 の掃引</td><td class="n ok"><b>0.2mm</b></td><td>真上へ 0.20 では当たらず、<b>0.25 から当たる</b>。3 本とも同じ</td></tr>
-<tr><td>電池を後ろから差し込む</td><td class="n">CHK="bat"</td><td class="n ok"><b>0</b></td><td>留め帯 3 本が入った鞘を 55mm 通す。<b>入れるときは素の電池</b>（コネクタは座ってから嵌める）</td></tr>
-<tr><td>🆕 電池をコネクタごと後ろへ引き出す</td><td class="n">part="chk_swap"</td><td class="n ok"><b>0</b></td><td>動く側は 電池 ＋ タブの 2 本 ＋ 嵌合したコネクタ。<b>🔴 2026-08-27（11 度目の机上の通し）まで、ここは電池の線を障害物から丸ごと外して 0 を出していた。</b>実物には外れる所が無かったので、それは検査が穴を隠していただけだった。いまは箱に残る延長（<span class="n">w_bat_ext</span>）を障害物に入れて 0</td></tr>
-<tr><td>🆕 電池のコネクタ対と延長（止まった姿）</td><td class="n">part="chk_wire_pwr"</td><td class="n ok"><b>0</b></td><td>相手は箱の中身と皮の全部。延長は電池の抜き道（<span class="n">Z 23.4〜29.4</span>）の上 <b>32.1 / 33.9</b> を渡る。天井は PowerBoost の L 字ハウジングの腹 <span class="n">35.03</span>、床は抜き道の頭 <span class="n">29.4</span></td></tr>
-<tr><td>電流計と PowerBoost を座へ降ろす</td><td class="n">CHK="boards"</td><td class="n warn"><b>12 → 0.6mm³</b></td><td>11.4 は会話ボタンの線（そのタクトはまだ箱に居ない）。残る 0.6 は電流計の板の縁と帯 A の座で、止まった姿でも同じ値が出る</td></tr>
-<tr><td>OLED を上から降ろす</td><td class="n">CHK="oled"</td><td class="n ok"><b>0</b></td><td>相手は手順 8 まで</td></tr>
-<tr><td>上の道と電源の線（止まった姿）</td><td class="n">CHK="whigh"</td><td class="n ok"><b>0</b></td><td>線 9 束は、ハブの口の曲がりを実測に直したときに引き直してある</td></tr>
-<tr><td>天面一式を降ろす</td><td class="n">part="close_top"</td><td class="n ok"><b>0</b></td><td>2026-08-27（13 度目の机上の通し）に 0 → 30.24 → 11.45 と動いた。✅ 2026-08-28（14 度目）に <b>0 へ戻った</b>——犯人だった「コネクタの模型だけを Y へ −2 動かす値（ASC_DY）」が同日に削除されてコネクタが基板の上へ戻り、それを避けるために寄せてあった XIAO の上段の車線も <span class="n">29.03 → 29.9</span>（通り道のど真ん中）へ戻したため。いまの通り道は <span class="n">Y 27.535〜32.230 ＝ 4.695mm</span> で、束 3.0 に対して片側 <b>0.85mm</b> ずつ空く</td></tr>
-<tr><td>フロントを前から差す</td><td class="n">part="close_front"</td><td class="n ok"><b>0.13mm³</b></td><td>厚みゼロの膜 2 枚。実体の重なりではない</td></tr>
-<tr><td>ハッチ（トグル・蓋ごと）を閉じる</td><td class="n">part="close_hatch"</td><td class="n ok"><b>0.02mm³</b></td><td>充電の口の細片 2 つ。<b>口は殻の大きさ</b>で逃げゼロの設計なので、これが正しい姿</td></tr>
-<tr><td>組み上がった姿（皮 6 枚 ↔ 中身）</td><td class="n">part="chk_all"</td><td class="n ok"><b>0.03mm³</b></td><td>同じ細片が 4 つ（XIAO の口に 2・充電の口に 2）。0.11mm 角で、手の精度より小さい</td></tr>
-<tr><td>ReSpeaker の押さえ</td><td class="n">part="chk_press"</td><td class="n ok"><b>4.7mm³</b></td><td><b>ここは 0 だと不合格。</b>押し代 0.3mm が板に届いている証拠</td></tr>
-<tr><td>電池の交換の道（組んだ後）</td><td class="n">chk_shut_slide / chk_lock_out / chk_shut_out / chk_swap</td><td class="n ok"><b>0 / 0 / 0 / 0</b></td><td>蓋を横へずらす・ロックを後ろへ外す・蓋を後ろへ抜く・電池を<b>コネクタごと</b>後ろへ引き出す、の 4 本とも 0</td></tr></tbody>
-</table></div>
-
-<h2 class="sec">工具と手の道</h2>
-<p class="cal note"><span class="tag">読み</span>部品が通るだけでは組めないので、<b>ドライバ・ナット・ピンセット・指</b>も同じように当ててある。
-その手順のときに箱に在る物へ向けて円筒を撃ち、真っ直ぐ何 mm 入るかを測ったもの。
-太さは ドライバ <span class="d">φ3.2</span>・M2 ナット <span class="d">4.3</span>・ピンセット <span class="d">φ5</span>・指 <span class="d">φ12</span>。
-<b>止まる（反例）</b>の行は<b>止まるのが正</b>で、「その手順でしか入らない」ことの裏取り。</p>
-<div class="tw"><table>
-<thead><tr><th>何を入れるか</th><th>手順</th><th>道具</th><th>φ</th><th>要る mm</th><th>通った mm</th><th>結果</th><th>備考</th></tr></thead>
-<tbody><tr><td>床の裏 → 壁の柱 (4.2, 4.8)</td><td class="n">4</td><td>ドライバ</td><td class="n">φ3.2</td><td class="n">5.0</td><td class="n ok">外まで</td><td class="ok"><b>通る</b></td><td>箱の下に空きが要る。机の端か台に載せる</td></tr>
-<tr><td>同 ナットを上から落とす (4.2, 4.8)</td><td class="n">4</td><td>ナット</td><td class="n">φ4.3</td><td class="n">20.0</td><td class="n ok">24.3</td><td class="ok"><b>通る</b></td><td></td></tr>
-<tr><td>床の裏 → 壁の柱 (81.8, 4.8)</td><td class="n">4</td><td>ドライバ</td><td class="n">φ3.2</td><td class="n">5.0</td><td class="n ok">外まで</td><td class="ok"><b>通る</b></td><td>箱の下に空きが要る。机の端か台に載せる</td></tr>
-<tr><td>同 ナットを上から落とす (81.8, 4.8)</td><td class="n">4</td><td>ナット</td><td class="n">φ4.3</td><td class="n">20.0</td><td class="n ok">24.3</td><td class="ok"><b>通る</b></td><td></td></tr>
-<tr><td>床の裏 → 壁の柱 (82.0, 69.5)</td><td class="n">4</td><td>ドライバ</td><td class="n">φ3.2</td><td class="n">5.0</td><td class="n ok">外まで</td><td class="ok"><b>通る</b></td><td>箱の下に空きが要る。机の端か台に載せる</td></tr>
-<tr><td>同 ナットを上から落とす (82.0, 69.5)</td><td class="n">4</td><td>ナット</td><td class="n">φ4.3</td><td class="n">20.0</td><td class="n ok">27.5</td><td class="ok"><b>通る</b></td><td></td></tr>
-<tr><td>ブリッジ → 壁の棚 (4.2, 33.5)</td><td class="n">5</td><td>ドライバ</td><td class="n">φ3.2</td><td class="n">60.0</td><td class="n ok">外まで</td><td class="ok"><b>通る</b></td><td>頭 Z 25.1 から真上</td></tr>
-<tr><td>ブリッジ → 壁の棚 (4.2, 47.7)</td><td class="n">5</td><td>ドライバ</td><td class="n">φ3.2</td><td class="n">60.0</td><td class="n ok">外まで</td><td class="ok"><b>通る</b></td><td>頭 Z 26.1 から真上</td></tr>
-<tr><td>ブリッジ → 壁の棚 (81.9, 59.9)</td><td class="n">5</td><td>ドライバ</td><td class="n">φ3.2</td><td class="n">60.0</td><td class="n ok">外まで</td><td class="ok"><b>通る</b></td><td>頭 Z 25.1 から真上</td></tr>
-<tr><td>基板 → 帯の座 (21.2, 18.4)</td><td class="n">8</td><td>ドライバ</td><td class="n">φ3.2</td><td class="n">40.0</td><td class="n ok">外まで</td><td class="ok"><b>通る</b></td><td>頭 Z 35.3 から真上</td></tr>
-<tr><td>基板 → 帯の座 (21.2, 34.0)</td><td class="n">8</td><td>ドライバ</td><td class="n">φ3.2</td><td class="n">40.0</td><td class="n ok">外まで</td><td class="ok"><b>通る</b></td><td>頭 Z 35.3 から真上</td></tr>
-<tr><td>基板 → 帯の座 (44.5, 39.6)</td><td class="n">8</td><td>ドライバ</td><td class="n">φ3.2</td><td class="n">40.0</td><td class="n ok">外まで</td><td class="ok"><b>通る</b></td><td>頭 Z 38.3 から真上</td></tr>
-<tr><td>基板 → 帯の座 (13.1, 41.6)</td><td class="n">8</td><td>ドライバ</td><td class="n">φ3.2</td><td class="n">40.0</td><td class="n ok">外まで</td><td class="ok"><b>通る</b></td><td>頭 Z 38.0 から真上</td></tr>
-<tr><td>基板 → 帯の座 (13.1, 54.5)</td><td class="n">8</td><td>ドライバ</td><td class="n">φ3.2</td><td class="n">40.0</td><td class="n ok">外まで</td><td class="ok"><b>通る</b></td><td>頭 Z 35.7 から真上</td></tr>
-<tr><td>基板 → 帯の座 (44.5, 57.1)</td><td class="n">8</td><td>ドライバ</td><td class="n">φ3.2</td><td class="n">40.0</td><td class="n ok">外まで</td><td class="ok"><b>通る</b></td><td>頭 Z 35.2 から真上</td></tr>
-<tr><td>OLED → 天面の L (X 10.0)</td><td class="n">10</td><td>ドライバ</td><td class="n">φ3.2</td><td class="n">20.0</td><td class="n ok">外まで</td><td class="ok"><b>通る</b></td><td>天面を裏返して前から</td></tr>
-<tr><td>L の後ろへナット (X 10.0)・天面の小組（箱の外）</td><td class="n">10</td><td>ナット 4.3×1.6</td><td class="n">φ4.3</td><td class="n">1.6</td><td class="n ok">3.7</td><td class="ok"><b>通る</b></td><td>右は 2026-08-26 につまみとスピーカーを −X へ 4 動かして通った（T-2）。左は同日、会話ボタンの受けの手前左の角を欠いて 0.19 → 3.4（T-3）</td></tr>
-<tr><td>L の後ろへナット (X 10.0)・天面を載せた後</td><td class="n">11</td><td>ナット 4.3×1.6</td><td class="n">φ4.3</td><td class="n">1.6</td><td class="n ok">3.7</td><td class="ok"><b>通る</b></td><td>右は 2026-08-26 につまみとスピーカーを −X へ 4 動かして通った（T-2）。左は同日、会話ボタンの受けの手前左の角を欠いて 0.19 → 3.4（T-3）</td></tr>
-<tr><td>OLED → 天面の L (X 76.1)</td><td class="n">10</td><td>ドライバ</td><td class="n">φ3.2</td><td class="n">20.0</td><td class="n ok">外まで</td><td class="ok"><b>通る</b></td><td>天面を裏返して前から</td></tr>
-<tr><td>L の後ろへナット (X 76.1)・天面の小組（箱の外）</td><td class="n">10</td><td>ナット 4.3×1.6</td><td class="n">φ4.3</td><td class="n">1.6</td><td class="n ok">4.5</td><td class="ok"><b>通る</b></td><td>右は 2026-08-26 につまみとスピーカーを −X へ 4 動かして通った（T-2）。左は同日、会話ボタンの受けの手前左の角を欠いて 0.19 → 3.4（T-3）</td></tr>
-<tr><td>L の後ろへナット (X 76.1)・天面を載せた後</td><td class="n">11</td><td>ナット 4.3×1.6</td><td class="n">φ4.3</td><td class="n">1.6</td><td class="n ok">4.5</td><td class="ok"><b>通る</b></td><td>右は 2026-08-26 につまみとスピーカーを −X へ 4 動かして通った（T-2）。左は同日、会話ボタンの受けの手前左の角を欠いて 0.19 → 3.4（T-3）</td></tr>
-<tr><td>天面の四隅 後ろ左 (5.2, 68.5)</td><td class="n">11</td><td>ドライバ</td><td class="n">φ3.2</td><td class="n">5.0</td><td class="n ok">外まで</td><td class="ok"><b>通る</b></td><td>外から真上</td></tr>
-<tr><td>天面の四隅 後ろ右 (80.9, 68.5)</td><td class="n">11</td><td>ドライバ</td><td class="n">φ3.2</td><td class="n">5.0</td><td class="n ok">外まで</td><td class="ok"><b>通る</b></td><td>外から真上</td></tr>
-<tr><td>天面の四隅 前左 (4.2, 6.0)</td><td class="n">11</td><td>ドライバ</td><td class="n">φ3.2</td><td class="n">5.0</td><td class="n ok">外まで</td><td class="ok"><b>通る</b></td><td>外から真上</td></tr>
-<tr><td>天面の四隅 前右 (81.9, 6.0)</td><td class="n">11</td><td>ドライバ</td><td class="n">φ3.2</td><td class="n">5.0</td><td class="n ok">外まで</td><td class="ok"><b>通る</b></td><td>外から真上</td></tr>
-<tr><td>天面のナット 後ろ左 (5.2, 68.5)</td><td class="n">9</td><td>ナット</td><td class="n">φ4.3</td><td class="n">20.0</td><td class="n ok">外まで</td><td class="ok"><b>通る</b></td><td>天面を載せる前にしか入らない</td></tr>
-<tr><td>天面のナット 後ろ右 (80.9, 68.5)</td><td class="n">9</td><td>ナット</td><td class="n">φ4.3</td><td class="n">20.0</td><td class="n ok">外まで</td><td class="ok"><b>通る</b></td><td>天面を載せる前にしか入らない</td></tr>
-<tr><td>天面のナット 前左 (4.2, 6.0)</td><td class="n">9</td><td>ナット</td><td class="n">φ4.3</td><td class="n">20.0</td><td class="n ok">外まで</td><td class="ok"><b>通る</b></td><td>天面を載せる前にしか入らない</td></tr>
-<tr><td>天面のナット 前右 (81.9, 6.0)</td><td class="n">9</td><td>ナット</td><td class="n">φ4.3</td><td class="n">20.0</td><td class="n ok">外まで</td><td class="ok"><b>通る</b></td><td>天面を載せる前にしか入らない</td></tr>
-<tr><td>電池を奥まで押す指 (X 29)</td><td class="n">7</td><td>指 φ12</td><td class="n">φ12.0</td><td class="n">14.1</td><td class="n ok">15.1</td><td class="ok"><b>通る</b></td><td>Y 78 から −Y。電池の後端 63.9 まで 14.1 要る</td></tr>
-<tr><td>電池を奥まで押す指 (X 14)</td><td class="n">7</td><td>指 φ12</td><td class="n">φ12.0</td><td class="n">14.1</td><td class="n ok">15.1</td><td class="ok"><b>通る</b></td><td>Y 78 から −Y。電池の後端 63.9 まで 14.1 要る</td></tr>
-<tr><td>電池を奥まで押す指 (X 44)</td><td class="n">7</td><td>指 φ12</td><td class="n">φ12.0</td><td class="n">14.1</td><td class="n ok">15.1</td><td class="ok"><b>通る</b></td><td>Y 78 から −Y。電池の後端 63.9 まで 14.1 要る</td></tr>
-<tr><td>コネクタ対を真上から嵌める</td><td class="n">7</td><td>ピンセット</td><td class="n">φ5.0</td><td class="n">30.6</td><td class="n ok">30.6</td><td class="ok"><b>通る</b></td><td>コネクタの頭 Z 29.4 まで 30.6 要る。板はまだ載っていない</td></tr>
-<tr><td>コネクタ対を真上から嵌める</td><td class="n">7</td><td>指 φ12</td><td class="n">φ12.0</td><td class="n">30.6</td><td class="n ok">30.6</td><td class="ok"><b>通る</b></td><td>コネクタの頭 Z 29.4 まで 30.6 要る。板はまだ載っていない</td></tr>
-<tr><td>（反例）コネクタ対を 板を載せた後から</td><td class="n">8</td><td>ピンセット</td><td class="n">φ5.0</td><td class="n">30.6</td><td class="n ok">24.4</td><td class="ok">止まる（<b>反例</b>）</td><td>PowerBoost の L 字ハウジングの腹（Z 35.03）が真上に来る。⇒ 嵌めるのは手順 7 だけ</td></tr>
-<tr><td>交換: コネクタを口から掴む</td><td class="n">交換</td><td>ピンセット</td><td class="n">φ5.0</td><td class="n">20.8</td><td class="n ok">20.8</td><td class="ok"><b>通る</b></td><td>Y 90 から −Y。コネクタの尻 69.2 まで 20.8 要る。蓋とロックを外した姿</td></tr>
-<tr><td>（反例）交換: 指でコネクタを掴む</td><td class="n">交換</td><td>指 φ12</td><td class="n">φ12.0</td><td class="n">20.8</td><td class="n ok">16.0</td><td class="ok">止まる（<b>反例</b>）</td><td>電池口は高さ 7.0 しかない。止まるのが正 ＝ 掴むのはピンセット。指で足りるのは「電池ごと後ろへ引く」ほうで、その道は case_v4 の chk_swap（0）が見ている</td></tr>
-<tr><td>蓋のロックのビス (56.4, 26.4)</td><td class="n">12</td><td>ドライバ</td><td class="n">φ3.2</td><td class="n">15.4</td><td class="n ok">15.4</td><td class="ok"><b>通る</b></td><td>外から。頭は Y 74.6</td></tr>
-<tr><td>同 柄が振れるか</td><td class="n">12</td><td>柄 φ20</td><td class="n">φ20.0</td><td class="n">15.4</td><td class="n ok">15.4</td><td class="ok"><b>通る</b></td><td>外なので当たるのはビスの頭だけ</td></tr>
-<tr><td>ハブの口へ手を入れる XIAO (35.4, 19.0)</td><td class="n">3</td><td>指 φ12</td><td class="n">φ12.0</td><td class="n">40.0</td><td class="n ok">外まで</td><td class="ok"><b>通る</b></td><td>壁もブリッジもまだ無い</td></tr>
-<tr><td>ハブの口へ手を入れる INA (34.1, 64.8)</td><td class="n">3</td><td>指 φ12</td><td class="n">φ12.0</td><td class="n">40.0</td><td class="n ok">外まで</td><td class="ok"><b>通る</b></td><td>壁もブリッジもまだ無い</td></tr>
-<tr><td>ハブの口へ手を入れる PWR (67.1, 64.8)</td><td class="n">3</td><td>指 φ12</td><td class="n">φ12.0</td><td class="n">40.0</td><td class="n ok">外まで</td><td class="ok"><b>通る</b></td><td>壁もブリッジもまだ無い</td></tr>
-<tr><td>ハブの口へ手を入れる BTN2 (12.5, 58.4)</td><td class="n">3</td><td>指 φ12</td><td class="n">φ12.0</td><td class="n">40.0</td><td class="n ok">外まで</td><td class="ok"><b>通る</b></td><td>壁もブリッジもまだ無い</td></tr>
-<tr><td>帯 A（電流計の前） を上から摘まむ</td><td class="n">6</td><td>指 φ12</td><td class="n">φ12.0</td><td class="n">27.6</td><td class="n ok">30.6</td><td class="ok"><b>通る</b></td><td>天板の頭 Z 32.4 まで。+2.0 ずらした位置（押し込む前）で撃つ</td></tr>
-<tr><td>帯 A（電流計の前） を上から摘まむ</td><td class="n">6</td><td>ピンセット</td><td class="n">φ5.0</td><td class="n">27.6</td><td class="n ok">36.6</td><td class="ok"><b>通る</b></td><td>天板の頭 Z 32.4 まで。+2.0 ずらした位置（押し込む前）で撃つ</td></tr>
-<tr><td>帯 A（電流計の前） を −X へ 2.0 押す（横から棒）</td><td class="n">6</td><td>棒 φ3.2</td><td class="n">φ3.2</td><td class="n">33.0</td><td class="n ok">82.3</td><td class="ok"><b>通る</b></td><td>指 φ12 を横から差し込む道は 2.6mm で止まる（右の溝の高さが足りない）。押すのは上から天板に指を載せたまま</td></tr>
-<tr><td>帯 B（電流計の後＋PB の前） を上から摘まむ</td><td class="n">6</td><td>指 φ12</td><td class="n">φ12.0</td><td class="n">24.4</td><td class="n ok">36.6</td><td class="ok"><b>通る</b></td><td>天板の頭 Z 35.6 まで。+2.0 ずらした位置（押し込む前）で撃つ</td></tr>
-<tr><td>帯 B（電流計の後＋PB の前） を上から摘まむ</td><td class="n">6</td><td>ピンセット</td><td class="n">φ5.0</td><td class="n">24.4</td><td class="n ok">36.6</td><td class="ok"><b>通る</b></td><td>天板の頭 Z 35.6 まで。+2.0 ずらした位置（押し込む前）で撃つ</td></tr>
-<tr><td>帯 B（電流計の後＋PB の前） を −X へ 2.0 押す（横から棒）</td><td class="n">6</td><td>棒 φ3.2</td><td class="n">φ3.2</td><td class="n">33.0</td><td class="n ok">82.3</td><td class="ok"><b>通る</b></td><td>指 φ12 も横から入る（82.3mm・要る 33.0）。押すのは上から天板に指を載せたまま</td></tr>
-<tr><td>帯 C（PB の後ろ） を上から摘まむ</td><td class="n">6</td><td>指 φ12</td><td class="n">φ12.0</td><td class="n">27.2</td><td class="n ok">36.6</td><td class="ok"><b>通る</b></td><td>天板の頭 Z 32.8 まで。+2.0 ずらした位置（押し込む前）で撃つ</td></tr>
-<tr><td>帯 C（PB の後ろ） を上から摘まむ</td><td class="n">6</td><td>ピンセット</td><td class="n">φ5.0</td><td class="n">27.2</td><td class="n ok">36.6</td><td class="ok"><b>通る</b></td><td>天板の頭 Z 32.8 まで。+2.0 ずらした位置（押し込む前）で撃つ</td></tr>
-<tr><td>帯 C（PB の後ろ） を −X へ 2.0 押す（横から棒）</td><td class="n">6</td><td>棒 φ3.2</td><td class="n">φ3.2</td><td class="n">33.0</td><td class="n ok">82.3</td><td class="ok"><b>通る</b></td><td>指 φ12 を横から差し込む道は 1.4mm で止まる（右の溝の高さが足りない）。押すのは上から天板に指を載せたまま</td></tr>
-<tr><td>J2（スピーカー IN）の口へ真上から</td><td class="n">3</td><td>ピンセット</td><td class="n">φ5.0</td><td class="n">26.4</td><td class="n ok">26.5</td><td class="ok"><b>通る</b></td><td>口の頭 Z 23.5 まで 26.5 要る。ハブ側だけでなく**この口も手順 3 で挿す**</td></tr>
-<tr><td>（反例）J2 の口へ ブリッジの後から</td><td class="n">5</td><td>ピンセット</td><td class="n">φ5.0</td><td class="n">26.4</td><td class="n ok">22.6</td><td class="ok">止まる（<b>反例</b>）</td><td>皿（X 9〜49・Z 21.4〜23.4）が真上に載る。手順 5 以降は挿せないことの裏取り</td></tr>
-<tr><td>充電の口（上）へ真上から</td><td class="n">4</td><td>ピンセット</td><td class="n">φ5.0</td><td class="n">30.4</td><td class="n ok">30.5</td><td class="ok"><b>通る</b></td><td>口の頭 Z 19.5 まで 30.4 要る。指 φ12 は左の溝（幅 7.6）に入らない</td></tr>
-<tr><td>充電の口（下）へ真上から</td><td class="n">4</td><td>ピンセット</td><td class="n">φ5.0</td><td class="n">40.6</td><td class="n ok">30.5</td><td class="ok">止まる（<b>反例</b>）</td><td>下の口は上の口の**真下**（同じ X・Y）なので真上からは触れない。⇒ 2 本とも壁を降ろす前に板へ挿す</td></tr>
-<tr><td>（反例）充電の口へ ブリッジの後から</td><td class="n">5</td><td>ピンセット</td><td class="n">φ5.0</td><td class="n">30.4</td><td class="n ok">23.6</td><td class="ok">止まる（<b>反例</b>）</td><td>帯（Y 50.5〜62.9・全幅）が真上に載る。手順 5 以降は挿せないことの裏取り</td></tr>
-<tr><td>電流計 INPUT + を挿す（挿し代）</td><td class="n">9</td><td>口そのもの</td><td class="n">φ3.6</td><td class="n">6.0</td><td class="n ok">外まで</td><td class="ok"><b>通る</b></td><td>縦。上は開いている（天面は手順 11）</td></tr>
-<tr><td>電流計 INPUT − を挿す（挿し代）</td><td class="n">9</td><td>口そのもの</td><td class="n">φ3.6</td><td class="n">6.0</td><td class="n ok">外まで</td><td class="ok"><b>通る</b></td><td>縦</td></tr>
-<tr><td>電流計 OUT + を挿す（挿し代）</td><td class="n">9</td><td>口そのもの</td><td class="n">φ3.6</td><td class="n">6.0</td><td class="n ok">外まで</td><td class="ok"><b>通る</b></td><td>縦</td></tr>
-<tr><td>電流計 OUT − を挿す（挿し代）</td><td class="n">9</td><td>口そのもの</td><td class="n">φ3.6</td><td class="n">6.0</td><td class="n ok">外まで</td><td class="ok"><b>通る</b></td><td>縦</td></tr>
-<tr><td>電流計 I2C（横） を挿す（挿し代）</td><td class="n">9</td><td>口そのもの</td><td class="n">φ3.6</td><td class="n">6.0</td><td class="n ok">35.0</td><td class="ok"><b>通る</b></td><td>逃げ箱の後ろ端から +X</td></tr>
-<tr><td>PB の L 3 ピン を挿す（挿し代）</td><td class="n">9</td><td>口そのもの</td><td class="n">φ3.6</td><td class="n">6.0</td><td class="n ok">外まで</td><td class="ok"><b>通る</b></td><td>後ろ（ハッチ側）へ抜ける</td></tr>
-<tr><td>PB の L 3 ピン EN を挿す（挿し代）</td><td class="n">9</td><td>口そのもの</td><td class="n">φ3.6</td><td class="n">6.0</td><td class="n ok">外まで</td><td class="ok"><b>通る</b></td><td>同</td></tr>
-<tr><td>PB の USB ピン を挿す（挿し代）</td><td class="n">9</td><td>口そのもの</td><td class="n">φ3.6</td><td class="n">6.0</td><td class="n ok">外まで</td><td class="ok"><b>通る</b></td><td>縦。逃げの頭は天面の裏のポケットに入る</td></tr>
-<tr><td>OLED の 4 連 を挿す（挿し代）</td><td class="n">9</td><td>口そのもの</td><td class="n">φ10.8</td><td class="n">6.0</td><td class="n ok">12.7</td><td class="ok"><b>通る</b></td><td>後ろへ。天面を載せた後は 1.6 で止まる（抜けない）</td></tr>
-<tr><td>（反例）OLED の 4 連を 電源の 7 本の後から挿す</td><td class="n">9</td><td>口そのもの</td><td class="n">φ10.8</td><td class="n">6.0</td><td class="n ok">5.0</td><td class="ok">止まる（<b>反例</b>）</td><td>相手は手順 9 の姿から OLED 自身の束だけを抜いたもの。止まるのが正 ＝ **手順 9 の中では OLED が先**（電流計 → PowerBoost の 2 本が口の上を渡る）</td></tr>
-<tr><td>ハブの口 XIAO へ真上から (35.4, 19.0)</td><td class="n">3</td><td>ピンセット</td><td class="n">φ5.0</td><td class="n">33.3</td><td class="n ok">37.4</td><td class="ok"><b>通る</b></td><td>口の頭 Z 16.6 まで 33.3 要る。🆕 2026-08-28: 相手は**その口以外の 9 本を挿した姿**（前は口が 1 本も無い姿へ撃っていた）</td></tr>
-<tr><td>同 指 φ12 で XIAO</td><td class="n">3</td><td>指 φ12</td><td class="n">φ12.0</td><td class="n">33.3</td><td class="n ok">37.4</td><td class="ok"><b>通る</b></td><td>同じ相手へ φ12</td></tr>
-<tr><td>ハブの口 PHIN へ真上から (76.0, 45.7)</td><td class="n">3</td><td>ピンセット</td><td class="n">φ5.0</td><td class="n">39.8</td><td class="n ok">39.9</td><td class="ok"><b>通る</b></td><td>口の頭 Z 10.1 まで 39.8 要る。🆕 2026-08-28: 相手は**その口以外の 9 本を挿した姿**（前は口が 1 本も無い姿へ撃っていた）</td></tr>
-<tr><td>同 指 φ12 で PHIN</td><td class="n">3</td><td>指 φ12</td><td class="n">φ12.0</td><td class="n">39.8</td><td class="n ok">39.9</td><td class="ok"><b>通る</b></td><td>同じ相手へ φ12</td></tr>
-<tr><td>ハブの口 OLED へ真上から (15.1, 38.1)</td><td class="n">3</td><td>ピンセット</td><td class="n">φ5.0</td><td class="n">33.3</td><td class="n ok">37.4</td><td class="ok"><b>通る</b></td><td>口の頭 Z 16.6 まで 33.3 要る。🆕 2026-08-28: 相手は**その口以外の 9 本を挿した姿**（前は口が 1 本も無い姿へ撃っていた）</td></tr>
-<tr><td>同 指 φ12 で OLED</td><td class="n">3</td><td>指 φ12</td><td class="n">φ12.0</td><td class="n">33.3</td><td class="n ok">37.4</td><td class="ok"><b>通る</b></td><td>同じ相手へ φ12</td></tr>
-<tr><td>ハブの口 AS5600 へ真上から (34.1, 29.2)</td><td class="n">3</td><td>ピンセット</td><td class="n">φ5.0</td><td class="n">33.3</td><td class="n ok">37.4</td><td class="ok"><b>通る</b></td><td>口の頭 Z 16.6 まで 33.3 要る。🆕 2026-08-28: 相手は**その口以外の 9 本を挿した姿**（前は口が 1 本も無い姿へ撃っていた）</td></tr>
-<tr><td>同 指 φ12 で AS5600</td><td class="n">3</td><td>指 φ12</td><td class="n">φ12.0</td><td class="n">33.3</td><td class="n ok">37.4</td><td class="ok"><b>通る</b></td><td>同じ相手へ φ12</td></tr>
-<tr><td>ハブの口 BTN2 へ真上から (12.5, 58.4)</td><td class="n">3</td><td>ピンセット</td><td class="n">φ5.0</td><td class="n">33.3</td><td class="n ok">37.4</td><td class="ok"><b>通る</b></td><td>口の頭 Z 16.6 まで 33.3 要る。🆕 2026-08-28: 相手は**その口以外の 9 本を挿した姿**（前は口が 1 本も無い姿へ撃っていた）</td></tr>
-<tr><td>同 指 φ12 で BTN2</td><td class="n">3</td><td>指 φ12</td><td class="n">φ12.0</td><td class="n">33.3</td><td class="n ok">34.9</td><td class="ok"><b>通る</b></td><td>同じ相手へ φ12</td></tr>
-<tr><td>ハブの口 REED へ真上から (57.0, 64.8)</td><td class="n">3</td><td>ピンセット</td><td class="n">φ5.0</td><td class="n">33.3</td><td class="n ok">37.4</td><td class="ok"><b>通る</b></td><td>口の頭 Z 16.6 まで 33.3 要る。🆕 2026-08-28: 相手は**その口以外の 9 本を挿した姿**（前は口が 1 本も無い姿へ撃っていた）</td></tr>
-<tr><td>同 指 φ12 で REED</td><td class="n">3</td><td>指 φ12</td><td class="n">φ12.0</td><td class="n">33.3</td><td class="n ok">28.9</td><td class="ok">止まる（<b>反例</b>）</td><td>同じ相手へ φ12。同じ列の隣の口まで 7.6mm。**止まるのが正 ＝ この口はピンセット**。隣の口の線の逃げ（半径 2.25）をよけて φ12（半径 6.0）を降ろすには 8.25mm の間隔が要る</td></tr>
-<tr><td>ハブの口 PHOUT へ真上から (76.0, 55.9)</td><td class="n">3</td><td>ピンセット</td><td class="n">φ5.0</td><td class="n">39.8</td><td class="n ok">39.9</td><td class="ok"><b>通る</b></td><td>口の頭 Z 10.1 まで 39.8 要る。🆕 2026-08-28: 相手は**その口以外の 9 本を挿した姿**（前は口が 1 本も無い姿へ撃っていた）</td></tr>
-<tr><td>同 指 φ12 で PHOUT</td><td class="n">3</td><td>指 φ12</td><td class="n">φ12.0</td><td class="n">39.8</td><td class="n ok">39.9</td><td class="ok"><b>通る</b></td><td>同じ相手へ φ12</td></tr>
-<tr><td>ハブの口 PWR へ真上から (67.1, 64.8)</td><td class="n">3</td><td>ピンセット</td><td class="n">φ5.0</td><td class="n">33.3</td><td class="n ok">37.4</td><td class="ok"><b>通る</b></td><td>口の頭 Z 16.6 まで 33.3 要る。🆕 2026-08-28: 相手は**その口以外の 9 本を挿した姿**（前は口が 1 本も無い姿へ撃っていた）</td></tr>
-<tr><td>同 指 φ12 で PWR</td><td class="n">3</td><td>指 φ12</td><td class="n">φ12.0</td><td class="n">33.3</td><td class="n ok">37.4</td><td class="ok"><b>通る</b></td><td>同じ相手へ φ12。同じ列の隣の口まで 10.2mm</td></tr>
-<tr><td>ハブの口 INA へ真上から (34.1, 64.8)</td><td class="n">3</td><td>ピンセット</td><td class="n">φ5.0</td><td class="n">33.3</td><td class="n ok">37.4</td><td class="ok"><b>通る</b></td><td>口の頭 Z 16.6 まで 33.3 要る。🆕 2026-08-28: 相手は**その口以外の 9 本を挿した姿**（前は口が 1 本も無い姿へ撃っていた）</td></tr>
-<tr><td>同 指 φ12 で INA</td><td class="n">3</td><td>指 φ12</td><td class="n">φ12.0</td><td class="n">33.3</td><td class="n ok">37.4</td><td class="ok"><b>通る</b></td><td>同じ相手へ φ12。同じ列の隣の口まで 15.2mm</td></tr>
-<tr><td>ハブの口 TOGGLE へ真上から (49.4, 64.8)</td><td class="n">3</td><td>ピンセット</td><td class="n">φ5.0</td><td class="n">33.3</td><td class="n ok">37.4</td><td class="ok"><b>通る</b></td><td>口の頭 Z 16.6 まで 33.3 要る。🆕 2026-08-28: 相手は**その口以外の 9 本を挿した姿**（前は口が 1 本も無い姿へ撃っていた）</td></tr>
-<tr><td>同 指 φ12 で TOGGLE</td><td class="n">3</td><td>指 φ12</td><td class="n">φ12.0</td><td class="n">33.3</td><td class="n ok">28.9</td><td class="ok">止まる（<b>反例</b>）</td><td>同じ相手へ φ12。同じ列の隣の口まで 7.6mm。**止まるのが正 ＝ この口はピンセット**。隣の口の線の逃げ（半径 2.25）をよけて φ12（半径 6.0）を降ろすには 8.25mm の間隔が要る</td></tr>
-<tr><td>電流計 INPUT + を摑んだまま 6 動かす</td><td class="n">9</td><td>ピンセット</td><td class="n">φ5.0</td><td class="n">6.0</td><td class="n ok">外まで</td><td class="ok"><b>通る</b></td><td>⑧ と同じ軌を φ5 で</td></tr>
-<tr><td>電流計 INPUT − を摑んだまま 6 動かす</td><td class="n">9</td><td>ピンセット</td><td class="n">φ5.0</td><td class="n">6.0</td><td class="n ok">外まで</td><td class="ok"><b>通る</b></td><td>⑧ と同じ軌を φ5 で</td></tr>
-<tr><td>電流計 OUT + を摑んだまま 6 動かす</td><td class="n">9</td><td>ピンセット</td><td class="n">φ5.0</td><td class="n">6.0</td><td class="n ok">外まで</td><td class="ok"><b>通る</b></td><td>⑧ と同じ軌を φ5 で</td></tr>
-<tr><td>電流計 OUT − を摑んだまま 6 動かす</td><td class="n">9</td><td>ピンセット</td><td class="n">φ5.0</td><td class="n">6.0</td><td class="n ok">外まで</td><td class="ok"><b>通る</b></td><td>⑧ と同じ軌を φ5 で</td></tr>
-<tr><td>電流計 I2C（横） を摑んだまま 6 動かす</td><td class="n">9</td><td>ピンセット</td><td class="n">φ5.0</td><td class="n">6.0</td><td class="n ok">35.0</td><td class="ok"><b>通る</b></td><td>⑧ と同じ軌を φ5 で</td></tr>
-<tr><td>PB の L 3 ピン を摑んだまま 6 動かす</td><td class="n">9</td><td>ピンセット</td><td class="n">φ5.0</td><td class="n">6.0</td><td class="n ok">外まで</td><td class="ok"><b>通る</b></td><td>⑧ と同じ軌を φ5 で</td></tr>
-<tr><td>PB の L 3 ピン EN を摑んだまま 6 動かす</td><td class="n">9</td><td>ピンセット</td><td class="n">φ5.0</td><td class="n">6.0</td><td class="n ok">外まで</td><td class="ok"><b>通る</b></td><td>⑧ と同じ軌を φ5 で</td></tr>
-<tr><td>PB の USB ピン を摑んだまま 6 動かす</td><td class="n">9</td><td>ピンセット</td><td class="n">φ5.0</td><td class="n">6.0</td><td class="n ok">外まで</td><td class="ok"><b>通る</b></td><td>⑧ と同じ軌を φ5 で</td></tr>
-<tr><td>OLED の 4 連 を摑んだまま 6 動かす</td><td class="n">9</td><td>ピンセット</td><td class="n">φ5.0</td><td class="n">6.0</td><td class="n ok">外まで</td><td class="ok"><b>通る</b></td><td>⑧ と同じ軌を φ5 で</td></tr>
-<tr><td>M3 ナットを落とす 前左 (9.0, 18.9)</td><td class="n">1</td><td>ナット 対角 6.7</td><td class="n">φ6.7</td><td class="n">45.9</td><td class="n ok">45.9</td><td class="ok"><b>通る</b></td><td>座は Z 4.1</td></tr>
-<tr><td>同 ナットを回す工具 前左</td><td class="n">1</td><td>工具の外径</td><td class="n">φ16.8</td><td class="n">9.0</td><td class="n ok">16.8</td><td class="ok"><b>通る</b></td><td>座 Z 4.1 まで届く一番太い円筒。要る 9.0 は 📄 HOZAN D-840-5.5（M3 用）のボックス外径</td></tr>
-<tr><td>同 ビスの頭を下から押さえる 前左</td><td class="n">1</td><td>ドライバ</td><td class="n">φ3.2</td><td class="n">2.2</td><td class="n ok">4.5</td><td class="ok"><b>通る</b></td><td>ザグリ φ6.0 × 2.2 は丸くて回り止めが無いので、ナットを回すあいだ押さえる。要る 2.2 はザグリの深さ。⚠ 床が机にベタ置きだとそもそも入らない（台に載せる）</td></tr>
-<tr><td>M3 ナットを落とす 前右 (77.0, 18.9)</td><td class="n">1</td><td>ナット 対角 6.7</td><td class="n">φ6.7</td><td class="n">45.9</td><td class="n ok">45.9</td><td class="ok"><b>通る</b></td><td>座は Z 4.1</td></tr>
-<tr><td>同 ナットを回す工具 前右</td><td class="n">1</td><td>工具の外径</td><td class="n">φ16.5</td><td class="n">9.0</td><td class="n ok">16.5</td><td class="ok"><b>通る</b></td><td>座 Z 4.1 まで届く一番太い円筒。要る 9.0 は 📄 HOZAN D-840-5.5（M3 用）のボックス外径</td></tr>
-<tr><td>同 ビスの頭を下から押さえる 前右</td><td class="n">1</td><td>ドライバ</td><td class="n">φ3.2</td><td class="n">2.2</td><td class="n ok">4.5</td><td class="ok"><b>通る</b></td><td>ザグリ φ6.0 × 2.2 は丸くて回り止めが無いので、ナットを回すあいだ押さえる。要る 2.2 はザグリの深さ。⚠ 床が机にベタ置きだとそもそも入らない（台に載せる）</td></tr>
-<tr><td>M3 ナットを落とす 後ろ左 (9.0, 64.9)</td><td class="n">1</td><td>ナット 対角 6.7</td><td class="n">φ6.7</td><td class="n">45.9</td><td class="n ok">45.9</td><td class="ok"><b>通る</b></td><td>座は Z 4.1</td></tr>
-<tr><td>同 ナットを回す工具 後ろ左</td><td class="n">1</td><td>工具の外径</td><td class="n">φ10.1</td><td class="n">9.0</td><td class="n ok">10.1</td><td class="ok"><b>通る</b></td><td>座 Z 4.1 まで届く一番太い円筒。要る 9.0 は 📄 HOZAN D-840-5.5（M3 用）のボックス外径</td></tr>
-<tr><td>同 ビスの頭を下から押さえる 後ろ左</td><td class="n">1</td><td>ドライバ</td><td class="n">φ3.2</td><td class="n">2.2</td><td class="n ok">4.5</td><td class="ok"><b>通る</b></td><td>ザグリ φ6.0 × 2.2 は丸くて回り止めが無いので、ナットを回すあいだ押さえる。要る 2.2 はザグリの深さ。⚠ 床が机にベタ置きだとそもそも入らない（台に載せる）</td></tr>
-<tr><td>M3 ナットを落とす 後ろ右 (77.0, 64.9)</td><td class="n">1</td><td>ナット 対角 6.7</td><td class="n">φ6.7</td><td class="n">45.9</td><td class="n ok">45.9</td><td class="ok"><b>通る</b></td><td>座は Z 4.1</td></tr>
-<tr><td>同 ナットを回す工具 後ろ右</td><td class="n">1</td><td>工具の外径</td><td class="n">φ10.1</td><td class="n">9.0</td><td class="n ok">10.1</td><td class="ok"><b>通る</b></td><td>座 Z 4.1 まで届く一番太い円筒。要る 9.0 は 📄 HOZAN D-840-5.5（M3 用）のボックス外径</td></tr>
-<tr><td>同 ビスの頭を下から押さえる 後ろ右</td><td class="n">1</td><td>ドライバ</td><td class="n">φ3.2</td><td class="n">2.2</td><td class="n ok">4.5</td><td class="ok"><b>通る</b></td><td>ザグリ φ6.0 × 2.2 は丸くて回り止めが無いので、ナットを回すあいだ押さえる。要る 2.2 はザグリの深さ。⚠ 床が机にベタ置きだとそもそも入らない（台に載せる）</td></tr>
-<tr><td>島のねじ 左 を上から回す (X 55.3)</td><td class="n">10</td><td>ドライバ</td><td class="n">φ3.2</td><td class="n">23.3</td><td class="n ok">23.3</td><td class="ok"><b>通る</b></td><td>つまみを挿す前。頭は島のザグリの底 Z 46.7。⚠ ザグリは φ3.4 なので φ3.4 の先は 48.3 で止まる</td></tr>
-<tr><td>島のナット 左 を下から当てる (X 55.3)</td><td class="n">10</td><td>ナット 4.3</td><td class="n">φ4.3</td><td class="n">20.4</td><td class="n ok">20.5</td><td class="ok"><b>通る</b></td><td>ポケットの口は Z 40.5（裏面と面一・AF 4.3 × 深さ 1.8）。下向きなので置けない</td></tr>
-<tr><td>同 ピンセットで押さえる 左</td><td class="n">10</td><td>ピンセット</td><td class="n">φ5.0</td><td class="n">20.4</td><td class="n ok">20.5</td><td class="ok"><b>通る</b></td><td>ポケットの口まで空いているのは φ13.2 まで（AS5600 の柱 4 本のあいだ）</td></tr>
-<tr><td>同 指で押さえる 左</td><td class="n">10</td><td>指 φ12</td><td class="n">φ12.0</td><td class="n">20.4</td><td class="n ok">20.5</td><td class="ok"><b>通る</b></td><td>🆕 2026-08-28 に通るようになった（柱が φ3.5 の棒になり、空きが φ9.1 → φ13.2）。⚠ ナットは二面幅 4.3 の小片なので、確実なのは<b>ピンセット</b></td></tr>
-<tr><td>島のねじ 右 を上から回す (X 71.1)</td><td class="n">10</td><td>ドライバ</td><td class="n">φ3.2</td><td class="n">23.3</td><td class="n ok">23.3</td><td class="ok"><b>通る</b></td><td>つまみを挿す前。頭は島のザグリの底 Z 46.7。⚠ ザグリは φ3.4 なので φ3.4 の先は 48.3 で止まる</td></tr>
-<tr><td>島のナット 右 を下から当てる (X 71.1)</td><td class="n">10</td><td>ナット 4.3</td><td class="n">φ4.3</td><td class="n">20.4</td><td class="n ok">20.5</td><td class="ok"><b>通る</b></td><td>ポケットの口は Z 40.5（裏面と面一・AF 4.3 × 深さ 1.8）。下向きなので置けない</td></tr>
-<tr><td>同 ピンセットで押さえる 右</td><td class="n">10</td><td>ピンセット</td><td class="n">φ5.0</td><td class="n">20.4</td><td class="n ok">20.5</td><td class="ok"><b>通る</b></td><td>ポケットの口まで空いているのは φ13.2 まで（AS5600 の柱 4 本のあいだ）</td></tr>
-<tr><td>同 指で押さえる 右</td><td class="n">10</td><td>指 φ12</td><td class="n">φ12.0</td><td class="n">20.4</td><td class="n ok">20.5</td><td class="ok"><b>通る</b></td><td>🆕 2026-08-28 に通るようになった（柱が φ3.5 の棒になり、空きが φ9.1 → φ13.2）。⚠ ナットは二面幅 4.3 の小片なので、確実なのは<b>ピンセット</b></td></tr>
-<tr><td>後ろ左のナットへ 左からスパナ</td><td class="n">1</td><td>スパナ ⚠ φ6</td><td class="n">φ6.0</td><td class="n">36.3</td><td class="n ok">35.5</td><td class="ok">止まる（<b>反例</b>）</td><td>ナットの高さ Z 5.3 で横から寄る。⚠ 平たい顎を円筒で代用。止まるのが正 ＝「横からは掴めない」ことの裏取り（残り 3.5mm）</td></tr>
-<tr><td>後ろ左のナットへ 後ろからスパナ</td><td class="n">1</td><td>スパナ ⚠ φ6</td><td class="n">φ6.0</td><td class="n">52.3</td><td class="n ok">48.0</td><td class="ok">止まる（<b>反例</b>）</td><td>ナットの高さ Z 5.3 で横から寄る。⚠ 平たい顎を円筒で代用。止まるのが正 ＝「横からは掴めない」ことの裏取り（残り 7.1mm）</td></tr></tbody>
-</table></div>
-<p class="cal ok"><span class="tag">結果</span><b>いまは全部通る（止まったもの 0）。</b></p>
-
+<h2 class="sec">検査の記録</h2>
+<p class="cal note"><span class="tag">読み</span>この順番が成り立つことを CAD で当てた記録
+（部品の当たり <b>31 行</b>と、工具と手の道 <b>118 行</b>）は、
+<b>組む人が読む必要のない検算</b>なので別のページに分けた ——
+<b><a href="assembly_v4_check.html">assembly_v4_check.html</a></b>。
+<b>いまは全部通る（止まったもの 0）。</b></p>
 
 <h2 class="sec">線</h2>
 <div class="tw"><table>
@@ -693,22 +531,16 @@ a { color:var(--accent); }
 <h2 class="sec">まだ埋まっていない</h2>
 <div class="tw"><table>
 <thead><tr><th>もの</th><th>何が足りないか</th><th>いつ</th></tr></thead>
-<tbody><tr><td><b>⑫ 🔴 ブリッジの掘り込みの天井が支え無し</b></td><td>2026-08-28（15 度目の机上の通し）に、刷る前の検算（<b>_stl_preflight.py</b>）で出た。前板のフランジが入る掘り込みは<b>皿の裏のへこみ</b>なので、皿を伏せて刷ると天井が下を向く。<b>支えの無い天井 65mm²</b>（刷る向きで <span class="n">Z 1.10</span>・<span class="n">X 19.9〜38.2</span>・<span class="n">Y 15.3〜18.5</span>・1 層）。掘り込みは前（首を通す抜きの側）へ開いているので、天井を支える壁は左右と奥の 3 方だけ。⚠ <b>支柱を立てられないわけではない</b>（同日ユーザー指摘で訂正）——掘り込みはプレートへ開いていて空間はある。_v4_props.py が 0 本なのは keepout_bridge() が brgf_cuts() を含んでいる<b>こちらのルール</b>のため。本当の制約は<b>痕</b>で、掘り込みの実寸は<b>公称 1.0 ＋ 逃げ 0.1 ＝ 1.1</b>・フランジは 1.0 ＝ <b>逃げ 0.1mm</b> に対し、支柱の痕は実績 <b>0.3mm</b>。⇒ サポートを入れるなら先に掘り込みを深くする（BRGF_SINK・⬜ ユーザー判断）。危険度: 天井は膜ではなく<b>厚み 0.9mm の棚</b>で、一番遠い点でも奥の壁から 6.0mm。<b>このまま刷って、前板が入るかを見る</b>のが安い</td><td class="n">⬜ 刷ってから</td></tr>
-<tr><td><b>⑪ ⬜ 呼び3 の E リングの外径</b></td><td>基板を受けるリング（呼び3）の<b>外径 7.0 は 📄 規格値</b>で、現物をノギスで測っていない。この値は、リングの外周がピンヘッダの樹脂に食い込む量（いま <span class="n">0.58mm</span>）と、残る 3 か所の空き（<span class="n">0.51 / 1.04 / 1.34mm</span>）を直接決める。呼び6 は実測 12.0 で 📄 規格どおりだった。出どころは <b>docs/KNOB-ENCODER.md</b>。🔒 <b>どの棒にリングを入れないかは、決める話ではない</b>——<b>溝を切っていない棒にいちばん近いピンが DIR</b>（2026-08-28 ユーザー）。図面もその角を当たりから計算している（<span class="n">DOWEL_XY</span>）</td><td class="n">⬜ 現物待ち</td></tr>
-<tr><td><b>⑩ ✅ XIAO の上段の車線と、AS5600 のコネクタ</b></td><td>2026-08-27（13 度目の机上の通し）に出た。ピン列を実物の写真から起こし直した（列が<b>左右 → 上下</b>）のに線を引き直していなかったので、<b>天面が降りなかった</b>（<span class="n">close_top</span> 0 → 30.24mm³）。同日、車線を <span class="n">29.9 → 29.03</span> へ寄せ（🔒 ユーザー判断「逃げ 0 でも一応通るかなぁ」＝ 通す）、つまみの 5 本を<b>いまの列の下</b>へ引き直した。4 ピンの列は<b>ハブのリレーの真上</b>で、口の下端 <span class="n">15.15</span> とリレーの頭 <span class="n">14.10</span> のあいだが <b>1.05mm</b> しか無いので、その 3 本は口の高さのまま南へ出て、リレーの前（<span class="n">Y 42</span>）で下りる。✅ 2026-08-28（14 度目の机上の通し）に<b>終わった</b>——この 0.87mm の食い込みは実物の当たりではなく、<b>コネクタの模型だけを Y へ −2 動かしていた値（ASC_DY）の幻</b>だった。同日ユーザー指示でその値が削除されてコネクタが基板の上へ戻ったので、車線も <span class="n">29.03 → 29.9</span>（通り道のど真ん中）へ戻した。通り道は <span class="n">Y 27.535〜32.230 ＝ 4.695mm</span>・束 3.0 で<b>片側 0.85mm ずつ</b>、<span class="n">close_top</span> は <b>0</b>、束が XIAO のハウジングを 0.005mm 食っていた <span class="n">chk_wire</span> は <b>0.168 → 0.004mm³</b>（残りは BTN2 の束がハブの OLED の口を 0.038mm かすめる分と、INA の I2C の厚みゼロの膜で、どちらも車線とは別件）</td><td class="n">✅ 済んだ</td></tr>
-<tr><td><b>① ⚠ 板を 0.5 持ち上げた代金</b></td><td>ナット 6 個を横穴にするため、板（電流計・PowerBoost）の蝶番を天板の面から <span class="d">0.5</span> 浮かせた。代金は 2 つ: <b>天面の裏の局所ポケット</b>（PB の USB の逃げ）が深さ 1.27 → 1.77 になり<b>板の残りが 0.73</b>、<b>INA の I2C の前走り</b>が 1.5×2 本では入らなくなり 2.2 の束 1 本に戻って <b>X の余裕が 0.35 → 0</b>。どちらも実物で効くかは刷ってから</td><td class="n">⚠ 要観察</td></tr>
-<tr><td><b>② ブリッジと留め帯を、どの向きで刷るか</b></td><td>出力は 2026-08-26 に付いた（<span class="n">print_bridge</span> / <span class="n">print_strap</span> / <span class="n">print_btn</span>・どれも底の Z は 0）。<b>留め帯の向きは同日に決まった</b>（足とツバを下・ツバの上面が 45° なので支えが要らない）。<b>ブリッジも同日に決まった</b>（皿を伏せる）。前板を切り離して L 字でなくなったので、皿が 1 枚の面でベッドに向く。⚠ 充電の Type-C の押さえ 1 個だけが皿の裏から 0.7 下がっていて、そこで置いている＝<b>皿の裏は 0.7 浮く</b></td><td class="n">✅ 決まった</td></tr>
-<tr><td><b>③ 支えが無い所</b></td><td>✅ 4 つとも済んでいる。ブリッジは箱へ M2 3 本で留まり、前の脚は床の溝のままでよい（A-3・2026-08-26）。電池は留め帯 3 本が抱き（A-5）、その留め帯自身はツバと溝で Z に留まった（A-4・2026-08-26）。Type-C 基板は受けが保持する（A-6・🔒 2026-08-25 ユーザー検収済み）。🔴 2026-08-27（11 度目の机上の通し）まで、ここには「A-3〜A-6 が未決」と書いてあった。古い行の引き写しで、<b>CASE-V4-OPEN.md</b> では A-3・A-5・A-6 は欠番・A-4 は ✅、2026-08-27（13 度目の机上の通し）に <b>A-14</b>（XIAO の上段の線と AS5600 のコネクタ）が出て、<b>同日ふさいだ</b>（この表の ⑩・OPEN 側は「済んだもの」）。同ファイルの「いま止まっているもの」は<b>ありません</b>のまま</td><td class="n">✅ 済んだ</td></tr>
-<tr><td><b>④ 線の長さ（置いた姿勢）</b></td><td>✅ 2026-08-26 に測った（<b>hardware/_asm_wirepose.py</b>）。手順 10 の置き場を角度と位置で掃いて、一番短い置き方（奥へ返して左へ 25）で <b>4 束とも +29〜+40mm</b>。作る長さは実長 ＋65mm。✅ 同日、閉じた後に戻る<b>最大 40mm の余り</b>の行き場も測った。箱の中の空きは <b>195,910mm³</b>（内寸の 2/3）で、1mm の格子で塊に割ると <b>186,185mm³ が 1 つながり</b>（残り 142 個は合計 1,000mm³ 足らずの隅）。4 束ぶんの余りは 2.2mm の束 × 40mm × 4 ＝ <b>約 600mm³</b> なので、行き場はある。🔴 ただし空いていても<b>置いてはいけない道</b>が 3 本ある——電池の抜き道・蓋の横スライド・ハッチの爪。たるみは後ろの縦穴（27,865mm³）と右の溝（65,944mm³）へ逃がす。🆕 2026-08-27 に<b>手順 12（ハッチの姿勢）</b>も測った——<span class="w">TOGGLE</span> は上下を返して置けば <b>+14.3mm</b>、そのまま置くと <b>+45.1mm</b> で足りない。残る ⬜ はアンテナ線（同軸の実物が未取得）だけ</td><td class="n">✅ 測った</td></tr>
-<tr><td><b>⑤ 部品の実測</b></td><td><b>Type-C 基板（秋月 115426）が未注文</b>（2026-08-24 時点）。ハブの実装の最高点、DuPont を横に倒したときの膨らみ（3.6 は既定値）、PH2.0 がトップ型かサイド型かも未取得。🔴 INA226 は <b>2026-08-24 に着荷・実測済み</b>（穴 φ3.0・端から 16.6・シャント R010）。ここに「未着荷」と書いていたのは古い行の引き写しだった</td><td class="n">2026-08-25 に確認</td></tr>
-<tr><td><b>⑥ 🆕 アンテナの同軸の通り道</b></td><td><b>XIAO の u.FL に挿さる同軸だけ、通り道も留め方も決まっていない。</b>🔴 2026-08-27（8 度目の机上の通し）に見つけた: 手順 12 に「スリットへ」「尻尾の溝へ」とだけ書いてあって、<b>箱の中を通す手順が 1 つも無かった</b>。線の表の 13 束 39 本にも入っていない。出発点（XIAO）は手順 2 で箱の一番前に入り、行き先（ハッチのスリット）は箱の後ろなので、<b>手順 11 で閉じるまでに後ろへ出す</b>以外に順は無い。⇒ 手順 3 に ⬜ の行として置いた。道そのものは <b>docs/TODO.md</b> の 🟡（ユーザー判断）。🔒 2026-08-27 ユーザー「作りながら長さも決めないといけないんで色々保留」——<b>この 1 本だけは図面で長さを出さず、組みながら決める。</b>同軸の現物も未取得なので、ここは保留のままにする</td><td class="n">🔒 保留</td></tr>
-<tr><td><b>⑦ 🆕 充電まわりの 3 つの実測</b></td><td>2026-08-27（<b>9 度目の机上の通し</b>）に、下の口のハウジングがハブ基板に <b>0.11mm 乗っている</b>のが出た（1.169mm³・<span class="n">CHK="tcwall"</span>）。✅ 同日、板ごと <b>0.25 上げて</b> 0 にした（逃げ 0.14）。ハブの上面 4.1 からブリッジの帯の裏 21.4 までの 17.3 に、板 16.51 ＋ 押さえ ＋ 🔒 遊び 0.2 が入る取り合いなので、押さえは 0.7 → <b>0.45</b> になった（📄 PRINT.md の最薄 0.42 は超える）。⚠ <b>3 つとも実測ではない</b> —— ハウジングの底（2.54 角の既定値）・ハブ基板の上面（柱 2.5 ＋ 板 1.6）・押さえの厚み 0.45。板（B-2）が来たら測り直す</td><td class="n">⬜ 現物待ち</td></tr>
-<tr><td><b>⑧ 🆕 電池のコネクタ対の外形</b></td><td>🔒 2026-08-27 ユーザー「後ろの 8.35mm にコネクタ対を置きましょ」で場所は決まった。⚠ <b>外形 14.0 × 5.0 × 6.0 は仮</b>で、出どころは parts.scad の <span class="n">PB_JST_SZ [7.9, 4.5]</span>・<span class="n">PB_JST_H 5.2</span>・<span class="n">PB_JST_MATE 6.0</span>（どれも 📄 か ⚠）。parts.scad のリポの行は 2026-08-27 の時点で「⬜ JSTコネクタ・線の出る向き・曲げ半径」のまま。相手（自作の PH2.0 延長）も未取得。逃げは <b>Y に 1.2</b>（ポケット 6.5 − 5.0 − 0.3）・<b>Z に 0.5 ずつ</b>（電池口 7.00 − 6.0）しかないので、現物が来たら真っ先に測る。⇒ 相手は v3 で決めた「PH2.0 の延長を自作して切る」（<b>docs/CASE-V3.md</b> 123 行）</td><td class="n">⬜ 現物待ち</td></tr>
-<tr><td><b>⑨ 🆕 つまみまわりの工具と手の道</b></td><td>✅ 2026-08-27（12 度目の机上の通し）に掃いた。それまで<b>工具と手の道の表につまみまわりの道が 1 本も無かった</b>——手順 10 のつまみの小組そのものが手順に無かったので、掃く対象にもなっていなかった。<b>島のナットを下から押さえる道</b>を <span class="n">ST="topnut"</span>（天面＋島だけ）で撃って、<b>指 φ12 は入らない</b>（柱 4 本に 7.6mm 手前で止まる）・<b>ピンセットは届く</b>（空いているのは φ9.1 まで）と出たので、手順 10 の本文をピンセットに直した。島のねじを上から回す道（ドライバ φ3.2）も同時に足した。🆕 2026-08-28 の簡素化（柱が <span class="n">φ8/φ3.6</span> の 2 段 → 上から下まで <span class="n">φ3.5</span>）で、柱のあいだの空きが <b>φ9.1 → φ13.2</b> になり、<b>指 φ12 も口まで届くようになった</b>（同日に足した基板の上限の段 <span class="n">φ4.0</span> のぶんだけ 13.6 から減っている）（それまでは「指では止まる」が反例の行だった）。⚠ E リングの<b>片側 0.65mm</b> だけは、いまも <span class="n">knob_v5.scad</span> の echo で、この表の掃引で出した数字ではない（🔒 2026-08-21 にユーザーが実物で「難しいが工作できる」と判定済み）</td><td class="n">✅ 測った</td></tr></tbody>
+<tbody><tr><td><b>⑫ 🔴 ブリッジの掘り込みの天井</b></td><td>刷る向き（皿を伏せる）だと、前板のフランジが入る掘り込みの天井が<b>65mm²・1 層</b>だけ支え無しで下を向く。膜ではなく<b>厚み 0.9mm の棚</b>で、左右と奥の 3 方が壁、一番遠い点でも奥の壁から 6.0mm。<b>このまま刷って、前板が入るかを見る</b>のが安い。サポートを入れるなら先に掘り込みを深くする（<span class="n">BRGF_SINK</span>）——差し込みの逃げ 0.1mm に対し、支柱の痕は実績 0.3mm で入らないため</td><td class="n">⬜ 刷ってから</td></tr>
+<tr><td><b>① ⚠ 板を 0.5 持ち上げた代金</b></td><td>ナット 6 個を横穴にするため、板（電流計・PowerBoost）を天板の面から <span class="d">0.5</span> 浮かせた。代金は 2 つ —— 天面の裏の局所ポケット（PB の USB の逃げ）が深くなって<b>板の残りが 0.73mm</b>、INA の I2C の前走りが 2.2 の束 1 本に戻って<b>X の余裕が 0</b></td><td class="n">⚠ 刷ってから</td></tr>
+<tr><td><b>⑤ ⬜ Type-C 基板（秋月 115426）が未着</b></td><td>板もコネクタも寸法は 📄 図面の値で、実測ではない。ハブの実装の最高点、DuPont を横に倒したときの膨らみ（3.6 は既定値）、PH2.0 がトップ型かサイド型かも未取得。⑦ と一緒に測る</td><td class="n">⬜ 現物待ち</td></tr>
+<tr><td><b>⑦ ⬜ 充電まわりの 3 つの寸法</b></td><td>ハウジングの底（2.54 角の既定値）・ハブ基板の上面（柱 2.5 ＋ 板 1.6）・押さえの厚み <b>0.45</b> の 3 つとも実測ではない。押さえは 📄 PRINT.md の最薄 0.42 をぎりぎり超えているだけなので、⑤ が来たら真っ先に測る</td><td class="n">⬜ 現物待ち</td></tr>
+<tr><td><b>⑧ ⬜ 電池のコネクタ対の外形</b></td><td>置き場は 🔒 決まっている（電池の尻の後ろ）。⚠ <b>外形 14.0 × 5.0 × 6.0 は仮</b>で、逃げは <b>Y に 1.2</b>・<b>Z に 0.5 ずつ</b>しかない。相手（自作の PH2.0 延長）も未取得</td><td class="n">⬜ 現物待ち</td></tr>
+<tr><td><b>⑥ 🔒 アンテナの同軸の通り道</b></td><td>XIAO の u.FL に挿さる同軸だけ、通り道も留め方も決まっていない。出発点は箱の一番前、行き先はハッチなので、<b>手順 11 で閉じるまでに後ろへ出す</b>以外に順は無い（手順 3 に ⬜ の行で置いてある）。🔒 2026-08-27 ユーザー「作りながら長さも決めないといけないんで色々保留」＝<b>この 1 本だけは図面で長さを出さない</b></td><td class="n">🔒 保留</td></tr></tbody>
 </table></div>
 
 <footer>
-  作り直すには <b>python hardware/_asm_manual_v4.py</b>。段の中身と軌跡検査は <b>hardware/_asm_sim_v4.scad</b>、
+  作り直すには <b>python hardware/_asm_manual_v4.py</b>（このページと <b><a href="assembly_v4_check.html">assembly_v4_check.html</a></b> の 2 枚が出る）。段の中身と軌跡検査は <b>hardware/_asm_sim_v4.scad</b>、
   形と数字の出どころは <b>docs/CASE-V4.md</b>（判断待ちは <b>CASE-V4-OPEN.md</b>、経緯は <b>CASE-V4-LOG.md</b>）。線の長さは <b>_v4_core.scad</b> の <span class="n">w_*()</span> の点列から出した折れ線長。
 </footer>
 </div>

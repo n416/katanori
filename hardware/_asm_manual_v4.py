@@ -15,6 +15,7 @@ from collections import deque
 HERE = os.path.dirname(os.path.abspath(__file__))
 IMGDIR = os.path.join(HERE, '_manual_img_v4')
 OUT = os.path.join(HERE, 'assembly_v4.html')
+COUT = os.path.join(HERE, 'assembly_v4_check.html')   # 検査の記録（別ページ）
 OPENSCAD = os.environ.get('OPENSCAD', r'C:\Program Files\OpenSCAD (Nightly)\openscad.exe')
 
 N_STEPS = 12
@@ -625,121 +626,50 @@ CHECKS = [
 ]
 
 BLANKS = [
- ('⑫ 🔴 ブリッジの掘り込みの天井が支え無し',
-  '2026-08-28（15 度目の机上の通し）に、刷る前の検算（<b>_stl_preflight.py</b>）で出た。'
-  '前板のフランジが入る掘り込みは<b>皿の裏のへこみ</b>なので、皿を伏せて刷ると天井が下を向く。'
-  '<b>支えの無い天井 65mm²</b>（刷る向きで <span class="n">Z 1.10</span>・'
-  '<span class="n">X 19.9〜38.2</span>・<span class="n">Y 15.3〜18.5</span>・1 層）。'
-  '掘り込みは前（首を通す抜きの側）へ開いているので、天井を支える壁は左右と奥の 3 方だけ。'
-  '⚠ <b>支柱を立てられないわけではない</b>（同日ユーザー指摘で訂正）——掘り込みはプレートへ'
-  '開いていて空間はある。_v4_props.py が 0 本なのは keepout_bridge() が brgf_cuts() を'
-  '含んでいる<b>こちらのルール</b>のため。本当の制約は<b>痕</b>で、'
-  '掘り込みの実寸は<b>公称 1.0 ＋ 逃げ 0.1 ＝ 1.1</b>・フランジは 1.0 ＝ <b>逃げ 0.1mm</b> に対し、'
-  '支柱の痕は実績 <b>0.3mm</b>。⇒ サポートを入れるなら先に掘り込みを深くする（BRGF_SINK・⬜ ユーザー判断）。'
-  '危険度: 天井は膜ではなく<b>厚み 0.9mm の棚</b>で、一番遠い点でも奥の壁から 6.0mm。'
-  '<b>このまま刷って、前板が入るかを見る</b>のが安い',
+ # 🆕 2026-08-28（16 度目の机上の通し）12 行 → 6 行に掃いた。
+ #   🔒 ユーザー「まだ埋まってないとか書いてるのに完了してるってのが笑うね」。
+ #   落としたのは ✅ 済みの 5 件（⑩ XIAO の車線 / ② 刷る向き / ③ 支えが無い所 /
+ #   ④ 線の長さ / ⑨ つまみまわりの道）と、⑪ 呼び3 の E リングの外径
+ #   （🔒 同日ユーザー「7mm で実測してる」＝ 埋まっていた）。
+ #   経緯は docs/CASE-V4-LOG.md、形は docs/CASE-V4.md が持つ。ここは**残っている宿題だけ**。
+ ('⑫ 🔴 ブリッジの掘り込みの天井',
+  '刷る向き（皿を伏せる）だと、前板のフランジが入る掘り込みの天井が'
+  '<b>65mm²・1 層</b>だけ支え無しで下を向く。膜ではなく<b>厚み 0.9mm の棚</b>で、'
+  '左右と奥の 3 方が壁、一番遠い点でも奥の壁から 6.0mm。'
+  '<b>このまま刷って、前板が入るかを見る</b>のが安い。'
+  'サポートを入れるなら先に掘り込みを深くする（<span class="n">BRGF_SINK</span>）——'
+  '差し込みの逃げ 0.1mm に対し、支柱の痕は実績 0.3mm で入らないため',
   '⬜ 刷ってから'),
- ('⑪ ⬜ 呼び3 の E リングの外径',
-  '基板を受けるリング（呼び3）の<b>外径 7.0 は 📄 規格値</b>で、現物をノギスで測っていない。'
-  'この値は、リングの外周がピンヘッダの樹脂に食い込む量（いま <span class="n">0.58mm</span>）と、'
-  '残る 3 か所の空き（<span class="n">0.51 / 1.04 / 1.34mm</span>）を直接決める。'
-  '呼び6 は実測 12.0 で 📄 規格どおりだった。出どころは <b>docs/KNOB-ENCODER.md</b>。'
-  '🔒 <b>どの棒にリングを入れないかは、決める話ではない</b>——'
-  '<b>溝を切っていない棒にいちばん近いピンが DIR</b>（2026-08-28 ユーザー）。'
-  '図面もその角を当たりから計算している（<span class="n">DOWEL_XY</span>）',
-  '⬜ 現物待ち'),
- ('⑩ ✅ XIAO の上段の車線と、AS5600 のコネクタ',
-  '2026-08-27（13 度目の机上の通し）に出た。ピン列を実物の写真から起こし直した'
-  '（列が<b>左右 → 上下</b>）のに線を引き直していなかったので、<b>天面が降りなかった</b>'
-  '（<span class="n">close_top</span> 0 → 30.24mm³）。同日、車線を <span class="n">29.9 → 29.03</span> へ寄せ'
-  '（🔒 ユーザー判断「逃げ 0 でも一応通るかなぁ」＝ 通す）、つまみの 5 本を<b>いまの列の下</b>へ引き直した。'
-  '4 ピンの列は<b>ハブのリレーの真上</b>で、口の下端 <span class="n">15.15</span> とリレーの頭 '
-  '<span class="n">14.10</span> のあいだが <b>1.05mm</b> しか無いので、その 3 本は口の高さのまま'
-  '南へ出て、リレーの前（<span class="n">Y 42</span>）で下りる。'
-  '✅ 2026-08-28（14 度目の机上の通し）に<b>終わった</b>——この 0.87mm の食い込みは実物の当たりではなく、'
-  '<b>コネクタの模型だけを Y へ −2 動かしていた値（ASC_DY）の幻</b>だった。同日ユーザー指示でその値が'
-  '削除されてコネクタが基板の上へ戻ったので、車線も <span class="n">29.03 → 29.9</span>（通り道のど真ん中）へ戻した。'
-  '通り道は <span class="n">Y 27.535〜32.230 ＝ 4.695mm</span>・束 3.0 で<b>片側 0.85mm ずつ</b>、'
-  '<span class="n">close_top</span> は <b>0</b>、束が XIAO のハウジングを 0.005mm 食っていた '
-  '<span class="n">chk_wire</span> は <b>0.168 → 0.004mm³</b>（残りは BTN2 の束がハブの OLED の口を'
-  ' 0.038mm かすめる分と、INA の I2C の厚みゼロの膜で、どちらも車線とは別件）',
-  '✅ 済んだ'),
  ('① ⚠ 板を 0.5 持ち上げた代金',
-'ナット 6 個を横穴にするため、板（電流計・PowerBoost）の蝶番を天板の面から <span class="d">0.5</span> 浮かせた。代金は 2 つ: <b>天面の裏の局所ポケット</b>（PB の USB の逃げ）が深さ 1.27 → 1.77 になり<b>板の残りが 0.73</b>、<b>INA の I2C の前走り</b>が 1.5×2 本では入らなくなり 2.2 の束 1 本に戻って <b>X の余裕が 0.35 → 0</b>。どちらも実物で効くかは刷ってから',
-  '⚠ 要観察'),
- ('② ブリッジと留め帯を、どの向きで刷るか',
-  '出力は 2026-08-26 に付いた（<span class="n">print_bridge</span> / <span class="n">print_strap</span> / <span class="n">print_btn</span>・どれも底の Z は 0）。'
-  '<b>留め帯の向きは同日に決まった</b>（足とツバを下・ツバの上面が 45° なので支えが要らない）。'
-  '<b>ブリッジも同日に決まった</b>（皿を伏せる）。前板を切り離して L 字でなくなったので、皿が 1 枚の面でベッドに向く。'
-  '⚠ 充電の Type-C の押さえ 1 個だけが皿の裏から 0.7 下がっていて、そこで置いている＝<b>皿の裏は 0.7 浮く</b>',
-  '✅ 決まった'),
- ('③ 支えが無い所',
-  '✅ 4 つとも済んでいる。ブリッジは箱へ M2 3 本で留まり、前の脚は床の溝のままでよい（A-3・2026-08-26）。'
-  '電池は留め帯 3 本が抱き（A-5）、その留め帯自身はツバと溝で Z に留まった（A-4・2026-08-26）。'
-  'Type-C 基板は受けが保持する（A-6・🔒 2026-08-25 ユーザー検収済み）。'
-  '🔴 2026-08-27（11 度目の机上の通し）まで、ここには「A-3〜A-6 が未決」と書いてあった。'
-  '古い行の引き写しで、<b>CASE-V4-OPEN.md</b> では A-3・A-5・A-6 は欠番・A-4 は ✅、'
-  '2026-08-27（13 度目の机上の通し）に <b>A-14</b>（XIAO の上段の線と AS5600 のコネクタ）が出て、'
-  '<b>同日ふさいだ</b>（この表の ⑩・OPEN 側は「済んだもの」）。'
-  '同ファイルの「いま止まっているもの」は<b>ありません</b>のまま',
-  '✅ 済んだ'),
- ('④ 線の長さ（置いた姿勢）',
-  '✅ 2026-08-26 に測った（<b>hardware/_asm_wirepose.py</b>）。手順 10 の置き場を角度と位置で掃いて、'
-  '一番短い置き方（奥へ返して左へ 25）で <b>4 束とも +29〜+40mm</b>。作る長さは実長 ＋65mm。'
-  '✅ 同日、閉じた後に戻る<b>最大 40mm の余り</b>の行き場も測った。箱の中の空きは <b>195,910mm³</b>（内寸の 2/3）で、'
-  '1mm の格子で塊に割ると <b>186,185mm³ が 1 つながり</b>（残り 142 個は合計 1,000mm³ 足らずの隅）。'
-  '4 束ぶんの余りは 2.2mm の束 × 40mm × 4 ＝ <b>約 600mm³</b> なので、行き場はある。'
-  '🔴 ただし空いていても<b>置いてはいけない道</b>が 3 本ある——電池の抜き道・蓋の横スライド・ハッチの爪。'
-  'たるみは後ろの縦穴（27,865mm³）と右の溝（65,944mm³）へ逃がす。'
-  '🆕 2026-08-27 に<b>手順 12（ハッチの姿勢）</b>も測った——<span class="w">TOGGLE</span> は上下を返して置けば <b>+14.3mm</b>、'
-  'そのまま置くと <b>+45.1mm</b> で足りない。残る ⬜ はアンテナ線（同軸の実物が未取得）だけ',
-  '✅ 測った'),
- ('⑤ 部品の実測',
-  '<b>Type-C 基板（秋月 115426）が未注文</b>（2026-08-24 時点）。ハブの実装の最高点、DuPont を横に倒したときの膨らみ（3.6 は既定値）、PH2.0 がトップ型かサイド型かも未取得。'
-  '🔴 INA226 は <b>2026-08-24 に着荷・実測済み</b>（穴 φ3.0・端から 16.6・シャント R010）。ここに「未着荷」と書いていたのは古い行の引き写しだった',
-  '2026-08-25 に確認'),
- ('⑥ 🆕 アンテナの同軸の通り道',
-  '<b>XIAO の u.FL に挿さる同軸だけ、通り道も留め方も決まっていない。</b>'
-  '🔴 2026-08-27（8 度目の机上の通し）に見つけた: 手順 12 に「スリットへ」「尻尾の溝へ」とだけ書いてあって、'
-  '<b>箱の中を通す手順が 1 つも無かった</b>。線の表の 13 束 39 本にも入っていない。'
-  '出発点（XIAO）は手順 2 で箱の一番前に入り、行き先（ハッチのスリット）は箱の後ろなので、'
-  '<b>手順 11 で閉じるまでに後ろへ出す</b>以外に順は無い。⇒ 手順 3 に ⬜ の行として置いた。'
-  '道そのものは <b>docs/TODO.md</b> の 🟡（ユーザー判断）。'
-  '🔒 2026-08-27 ユーザー「作りながら長さも決めないといけないんで色々保留」——'
-  '<b>この 1 本だけは図面で長さを出さず、組みながら決める。</b>同軸の現物も未取得なので、ここは保留のままにする',
+  'ナット 6 個を横穴にするため、板（電流計・PowerBoost）を天板の面から '
+  '<span class="d">0.5</span> 浮かせた。代金は 2 つ —— 天面の裏の局所ポケット'
+  '（PB の USB の逃げ）が深くなって<b>板の残りが 0.73mm</b>、'
+  'INA の I2C の前走りが 2.2 の束 1 本に戻って<b>X の余裕が 0</b>',
+  '⚠ 刷ってから'),
+ ('⑤ ⬜ Type-C 基板（秋月 115426）が未着',
+  '板もコネクタも寸法は 📄 図面の値で、実測ではない。'
+  'ハブの実装の最高点、DuPont を横に倒したときの膨らみ（3.6 は既定値）、'
+  'PH2.0 がトップ型かサイド型かも未取得。⑦ と一緒に測る',
+  '⬜ 現物待ち'),
+ ('⑦ ⬜ 充電まわりの 3 つの寸法',
+  'ハウジングの底（2.54 角の既定値）・ハブ基板の上面（柱 2.5 ＋ 板 1.6）・'
+  '押さえの厚み <b>0.45</b> の 3 つとも実測ではない。'
+  '押さえは 📄 PRINT.md の最薄 0.42 をぎりぎり超えているだけなので、⑤ が来たら真っ先に測る',
+  '⬜ 現物待ち'),
+ ('⑧ ⬜ 電池のコネクタ対の外形',
+  '置き場は 🔒 決まっている（電池の尻の後ろ）。'
+  '⚠ <b>外形 14.0 × 5.0 × 6.0 は仮</b>で、逃げは <b>Y に 1.2</b>・<b>Z に 0.5 ずつ</b>しかない。'
+  '相手（自作の PH2.0 延長）も未取得',
+  '⬜ 現物待ち'),
+ ('⑥ 🔒 アンテナの同軸の通り道',
+  'XIAO の u.FL に挿さる同軸だけ、通り道も留め方も決まっていない。'
+  '出発点は箱の一番前、行き先はハッチなので、<b>手順 11 で閉じるまでに後ろへ出す</b>以外に順は無い'
+  '（手順 3 に ⬜ の行で置いてある）。'
+  '🔒 2026-08-27 ユーザー「作りながら長さも決めないといけないんで色々保留」＝'
+  '<b>この 1 本だけは図面で長さを出さない</b>',
   '🔒 保留'),
- ('⑦ 🆕 充電まわりの 3 つの実測',
-  '2026-08-27（<b>9 度目の机上の通し</b>）に、下の口のハウジングがハブ基板に <b>0.11mm 乗っている</b>のが出た'
-  '（1.169mm³・<span class="n">CHK="tcwall"</span>）。✅ 同日、板ごと <b>0.25 上げて</b> 0 にした（逃げ 0.14）。'
-  'ハブの上面 4.1 からブリッジの帯の裏 21.4 までの 17.3 に、板 16.51 ＋ 押さえ ＋ 🔒 遊び 0.2 が入る取り合いなので、'
-  '押さえは 0.7 → <b>0.45</b> になった（📄 PRINT.md の最薄 0.42 は超える）。'
-  '⚠ <b>3 つとも実測ではない</b> —— ハウジングの底（2.54 角の既定値）・ハブ基板の上面（柱 2.5 ＋ 板 1.6）・'
-  '押さえの厚み 0.45。板（B-2）が来たら測り直す',
-  '⬜ 現物待ち'),
- ('⑧ 🆕 電池のコネクタ対の外形',
-  '🔒 2026-08-27 ユーザー「後ろの 8.35mm にコネクタ対を置きましょ」で場所は決まった。'
-  '⚠ <b>外形 14.0 × 5.0 × 6.0 は仮</b>で、出どころは parts.scad の <span class="n">PB_JST_SZ [7.9, 4.5]</span>・'
-  '<span class="n">PB_JST_H 5.2</span>・<span class="n">PB_JST_MATE 6.0</span>（どれも 📄 か ⚠）。'
-  'parts.scad のリポの行は 2026-08-27 の時点で「⬜ JSTコネクタ・線の出る向き・曲げ半径」のまま。'
-  '相手（自作の PH2.0 延長）も未取得。逃げは <b>Y に 1.2</b>（ポケット 6.5 − 5.0 − 0.3）・'
-  '<b>Z に 0.5 ずつ</b>（電池口 7.00 − 6.0）しかないので、現物が来たら真っ先に測る。'
-  '⇒ 相手は v3 で決めた「PH2.0 の延長を自作して切る」（<b>docs/CASE-V3.md</b> 123 行）',
-  '⬜ 現物待ち'),
- ('⑨ 🆕 つまみまわりの工具と手の道',
-  '✅ 2026-08-27（12 度目の机上の通し）に掃いた。'
-  'それまで<b>工具と手の道の表につまみまわりの道が 1 本も無かった</b>——'
-  '手順 10 のつまみの小組そのものが手順に無かったので、掃く対象にもなっていなかった。'
-  '<b>島のナットを下から押さえる道</b>を <span class="n">ST="topnut"</span>（天面＋島だけ）で撃って、'
-  '<b>指 φ12 は入らない</b>（柱 4 本に 7.6mm 手前で止まる）・<b>ピンセットは届く</b>（空いているのは φ9.1 まで）'
-  'と出たので、手順 10 の本文をピンセットに直した。島のねじを上から回す道（ドライバ φ3.2）も同時に足した。'
-  '🆕 2026-08-28 の簡素化（柱が <span class="n">φ8/φ3.6</span> の 2 段 → 上から下まで <span class="n">φ3.5</span>）で、'
-  '柱のあいだの空きが <b>φ9.1 → φ13.2</b> になり、<b>指 φ12 も口まで届くようになった</b>'
-  '（同日に足した基板の上限の段 <span class="n">φ4.0</span> のぶんだけ 13.6 から減っている）'
-  '（それまでは「指では止まる」が反例の行だった）。'
-  '⚠ E リングの<b>片側 0.65mm</b> だけは、いまも <span class="n">knob_v5.scad</span> の echo で、'
-  'この表の掃引で出した数字ではない（🔒 2026-08-21 にユーザーが実物で「難しいが工作できる」と判定済み）',
-  '✅ 測った'),
 ]
+
 
 PARTS = [
  ('床', 'p_floor / print_floor', '外面を下'),
@@ -999,27 +929,12 @@ BODY = """
   </aside>
 </div>
 
-<h2 class="sec">検査（この順番の裏取り）</h2>
-<p class="cal note"><span class="tag">読み</span>ここから下は<b>組む人が読む必要のない、CAD で当てた記録</b>。
-「その手順で部品を動かしたとき、すでに箱に在る物と何 mm³ ぶつかるか」を機械で測ったもので、<b>0 が正</b>。
-<b>反例</b>と書いた行は、わざと間違った順で動かして<b>ぶつかることを確かめた</b>もの。
-数字は <b>hardware/_asm_sim_v4.scad</b> を走らせて出す。</p>
-<div class="tw"><table>
-<thead><tr><th>何を動かすか</th><th>走らせ方</th><th>結果</th><th>読み</th></tr></thead>
-<tbody>__CHECKROWS__</tbody>
-</table></div>
-
-<h2 class="sec">工具と手の道</h2>
-<p class="cal note"><span class="tag">読み</span>部品が通るだけでは組めないので、<b>ドライバ・ナット・ピンセット・指</b>も同じように当ててある。
-その手順のときに箱に在る物へ向けて円筒を撃ち、真っ直ぐ何 mm 入るかを測ったもの。
-太さは ドライバ <span class="d">φ3.2</span>・M2 ナット <span class="d">4.3</span>・ピンセット <span class="d">φ5</span>・指 <span class="d">φ12</span>。
-<b>止まる（反例）</b>の行は<b>止まるのが正</b>で、「その手順でしか入らない」ことの裏取り。</p>
-<div class="tw"><table>
-<thead><tr><th>何を入れるか</th><th>手順</th><th>道具</th><th>φ</th><th>要る mm</th><th>通った mm</th><th>結果</th><th>備考</th></tr></thead>
-<tbody>__ACCESS__</tbody>
-</table></div>
-<p class="cal ok"><span class="tag">結果</span>__ACCESSSUM__</p>
-
+<h2 class="sec">検査の記録</h2>
+<p class="cal note"><span class="tag">読み</span>この順番が成り立つことを CAD で当てた記録
+（部品の当たり <b>__NCHK__ 行</b>と、工具と手の道 <b>__NACC__ 行</b>）は、
+<b>組む人が読む必要のない検算</b>なので別のページに分けた ——
+<b><a href="assembly_v4_check.html">assembly_v4_check.html</a></b>。
+__ACCESSSUM__</p>
 
 <h2 class="sec">線</h2>
 <div class="tw"><table>
@@ -1075,14 +990,42 @@ BODY = """
 </table></div>
 
 <footer>
-  作り直すには <b>python hardware/_asm_manual_v4.py</b>。段の中身と軌跡検査は <b>hardware/_asm_sim_v4.scad</b>、
+  作り直すには <b>python hardware/_asm_manual_v4.py</b>（このページと <b><a href="assembly_v4_check.html">assembly_v4_check.html</a></b> の 2 枚が出る）。段の中身と軌跡検査は <b>hardware/_asm_sim_v4.scad</b>、
   形と数字の出どころは <b>docs/CASE-V4.md</b>（判断待ちは <b>CASE-V4-OPEN.md</b>、経緯は <b>CASE-V4-LOG.md</b>）。線の長さは <b>_v4_core.scad</b> の <span class="n">w_*()</span> の点列から出した折れ線長。
 </footer>
 </div>
 """
 
 
+CHECKBODY = """<div class="wrap">
+<h2 class="sec">検査（この順番の裏取り）</h2>
+<p class="cal note"><span class="tag">読み</span>ここから下は<b>組む人が読む必要のない、CAD で当てた記録</b>。
+「その手順で部品を動かしたとき、すでに箱に在る物と何 mm³ ぶつかるか」を機械で測ったもので、<b>0 が正</b>。
+<b>反例</b>と書いた行は、わざと間違った順で動かして<b>ぶつかることを確かめた</b>もの。
+数字は <b>hardware/_asm_sim_v4.scad</b> を走らせて出す。</p>
+<div class="tw"><table>
+<thead><tr><th>何を動かすか</th><th>走らせ方</th><th>結果</th><th>読み</th></tr></thead>
+<tbody>__CHECKROWS__</tbody>
+</table></div>
+
+<h2 class="sec">工具と手の道</h2>
+<p class="cal note"><span class="tag">読み</span>部品が通るだけでは組めないので、<b>ドライバ・ナット・ピンセット・指</b>も同じように当ててある。
+その手順のときに箱に在る物へ向けて円筒を撃ち、真っ直ぐ何 mm 入るかを測ったもの。
+太さは ドライバ <span class="d">φ3.2</span>・M2 ナット <span class="d">4.3</span>・ピンセット <span class="d">φ5</span>・指 <span class="d">φ12</span>。
+<b>止まる（反例）</b>の行は<b>止まるのが正</b>で、「その手順でしか入らない」ことの裏取り。</p>
+<div class="tw"><table>
+<thead><tr><th>何を入れるか</th><th>手順</th><th>道具</th><th>φ</th><th>要る mm</th><th>通った mm</th><th>結果</th><th>備考</th></tr></thead>
+<tbody>__ACCESS__</tbody>
+</table></div>
+<p class="cal ok"><span class="tag">結果</span>__ACCESSSUM__</p>
+
+
+</div>
+"""
+
+
 ACCESS_STOPS = []
+ACCESS_N = [0]
 
 
 def access_rows():
@@ -1091,7 +1034,9 @@ def access_rows():
     import _asm_access
     out = []
     ACCESS_STOPS.clear()
-    for what, step, tool, dia, need, got, ok, note in _asm_access.run():
+    rows = _asm_access.run()
+    ACCESS_N[0] = len(rows)
+    for what, step, tool, dia, need, got, ok, note in rows:
         cex = ok.startswith('止まる（反例）')   # 止まるのが正の行（その手順でしかできないことの裏取り）
         if not cex and ok != '通る': ACCESS_STOPS.append((what, step, got))
         cls = 'ok' if ok == '通る' or cex else 'stop'
@@ -1309,6 +1254,13 @@ def build():
                     acts='\n'.join('<li>{}</li>'.format(x) for x in s['acts']),
                     bits=''.join(bits))
 
+    acc = access_rows()
+    accsum = ('<b>いまは全部通る（止まったもの 0）。</b>' if not ACCESS_STOPS else
+              '🔴 <b>いま %d か所で止まっている。</b>' % len(ACCESS_STOPS) +
+              '・'.join('%s（手順 %s・%s mm で止まる）' % r for r in ACCESS_STOPS) + '。')
+    chkrows = '\n'.join(
+        '<tr><td>{}</td><td class="n">{}</td><td class="n {}">{}</td><td>{}</td></tr>'
+        .format(r[0], r[1], r[3], r[2], r[4]) for r in CHECKS)
     body = (BODY
             .replace('__NAV__', ' '.join('<a href="#s{0}">{0}</a>'.format(s['n']) for s in STEPS))
             .replace('__EXP__', IM['explode'])
@@ -1317,14 +1269,9 @@ def build():
             .replace('__GLOSSROWS__', '\n'.join(
                 gloss_row(r, GSTEP) for r in GLOSS))
             .replace('__STEPS__', '\n'.join(step_html(s) for s in STEPS))
-            .replace('__ACCESS__', access_rows())
-            .replace('__ACCESSSUM__',
-                     '<b>いまは全部通る（止まったもの 0）。</b>' if not ACCESS_STOPS else
-                     '🔴 <b>いま %d か所で止まっている。</b>' % len(ACCESS_STOPS) +
-                     '・'.join('%s（手順 %s・%s mm で止まる）' % r for r in ACCESS_STOPS) + '。')
-            .replace('__CHECKROWS__', '\n'.join(
-                '<tr><td>{}</td><td class="n">{}</td><td class="n {}">{}</td><td>{}</td></tr>'
-                .format(r[0], r[1], r[3], r[2], r[4]) for r in CHECKS))
+            .replace('__ACCESSSUM__', accsum)
+            .replace('__NCHK__', str(len(CHECKS)))
+            .replace('__NACC__', str(ACCESS_N[0]))
             .replace('__WIREROWS__', '\n'.join(
                 '<tr><td class="w">{}</td><td class="n">{}</td><td class="n hi">{}</td>'
                 '<td>{}</td></tr>'.format(*r) for r in WIRES))
@@ -1344,7 +1291,7 @@ def build():
     for key in sorted({k for _, _, _, k in GLOSS if k}):     # 用語の絵を埋める
         body = body.replace('__G_%s__' % key, img('cg_%s.png' % key))
 
-    html = ('<meta charset="utf-8">\n'
+    head = ('<meta charset="utf-8">\n'
             '<meta name="viewport" content="width=device-width,initial-scale=1">\n'
             '<title>カタノリ v4 組み立て</title>\n'
             '<link rel="preconnect" href="https://fonts.googleapis.com">\n'
@@ -1352,10 +1299,30 @@ def build():
             '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?'
             'family=Archivo:wght@500;600;700&family=BIZ+UDPGothic:wght@400;700'
             '&family=JetBrains+Mono:wght@400;700&display=swap">\n'
-            '<style>' + CSS + '</style>\n' + body + RAILJS)
+            '<style>' + CSS + '</style>\n' )
+    html = head + body + RAILJS
     with open(OUT, 'w', encoding='utf-8') as f:
         f.write(html)
     print(OUT, os.path.getsize(OUT), 'bytes')
+
+    # 🆕 2026-08-28（16 度目の机上の通し）検査の 2 表は**組む人が読む物ではない**ので別ページにした
+    #   （🔒 ユーザー「だんだんゴミがたまってきて下の方を見るのが人間ではキツい」）。
+    #   数字は上と同じ 1 回の測定から出しているので、2 枚がずれることはない。
+    chtml = (head.replace('<title>カタノリ v4 組み立て</title>',
+                          '<title>カタノリ v4 組み立て — 検査の記録</title>')
+             + '<div class="wrap"><header class="mast">'
+               '<p class="eyebrow">katanori &middot; enclosure v4</p>'
+               '<h1>検査の記録<br><em>組み立ての順番の裏取り</em></h1>'
+               '<p class="sub">この順番で部品と工具が通ることを CAD で当てた記録。'
+               '<b>組む人が読む必要はない。</b>手順そのものは '
+               '<b><a href="assembly_v4.html">assembly_v4.html</a></b>。</p>'
+               '</header></div>'
+             + CHECKBODY.replace('__ACCESS__', acc)
+                        .replace('__ACCESSSUM__', accsum)
+                        .replace('__CHECKROWS__', chkrows))
+    with open(COUT, 'w', encoding='utf-8') as f:
+        f.write(chtml)
+    print(COUT, os.path.getsize(COUT), 'bytes')
 
 
 if __name__ == '__main__':
