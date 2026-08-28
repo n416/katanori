@@ -173,6 +173,19 @@ module btn_plate() difference() {
     for (sx = [-1, 1]) translate([sx > 0 ? BTN_LEGWIN[0] : -BTN_LEGWIN[1], -3.3, Z_TSW_BOT - BTN_PLATE_T - 1])
         cube([BTN_LEGWIN[1] - BTN_LEGWIN[0], 6.6, BTN_PLATE_T + 2]);   // 足の窓
     btn_screws() translate([0, 0, Z_TSW_BOT - BTN_PLATE_T - 1]) cylinder(d = SCR_D, h = BTN_PLATE_T + 2, $fn = 24);
+    // 🔒 2026-08-28 ユーザー「このねじ止め部分のパーツなんですが、羊羹の分けずってあるんですか？
+    //    削ってないですよね？ってことは本番用とテスト用が別物ってことですよね。困ります」→ そのとおりだった。
+    //    ✅ 測定: 板は羊羹（ReSpeaker の前リブ）に **6.191mm³ 食い込んでいた**（太らせる前も 1.524mm³）。
+    //    🔴 一度も検査に出ていなかった。板は**別に刷る部品**なので innards4() に無く chk_top の対象外、
+    //       chk_self の TOPBITS にも入れていなかった。しかも print_btntest には羊羹が入らないので、
+    //       **試し刷りでは入り、本番では入らない**という食い違いになっていた。
+    //    ⇒ 羊羹の footprint を、逃げ 0.3 を付けて板から欠く。
+    //      🔴 数字は羊羹（RIB4_X / RIB4_W）から引く。板の中に生の数字を書かない。羊羹が動けば逃げも動く。
+    //      （モジュールの中なので、後で定義される RIB4_X を参照しても解決する）
+    let (rx0 = RIB4_X - BTN4[0], rx1 = RIB4_X + RIB4_W - BTN4[0],
+         ry0 = RSP_BD_Y0 - 0.5 - BTN4[1], ry1 = RSP_BD_Y0 - 0.5 + respeaker_T() + 1.0 - BTN4[1], cl = 0.3)
+        translate([-rx1 - cl, -ry1 - cl, Z_TSW_BOT - BTN_PLATE_T - 1])
+            cube([(rx1 - rx0) + cl * 2, (ry1 - ry0) + cl * 2 + 10, BTN_PLATE_T + 2]);   // +Y 側は板の外まで抜く
 }
 
 module button_cap() {

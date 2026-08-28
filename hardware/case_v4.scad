@@ -831,13 +831,18 @@ if (part == "chk_all") difference() { intersection() { skin_all(); innards4(); }
 //   OLED の L も会話ボタンの受けも同じ皮（top）の中なので、何 mm³ めり込んでも 0 と出ていた。
 //   ⇒ 天板に別々に足している物を名前で持ち、総当たりで突き合わせる。空なら当たり無し。
 //     part="chk_self"（全組み合わせ）/ part="chk_self_<a>_<b>"（1 組だけ）
-TOPBITS = ["oledL", "btn", "knob", "spk", "rsp"];
+// 🔴 2026-08-28 ユーザー「このねじ止め部分のパーツ…羊羹の分けずってあるんですか？…本番用とテスト用が
+//    別物ってことですよね。困ります」→ そのとおりで、板は羊羹に 6.191mm³ 食い込んでいた。
+//    板は**別に刷る部品**なので innards4() に無く chk_top に出ず、TOPBITS にも入れていなかった。
+//    ⇒ **plate を対象に入れる。**組んだ状態で天面の中に居る物は、別部品でも突き合わせる。
+TOPBITS = ["oledL", "btn", "knob", "spk", "rsp", "plate"];
 module topbit(k) {
     if (k == "oledL") oled_brackets();      // OLED の L（天面から下ろす足）
     if (k == "btn")   btn_station4();       // 会話ボタンの受け（欠きを彫った後）
     if (k == "knob")  knob_station_add4();  // つまみの座
     if (k == "spk")   spk_rim4();           // スピーカーの位置出しの縁
     if (k == "rsp")   rsp_press4();         // ReSpeaker の押さえ（前リブ＋腕）
+    if (k == "plate") translate([BTN4[0], BTN4[1], 0]) rotate([0, 0, 180]) btn_plate();   // 会話ボタンを下から留める板（別に刷る部品）
 }
 module topbit_pair(a, b) intersection() { topbit(a); topbit(b); }
 if (part == "chk_self") for (i = [0 : len(TOPBITS) - 1], j = [0 : len(TOPBITS) - 1]) if (i < j) topbit_pair(TOPBITS[i], TOPBITS[j]);
