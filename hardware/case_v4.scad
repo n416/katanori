@@ -38,16 +38,47 @@ W = "none";      // _v4_core の内部スイッチ（芯だけの検査 deskseat
 //   電池   : chk_shut_slide（蓋を右へずらす）/ chk_shut_out（蓋を抜く）/ chk_lock_out（ロックを後ろへ外す）/ chk_swap（電池を後ろへ抜く・v3 と同名）
 //   絵（部分）: btnslot（会話ボタンの受けに彫った溝と、そこを通る電源 2 本・INA の直立ての口）
 //              seatgap（電流計の座ぐりの断面。ネジの先 ↔ 留め帯の天板の裏＝電池の上面。SEATGAP_Y で 1 本に絞れる）
-part = "explode";
+part = "inside";
 WP = "";         // chk_wire 系で束を 1 つに: xiao / oled / as5600 / btn2 / phin / phout / ina / tgl / reed / chg（"" で全部）
 
 // ---- v4 の配置（芯と同じ式。数字を増やさない） ----
 KNOB4 = [KNOB_AT[0] - 2.5, KNOB_AT[1] + 7, KNOB_AT[2]];  // 🔒 2026-08-26 ユーザー「両方を +4 移動」＝内側（−X）へ 4（+1.5 → −2.5・T-2 の直し）   // 🔒 2026-08-25 ユーザー「つまみも 2mm 移動」で +5 → +7            // 🔒 つまみ +1.5 右・+5 後ろ（2026-08-25「少しだけ内側へ」で +3 → +1.5・⚠ 量は仮）
-BTN4  = [22, 22.3 - 0.5 - spk_w() / 2];                            // 会話ボタン（core と同じ式・[22, 14.3]）
-SPK4  = [KNOB_AT[0] - 2.5, 22.3 - 0.5 - spk_w() / 2];              // スピーカーの中心（core と同じ式）
+// BTN4 / SPK4 の定義は _v4_core.scad へ移した（二重の数字を消すため・2026-08-28）
+// 🔒 2026-08-28 会話ボタンの欠きは btn_v4.scad が BTN4 からの相対で持っている。ここは world へ
+//    直す関数と、検証済みの絶対値を守る assert（つまみの k4x0() と同じ置き方）。
+//    ⚠ **凍結をやめたわけではありません。**BTN4 を動かすときは、下の数字を意図的に更新するのが手順。
+function b4_grv_x0()  = BTN4[0] + btn_grv_dx();     // 9.300  INA の線の溝の −X 端
+function b4_grv_y0()  = BTN4[1] + btn_grv_dy();     // 17.800 同 −Y 端
+function b4_cnr_x0()  = BTN4[0] + btn_cnr_dx0();    // 9.300  角落としの −X 端
+function b4_cnr_x1()  = BTN4[0] + btn_cnr_dx1();    // 12.400 同 +X 端（皿の縁。これを越えると皿の底を抜く）
+function b4_cnr_y0()  = BTN4[1] + btn_cnr_dy0();    // 6.700  同 −Y 端
+function b4_cnr_y1()  = BTN4[1] + btn_cnr_dy1();    // 10.000 同 +Y 端
+// 凍結値は 1 か所に。BTN4 を動かす試算のときだけ -D BTN_FROZEN=[...] で差し替える（手順の一部）
+// 🔒 2026-08-28 前列を +2.5 動かしたので、Y の凍結値を意図的に更新した（X と Z は動いていない）
+//    ⚠ Y も元の値に戻る。逃げは相手（INA の線・OLED の L）に釘付けで、前列の移動に付いて回らないため。
+BTN_FROZEN = [9.300, 17.800, 45.900, 9.300, 12.400, 6.700, 10.000];   // 溝 x,y,z / 角落とし x0,x1,y0,y1
+assert(abs(b4_grv_x0() - BTN_FROZEN[0]) < 0.001 && abs(b4_grv_y0() - BTN_FROZEN[1]) < 0.001, "会話ボタン: INA の線の溝が凍結値からずれた");
+assert(abs(btn_grv_z()  - BTN_FROZEN[2]) < 0.001, "会話ボタン: INA の線の溝の Z が凍結値からずれた");
+assert(abs(b4_cnr_x0() - BTN_FROZEN[3]) < 0.001 && abs(b4_cnr_x1() - BTN_FROZEN[4]) < 0.001, "会話ボタン: 角落としの X が凍結値からずれた");
+assert(abs(b4_cnr_y0() - BTN_FROZEN[5]) < 0.001 && abs(b4_cnr_y1() - BTN_FROZEN[6]) < 0.001, "会話ボタン: 角落としの Y が凍結値からずれた");
 SPK4_X = SPK4[0] - SPK_L / 2; SPK4_Y = SPK4[1] - SPK_W / 2;
 HUB_HOLES4 = [for (h = HUB_HOLES) [h[0] + HUB_DX, h[1] + HUB_DY]]; // ハブのビス穴（HUB_DY=4 に追従）
-RIB4_X = 31.4; RIB4_W = 6.0;                                       // ⚠ 前リブの仮決め（CASE-V4 §4）
+// 🔴 2026-08-28 **31.4 は会話ボタンのナットの座を塞いでいた。**新しい検査 part="chk_self"
+//    （同じ外皮の中どうしの当たり）で初めて見えた。受けへのめり込み 34.669mm³、
+//    ナットの通り道の塞ぎ 20.358mm³。ナットは座で X 27.42〜32.38 を占めるのに、
+//    リブが X 31.4 から立っていたので **座に 0.98mm 食い込み、ナットが座れなかった**。
+//    🔒 ユーザー実機「右だけ入らない。完全に柱が邪魔して入らない」はこれ。左右対称な溝の
+//       寸法では片側だけにならない。犯人は隣に立っていた物。
+//    ⇒ X 42 へ。腕の外面 33 からリブまで 9mm 空くので、ナット（長さ 4.97）を入れて工具のぶんが
+//      4mm 残る。押さえの効き（chk_press の前リブぶん）は 3.330mm³ で 31.4 のときと同じ。
+//    ⚠ 位置は元から「仮決め」で凍結されていない。ReSpeaker の板は X 2〜84.02 なので 42 は板の上。
+//    🔴 2026-08-28 **X を動かして逃がす道は無かった。**34〜76 を 0.5〜2 刻みで総当たりした結果、
+//      chk_top（外皮 ↔ 中の部品）が 0 になるのは **31.4 だけ**。34〜46 は OLED の線のハウジング
+//      （X 37.5〜48.5・73.5mm³）、54〜76 は ReSpeaker の載っている物に当たる。押さえの効きは
+//      どこでも 4.662 で変わらないので、31.4 は「効くから」ではなく「そこしか空いていないから」。
+//      ⚠ しかもハウジングの X を決めている OLED_PORT_X 48.660 は**実測ではない**（元は板幅の 58%）。
+//    ⬜ よってナットの座の 0.98mm 食い込みは、リブの X では解けない。判断待ち。
+RIB4_X = 31.4; RIB4_W = 6.0;                                       // ⚠ 前リブ（X 31.4〜37.4）
 ARM4_X0 = 50.0; ARM4_X1 = 52.4;   // 🔒 2026-08-26 スピーカー −4 で左端が 52.72 まで来た → 54.7 → 52.4（0.32 空く）。
 //   左へ寄せる案（45.3〜50.0）は OLED の線の帯（X 37.9〜48.1・Z 45〜48）に 20.5mm³ 入るので採らない                                    // ⚠ 腕の移設（上のヘッダ参照）
 
@@ -333,52 +364,44 @@ module rwall_v4() {
 //   v3 の top_plate_raw の v4 版。KNOB_TRIM・pb_front_hook・棚は無し。
 //   🔴 PB の USB ピンの DuPont の逃げの頭（Z 49.2）が天井 48.454 を 0.75 超える（CASE-V4 §9 ⚠②）
 //      → 板の裏を局所ポケットで彫る（X 17.9〜22.9・Y 56.4〜61.4・深さ 1.27・残り 1.23 ⚠）
+
+// ---- 天板に**別々に足している物**。名前が無いと検査で突き合わせられないので括り出した（2026-08-28）----
+module spk_rim4() translate([SPK4_X - SPK_RIM_M, SPK4_Y - SPK_RIM_M, IN_Z - SPK_RIM]) difference() {
+    spk_obround(SPK_L + SPK_RIM_M * 2, SPK_W + SPK_RIM_M * 2, SPK_RIM);
+    translate([SPK_RIM_M - 0.6, SPK_RIM_M - 0.6, -1]) spk_obround(SPK_L + 1.2, SPK_W + 1.2, SPK_RIM + 2);
+}
+module rsp_press4() {
+    translate([RIB4_X, RSP_BD_Y0 - 0.5, RSP_TOP - RSP_PRESS]) cube([RIB4_W, respeaker_T() + 1.0, IN_Z - RSP_TOP + RSP_PRESS + 0.01]);
+    translate([ARM4_X0, RSP_BD_Y0 - 0.5, RSP_TOP - RSP_PRESS]) cube([ARM4_X1 - ARM4_X0, respeaker_T() + 1.0, IN_Z - RSP_TOP + RSP_PRESS + 0.01]);
+}
+module btn_station4() difference() {
+    translate([BTN4[0], BTN4[1], 0]) btn_station_add();
+    translate([BTN4[0], BTN4[1], 0]) btn_station_cut();
+}
 module top_v4() {
     intersection() { seam_top_half();
     difference() {
         union() {
             color("#c9d0d8") translate([LW_X - WALL, FY_OUT, IN_Z]) cube([IN_X + 2 * WALL - LW_X, IN_Y - FY_OUT + HATCH_T, TOP_T]);
             knob_station_add4();                                                        // つまみの座（+3, +5・v4 の欠き入り）
-            color("#c9d0d8") translate([BTN4[0], BTN4[1], 0]) rotate([0, 0, 180]) btn_socket();   // 会話ボタンの受け（タクトと同じ 180°）
-            color("#c9d0d8") translate([SPK4_X - SPK_RIM_M, SPK4_Y - SPK_RIM_M, IN_Z - SPK_RIM]) difference() {   // スピーカーの位置出しの縁
-                spk_obround(SPK_L + SPK_RIM_M * 2, SPK_W + SPK_RIM_M * 2, SPK_RIM);
-                translate([SPK_RIM_M - 0.6, SPK_RIM_M - 0.6, -1]) spk_obround(SPK_L + 1.2, SPK_W + 1.2, SPK_RIM + 2);
-            }
+            color("#c9d0d8") translate([BTN4[0], BTN4[1], 0]) btn_station_add();   // 会話ボタンの受け（180° はボタン自身の都合なので btn_v4.scad が持つ）
+            color("#c9d0d8") spk_rim4();                                                // スピーカーの位置出しの縁
         }
         translate(KNOB4) knob_station_cut();
-        // 会話ボタン: 皿・縁の面取り・首の穴（v3 と同じ形を BTN4 に）
-        translate([BTN4[0] - BTN_DISH_L / 2, BTN4[1] - BTN_DISH_W / 2, Z_BTN_DISH]) spk_obround(BTN_DISH_L, BTN_DISH_W, BTN_DISH_T + 1);
-        translate([BTN4[0], BTN4[1], Z_TOP - 0.3]) hull() {
-            translate([-BTN_DISH_L / 2, -BTN_DISH_W / 2, 0]) spk_obround(BTN_DISH_L, BTN_DISH_W, 0.01);
-            translate([-BTN_DISH_L / 2 - 0.3, -BTN_DISH_W / 2 - 0.3, 0.3]) spk_obround(BTN_DISH_L + 0.6, BTN_DISH_W + 0.6, 0.01);
-        }
-        translate([BTN4[0], BTN4[1], Z_BTN_PAD - 1]) cylinder(d = BTN_HOLE_D, h = BTN_PAD_T + 2, $fn = 32);
-        // 🔒 2026-08-26 INA の口が直立てになり、一番手前のピン（Y 19.87）が会話ボタンの受け（X 9.5〜37.4・
-        //   Y 6.8〜21.8・Z 39〜48.4）の真下に来た。口の頭 46.0 と受けの底 47.1 の間は 1.1 しか無く線（1.5）が通らない。
-        //   ⇒ 受けの**上の角**に幅 5 の縦の溝を彫って、線を +Y へ逃がす（下から開いた溝なのでブリッジは要らない）。
-        //   🔴 2026-08-26 初版は高さ 3.0（Z 45.9〜48.9）で切って**天板に 0.446 食い込み**、会話ボタンの皿の底
-        //      （Z 48.454〜48.704 の 0.25 しか無い）を抜いて表に穴が開いた（ユーザーが CAD で発見）。
-        //      **天板の内面 IN_Z で止める。**線は Z 46.05〜47.55 にしか居ないので、これで足りる。
-        translate([9.3, 17.8, 45.9]) cube([5.0, 4.8, IN_Z - 45.9]);
-        // 🔴 2026-08-26 T-3: OLED の左の L（X 7〜13・裏面 Y 6.6）のポケットへナット（二面幅 4.3・厚み 1.6）を
-        //   後ろから差す空きが、受けの前面 Y 6.8 に塞がれて 0.19mm しか無かった。ナットの上の角
-        //   （X 9.5〜12.15・Z 47.1〜48.25）が受けの中に入る。⇒ 受けの**手前左の角**を落とす。
-        //   タクトの胴は X 19〜25・Y 11.3〜17.3、ポケットの壁は X 17.2 から。ここは板の余肉しかない。
-        //   天板の内面 IN_Z で止める（上の 🔴 と同じ理由。ここを越えると会話ボタンの皿の底を抜く）。
-        //   X も 12.4 で止める。皿（へこみ）の縁が X 12.4。皿の底の肉 1.6 は、天板の残り 0.25 と
-        //   **受けの板 1.35 の合わせ**で出来ているので、皿の下の受けを削ると 0.25 だけになる。
-        //   だから皿の footprint（X 12.4〜31.6・Y 7.7〜20.9）には掛けない。ナットは X 12.15 までなので足りる。
-        translate([9.3, 6.7, Z_BTN_PAD - 0.01]) cube([12.4 - 9.3, 10.0 - 6.7, IN_Z - Z_BTN_PAD + 0.01]);
+        // 会話ボタン: 皿・縁の面取り・首の穴・INA の線の溝・OLED の L のための角落とし。
+        //   🔒 2026-08-28 形も欠きの座標も btn_v4.scad が持つ（BTN4 からの相対）。ここは置くだけ。
+        //   移設前はこの 5 つが world の生の数字（9.3 / 17.8 / 45.9 / 6.7 / 10.0 / 12.4）で
+        //   直書きされていて、BTN4 を動かしても付いてこなかった。
+        translate([BTN4[0], BTN4[1], 0]) btn_station_cut();
         // スピーカー: 振動板の逃げ・天面のへこみ・音の穴（v3 と同じ形を SPK4 に）
         translate([SPK4_X + (SPK_L - SPK_DIA[0]) / 2 - 0.5, SPK4_Y + (SPK_W - SPK_DIA[1]) / 2 - 0.5, IN_Z - 0.01]) spk_obround(SPK_DIA[0] + 1, SPK_DIA[1] + 1, SPK_REL + 0.01);
         // 🔒 SPK_LIFT で持ち上げた分、**枠ごと**天板に入るのでその座（逃げは振動板 15×9 の分しか無く、枠 23×15 が 0.4 食い込んでいた）。
         //    深さは SPK_LIFT ちょうど＝頭の上の隙間は持ち上げ前と同じ 0.2。横は片側 0.3（位置出しの縁 SPK_RIM と二段で効く）
         translate([SPK4_X - 0.3, SPK4_Y - 0.3, IN_Z - 0.01]) spk_obround(SPK_L + 0.6, SPK_W + 0.6, SPK_LIFT + 0.01);
-        translate([SPK4[0], SPK4[1], 0]) hull() {
-            translate([0, 0, Z_TOP - EMB_H]) linear_extrude(0.01) offset(r = 2) square([SPK_DIA[0] + EMB_M * 2 - 4, SPK_DIA[1] + EMB_M * 2 - 4], center = true);
-            translate([0, 0, Z_TOP + 1]) linear_extrude(0.01) offset(r = 2) square([SPK_DIA[0] + EMB_M * 2 - 4 + (EMB_H + 1) * 2, SPK_DIA[1] + EMB_M * 2 - 4 + (EMB_H + 1) * 2], center = true);
-        }
-        grille_xy(SPK4[0], SPK4[1], SPK_DIA[0], SPK_DIA[1], IN_Z, TOP_T, 2.2, 3.4);
+        // 🔒 2026-08-28 ユーザー「ベベルを取り、変わりにスピーカー穴をハニカムにしてください」
+        //    「でないとつまみとのマージンがおかしな事になるので」。天面の掘り（EMB_H 1.2 の
+        //    末広がりのベベル）は**廃止**。天面は平らのままで、穴の形で見せる。
+        grille_hex(SPK4[0], SPK4[1], SPK_DIA[0], SPK_DIA[1], IN_Z, TOP_T, SPK_HEX_AF, SPK_HEX_WALL);
         // 天面のビス 4 本（後ろの柱 2＋耳 2・v3 と同じ）
         for (b = BOSSES) translate([b[0] + BOSS / 2, b[1] + BOSS / 2, 0]) {
             translate([0, 0, IN_Z - 1]) cylinder(d = SCR_D, h = TOP_T + 2, $fn = 24);
@@ -397,8 +420,7 @@ module top_v4() {
     // 🔴 継ぎ目の 45°（Y+Z ≥ 48.454）の**外**に置く。v3 は intersection の中に入れていて、リブの Z 36.2〜40.8 が
     //    切り落とされ、押さえが ReSpeaker（頭 36.5）に届いていなかった（close_top 18.6mm³ に押さえ分が無いのはこのため）。
     //    OLED の L と同じ扱いにする。押し代 0.3 で ReSpeaker と重なるのは正（≈ 6mm³）
-    color("#c9d0d8") translate([RIB4_X, RSP_BD_Y0 - 0.5, RSP_TOP - RSP_PRESS]) cube([RIB4_W, respeaker_T() + 1.0, IN_Z - RSP_TOP + RSP_PRESS + 0.01]);
-    color("#c9d0d8") translate([ARM4_X0, RSP_BD_Y0 - 0.5, RSP_TOP - RSP_PRESS]) cube([ARM4_X1 - ARM4_X0, respeaker_T() + 1.0, IN_Z - RSP_TOP + RSP_PRESS + 0.01]);
+    color("#c9d0d8") rsp_press4();
 }
 // つまみの座（v4 の欠き 3 つ）。v3 の KNOB_TRIM と同じ流儀（🔒 落とすのは組んだ位置）:
 //   ① スピーカー側: 座の板の前端が移動後のスピーカー（後端 Y 21.8・頭 Z 48.25）に 159mm³ → Y < 22.3 を欠く
@@ -531,7 +553,11 @@ if (part == "bridge") {
 //      長い部品は溝ではなく**犠牲タブ**。ヘラはタブの下に入れ、本体を曲げない。見本は knob_jig.scad の
 //      `bridge_print`（両端 7 x 8 x 1.2）。位置も同じ流儀で**長い軸の両端**に 1 つずつ。
 //   ⚠ 角丸のぶん、プレートに着く輪郭は外形より最大 1.9mm 内側にある（実測）。TAB_IN はそれを跨ぐ量。
-TAB_T = 1.2; TAB_W = 8.0; TAB_IN = 3.0; TAB_OUT = 7.0;
+//   🔴 2026-08-28 実機（天板の初刷り）ユーザー「犠牲タブが分厚すぎて跡が残り過ぎる」。
+//      跡は**外周の角丸そのものの上**に付く（TAB_IN が角丸を跨いで肉を埋めるので）。1.2 → 0.6 に落とす。
+//      角丸 CHAM=2.0 に対して、タブが本体に触る帯は 1.2 で ≈2.3mm 幅・0.6 で ≈1.6mm 幅（弧長）。
+//      曲げの強さは厚みの二乗で効くので 1/4 になる。⚠ タブが根元で折れて役に立たなくなったら 0.8 へ戻す。
+TAB_T = 0.6; TAB_W = 8.0; TAB_IN = 3.0; TAB_OUT = 7.0;
 module tab_x(xe, y, s) color("#e0a0a0") translate([s > 0 ? xe - TAB_IN : xe - TAB_OUT, y - TAB_W / 2, 0]) cube([TAB_IN + TAB_OUT, TAB_W, TAB_T]);
 module tab_y(x, ye, s) color("#e0a0a0") translate([x - TAB_W / 2, s > 0 ? ye - TAB_IN : ye - TAB_OUT, 0]) cube([TAB_W, TAB_IN + TAB_OUT, TAB_T]);
 //   長い軸が X の 4 枚（床・天面・ハッチ・フロント）は X の両端。短い方の中央は刷る向きの bbox から
@@ -558,6 +584,48 @@ if (part == "print_seat") { translate([TC4_ZT, 0, -LW_X]) rotate([0, -90, 0]) tc
 if (part == "print_shutter") translate([0, 0, SW4_YOUT]) rotate([-90, 0, 0]) battery_shutter4(0);
 if (part == "print_lock")    translate([0, 0, SW4_YOUT]) rotate([-90, 0, 0]) battery_lock4();
 if (part == "print_tail")    translate([0, 0, -0.2]) tail_cap();
+
+// ---- 会話ボタンだけの試し刷り（🔒 2026-08-28 ユーザー「ちょっと部品印刷したいね。ここだけで」
+//      「ボタンも込みでさ」）。3 点: ①天板の受けの所を刷る向きのまま切り出した物 ②下から留める板
+//      ③キャップ。①は形を足していない（print_top をそのまま箱で切るだけ）ので、ここで入る物は天板でも入る。
+BTNT_BOX = [[5, -27], [39, -1]];   // 支柱とラフトを切り出す箱（刷る向きの X,Y）
+BTNT_PAD = [30, 22];               // 試し刷りに付ける天板の板。ボタンの芯から ±15 / ±11
+//   （欠きの外れ値は 溝の x −12.7・y +8.3、角落としの y −7.6、受けの板 ±11.2 / ±7.5。全部この中）
+if (part == "print_btntest") {
+    // 🔴 2026-08-28 ユーザー「なんで部品として独立させたのに OLED の L が出る可能性があるんですか？
+    //    もしかして・・・独立してませんね？」→ **その通りだった。**ここは天板まるごとを箱で切り抜いて
+    //    いたので、箱の中に居る物は何でも付いてきた。実際に OLED の L が乗っていた。
+    //    🔒 ユーザー「この L の柱、印刷できないです。ナットポケット部分が薄すぎて。かならず印刷失敗する
+    //       厄介なもので、近くにあると近くの印刷を失敗させます」。
+    //    ⚠ 「L だけ引き算する」直し方も同じ穴。次に別の物が箱へ入れば再発する。
+    //    ⇒ **会話ボタンの部品から組み立てる。**天板は板だけを自分で置く。切り抜きをやめたので、
+    //      他の部品がここへ入って来る道がそもそも無い。
+    translate([0, 0, Z_TOP]) rotate([180, 0, 0]) difference() {
+        union() {
+            translate([BTN4[0] - BTNT_PAD[0] / 2, BTN4[1] - BTNT_PAD[1] / 2, IN_Z])
+                cube([BTNT_PAD[0], BTNT_PAD[1], TOP_T]);           // 天板の板（ボタンの周りだけ）
+            translate([BTN4[0], BTN4[1], 0]) btn_station_add();    // 受け
+        }
+        translate([BTN4[0], BTN4[1], 0]) btn_station_cut();        // 皿・縁の面取り・首の穴・溝・角落とし
+    }
+    // 支柱とラフトは自動生成（_v4_props.py）なので、ボタンの周りの箱で切り出して使う。
+    //   ⚠ 皿の底（刷る向きで Z 2.25 の天井）を受けているのがこの柱。外すと皿が垂れる
+    if (!PROPS_OFF) intersection() {
+        union() { props_top(); raft_top(); }
+        translate([BTNT_BOX[0][0], BTNT_BOX[0][1], -1])
+            cube([BTNT_BOX[1][0] - BTNT_BOX[0][0], BTNT_BOX[1][1] - BTNT_BOX[0][1], 20]);
+    }
+    tab_x(BTN4[0] - BTNT_PAD[0] / 2, -BTN4[1], -1);                // 犠牲タブ（接地が frame 585 を超えるので）
+    tab_x(BTN4[0] + BTNT_PAD[0] / 2, -BTN4[1], +1);
+    translate([68, -18, -(Z_TSW_BOT - BTN_PLATE_T)]) btn_plate();  // 下から留める板
+    // 🔒 2026-08-28 キャップは外した。ユーザー「ボタンは前のでいいならもう印刷してある」。
+    //    照合済み: いまの .scad から焼いた print_btn と、刷ってある stl/v4/v4_btn.stl は
+    //    **差 0.000mm³（両方向）** ＝ 同じ形。刷り直し不要。
+    //    if (BTNT_CAP) translate([68, -3, Z_TOP + BTN_OUT]) rotate([180, 0, 0]) button_cap();
+}
+
+
+
 
 // ---- 刷る物を全部並べて見る（stl/v4/*.stl をそのまま読む・支柱もラフトも付いた状態）----
 //   🔴 モデルを描き直して並べているのではない。**焼いた STL を読んでいる**ので、
@@ -667,7 +735,10 @@ module ceil_props(h, base = 0, mg = 0.3) color("#e0a0a0") intersection() {
 //   🔒 壁ぎわの逃げは 3.1mm。1.1mm ではニッパーが入らず、刃が見える面に乗ってガタガタになった
 //      （つまみのラフトを 13.0 → 11.0 に縮めた実機の判断・PRINT.md §3）。
 //      壁から 3.1 の帯は支柱を置かないが、そこは**壁そのものが天井を持っている**（検査の 2.0mm 以内）。
-TOP_CEILS = [[6.70, 0, 3.1], [2.25, 0, 3.1]];   // [天井, 足元, 壁からの逃げ] 太い天井は柱
+// 🔒 2026-08-28 ユーザー「その支柱はいらない。過去にノブでその形状はなにも無くても印刷できるの分かってる」。
+//    皿の底（2.25・82mm²）の下の支柱を外した。⚠ 検査の「支えの無い天井」はここを出し続けるが、
+//    それは自作のルールで、実機の実績（つまみの皿）が優先する。
+TOP_CEILS = [[6.70, 0, 3.1]];   // [天井, 足元, 壁からの逃げ] 太い天井は柱
 TOP_FINS = [[6.20, 0]];   // 細い天井（会話ボタンの首）はヒレ。スピーカーの網の桟（幅 1.2）はヒレも入らない → 下の 🔴
 module top_print() { translate([0, 0, Z_TOP]) rotate([180, 0, 0]) p_one("top"); }
 module hatch_print() { translate([0, 0, IN_Y + HATCH_T]) rotate([-90, 0, 0]) p_one("hatch"); }
@@ -688,6 +759,9 @@ module keepout_top() {
         translate([0, 0, Z_TOP - SCR_CBT]) cylinder(d = SCR_CB, h = SCR_CBT + 1, $fn = 32);
     }
     translate([BTN4[0], BTN4[1], Z_BTN_PAD - 1]) cylinder(d = BTN_HOLE_D, h = BTN_PAD_T + 2, $fn = 32);   // 会話ボタンの首（動く）
+    // 🔴 2026-08-28 ナットの溝と留めねじの穴。登録し忘れて、生成器が溝の天井（刷る向き 5.65）に柱を
+    //    1 本立てていた（溝の中の柱はナットを塞ぐ）。cut の module をそのまま呼ぶ（🔒 数字は書かない）
+    translate([BTN4[0], BTN4[1], 0]) rotate([0, 0, 180]) btn_nut_slot();
     // つまみの座: **軸の穴・留めねじとナット・リードの穴・柱の M2 とナット**だけ。
     // 🔒 皿（見える面のへこみ）と床の掘り下げは入れない。ただの広いへこみで、そこの天井は柱で支える所。
     translate(KNOB4) { knob_station_shaft_cut(); knob_station_screw_cut();
@@ -732,6 +806,25 @@ module rsp_press_zone() {   // リブ 2 本の足元（押し代の領域）
 }
 for (k = SKINS) if (part == str("chk_", k)) difference() { intersection() { skin1(k); union() { innards4(); skin_except(k); } } rsp_press_zone(); }
 if (part == "chk_all") difference() { intersection() { skin_all(); innards4(); } rsp_press_zone(); }
+
+// ---- 🔴 2026-08-28 **同じ外皮の中どうし**の当たり検査（今まで無かった検査）----
+//   🔒 ユーザー「当たり判定が無かったんで、適当な所でめり込んで破壊して組めないゴミを作っても」。
+//   既存の chk_<皮> は skin1(k) ∩ (innards4() ∪ skin_except(k)) で、**中の部品と他の皮**としか比べない。
+//   OLED の L も会話ボタンの受けも同じ皮（top）の中なので、何 mm³ めり込んでも 0 と出ていた。
+//   ⇒ 天板に別々に足している物を名前で持ち、総当たりで突き合わせる。空なら当たり無し。
+//     part="chk_self"（全組み合わせ）/ part="chk_self_<a>_<b>"（1 組だけ）
+TOPBITS = ["oledL", "btn", "knob", "spk", "rsp"];
+module topbit(k) {
+    if (k == "oledL") oled_brackets();      // OLED の L（天面から下ろす足）
+    if (k == "btn")   btn_station4();       // 会話ボタンの受け（欠きを彫った後）
+    if (k == "knob")  knob_station_add4();  // つまみの座
+    if (k == "spk")   spk_rim4();           // スピーカーの位置出しの縁
+    if (k == "rsp")   rsp_press4();         // ReSpeaker の押さえ（前リブ＋腕）
+}
+module topbit_pair(a, b) intersection() { topbit(a); topbit(b); }
+if (part == "chk_self") for (i = [0 : len(TOPBITS) - 1], j = [0 : len(TOPBITS) - 1]) if (i < j) topbit_pair(TOPBITS[i], TOPBITS[j]);
+for (i = [0 : len(TOPBITS) - 1], j = [0 : len(TOPBITS) - 1]) if (i < j)
+    if (part == str("chk_self_", TOPBITS[i], "_", TOPBITS[j])) topbit_pair(TOPBITS[i], TOPBITS[j]);
 if (part == "chk_press") intersection() { top_v4(); respeaker_at(); }   // ≈4.7mm3 が正（0 なら押さえが板に届いていない）。前リブ 3.33 ＋ 腕 1.33。🔴 2026-08-26 のつまみ／スピーカー −4 で 6 → 4.7
 // ドライバの道（T-1）: 3 点目の頭から φ3.2 × 24 の軸を立てて、**その時点で箱に入っている物**に当てる。**0 が正**。
 //   ビスを締めるのは手順 5（ブリッジを降ろした直後）なので、PowerBoost に繋がる線 ── 電源 3 本（w_pwr3）も

@@ -1,4 +1,22 @@
-include <case_base.scad>
+include <btn_v4.scad>   // 会話ボタン一式（2026-08-28 に case_base / case_v4 から集約）。
+                        // 🔴 このファイルが 1 行目で case_base.scad（v4 の土台）を読んでいるので、
+                        //    ここで case_base を重ねて include しない（二重定義になる）。
+BTN_SOLO = false;       // btn_v4.scad を単体で開いたときだけ絵を出す。読み込んだ側では消す
+
+// ---- 天面の 2 つの置き場所。🔴 2026-08-28 ここを**唯一の定義**にした ----
+//   それまで core() が BTN_CX = 22 / SPK_CY = 22.3-0.5-spk_w()/2 という自前の数字を持ち、
+//   case_v4.scad の BTN4 / SPK4 と**二重**だった。BTN4 を動かすと受けだけ動いて模型が 14.3 に
+//   置き去りになり、当たり検査に 61.772mm³ の**偽の壁**が出た（自分の古い分身との衝突）。
+//   🔒 Y はスピーカーと会話ボタンで必ず同じ（ユーザー「デザイン的にスピーカーの中央とは一緒にしたい」）。
+// 🔒 2026-08-28 ユーザー「動かしてください」。会話ボタンのナットの座を ReSpeaker の前リブが
+//    0.98mm 塞いでいた（part="chk_self" で発見）。リブは X も Y も動かせないので、ボタンを +Y へ逃がす。
+//    ⚠ +2.22 はナットの下端がリブの上端に**並ぶ**値（余裕 0.002mm）なので採らない。下の実測で決める。
+//    🔒 スピーカーも同じだけ動かす（ユーザー「デザイン的にスピーカーの中央とは一緒にしたい」）。
+//       ROW_Y を 2 つで共有しているので、片方だけ動かすことはできない。
+//   逃がし量 BTN_ROW_DY の定義は btn_v4.scad（先に読まれる側）。ここでは配るだけ
+ROW_Y = 22.3 - 0.5 - spk_w() / 2 + BTN_ROW_DY;          // 14.3 + 2.5 = 16.8
+BTN4 = [22, ROW_Y];                                     // 会話ボタンの芯
+SPK4 = [KNOB_AT[0] - 2.5, ROW_Y];                       // スピーカーの中心（Y は必ずボタンと同じ）
 // ============================================================
 // 📦 v4 の芯: 固定群だけの機体（2026-08-24 ユーザー発案）
 //   「OLED・ReSpeaker・ハブ基板は固定。天面につまみ(AS5600)・会話ボタン(タクト)・
@@ -82,16 +100,16 @@ module core() {
     // 🔒 2026-08-25 ユーザー「スピーカーと会話ボタンを平置きのまま Z 軸で 90 度」（どちらも自分の中心で回す）
     // 🔒 2026-08-25 ユーザー「OLED から見ると直線上にスピーカー、その後ろにつまみ」:
     //    X の中心をつまみに揃え、Y はつまみの島の前縁（22.3）の手前 0.5 に後端を付けた（⚠ 前後の隙間は仮）
-    SPK_CY = 22.3 - 0.5 - spk_w() / 2;   // スピーカーの中心 Y（14.3）
+    // スピーカーの中心 Y は SPK4[1]（＝ BTN4[1] ＝ 14.3）。数字はここに持たない
     // 2026-08-25 ユーザー「スピーカーを Z 軸 180 度」→ 計 360＝素の向きへ（場所は同じ・リード線の切り株が反対側に来る）
-    translate([KNOB_AT[0] - 2.5, SPK_CY, IN_Z - spk_th() - 0.2 + SPK_LIFT])   // 🔒 2026-08-26 −4（つまみと同じ）
-        rotate([0, 0, 0]) translate([-SPK_L / 2, -SPK_W / 2, 0]) speaker_112495();   // スピーカー（天面）
+    translate([SPK4[0], SPK4[1], IN_Z - spk_th() - 0.2 + SPK_LIFT])   // 🔒 2026-08-26 −4（つまみと同じ）
+        translate([-SPK_L / 2, -SPK_W / 2, 0]) speaker_112495();   // スピーカー（天面）
     // 🔒 2026-08-25 ユーザー「会話ボタンを X でもっと中央に」: 中央（43）までは OLED の線の帯
     //    （X 37.9〜48.1・Z 45〜48・Y が重なる）に当たるので、帯の手前 0.5 に傘の右端を付けた＝中心 X 28.4
     //    Y はスピーカーと同じ 14.3（🔒 同日「Y 軸をスピーカーに揃えて」）
-    BTN_CX = 22;   // 2026-08-25 ユーザー「よせすぎ」→ 28.4 から 22 へ戻し（傘 X 13〜31）
-    translate([BTN_CX, SPK_CY, Z_TSW_BOT]) rotate([0, 0, 180]) tactswitch();     // 会話ボタンのタクト
-    color("#d8dde3") translate([BTN_CX, SPK_CY, 0]) rotate([0, 0, 180]) button_cap();   // と押す傘
+    // 2026-08-25 ユーザー「よせすぎ」→ 28.4 から 22 へ戻し（傘 X 13〜31）。値は BTN4 が持つ
+    translate([BTN4[0], BTN4[1], Z_TSW_BOT]) rotate([0, 0, 180]) tactswitch();     // 会話ボタンのタクト
+    color("#d8dde3") translate([BTN4[0], BTN4[1], 0]) rotate([0, 0, 180]) button_cap();   // と押す傘
 }
 // v3 の外皮（比較対象の薄い影。設計の入力ではない）
 module v3_ghost() {
@@ -637,7 +655,7 @@ function slot_ceil(y, th = THETA) = NUT_SLOT_TOP + ((slot_out(y) > 0) ? (slot_le
 function slot_ok(hy, y, th = THETA, lift = BOARD_LIFT) = seat_d(hy, th, lift) - slot_ceil(y, th) - NUT_SLOT_H >= NUT_SLOT_FLOOR;   // 肉が足りる穴だけ横穴にする
 function seat_nut_ceil(hy, y, th = THETA, lift = BOARD_LIFT) = slot_ok(hy, y, th, lift) ? -slot_ceil(y, th) : -seat_d(hy, th, lift) + seat_nut_d(hy, th, lift);   // 締めたときのナットの上面
 function seat_scr_l(hy, y) = 4;   // 🔒 6 本とも M2×4（天井を上げたので長さは 1 種類で足りる）
-module seat_hole(hy, wy, th = THETA, lift = BOARD_LIFT) seat_vert(th) {   // 通し穴＋ナットの居場所（どちらも鉛直）
+module seat_hole(hy, wy, th = THETA, lift = BOARD_LIFT, wx = undef, outx = undef) seat_vert(th) {   // 通し穴＋ナットの居場所（どちらも鉛直）
     translate([0, 0, -seat_d(hy, th, lift) - 3]) cylinder(d = SCR_D, h = seat_d(hy, th, lift) + 6, $fn = 24);
     if (slot_ok(hy, wy, th, lift)) {                         // 横から差す捕捉溝
         z0 = -slot_ceil(wy, th) - NUT_SLOT_H;
@@ -653,9 +671,53 @@ function ina_frame_y() = PAIR_Y0 + ina_size()[1];
 function pb_frame_y()  = PAIR_Y0 + ina_size()[1] + 0.5 + PB_W;
 function ina_hole_wy(hy) = ina_frame_y() - hy * cos(INA_THETA);
 function pb_hole_wy(hy)  = pb_frame_y()  - hy * cos(THETA);
+// 穴の世界の X（frame は 180° 回っているので local +x ＝ 世界 −X。THETA の回転は X 軸まわりなので X には効かない）
+function ina_frame_x() = INA_DX + BAT_X0 + (lipo_size()[1] - ina_size()[0]) / 2 + ina_size()[0];
+function pb_frame_x()  = PB_DX  + BAT_X0 + (lipo_size()[1] - PB_L) / 2 + PB_L;
+function ina_hole_wx(hx) = ina_frame_x() - hx;
+function pb_hole_wx(hx)  = pb_frame_x()  - hx;
+// 🔴 2026-08-28 素の STL の実測（`_stl_preflight.py`）: 帯 B と C に **0.008mm** の膜が 3.06 / 1.69mm² 立っていた。
+//    正体はナットの横穴の**外壁**。座は板の footprint で切れる（seats_v4 は board_under との intersection）ので、
+//    外面は板の縁の X 10.966。PowerBoost の左 2 穴はネジが X 13.124 ＝ 通路の左端が 10.974 で、残り 0.008mm。
+//    残り肉は 6 本中この 2 本だけ（他の 4 本は +8.25 / +31.378）。PRINT.md §2 の薄壁の下限 0.3mm を割り、
+//    Mars 3 の画素（約 0.035mm）より薄い ＝ **実物には存在できない**。ナットが横から落ちる。
+//    🔒 2026-08-28 ユーザー「ナットの置けるところが無くなったけど知らないって言ってる？」: 抜いて済ませない。
+//    ⇒ 板の縁より外へ 0.5mm だけ壁を足す（slot_outer_walls）。当たりは 0（帯以外の全部と）。
+//      横差しの掃引も X ±2.0 で 0（−2.5 で 0.02mm³ から当たり始める）。壁 2 枚で 8.08mm³。
+SLOT_WALL_MIN = 0.3;   // 外壁として認める最小の肉（PRINT.md §2 の実績）
+// 座の外面（−X）は**板の footprint の端**（seats_v4 は board_under との intersection なので、
+// seat_cols の 9.0 ではなく板の左端で切れる）。実測でも両板とも 10.966
+function ina_out_x() = ina_frame_x() - ina_size()[0];
+function pb_out_x()  = pb_frame_x()  - PB_L;
+function slot_breaks(wx, outx) = wx != undef && outx != undef && wx - NUT_SLOT_W / 2 - outx < SLOT_WALL_MIN;
 module seat_screws() {
-    for (h = ina_holes()) ina_frame() translate([h[0], h[1], 0]) seat_hole(h[1], ina_hole_wy(h[1]), INA_THETA, INA_LIFT);
-    for (h = pb_mount())  pb_frame()  translate([h[0], h[1], 0]) seat_hole(h[1], pb_hole_wy(h[1]), THETA);
+    for (h = ina_holes()) ina_frame() translate([h[0], h[1], 0]) seat_hole(h[1], ina_hole_wy(h[1]), INA_THETA, INA_LIFT, ina_hole_wx(h[0]), ina_out_x());
+    for (h = pb_mount())  pb_frame()  translate([h[0], h[1], 0]) seat_hole(h[1], pb_hole_wy(h[1]), THETA, BOARD_LIFT, pb_hole_wx(h[0]), pb_out_x());
+}
+// ナットの外壁（板の縁より外へ SLOT_WALL_T だけ出す肉）。板の footprint の外なので座には入らない ⇒ 別に足す
+SLOT_WALL_T = 0.5;
+//   🔴 溝の高さだけの板にすると、帯の天板（Z BAT_TOP + STRAP_T）より上に浮いて**島**になる（座とは 0.008 しか
+//      触れないため）。下へ伸ばして seat_cols で切り、帯の天板の中まで下ろす ＝ 座の横に立つ柱にする。
+module slot_outer_wall(hy, wy, th, lift, wx, outx, t = SLOT_WALL_T) {
+    if (slot_ok(hy, wy, th, lift) && slot_breaks(wx, outx)) seat_vert(th) {
+        z0 = -slot_ceil(wy, th) - NUT_SLOT_H;
+        l  = slot_len(wy) + 1;
+        r  = NUT_AF / cos(30) / 2;                       // 六角の外接半径（Y に長い向き）
+        y0 = slot_out(wy) > 0 ? -r : -l;
+        y1 = slot_out(wy) > 0 ?  l :  r;
+        // 内側を 0.05 だけ通路へ食い込ませる。ぴったり合わせると通路の抜きが壁の面を**かすめて**切り、
+        // 0.31mm² の幽霊の島が出る（2026-08-28 の A/B で確認）。食い込ませた分は抜きが持っていく
+        translate([-NUT_SLOT_W / 2 - t, y0, z0 - 20]) cube([t + 0.05, y1 - y0, NUT_SLOT_H + 20]);
+    }
+}
+// 🔴 2026-08-28 seat_cols で切るのは**世界の座標で**。1 版目は slot_outer_wall の中で切っていて、
+//    板の frame（ina_frame / pb_frame）ごと相手も動いてしまい、壁が丸ごと消えていた
+module slot_outer_walls() intersection() {
+    union() {
+        for (h = ina_holes()) ina_frame() translate([h[0], h[1], 0]) slot_outer_wall(h[1], ina_hole_wy(h[1]), INA_THETA, INA_LIFT, ina_hole_wx(h[0]), ina_out_x());
+        for (h = pb_mount())  pb_frame()  translate([h[0], h[1], 0]) slot_outer_wall(h[1], pb_hole_wy(h[1]), THETA, BOARD_LIFT, pb_hole_wx(h[0]), pb_out_x());
+    }
+    seat_cols();
 }
 module seat_bolt(hy, t, wy, th = THETA, lift = BOARD_LIFT) seat_vert(th) {   // 🔴 現物の長さで描く（旧版は「入る上限の長さ」を描いていた＝実在しないネジ）
     l = seat_scr_l(hy, wy);
@@ -670,7 +732,7 @@ module seat_hw() {   // ネジとナットの現物（検査と絵の用。strap
 }
 
 module straps_v4() color("#ed8936") difference() {
-    union() { for (s = STRAP_BANDS) strap_u(s[0], s[1]); seats_v4(); }
+    union() { for (s = STRAP_BANDS) strap_u(s[0], s[1]); seats_v4(); slot_outer_walls(); }
     // 🔴 2026-08-25 皮の検査（strappb 2mm³）: PB の 8 ピン列の足（板の裏に 1.0）が C の天板に 1.02 刺さる
     //    → 足の列の逃げ溝（X 19.8〜38.8・Y 57.56〜・深さ 1.35・残り 0.65 ⚠）
     translate([19.8, 57.56, BAT_Z + lipo_size()[2] + STRAP_T - 1.35]) cube([19.0, 1.2, 1.4 + BOARD_LIFT]);   // 🔴 板を 0.5 上げた分だけ足の位置も上がる（床の残り 0.65 は据え置き）
@@ -758,8 +820,14 @@ module w_batout() {
     //    2 枚の板は Y で重なっていて（INA 16.17〜36.27・PB 32.77〜66.31）**間に廊下は無い**。
     //    口の柱（X 10.53〜13.07・Z 36〜46）も横切れないので、**柱の頭の上 Z 46.8** を東へ走って PB の JST の上で降りる。
     //    GND の口（Y 19.87）は会話ボタンの受けの真下なので、受けに幅 5 の縦の溝を彫って +Y へ抜く（下の btn_pad_relief）
-    color("#e53e3e") wire([[11.8, 24.14, 47.3], [pb_wx(40), 24.14, 47.3], [pb_wx(40), 24.14, 41 + BOARD_LIFT], [pb_wx(40), 32.1, 41 + BOARD_LIFT]]);
-    color("#222222") wire([[11.8, 19.87, 47.3], [11.8, 26.5, 47.3], [pb_wx(42), 26.5, 47.3], [pb_wx(42), 26.5, 41 + BOARD_LIFT], [pb_wx(42), 32.1, 41 + BOARD_LIFT]]);
+    // 🔒 2026-08-28 前列（会話ボタン・スピーカー）を +2.5 動かしたので、受けの板が Y 9.3〜24.3 に広がり、
+    //    **VBAT+ の東への走り（Y 24.14）が板の下に入った**（chk_top 15.746mm³）。
+    //    溝で逃がす手は使えない: 線が横切る X 14.3〜33.2 は**皿の真下**で、彫ると天面に穴が開く
+    //    （2026-08-26 に同じ失敗の記録あり）。⇒ **2 本まとめて +Y へ出す。**
+    //    🔴 VBAT+ だけ動かして GND に寄せるのは禁じ手（VCC–GND の隔離）。間隔は 2.36 → **3.0 に広がる**。
+    //    ✅ 測定: VBAT+ 26.0 / GND 29.0 で 筐体・固定群・PowerBoost・電池 すべて 0.000
+    color("#e53e3e") wire([[11.8, 24.14, 47.3], [11.8, 26.0, 47.3], [pb_wx(40), 26.0, 47.3], [pb_wx(40), 26.0, 41 + BOARD_LIFT], [pb_wx(40), 32.1, 41 + BOARD_LIFT]]);
+    color("#222222") wire([[11.8, 19.87, 47.3], [11.8, 29.0, 47.3], [pb_wx(42), 29.0, 47.3], [pb_wx(42), 29.0, 41 + BOARD_LIFT], [pb_wx(42), 32.1, 41 + BOARD_LIFT]]);
 }
 
 // ---- 残りの結線（2026-08-25・CASE-V4 §9 の ⬜ 10 束）。同じ道具（1.5 角・直角のみ）。⚠ 経路は仮・見て判断する用 ----
@@ -987,6 +1055,9 @@ module top_spk()    translate([KNOB_AT[0] - 2.5, 22.3 - 0.5 - spk_w() / 2, IN_Z 
 module top_btn() {   // 会話ボタン（中のタクトスイッチ＋外のキャップ）
     translate([22, 22.3 - 0.5 - spk_w() / 2, Z_TSW_BOT]) rotate([0, 0, 180]) tactswitch();
     color("#d8dde3") translate([22, 22.3 - 0.5 - spk_w() / 2, 0]) rotate([0, 0, 180]) button_cap();   // button_cap は素のモジュール（色を持たない）。付け忘れると既定の黄色で出る
+    // 🔴 2026-08-28 下から留める板をここに足した。**足すまで当たり検査が 1 度も見ていなかった**
+    //    （chk_* は innards4 経由でこの module を見る）。足した直後に BTN2 の線と 0.74mm³ 当たった。
+    color("#8fb4d9") translate([22, 22.3 - 0.5 - spk_w() / 2, 0]) rotate([0, 0, 180]) btn_plate();
 }
 // 🔒 2026-08-28 top_asconn() を外した。ASC_DY を消したいま、コネクタは基板のヘッダと
 //   完全に同じ場所に来るので、両方描くと当たり検査が自分自身を数える（chk_all 1299 → 1697 になった）。

@@ -149,7 +149,12 @@ OLED_X0 = 8.002; OLED_Y1 = 8.5;   // 🔒 X は凍結 2026-08-25（旧式 (IN_X-
 // max(0, ...) は床より下へ行かせない止め。内寸の高さが OLED の丈（48.1）に迫ると中央に置けなくなる
 OLED_Z0 = max(0, (IN_Z + TOP_T - FLOOR_T) / 2 - (oled_glass_y() + oled_glass()[1] / 2));   // 0（IN_Z 48.454 では中央は −0.27 なので床に置く）
 OLED_L_W = 6.0;    // L の足の幅（穴の周り）。🔒 8 → 6（2026-08-23 B 案: 両端にフロントの耳の場所を作る）
-OLED_L_T = 2.0;    // L の足の厚み（Y）
+// 🔴 2026-08-28 実機（天板の初刷り）ユーザー「これも両方折れてますね」（L 2 本とも）。
+//    厚み 2.0 に ナット（NUT_T 1.8）のポケットを彫っていたので、**ナットの前に 0.2mm しか残っていない**。
+//    M2 の締め付けは OLED の基板 ↔ この 0.2 ↔ ナット と通るので、締める前に折れる厚み。
+//    刷る向きでは 6 x 2.0 の板が 7.854mm 立つ独立したヒレでもある。⇒ 2.0 → 3.6（ナットの後ろに 1.8 残す）。
+//    ⚠ 幅 OLED_L_W は 🔒 6.0（フロントの耳の場所）。太らせるのは Y だけ。当たりは 4.2 まで 0（chk_top/chk_all）。
+OLED_L_T = 3.6;    // L の足の厚み（Y）
 OLED_L_DROP = IN_Z - (OLED_Z0 + oled_mount()[1][1]) + 5.5;   // 10.85 天面の下面から足の下端まで（天井→上の穴 5.35 ＋ 穴の下 5.5）。OLED を下げた分だけ足が伸びる
 SCR_HEAD_D = 3.8; SCR_HEAD_H = 1.3;   // M2 なべ頭
 
@@ -181,34 +186,15 @@ module tail_at() { color("#9aa5b1") translate([TGL_AT[0], IN_Y, TGL_AT[1]]) rota
 Z_TOP = IN_Z + TOP_T;
 SPK_L = spk_l(); SPK_W = spk_w(); SPK_TH = spk_th(); SPK_DIA = spk_dia();
 SPK_RIM = 0.8; SPK_RIM_M = 0.8; SPK_REL = 0.4; EMB_H = 1.2; EMB_M = 3.0;
+// 🔒 2026-08-28 ユーザー「ベベルを取り、変わりにスピーカー穴をハニカムにしてください」。
+//   ⚠ EMB_H / EMB_M は天面のベベルの寸法で、v4 では**もう使っていない**（rounded4 の許容範囲だけが参照）。
+//   🔒 2026-08-28 ユーザー「hex2 で」。3 案（肉 1.2 / 0.6・二面幅 2.2 / 2.8）を真上の絵で見せて選定。
+//     穴の大きさは丸穴のときの φ2.2 と同じままなので、異物の入り方は変わらない。肉 0.6 は印刷の下限 0.42 超。
+SPK_HEX_AF   = 2.2;   // ハニカムの六角の二面幅
+SPK_HEX_WALL = 0.6;   // 穴どうしの肉（ピッチ = AF + WALL = 2.8・開口率 62%）
 SPK_EMB_W = SPK_DIA[0] + EMB_M * 2; SPK_EMB_D = SPK_DIA[1] + EMB_M * 2;
 SPK_C = [TOP_MARGIN + SPK_EMB_W / 2, TOP_MARGIN + SPK_EMB_D / 2];
 SPK_X = SPK_C[0] - SPK_L / 2; SPK_Y = SPK_C[1] - SPK_W / 2;
-// 会話ボタン（v2 §4.7 そのまま）
-BTN_L = 18.0; BTN_W = 12.0; BTN_GAP = 0.5;
-BTN_DISH_L = BTN_L + BTN_GAP * 2 + 0.2; BTN_DISH_W = BTN_W + BTN_GAP * 2 + 0.2;
-BTN_TRAVEL = tsw_travel() + 0.25;
-BTN_OUT = 3.0; BTN_H = BTN_OUT + 1.5; BTN_DISH_T = BTN_H - BTN_OUT + BTN_TRAVEL;
-BTN_WALL = 1.6; BTN_PLG_D = 5.0; BTN_HOLE_D = BTN_PLG_D + 0.6;
-BTN_NECK_D = 3.2; BTN_CLIP_T = 1.2; BTN_CLIP_D = 7.0; BTN_LIP_H = 0.8;
-Z_BTN_DISH = Z_TOP - BTN_DISH_T; BTN_PAD_T = 1.6; Z_BTN_PAD = Z_BTN_DISH - BTN_PAD_T;
-Z_NECK0 = Z_BTN_PAD - 0.2; Z_NECK1 = Z_NECK0 - BTN_CLIP_T - BTN_TRAVEL - 0.2; Z_TIP = Z_NECK1 - BTN_LIP_H;
-Z_TSW_TOP = Z_TIP - (tsw_h() - tsw_body_h()); Z_TSW_BOT = Z_TSW_TOP - tsw_body_h();
-BTN_PAD_X = 25.0; BTN_PAD_Y = 15.0; BTN_CLAW_W = 5.0; BTN_CLAW_G = 0.5; BTN_PKT_T = 1.2; BTN_POST_I = 3.6;
-// 🔒 2026-08-27 ユーザー「あっちもカクカクで」「削れる所あるかみてくれる？」→「1.6 で」。
-//    受けの板は 25 x 15 の長方形だったが、支えているのは皿（19.2 x 13.2 の小判）の底だけで、
-//    隅の 80.0mm²（21%・肉 108mm³）は空気だった。皿の輪郭に壁 1.6 を残して沿わせる。
-//    ⚠ 外へは広げない（BTN_PAD_X x BTN_PAD_Y の中で切るだけ）。皿＋1.6 は Y で 16.4 になり
-//      元の 15.0 を超えるので、そこは元の縁で止まる。
-//    🔴 この板の隅は 2026-08-26 に 2 度、手で欠いてある（case_v4 の INA の線の逃げ／OLED の
-//       ナットの座）。1 度目は皿の底を抜いて表に穴が開いた。板が皿に沿っていれば要らない欠き。
-BTN_PAD_WALL = 1.6;
-module btn_pad_2d() intersection() {
-    offset(r = BTN_PAD_WALL) hull() for (s = [-1, 1])
-        translate([s * (BTN_DISH_L - BTN_DISH_W) / 2, 0]) circle(d = BTN_DISH_W, $fn = 64);
-    square([BTN_PAD_X, BTN_PAD_Y], center = true);
-}
-BTN_AT = [TOP_MARGIN + BTN_DISH_L / 2, TOP_MARGIN + SPK_EMB_D + TOP_MARGIN + BTN_DISH_W / 2];
 KNOB_AT = [65.704, KNOB_YC, Z_TOP];   // 🔒 X は凍結 2026-08-25（旧式 IN_X-13-dish/2+6.8 を IN_X=86.004 で評価・全配線検証済み）
 // ReSpeaker の頭を押さえるリブ（v2: 前のリブ X 39.1〜45.1 と右の腕。押し代 0.3）
 RSP_TOP = RSP_Z + respeaker_H(); RSP_PRESS = 0.3; RIB1_X = 39.1; RIB1_W = 6.0; RSP_ARM_X0 = 69.5; RSP_ARM_X1 = 74.2; RSP_ARM_T = 2.0;   // 🔴 2026-08-23 腕 X 74〜78.7 → 69.5〜74.2: OLED の右のビス（X 76.5・M2×6 の先が L の後ろへ 2.4 出る）を避ける
@@ -444,7 +430,18 @@ BOSSES = [[LW_X, IN_Y - BOSS], [IN_X - BOSS, IN_Y - BOSS]];   // 後ろの 2 本
 // ⑫ 天面（つまみの座は中身ごと箱で置く）
 // ⬜ ユーザー案（2026-08-22）: 天面から L を下ろして OLED の上の 2 穴を中で受ける（フロントにビスを見せない）
 //    L の足は OLED の裏（Y 4.6）に面で当たり、ビスは後ろから通してナットは基板の前（ガラスの厚み 3.0 の中・窓枠の裏）
-function oled_top_holes() = [for (h = oled_mount()) if (h[1] > oled_w() / 2) [OLED_X0 + h[0], OLED_Z0 + h[1]]];
+// 🔒🔒 2026-08-28 ユーザー「外径の＊％みたいな取り方は辞めなさい。X軸ですね」「クソ関数」。
+//    L の X は板幅 70.1 からの引き算で出していた。**外形が動けば L も、L に当たる相手も一緒に動く**ので、
+//    当たり検査に何も出ない。それで v4 は L が会話ボタンの上に立っていることに気付けなかった。
+//    ⇒ **X は実数で凍結**する（Z は板の穴のままでよい。X 軸だけの話）。
+OLED_TOPHOLE_X = [10.002, 76.102];   // 🔒 world X（左・右）。2026-08-28 時点の値そのもの
+function _oled_top_y() = [for (h = oled_mount()) if (h[1] > oled_w() / 2) h[1]];
+function oled_top_holes() = [for (i = [0 : 1]) [OLED_TOPHOLE_X[i], OLED_Z0 + _oled_top_y()[i]]];
+// ⚠ 凍結をやめたわけではない。下は**見張り**で、いまの板（70.1）から出る値とずれたらその場で止まる。
+//    OLED や板幅を動かすときは、上の 2 つの数字を意図的に書き換えるのが手順。
+function _oled_top_x_derived() = [for (h = oled_mount()) if (h[1] > oled_w() / 2) OLED_X0 + h[0]];
+assert(abs(OLED_TOPHOLE_X[0] - _oled_top_x_derived()[0]) < 0.001
+    && abs(OLED_TOPHOLE_X[1] - _oled_top_x_derived()[1]) < 0.001, "OLED の L の X が凍結値からずれた");
 // 🔴 2026-08-23 ビスの実体検査: L にビスの穴が無く（1 本 15mm³）、絵の頭が L の後ろに付いていた。🔒 決めた形（ビスは OLED の前から・ナットは L のポケット）に直す:
 //    L を Y に貫く穴 ＋ 後ろの面から六角ポケット（ナットは後ろから入れる。残り 0.2）。頭は OLED の基板の前面（Y 3.0）の手前
 module oled_brackets() {
@@ -466,37 +463,31 @@ module grille_xy(cx, cy, w, d, z0, t, dia = 2.6, pitch = 4.2) {
         if (abs(px - cx) <= w / 2 && abs(py - cy) <= d / 2) translate([px, py, z0 - 0.01]) cylinder(d = dia, h = t + 0.02, $fn = 24);
     }
 }
-module btn_socket() {   // v2 §4.7 そのまま
-    B = tsw_body(); yi = B / 2 + 0.3;
-    translate([0, 0, Z_BTN_PAD]) linear_extrude(IN_Z - Z_BTN_PAD) btn_pad_2d();   // 皿の輪郭 ＋ 壁 BTN_PAD_WALL
-    difference() {
-        translate([-BTN_POST_I - BTN_PKT_T, -BTN_POST_I - BTN_PKT_T, Z_TSW_TOP]) cube([(BTN_POST_I + BTN_PKT_T) * 2, (BTN_POST_I + BTN_PKT_T) * 2, Z_NECK1 - Z_TSW_TOP]);
-        translate([0, 0, Z_TSW_TOP - 1]) cylinder(d = BTN_HOLE_D, h = Z_NECK1 - Z_TSW_TOP + 2, $fn = 32);
-    }
-    for (sx = [-1, 1], sy = [-1, 1]) translate([sx * BTN_POST_I + (sx < 0 ? -BTN_PKT_T : 0), sy * BTN_POST_I + (sy < 0 ? -BTN_PKT_T : 0), Z_NECK1]) cube([BTN_PKT_T, BTN_PKT_T, Z_BTN_PAD - Z_NECK1]);
-    for (sy = [-1, 1]) mirror([0, sy < 0 ? 1 : 0, 0]) translate([-BTN_CLAW_W / 2, yi, 0]) {
-        translate([0, 0, Z_TSW_BOT - BTN_CLAW_G]) cube([BTN_CLAW_W, BTN_PKT_T, Z_TSW_TOP - Z_TSW_BOT + BTN_CLAW_G + 0.01]);
-        translate([0, 0, Z_TSW_BOT]) rotate([90, 0, 90]) linear_extrude(BTN_CLAW_W) polygon([[0, 0], [-BTN_CLAW_G, 0], [0, -BTN_CLAW_G - 0.8]]);
-    }
-    for (sx = [-1, 1]) translate([sx * yi + (sx < 0 ? -BTN_PKT_T : 0), -1.0, Z_TSW_TOP - 1.2]) cube([BTN_PKT_T, 2.0, 1.2]);
-}
-module button_cap() {
-    z_head = Z_TOP - (BTN_H - BTN_OUT); z_top = z_head + BTN_H;
-    difference() {
-        hull() {
-            translate([-BTN_L / 2, -BTN_W / 2, z_head]) spk_obround(BTN_L, BTN_W, BTN_H - 0.8);
-            translate([-(BTN_L - 1.6) / 2, -(BTN_W - 1.6) / 2, z_top - 0.01]) spk_obround(BTN_L - 1.6, BTN_W - 1.6, 0.01);
-        }
-        difference() {
-            translate([-(BTN_L - BTN_WALL * 2) / 2, -(BTN_W - BTN_WALL * 2) / 2, z_head - 0.01]) spk_obround(BTN_L - BTN_WALL * 2, BTN_W - BTN_WALL * 2, BTN_H - BTN_WALL);
-            cylinder(d = BTN_PLG_D + 2.4, h = 100);
+// ハニカムの穴（🔒 2026-08-28 ユーザー「ベベルを取り、変わりにスピーカー穴をハニカムにしてください」）。
+//   af   = 六角の二面幅（丸穴だったときの径と同じ寸法を入れれば、見た目の密度が変わらない）
+//   wall = 穴どうしの肉。ピッチ = af + wall
+//   🔴 六角は 30° 回す。$fn=6 の circle は頂点が 0°/60° に来るので、そのままだと隣の穴と
+//      **頂点どうしが向き合って**肉が尖る。30° 回すと二面幅の面が隣へ向き、肉が全長で一定になる。
+//   🔴 2026-08-28 ユーザー「ハニカムが左一列足りない」: 奇数行を +ピッチ/2 ずらしてから
+//      範囲外を abs(px-cx) <= w/2 で落とす書き方だった。ピッチ 2.2+0.6 は 2.8000000000000003 なので
+//      左端は落ち、右端の +7.0 はやっと通る——奇数行だけが右へ 1 列分ずれた（重心が +0.7mm）。
+//      今は**行ごとに中心から左右対称に並べる**。切り落としの判定が無くなるので浮動小数点に依らない。
+//      偶数行 nx+1 個（幅 nx·pitch）・奇数行は 1 個少なく、自動で半ピッチ互い違いになる。
+module grille_hex(cx, cy, w, d, z0, t, af = 2.2, wall = 1.2) {
+    pitch = af + wall; EPS = 1e-6;
+    nx = floor(w / pitch + EPS);              // 偶数行の列数 − 1
+    nxo = max(0, floor((w - pitch) / pitch + EPS));    // 奇数行（左右に半ピッチだけ狭い）
+    ny = floor(d / (pitch * 0.866) + EPS);
+    for (j = [0 : ny]) {
+        n = (j % 2) ? nxo : nx;
+        py = cy - ny * pitch * 0.866 / 2 + j * pitch * 0.866;
+        for (i = [0 : n]) {
+            px = cx - n * pitch / 2 + i * pitch;
+            translate([px, py, z0 - 0.01]) rotate([0, 0, 30])
+                cylinder(d = af / cos(30), h = t + 0.02, $fn = 6);
         }
     }
-    translate([0, 0, Z_NECK0]) cylinder(d = BTN_PLG_D, h = z_head - Z_NECK0 + 0.01, $fn = 32);
-    translate([0, 0, Z_NECK1]) cylinder(d = BTN_NECK_D, h = Z_NECK0 - Z_NECK1 + 0.01, $fn = 32);
-    translate([0, 0, Z_TIP])   cylinder(d = BTN_PLG_D, h = BTN_LIP_H + 0.01, $fn = 32);
 }
-module button_clip() { linear_extrude(BTN_CLIP_T) difference() { circle(d = BTN_CLIP_D, $fn = 48); circle(d = BTN_NECK_D + 0.15, $fn = 32); polygon([[-1.45, -1.0], [1.45, -1.0], [2.3, -BTN_CLIP_D], [-2.3, -BTN_CLIP_D]]); } }
 // ---- 天面に付く 3 つ（スピーカー・呼出ボタン・つまみ）を置く道具 ----------------
 // 🔒 explode の s（mm）で組む向きへ散らす。s = 0 なら組んだ位置。3 箇所に同じ式を書いていたのをここに集めた（2026-08-23）
    // 天面の裏に貼る＝下へ離す
@@ -724,7 +715,11 @@ function port_out(id) = port_at(id) + [0, 0, HOUS_H + HOUS_R];
 function xiao_x()  = RSP_X + respeaker_L() - 11.0;
 function xiao_zl() = RSP_Z + 7.0;
 function xiao_zh() = RSP_Z + respeaker_H() - 9.0;
-function oled_port() = [OLED_X0 + oled_l() * 0.58, oled_back() + 2, OLED_Z0 + oled_w() - 6];
+// 🔒🔒 2026-08-28 ユーザー「外径の＊％みたいな取り方は辞めなさい。X軸ですね」。
+//    ⚠ 元は `OLED_X0 + oled_l() * 0.58`。**58% は AI の目分量で、実測ではない。**
+//      割合で書いてあると実測のような顔をするので、実数にして出自を明記する。
+OLED_PORT_X = 48.660;   // 🔒 world X（凍結・⚠ 由来は上のとおり目分量。実測が出たら差し替える）
+function oled_port() = [OLED_PORT_X, oled_back() + 2, OLED_Z0 + oled_w() - 6];
 function ina_hdr_port() = let (h = ina_hdr()) [INA_AT[0] + h[0] + h[1] / 2, INA_AT[1] + ina_size()[1] - (h[2] + h[3]), INA_AT[2] + ina_h() - ina_size()[2] - h[4] / 2];
 function ina_z()   = INA_AT[2] + ina_h() - 1.6;
 function ina_in()  = [INA_AT[0] + 8.5,  INA_AT[1] + ina_size()[1] - 2, ina_z()];
