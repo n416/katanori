@@ -29,9 +29,9 @@ module plate_all() {
     color(PLATE_COLOR) translate([7.306, 206.996, 0]) import("stl/v4/v4_hatch.stl");
     plate_label(0.000, 194.000, "hatch", "100.7 x 50.4 x 6.6  08-28 19:30");
     color(PLATE_COLOR) translate([13.500, 287.950, 0]) import("stl/v4/v4_knob.stl");
-    plate_label(0.000, 263.450, "knob", "27.0 x 27.0 x 21.4  08-28 19:30");
+    plate_label(0.000, 263.450, "knob", "27.0 x 27.0 x 21.4  08-29 02:33");
     color(PLATE_COLOR) translate([68.972, 285.450, 0]) import("stl/v4/v4_knobwall.stl");
-    plate_label(57.972, 263.450, "knobwall", "22.0 x 24.0 x 3.9  08-28 19:30");
+    plate_label(57.972, 263.450, "knobwall", "22.0 x 24.0 x 3.9  08-29 02:33");
     color(PLATE_COLOR) translate([-32.000, 331.950, 0]) import("stl/v4/v4_lock.stl");
     plate_label(0.000, 341.450, "lock", "28.7 x 11.8 x 3.0  08-28 19:30");
     color(PLATE_COLOR) translate([48.454, 17.000, 0]) import("stl/v4/v4_lwall.stl");
@@ -51,5 +51,5 @@ module plate_all() {
     color(PLATE_COLOR) translate([64.458, 326.936, 0]) import("stl/v4/v4_tail.stl");
     plate_label(57.972, 309.450, "tail", "13.0 x 13.0 x 33.8  08-28 19:30");
     color(PLATE_COLOR) translate([120.214, 84.996, 0]) import("stl/v4/v4_top.stl");
-    plate_label(112.908, 0.000, "top", "100.7 x 74.6 x 20.9  08-28 23:55");
+    plate_label(112.908, 0.000, "top", "100.7 x 74.6 x 20.9  08-29 02:35");
 }

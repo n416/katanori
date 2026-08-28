@@ -13,9 +13,9 @@ BTN_SOLO = false;       // btn_v4.scad を単体で開いたときだけ絵を�
 //    ⚠ +2.22 はナットの下端がリブの上端に**並ぶ**値（余裕 0.002mm）なので採らない。下の実測で決める。
 //    🔒 スピーカーも同じだけ動かす（ユーザー「デザイン的にスピーカーの中央とは一緒にしたい」）。
 //       ROW_Y を 2 つで共有しているので、片方だけ動かすことはできない。
-//   逃がし量 BTN_ROW_DY の定義は btn_v4.scad（先に読まれる側）。ここでは配るだけ
-ROW_Y = 22.3 - 0.5 - spk_w() / 2 + BTN_ROW_DY;          // 14.3 + 2.5 = 16.8
-BTN4 = [22, ROW_Y];                                     // 会話ボタンの芯
+//   🔴 2026-08-29 ROW_Y と BTN4 の定義は btn_v4.scad（先に読まれる側）へ移した。btn_plate() が
+//     羊羹の逃げを彫るのに自分の Y を要り、外にあると btn_v4.scad が単体で開けなかったため。
+//     ここは読むだけ。スピーカーの X だけがここの持ち物。
 SPK4 = [KNOB_AT[0] - 2.5, ROW_Y];                       // スピーカーの中心（Y は必ずボタンと同じ）
 // ============================================================
 // 📦 v4 の芯: 固定群だけの機体（2026-08-24 ユーザー発案）
@@ -1078,13 +1078,16 @@ module lower_group() { hub_unit(); respeaker_at(); xiao_hous(); rsp_j2_space(); 
 // つまみと会話ボタンを別々に持ち上げるために、名前を付けただけ。
 module top_knob()   translate([-2.5, 7, 0]) knob_at_v4();
 module top_asconn() translate([-2.5, 7, 0]) as_conn();   // AS5600 のデュポン（分解図では出さない）
-module top_spk()    translate([KNOB_AT[0] - 2.5, 22.3 - 0.5 - spk_w() / 2, IN_Z - spk_th() - 0.2 + SPK_LIFT]) translate([-SPK_L / 2, -SPK_W / 2, 0]) speaker_112495();
+// 🔴 2026-08-29 top_spk() / top_btn() は前列の Y を [22, 22.3 - 0.5 - spk_w() / 2] と直書きしていて、
+//   +2.5 の移動（BTN_ROW_DY）に付いてこず **Y 14.3 に置き去り**だった。chk_* はこの模型を見るので、
+//   検査は 2.5mm 手前のボタンとスピーカーで当たりを見ていた。⇒ BTN4 / SPK4 から読む。
+module top_spk()    translate([SPK4[0], SPK4[1], IN_Z - spk_th() - 0.2 + SPK_LIFT]) translate([-SPK_L / 2, -SPK_W / 2, 0]) speaker_112495();
 module top_btn() {   // 会話ボタン（中のタクトスイッチ＋外のキャップ）
-    translate([22, 22.3 - 0.5 - spk_w() / 2, Z_TSW_BOT]) rotate([0, 0, 180]) tactswitch();
-    color("#d8dde3") translate([22, 22.3 - 0.5 - spk_w() / 2, 0]) rotate([0, 0, 180]) button_cap();   // button_cap は素のモジュール（色を持たない）。付け忘れると既定の黄色で出る
+    translate([BTN4[0], BTN4[1], Z_TSW_BOT]) rotate([0, 0, 180]) tactswitch();
+    color("#d8dde3") translate([BTN4[0], BTN4[1], 0]) rotate([0, 0, 180]) button_cap();   // button_cap は素のモジュール（色を持たない）。付け忘れると既定の黄色で出る
     // 🔴 2026-08-28 下から留める板をここに足した。**足すまで当たり検査が 1 度も見ていなかった**
     //    （chk_* は innards4 経由でこの module を見る）。足した直後に BTN2 の線と 0.74mm³ 当たった。
-    color("#8fb4d9") translate([22, 22.3 - 0.5 - spk_w() / 2, 0]) rotate([0, 0, 180]) btn_plate();
+    color("#8fb4d9") translate([BTN4[0], BTN4[1], 0]) rotate([0, 0, 180]) btn_plate();
 }
 // 🔒 2026-08-28 top_asconn() を外した。ASC_DY を消したいま、コネクタは基板のヘッダと
 //   完全に同じ場所に来るので、両方描くと当たり検査が自分自身を数える（chk_all 1299 → 1697 になった）。

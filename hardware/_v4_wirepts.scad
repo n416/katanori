@@ -14,6 +14,6 @@ if (P == "tgl")    tgl_v4();
 if (P == "j2")     rsp_j2_space();
 for (id = ["XIAO", "OLED", "AS5600", "BTN2", "REED", "INA", "TOGGLE", "PHIN", "PHOUT", "PWR"])
     echo(id, port_at(id) + [HUB_DX, HUB_DY, 0]);
-echo(spk_stub_xz = [KNOB_AT[0] + 3 - SPK_L / 2, IN_Z - spk_th() - 0.2], spk_stub_y = 22.3 - 0.5 - spk_w() / 2 + SPK_W / 2 - 1.2);
-echo(tsw = [22, 22.3 - 0.5 - spk_w() / 2, Z_TSW_BOT]);
+echo(spk_stub_xz = [KNOB_AT[0] + 3 - SPK_L / 2, IN_Z - spk_th() - 0.2], spk_stub_y = SPK4[1] + SPK_W / 2 - 1.2);
+echo(tsw = [BTN4[0], BTN4[1], Z_TSW_BOT]);   // 🔴 2026-08-29 直書きの 14.3 は +2.5 に付いてこなかった
 echo(inz = IN_Z, iny = IN_Y, knob_at = KNOB_AT, brg = [BRG_Y0, BRG_Y1, BAT_Z], bat = [BAT_X0, BAT_Y0, BAT_Z, BAT_TOP]);
