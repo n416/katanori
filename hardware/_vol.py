@@ -16,4 +16,6 @@ def vol(p):
     for a,b,c in tris:
         s+= (a[0]*(b[1]*c[2]-b[2]*c[1]) - a[1]*(b[0]*c[2]-b[2]*c[0]) + a[2]*(b[0]*c[1]-b[1]*c[0]))/6.0
     return abs(s)
-for p in sys.argv[1:]: print(p, round(vol(p),2), "mm3")
+# 🔴 2026-08-29 import しても走ってしまい、他の道具から vol() を借りられなかった（_asm_chk.py）
+if __name__ == '__main__':
+    for p in sys.argv[1:]: print(p, round(vol(p),2), "mm3")
