@@ -366,9 +366,11 @@ module rwall_v4() {
 //      → 板の裏を局所ポケットで彫る（X 17.9〜22.9・Y 56.4〜61.4・深さ 1.27・残り 1.23 ⚠）
 
 // ---- 天板に**別々に足している物**。名前が無いと検査で突き合わせられないので括り出した（2026-08-28）----
+// スピーカーの落とし込みの壁（天板の裏に立つ小判形の囲い）。座（天板を彫った SPK_LIFT ぶん）の続きで、
+// 枠の横を天井の下 SPK_RIM だけ押さえる。逃げは座と同じ片側 SPK_RIM_CL なので、二段が同じ寸法で効く。
 module spk_rim4() translate([SPK4_X - SPK_RIM_M, SPK4_Y - SPK_RIM_M, IN_Z - SPK_RIM]) difference() {
     spk_obround(SPK_L + SPK_RIM_M * 2, SPK_W + SPK_RIM_M * 2, SPK_RIM);
-    translate([SPK_RIM_M - 0.6, SPK_RIM_M - 0.6, -1]) spk_obround(SPK_L + 1.2, SPK_W + 1.2, SPK_RIM + 2);
+    translate([SPK_RIM_T, SPK_RIM_T, -1]) spk_obround(SPK_L + SPK_RIM_CL * 2, SPK_W + SPK_RIM_CL * 2, SPK_RIM + 2);
 }
 module rsp_press4() {
     translate([RIB4_X, RSP_BD_Y0 - 0.5, RSP_TOP - RSP_PRESS]) cube([RIB4_W, respeaker_T() + 1.0, IN_Z - RSP_TOP + RSP_PRESS + 0.01]);
@@ -396,7 +398,7 @@ module top_v4() {
         // スピーカー: 振動板の逃げ・天面のへこみ・音の穴（v3 と同じ形を SPK4 に）
         translate([SPK4_X + (SPK_L - SPK_DIA[0]) / 2 - 0.5, SPK4_Y + (SPK_W - SPK_DIA[1]) / 2 - 0.5, IN_Z - 0.01]) spk_obround(SPK_DIA[0] + 1, SPK_DIA[1] + 1, SPK_REL + 0.01);
         // 🔒 SPK_LIFT で持ち上げた分、**枠ごと**天板に入るのでその座（逃げは振動板 15×9 の分しか無く、枠 23×15 が 0.4 食い込んでいた）。
-        //    深さは SPK_LIFT ちょうど＝頭の上の隙間は持ち上げ前と同じ 0.2。横は片側 0.3（位置出しの縁 SPK_RIM と二段で効く）
+        //    深さは SPK_LIFT ちょうど＝頭の上の隙間は持ち上げ前と同じ 0.2。横は片側 0.3（＝ SPK_RIM_CL。落とし込みの壁と同じ逃げで二段に効く）
         translate([SPK4_X - 0.3, SPK4_Y - 0.3, IN_Z - 0.01]) spk_obround(SPK_L + 0.6, SPK_W + 0.6, SPK_LIFT + 0.01);
         // 🔒 2026-08-28 ユーザー「ベベルを取り、変わりにスピーカー穴をハニカムにしてください」
         //    「でないとつまみとのマージンがおかしな事になるので」。天面の掘り（EMB_H 1.2 の
