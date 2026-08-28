@@ -21,7 +21,7 @@ CASE = 'case_v4.scad'
 KNOB = 'knob_v5.scad'
 PARTS = [(k, CASE, 'print_%s' % k) for k in
          ['floor', 'lwall', 'rwall', 'top', 'front', 'hatch', 'shutter', 'lock', 'tail',
-          'bridge', 'brgfront', 'strap_a', 'strap_b', 'strap_c', 'btn', 'btnplate',
+          'bridge', 'brgfront', 'strap_a', 'strap_b', 'strap_c', 'piston',
           'seat']] + [   # seat = 充電基板の受け（2026-08-27・D-1 で床から独立した部品になった）
     ('knob',     KNOB, 'knob'),   # つまみ本体（φ27 ＋ 軸 φ7）
     ('knobwall', KNOB, 'wall'),   # つまみの島（座金＋タブ）

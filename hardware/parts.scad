@@ -490,20 +490,31 @@ module mts102_hole(t = 10) { cylinder(d = MTS_MOUNT + 0.4, h = t); }
 //      🔴 これを知る前は「頂点＝6」と仮置きしていて、押し代 1.2mm の設計になっていた。
 //         **クリックまで届かない筐体を作りかけた。** 高さ方向は仮置きで進めない。
 //   ✅ 端子3本が1穴飛ばし＝ピッチ 5.08（2.54mm グリッドに乗る）／ 動作力 約30gf
-//   ⬜ 端子の長さ・レバーのヒンジがどちらの端か・レバーの幅
-//   原点は**胴の底面の中心**。+Z が上（レバー側）
+//   ✅ 2026-08-29 商品ページの図面（ユーザー提供・Unit mm・Error ±0.1）で ⬜ が埋まった:
+//      胴 **12.8 × 5.8 × 6.5**（実測 12×5×6 は手の精度内）・レバー全長 13.5（胴 12.8 を先が越える）・
+//      自由状態の頂点 10.5±0.5（実測 11 と整合）・レバーの**ヒンジは C（COM）端子の端**・
+//      **取付穴 φ2.0 と φ2.2 が 2 つ・穴間 6.5**（胴を横に貫通）・端子 3.5 長・板厚 0.5・ボタン部 4.0 幅
+//   原点は**胴の底面の中心**。+Z が上（レバー側）。ヒンジ側 = -X（図面どおりで確定）
 // ============================================================
-MSW_W = 12.0; MSW_D = 5.0; MSW_H = 6.0;
-MSW_LEVER_TOP = 11.0;      // ✅ 自由状態のレバーの頂点
-MSW_LEVER_BOT =  6.0;      // ✅ 押し切った高さ（＝胴の上面）
-MSW_CLICK     =  2.5;      // ✅ 頂点から押し下げてクリックするまで
+MSW_W = 12.8; MSW_D = 5.8; MSW_H = 6.5;   // ✅ 2026-08-29 図面の公称へ更新（旧 12/5/6 は実測・手の精度内）
+MSW_LEVER_TOP = 10.5;      // ✅ 自由状態のレバーの頂点（図面 10.5±0.5。実測 11 はこの幅の中）
+MSW_LEVER_BOT =  6.5;      // ✅ 押し切った高さ（＝胴の上面）
+MSW_CLICK     =  2.5;      // ✅ 頂点から押し下げてクリックするまで（実測）
 MSW_PIN_PITCH =  5.08;
-MSW_PIN_H     =  3.5;      // ⚠ 未実測
+MSW_PIN_H     =  3.5;      // ✅ 図面
+MSW_HOLE_P    =  6.5;      // ✅ 取付穴 2 つの間隔（図面）。φ2.0 / φ2.2・胴を横に貫通
+MSW_HOLE_D    =  2.0;
+MSW_LEVER_L   = 13.5;      // ✅ レバー全長（図面）。ヒンジは -X（C 端子）側
 
 function msw_size()    = [MSW_W, MSW_D, MSW_H];
 function msw_act_h()   = MSW_LEVER_TOP;
+function msw_bot_h()   = MSW_LEVER_BOT;
 function msw_click()   = MSW_CLICK;
-function msw_travel()  = MSW_LEVER_TOP - MSW_LEVER_BOT;   // 5.0
+function msw_travel()  = MSW_LEVER_TOP - MSW_LEVER_BOT;
+function msw_hole_p()  = MSW_HOLE_P;      // ✅ 取付穴 2 つの間隔（図面 6.5）
+function msw_hole_d()  = MSW_HOLE_D;
+function msw_pin_h()   = MSW_PIN_H;
+function msw_lever_l() = MSW_LEVER_L;     // ✅ レバー全長（図面 13.5・ヒンジから先端）
 
 // press: 頂点を何mm押し下げた状態で描くか（0〜5）
 module microswitch_daokai(press = 0) {
@@ -512,11 +523,14 @@ module microswitch_daokai(press = 0) {
         cube([MSW_W, MSW_D, MSW_H]);
     // レバー（片端が胴の上面に留まり、反対の端が持ち上がる腕）
     // ⬜ どちらの端がヒンジかは未確認。ここでは -X 側をヒンジにしている
-    color("#9a9a9a") translate([-MSW_W / 2 + 1, -MSW_D / 2 + 0.6, 0]) rotate([90, 0, 0])
-        rotate([0, 0, 0]) translate([0, 0, -(MSW_D - 1.2)])
+    // 🔴 2026-08-29 レバーは **胴の −X 端（C 端子側）が蝶番で、全長 13.5**（図面）。
+    //   それまで「胴の 1mm 内から MSW_W−2 ＝ 10.8」で描いていて、先端が胴の中で終わっていた。
+    //   実際は胴（12.8）を 0.7mm 越えて外へ出る。井戸との当たりがこれで見えていなかった。
+    color("#9a9a9a") translate([-MSW_W / 2, -MSW_D / 2 + 0.6, 0]) rotate([90, 0, 0])
+        translate([0, 0, -(MSW_D - 1.2)])
             linear_extrude(MSW_D - 1.2)
-                polygon([[0, MSW_H], [MSW_W - 2, top],
-                         [MSW_W - 2, top - 0.8], [0, MSW_H - 0.8]]);
+                polygon([[0, MSW_H], [MSW_LEVER_L, top],
+                         [MSW_LEVER_L, top - 0.8], [0, MSW_H - 0.8]]);
     color("#c9a227") for (i = [-1, 0, 1])                     // 端子3本
         translate([i * MSW_PIN_PITCH - 0.6, -0.4, -MSW_PIN_H])
             cube([1.2, 0.8, MSW_PIN_H]);

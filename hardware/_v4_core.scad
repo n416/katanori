@@ -1,7 +1,29 @@
-include <btn_v4.scad>   // 会話ボタン一式（2026-08-28 に case_base / case_v4 から集約）。
+include <btn_v1.scad>   // ⚠ v1（タクト）。2026-08-29 に v2 へ交代したが、まだ古い名前を参照する所が
+                        //    残っているので読むだけ。**天板には v1 の受けはもう生えない**
+include <btn_v2.scad>   // 🔒 会話ボタン v2（レバー式マイクロスイッチ・ユーザー案）。天板が使うのはこちら。
+                        //    🔴 case_base の二重 include になるが、順序はここが先で _v4_core の代入が後なので安全
                         // 🔴 このファイルが 1 行目で case_base.scad（v4 の土台）を読んでいるので、
                         //    ここで case_base を重ねて include しない（二重定義になる）。
-BTN_SOLO = false;       // btn_v4.scad を単体で開いたときだけ絵を出す。読み込んだ側では消す
+BTN_SOLO  = false;      // btn_v1.scad を単体で開いたときだけ絵を出す
+BTN2_SOLO = false;
+
+// ---- 会話ボタン v2 の置き場所と、天板への置き道具（🔒 2026-08-29）----
+// ユーザー「なんでボタンは独立させないんですか？なんでボタンで explode したら case が出てくるんだ」。
+// ⇒ btn_v2.scad は**形だけ**（原点＝ボタンの芯・z0＝天面）。置き場所と world への変換はここ。
+//   つまみ（knob_v5.scad ＋ knob_station_*）と同じ分け方。
+BTN_ROW_DY = 2.5;   // 🔒 2026-08-28 前列（会話ボタン＋スピーカー）の逃がし量。SPK4 も同じ値を読む
+ROW_Y = 22.3 - 0.5 - spk_w() / 2 + BTN_ROW_DY;   // 16.8  🔒 Y はスピーカーと必ず同じ
+// 🔒 2026-08-29 X は 22 → 24（ユーザー「X 方向にシフトしないと」）。窓は INA226 の側で 23〜24 の 2mm しかない
+BTN4 = [24, ROW_Y];
+B2_NUT_Y_W = RSP_BD_Y0 + 0.4;              // ナットの座の −Y 面（world・羊羹の中）
+B2_NUT_Y_L = B2_NUT_Y_W - BTN4[1];         // 同（ボタンのローカル）＝ ねじの掴みの終点
+module btn2_at_add()      translate([BTN4[0], BTN4[1], Z_TOP]) btn2_station_add();
+module btn2_at_cut()      translate([BTN4[0], BTN4[1], Z_TOP]) { btn2_station_cut(); btn2_screw_cut(); }
+module btn2_at_piston()   translate([BTN4[0], BTN4[1], Z_TOP]) btn2_piston();
+module btn2_at_switch(p = 0) translate([BTN4[0], BTN4[1], Z_TOP]) btn2_switch(p);
+module btn2_at_screws()   translate([BTN4[0], BTN4[1], Z_TOP]) btn2_screws(B2_NUT_Y_L);
+module btn2_keepout()     translate([BTN4[0], BTN4[1], Z_TOP]) btn2_well_keepout();
+      // 🔴 同じ。切り忘れて焼いた STL 全部に見本の絵が混ざった（2026-08-29 の事故）
 
 // ---- 天面の 2 つの置き場所。🔴 2026-08-28 ここを**唯一の定義**にした ----
 //   それまで core() が BTN_CX = 22 / SPK_CY = 22.3-0.5-spk_w()/2 という自前の数字を持ち、
@@ -13,8 +35,8 @@ BTN_SOLO = false;       // btn_v4.scad を単体で開いたときだけ絵を�
 //    ⚠ +2.22 はナットの下端がリブの上端に**並ぶ**値（余裕 0.002mm）なので採らない。下の実測で決める。
 //    🔒 スピーカーも同じだけ動かす（ユーザー「デザイン的にスピーカーの中央とは一緒にしたい」）。
 //       ROW_Y を 2 つで共有しているので、片方だけ動かすことはできない。
-//   🔴 2026-08-29 ROW_Y と BTN4 の定義は btn_v4.scad（先に読まれる側）へ移した。btn_plate() が
-//     羊羹の逃げを彫るのに自分の Y を要り、外にあると btn_v4.scad が単体で開けなかったため。
+//   🔴 2026-08-29 ROW_Y と BTN4 の定義は btn_v1.scad（先に読まれる側）へ移した。btn_plate() が
+//     羊羹の逃げを彫るのに自分の Y を要り、外にあると btn_v1.scad が単体で開けなかったため。
 //     ここは読むだけ。スピーカーの X だけがここの持ち物。
 SPK4 = [KNOB_AT[0] - 2.5, ROW_Y];                       // スピーカーの中心（Y は必ずボタンと同じ）
 // ============================================================
@@ -118,8 +140,9 @@ module core() {
     //    （X 37.9〜48.1・Z 45〜48・Y が重なる）に当たるので、帯の手前 0.5 に傘の右端を付けた＝中心 X 28.4
     //    Y はスピーカーと同じ 14.3（🔒 同日「Y 軸をスピーカーに揃えて」）
     // 2026-08-25 ユーザー「よせすぎ」→ 28.4 から 22 へ戻し（傘 X 13〜31）。値は BTN4 が持つ
-    translate([BTN4[0], BTN4[1], Z_TSW_BOT]) rotate([0, 0, 180]) tactswitch();     // 会話ボタンのタクト
-    color("#d8dde3") translate([BTN4[0], BTN4[1], 0]) rotate([0, 0, 180]) button_cap();   // と押す傘
+    btn2_at_switch();                                                              // 会話ボタン v2（レバー式）
+    btn2_at_piston();                                                              // と押し子
+    color("#b0b0b0") btn2_at_screws();                                             // 井戸の M2 2 本
 }
 // v3 の外皮（比較対象の薄い影。設計の入力ではない）
 module v3_ghost() {
@@ -191,8 +214,14 @@ function pb_wx(x) = x + (BAT_X0 - 15.5) + PB_DX;
 function ina_wx(x) = x + (BAT_X0 - 15.5);   // 2026-08-25 島 −1.5 に追従してさらに −1.5（I2C の角と座の壁 4mm³）   // 🔒 2026-08-25 ユーザー「傾斜を付けたら」→ 後縁を蝶番に 10°。島が +3 右へ寄った分、INA の逃げは −5 → −1.5（ほぼ中央・L 字の先端は島の手前）
 // ⚠ 2026-08-25 皮の検査: I2C ヘッダの角（X 55.2〜56.6）が天面の座の壁に 6mm³ 入るため −1.5 → −3.2（さらに 1.7 左へ）。
 //   端子・ヘッダの向きは ⚠ 仮のまま（着荷で照合）。左側の余裕: INPUT/OUT の口の後端 8.5 → 6.8（電池線 X≤4.25 まで 1.6）
-// I2C ヘッダは直立て（ra=false）: L 字横出しだと PB の JST プラグ（X 36.4〜44.3・Z 33〜38.2）に入るため。
-//   直立ての頭 X 34.2 は、ボタンの傘（〜31）と OLED の線の帯（37.9〜）の隙間
+// 🔴 2026-08-29 訂正: ここには長らく「I2C ヘッダは直立て（ra=false）」と書いてあったが、**コードと逆**。
+//   実際は ina_bat() が ina226_module(ra = true, pwr_ra = false) を呼んでいる:
+//     ・I2C の 5 ピン  = **L 字**（🔒 2026-08-25「天面にぶつかるので L 字必須」）
+//     ・電源の 4 ピン  = **直立て**（🔒 2026-08-26「左壁側のピンヘッダを垂直に」）
+//   古い行は 2026-08-25 の一時の案が消し忘れられた物で、AI はこれを読んで会話ボタンの逃げを
+//   「INA の直立ての口」と呼び、間違った相手に合わせて天板を彫っていた。
+//   ⚠ そもそも DIMENSIONS.md 378 行「**端子とヘッダの並びの向きだけ模型では仮定のまま**」。
+//     着荷実測で確かめたのは穴径 φ3.0 と穴位置だけ。**向きは実物と照合していない。**
 // 板の座標系（原点 = 後縁の蝶番・z=0 が板の裏の面・+y が板に沿って前へ）。板・座・ネジは全部これを通すので THETA を動かせば全部追従する
 module ina_frame() translate([INA_DX + BAT_X0 + (lipo_size()[1] - ina_size()[0]) / 2 + ina_size()[0], PAIR_Y0 + ina_size()[1], BAT_TOP + STRAP_T + INA_LIFT]) rotate([-INA_THETA, 0, 0]) rotate([0, 0, 180]) children();
 module ina_bat() ina_frame() ina226_module(ra = true, pwr_ra = false);   // 🔒 2026-08-25「天面にぶつかるので L 字必須」＝I2C の 5 ピン（ra）。
@@ -1083,11 +1112,11 @@ module top_asconn() translate([-2.5, 7, 0]) as_conn();   // AS5600 のデュポ�
 //   検査は 2.5mm 手前のボタンとスピーカーで当たりを見ていた。⇒ BTN4 / SPK4 から読む。
 module top_spk()    translate([SPK4[0], SPK4[1], IN_Z - spk_th() - 0.2 + SPK_LIFT]) translate([-SPK_L / 2, -SPK_W / 2, 0]) speaker_112495();
 module top_btn() {   // 会話ボタン（中のタクトスイッチ＋外のキャップ）
-    translate([BTN4[0], BTN4[1], Z_TSW_BOT]) rotate([0, 0, 180]) tactswitch();
-    color("#d8dde3") translate([BTN4[0], BTN4[1], 0]) rotate([0, 0, 180]) button_cap();   // button_cap は素のモジュール（色を持たない）。付け忘れると既定の黄色で出る
+    btn2_at_switch();
+    btn2_at_piston();
     // 🔴 2026-08-28 下から留める板をここに足した。**足すまで当たり検査が 1 度も見ていなかった**
     //    （chk_* は innards4 経由でこの module を見る）。足した直後に BTN2 の線と 0.74mm³ 当たった。
-    color("#8fb4d9") translate([BTN4[0], BTN4[1], 0]) rotate([0, 0, 180]) btn_plate();
+    color("#b0b0b0") btn2_at_screws();
 }
 // 🔒 2026-08-28 top_asconn() を外した。ASC_DY を消したいま、コネクタは基板のヘッダと
 //   完全に同じ場所に来るので、両方描くと当たり検査が自分自身を数える（chk_all 1299 → 1697 になった）。
