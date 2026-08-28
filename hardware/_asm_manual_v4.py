@@ -457,7 +457,14 @@ STEPS = [
    '<b>つまみまわりでは、これがいちばん最後。</b>'
    'E リングの通り道の検査（<span class="n">knob_v5.scad の part="eringpath"</span>）は'
    '<b>この基板を障害物に入れていない</b>ので、先に付けると検査の外へ出る。',
-   '会話ボタンの受けとキャップ、スピーカー（両面テープ・枠が天板の座に沈む）を付ける。'
+   '<b>会話ボタンのタクトを受けへ入れ、下から<b>留め板</b>を当てて '
+   '<span class="d">M2</span> ねじ 2 本で締める。</b>'
+   'ナット 2 個は、受けの腕の<b>横穴</b>（<span class="n">4.3 × 1.8</span>）へ板より先に差す。'
+   '<b>留め板は、会話ボタンの線をつなぐ前に入れる。</b>'
+   '🔒 2026-08-29 ユーザー「直ハンダで確定」で、会話ボタンの 2 本は<b>コネクタ無しの直はんだ</b>。'
+   '板に開いた足の窓は <span class="n">1.4mm</span>（足 <span class="n">0.7</span> の外へ '
+   '<span class="n">0.34</span> ずつ）しかないので、<b>はんだを付けた後では板が通らない。</b>',
+   'キャップとスピーカー（両面テープ・枠が天板の座に沈む）を付ける。'
    'リードの足はデッキの足元へ<b>直はんだ</b>。',
    '線をつなぐ: <span class="w">つまみ</span> 5・<span class="w">会話ボタン</span> 2・'
    '<span class="w">スピーカー OUT</span> 2・<span class="w">リード</span> 2。',
@@ -509,7 +516,7 @@ WIRES = [
  ('OLED',       '4', '79.2', 'Z19 → 左の溝 X9 → Z45.2 で前を右へ → 線の帯で上がる'),
  ('AS5600',     '5', '48.7', 'Z19 → X54 で Z13.3 → 島の下の幹 Y36.8 を右へ → <b>南へ 2 本</b>（3 ピンの列の真下 Y31.8）／'
   '<b>北へ 3 本</b>（4 ピンの列。リレーの前 Y42 で Z16 へ上がってから列の下へ）'),
- ('BTN2',       '2', '74.7', 'Z19 → X11.75 → Y17.4 で上がる → タクトの足'),
+ ('BTN2',       '2', '74.7', 'Z19 → X11.75 → Y17.4 で上がる → タクトの足へ <b>直はんだ</b>（🔒 2026-08-29 ユーザー）'),
  ('REED',       '2', '51.3', '縦穴 → Z41 で潜る → デッキの足へ <b>直はんだ</b>'),
  ('PHOUT',      '2', '96.5', '帯の前へ抜けて右の壁ぎわ X83.3 → 天井の下 → スピーカーの下'),
  ('TOGGLE',     '2', '57.4', '縦穴 → Z46.8 の車線 → 端子の真上'),
@@ -528,6 +535,7 @@ SCREWS = [
  ('M2 × 6',  '2', 'ブリッジ → 壁の棚（左前・右。上から。<b>ナットは棚に横から差す</b>）', '5'),
  ('M2 × 4',  '1', 'ブリッジ → 帯の前の棚（左・OLED 側 <span class="n">[4.2, 47.7]</span>）。M2×6 だと先が棚の底から 2.0mm 出る', '5'),
  ('M2 × 6',  '2', 'つまみの島 → 天面（上から・<b>ナットは天面の裏の下向きポケット</b>）', '10'),
+ ('M2 × 8',  '2', '会話ボタンの<b>留め板</b> → 受けの腕（下から・ナットは腕の横穴）。🔒 2026-08-29 ユーザー「8 も沢山買ったので大丈夫」＝手持ちから。板の裏 <span class="n">Z 38.154</span> からナットの底 <span class="n">45.304</span> まで <span class="n">7.15</span> なので、<b>掛かりは 0.85mm</b>。ねじの逃げは <span class="n">Z 47.60 ＝ 9.45</span> まであるので底は突かない', '10'),
  ('M2 × 6',  '2', 'OLED → 天面の L（前から・ナットは L の後ろ）', '11'),
  ('M2 × 6',  '4', '天面の四隅（後ろ 2 = 壁の柱 / 前 2 = 天面＋耳＋耳柱の 3 枚）', '11'),
  ('M2 × 6',  '1', '電池の蓋のロック', '12'),
@@ -542,7 +550,8 @@ NUTS = [
   '<b>壁を寝かせているうち・充電線より先</b>'),
  ('M2',  '2', 'つまみの島のねじ（天面の裏・<b>下向き</b>・裏面と面一）',
   '<b>置けない。下から押さえながら上から回す</b>'),
- ('M2',  '2', 'OLED の L の後ろ（横向き・残り 0.2）', '<b>ピンセット</b>'),
+ ('M2',  '2', '会話ボタンの受けの腕の<b>横穴</b>（<span class="n">4.3 × 1.8</span>・<span class="n">Z 45.304〜47.104</span>）', '<b>留め板より先に差す。</b>差したら落ちない'),
+ ('M2',  '2', 'OLED の L の後ろ（横向き・残り <span class="n">1.8</span>）', '<b>ピンセット</b>。2026-08-28 に L の厚みを <span class="n">2.0 → 3.6</span> にしたので、残り肉は <span class="n">0.2 → 1.8</span>'),
  ('M2',  '4', '天面の後ろの柱 2・前の耳柱 2（上向き）', '天面を載せる前だけ'),
  ('M2',  '1', '電池の蓋のロック（ハッチの<b>内側</b>のボス・頭の溝から落とす）', '<b>ハッチを箱に付ける前だけ</b>'),
 ]
@@ -688,6 +697,7 @@ PARTS = [
  ('前板（電池の返し＋前の脚）', 'print_brgfront', '<b>前面を伏せて寝かせる。</b>前面が 1 枚の平らな面になる'),
  ('留め帯 A / B / C', 'print_strap_a / _b / _c', '足とツバを下（ツバの上面が 45° なので支え無し。天板が足の間 36mm を渡る）'),
  ('会話ボタンのキャップ', 'print_btn', '天面を伏せる'),
+ ('会話ボタンの留め板', 'print_btnplate', '<b>板を伏せる（そのままの向き・平らな面が下）。</b>厚み 1.5mm の平板なので支えも足も要らない'),
  ('充電基板の受け', 'p_seat / print_seat', '<b>壁に当たる面を伏せて寝かせる。</b>立てると細い足の塔になって倒れる。接地が小さいのでラフトを敷く'),
  ('つまみ', '<b>knob_v5.scad</b> の part="knob"', '天面を伏せる（軸が上）'),
  ('つまみの島', '<b>knob_v5.scad</b> の part="wall"', 'へこみの底を下'),
@@ -952,7 +962,7 @@ __ACCESSSUM__</p>
 <thead><tr><th>ビス</th><th>本数</th><th>どこ</th><th>手順</th></tr></thead>
 <tbody>__SCREWROWS__</tbody>
 </table></div>
-<p class="cal note"><span class="tag">読み</span>樹脂にネジは切らない。全部<b>貫通＋ナット</b>（<b>docs/DIMENSIONS.md</b> の方針）。長さは <span class="d">M2×4</span>・<span class="d">M2×6</span>・<span class="d">M2×15</span>・<span class="d">M3×8</span> の 4 種類。ナットは <span class="d">M3</span> ×__M3N__・<span class="d">M2</span> ×__M2N__。</p>
+<p class="cal note"><span class="tag">読み</span>樹脂にネジは切らない。全部<b>貫通＋ナット</b>（<b>docs/DIMENSIONS.md</b> の方針）。長さは <span class="d">M2×4</span>・<span class="d">M2×6</span>・<span class="d">M2×8</span>・<span class="d">M2×15</span>・<span class="d">M3×8</span> の 5 種類。ナットは <span class="d">M3</span> ×__M3N__・<span class="d">M2</span> ×__M2N__。</p>
 <div class="tw" style="margin-top:18px"><table>
 <thead><tr><th>ナット</th><th>数</th><th>どこ・向き</th><th>入れ方</th></tr></thead>
 <tbody>__NUTROWS__</tbody>
@@ -1025,6 +1035,7 @@ CHECKBODY = """<div class="wrap">
 
 
 ACCESS_STOPS = []
+ACCESS_THRU = []   # 反例なのに通ってしまった行（止まるのが正なので、通ったら根拠が消えている）
 ACCESS_N = [0]
 
 
@@ -1033,15 +1044,21 @@ def access_rows():
     sys.path.insert(0, HERE)
     import _asm_access
     out = []
-    ACCESS_STOPS.clear()
+    ACCESS_STOPS.clear(); ACCESS_THRU.clear()
     rows = _asm_access.run()
     ACCESS_N[0] = len(rows)
     for what, step, tool, dia, need, got, ok, note in rows:
         cex = ok.startswith('止まる（反例）')   # 止まるのが正の行（その手順でしかできないことの裏取り）
-        if not cex and ok != '通る': ACCESS_STOPS.append((what, step, got))
+        # 🔴 2026-08-29 反例の行が**通ってしまった**とき（got ≥ need）、_asm_access.row() は
+        #   '⚠ 通ってしまう' を返すのに、ここが cex でない扱いにして「🔴 止まる」と書いていた。
+        #   止まっていないのに「止まる」と出るので、読む側には見分けが付かない。
+        thru = ok.startswith('⚠')
+        if not cex and not thru and ok != '通る': ACCESS_STOPS.append((what, step, got))
+        if thru: ACCESS_THRU.append((what, step, got, need))
         cls = 'ok' if ok == '通る' or cex else 'stop'
         mark = ('<b>通る</b>' if ok == '通る' else
-                '止まる（<b>反例</b>）' if cex else '<b>🔴 止まる</b>')
+                '止まる（<b>反例</b>）' if cex else
+                '<b>⚠ 通ってしまう</b>（反例）' if thru else '<b>🔴 止まる</b>')
         out.append('<tr><td>{}</td><td class="n">{}</td><td>{}</td><td class="n">φ{}</td>'
                    '<td class="n">{}</td><td class="n {}">{}</td><td class="{}">{}</td><td>{}</td></tr>'
                    .format(what, step, tool, dia, need, cls, got, cls, mark, note))
@@ -1258,6 +1275,11 @@ def build():
     accsum = ('<b>いまは全部通る（止まったもの 0）。</b>' if not ACCESS_STOPS else
               '🔴 <b>いま %d か所で止まっている。</b>' % len(ACCESS_STOPS) +
               '・'.join('%s（手順 %s・%s mm で止まる）' % r for r in ACCESS_STOPS) + '。')
+    if ACCESS_THRU:
+        accsum += (' ⚠ <b>反例が %d 行、通ってしまっている</b>（止まるのが正の行）: ' % len(ACCESS_THRU) +
+                   '・'.join('%s（手順 %s・要る %s に対して %s mm 空いている）'
+                             % (w, st, need, got) for w, st, got, need in ACCESS_THRU) +
+                   '。<b>その順でしか出来ない、という根拠が消えています。</b>')
     chkrows = '\n'.join(
         '<tr><td>{}</td><td class="n">{}</td><td class="n {}">{}</td><td>{}</td></tr>'
         .format(r[0], r[1], r[3], r[2], r[4]) for r in CHECKS)
