@@ -32,7 +32,13 @@ PROP_D = 2.0      # 柱の径（knob_v5 実績。φ1.4 は薄皮のまま面ご�
 MIN_GAP = 0.3     # 柱と輪郭の逃げ
 PITCH = 3.0       # 輪の間隔・輪の上の間隔（隣まで 4mm を超えない実績値）
 FILL_PITCH = 2.4  # 埋めの最小間隔（隣との隙間 0.4 ＝ 癒着の実績 0.36 の外）
-PARTS = ['top', 'hatch', 'bridge', 'strap_a', 'strap_b', 'strap_c', 'seat']   # seat = 充電基板の受け（2026-08-27・D-1 で独立した部品になった）
+PARTS = ['top', 'hatch', 'bridge', 'strap_a', 'strap_b', 'strap_c', 'seat']
+# 🔒 2026-08-28 ユーザー「その支柱はいらない。過去にノブでその形状はなにも無くても印刷できるの分かってる」。
+#    ここに挙げた（部品, 天井の高さ）には柱もヒレも立てない。**実機の実績が検査の判定より優先する。**
+#    🔴 2026-08-28 **この SKIP は空に戻した。** 外して刷ったら皿の底に穴が開いた（実機・ユーザー）。
+#       私が「無くていい」と言った判断が外れ。皿の底は 0.25mm しかなく、82mm² を渡れなかった。
+#       つまみの皿の実績はここには効かない（あちらの底はここより厚い）。
+SKIP = set()   # seat = 充電基板の受け（2026-08-27・D-1 で独立した部品になった）
 
 
 def bake(part):
@@ -142,6 +148,7 @@ for part in PARTS:
     for lay in np.unique(np.round((zs - z0) / DZ).astype(int)):
         if lay <= 0: continue
         h = z0 + lay * DZ; z = h + DZ * 0.5
+        if (part, round(h, 2)) in SKIP: continue
         O = np.zeros(nu * nv, bool); O[col[(zs <= z) & (ze > z)]] = True
         S = np.zeros(nu * nv, bool); S[col[(zs <= z - DZ) & (ze > z - DZ)]] = True
         Ngf = O & ~S

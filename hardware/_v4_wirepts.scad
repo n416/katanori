@@ -2,7 +2,8 @@ include <_v4_core.scad>
 // 📦 §9 の線の両端を機械で取るための探針（bbox 取り用・手写し防止）。W="none" で使う
 P = "";
 module inai2c_probe() translate([INA_DX + BAT_X0 + (lipo_size()[1] - ina_size()[0]) / 2 + ina_size()[0], PAIR_Y0 + ina_size()[1], BAT_TOP + STRAP_T]) rotate([-THETA, 0, 0]) rotate([0, 0, 180]) ina_hdr_ra();
-module pbusb_probe()  translate([BAT_X0 + (lipo_size()[1] - PB_L) / 2 + PB_L, PAIR_Y0 + ina_size()[1] + 0.5 + PB_W, BAT_TOP + STRAP_T]) rotate([-THETA, 0, 0]) rotate([0, 0, 180]) pb_usb_pin_header();
+// 🔒 2026-08-28 USB は L 字に揃えたので、探針は挿さる DuPont そのもの（旧: 直ピン pb_usb_pin_header の頭）
+module pbusb_probe()  pbu_hous();
 if (P == "xiao")   xiao_hous();
 if (P == "oled")   oled_hous();
 if (P == "asc")    translate([3, 5, 0]) as_conn();
