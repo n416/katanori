@@ -464,10 +464,17 @@ module ch_top(r, z, c) {
         cylinder(r1 = r, r2 = r - c, h = c);
     }
 }
+// 🔴 2026-08-28（16 度目の机上の通し）: 抜きの外側の筒が z-0.01 〜 z+c+0.01 で、
+//    円錐（z 〜 z+c）より上下に 0.01 ずつ長かった。そのはみ出しは**半径いっぱいの円板**なので、
+//    面取りではなく**部品を 2 か所で輪切り**にしていた。
+//    v4_knob.stl は 5 つのバラバラな塊（隙間 0.01mm）として書き出されていた
+//    （持ち手 / 持ち手の裏の 0.3 / 軸 / ツメ / 軸の先の 0.3）。
+//    z は部品の**下の面**なので、下へ 0.01 出すと軸とツメ（その面を跨ぐ物）を切る。
+//    上へ 0.01 出すと持ち手そのものを切る。はみ出しは要らない。
 module ch_bot(r, z, c) {
-    translate([0, 0, z - 0.01]) difference() {
-        cylinder(r = r + 3, h = c + 0.02);
-        translate([0, 0, 0.01]) cylinder(r1 = r - c, r2 = r, h = c);
+    translate([0, 0, z]) difference() {
+        cylinder(r = r + 3, h = c);
+        cylinder(r1 = r - c, r2 = r, h = c);
     }
 }
 module ch_hole_top(r, z, c) {
