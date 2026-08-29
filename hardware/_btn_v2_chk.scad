@@ -9,18 +9,18 @@ DRV_DIR = -1;   // -1 = 頭が −Y 側（そこから −Y へ抜く）／ +1 =
 //   実際に要るのは**頭から外へ**の空き。向きを直した。角柱で近似（当たり検査には十分・やや厳しめ）。
 module btn2_driver() for (sx=[-1,1]) {
     y0 = BTN4[1] + DRV_DIR * (B2_TUB_OY / 2 + 1.2);
-    translate([BTN4[0] + sx * msw_hole_p() / 2 - 1.7,
+    translate([BTN4[0] + sx * msw_hole_p() / 2 + B2_SW_DX - 1.7,
                DRV_DIR > 0 ? y0 : y0 - 20,
                Z_TOP + B2_Z_SW_BOT + B2_SW_HOLE_Z - 1.7]) cube([3.4, 20, 3.4]);
 }
 // ナットの居場所そのもの（当たりを名指しで測る）
-module btn2_nut_solid() for (sx=[-1,1]) translate([BTN4[0] + sx*msw_hole_p()/2, BTN4[1] + B2_TUB_Y0 + B2_NUT_T, Z_TOP + B2_Z_SW_BOT + B2_SW_HOLE_Z])
+module btn2_nut_solid() for (sx=[-1,1]) translate([BTN4[0] + sx*msw_hole_p()/2 + B2_SW_DX, BTN4[1] + B2_TUB_Y0 + B2_NUT_T, Z_TOP + B2_Z_SW_BOT + B2_SW_HOLE_Z])
     rotate([90,0,0]) cylinder(d = B2_NUT_AF/cos(30), h = B2_NUT_T, $fn = 6);
 // ナットを差す道（座から −Y へ 10mm 引き抜く）
-module btn2_nutpath() for (sx=[-1,1]) translate([BTN4[0] + sx*msw_hole_p()/2 - (B2_NUT_AF+0.3)/2, BTN4[1] + B2_TUB_Y0 - 10, Z_TOP + B2_Z_SW_BOT + B2_SW_HOLE_Z - (B2_NUT_AF+0.3)/2])
+module btn2_nutpath() for (sx=[-1,1]) translate([BTN4[0] + sx*msw_hole_p()/2 + B2_SW_DX - (B2_NUT_AF+0.3)/2, BTN4[1] + B2_TUB_Y0 - 10, Z_TOP + B2_Z_SW_BOT + B2_SW_HOLE_Z - (B2_NUT_AF+0.3)/2])
     cube([B2_NUT_AF+0.3, 10 + B2_NUT_T, B2_NUT_AF+0.3]);
 // ねじの軸 ↔ スイッチの胴（穴に通っていれば 0。ずれていれば胴を削る量が出る）
-module btn2_scr_shaft() for (sx=[-1,1]) translate([BTN4[0] + sx*msw_hole_p()/2, BTN4[1] + B2_TUB_Y0, Z_TOP + B2_Z_SW_BOT + B2_SW_HOLE_Z])
+module btn2_scr_shaft() for (sx=[-1,1]) translate([BTN4[0] + sx*msw_hole_p()/2 + B2_SW_DX, BTN4[1] + B2_TUB_Y0, Z_TOP + B2_Z_SW_BOT + B2_SW_HOLE_Z])
     rotate([-90,0,0]) cylinder(d=2.0, h=B2_TUB_Y1-B2_TUB_Y0, $fn=20);
 module btn2_at() {
     if (PART_SEL == "scr_in_sw") btn2_scr_shaft();

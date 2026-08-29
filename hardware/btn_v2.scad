@@ -67,7 +67,7 @@ function b2_lever_z(x) =                      // 自由状態のレバーの高�
 // 🔴 ここを +X（先端）へ寄せるほどストロークは伸びるが、バスタブが深くなる。逆は浅いが硬く短い。
 //    ＋3.0 で「クリックまで押し子 1.74mm」＝ タクト（0.5）の 3.5 倍。深さは電池の天井の内側に収まる。
 B2_PUSH_X = 3.0;
-B2_PUSH_D = 4.0;                              // 押す柱の径
+B2_PUSH_D = 3.4;   // 🔴 2026-08-30 4.0 だと腕の内面まで 0.5 しかなく、たわみ 0.45 でぶつかる                              // 押す柱の径
 // 🔴 2026-08-29 最初これを高さ 0（＝ツバの下面がそのまま当たる）で書いた。**レバーは先端が一番高い**ので、
 //   ツバは押す点ではなく先端に当たり、てこ比が効かない。柱を実体で下ろし、ツバは先端を跨いで逃げる。
 //   ⇒ バスタブの深さを決めているのは押す点ではなく**レバーの先端**（どこを押しても −16 付近になる）。
@@ -75,6 +75,14 @@ B2_PAD_H  = 1.6;                              // 柱の出（先端 10.5 と押�
 B2_LEVER_RATIO = (B2_PUSH_X - B2_SW_HINGE_X) / msw_lever_l();
 BTN2_CLICK  = msw_click() * B2_LEVER_RATIO;     // 押し子がクリックまで下がる量
 BTN2_FULL   = msw_travel() * B2_LEVER_RATIO;  // 押し切りまで
+
+// ---- 印刷の見込み（🔒 docs/PRINT.md §2 実績値から）----
+// 🔴 2026-08-30 実機（btntest 初刷り）ユーザー「ボタンが下に落ちない」。
+//   首の隙間は片側 0.2、ツバは片側 0.3 しか無かった。穴（凹）は焼くと約 0.15/片側 縮み、
+//   柱（凸）は約 0.15/片側 太る。**相手も印刷部品なら両方効く**ので、片側 0.3 は見込みだけで
+//   食われ、残りが負（＝圧入）になっていた。動く嵌め合いは **見込み 0.3 ＋ 実際に滑る 0.1**。
+B2_FIT_MOVE = 0.40;   // 樹脂どうしで動く所（首・ツバ）の片側の隙間
+B2_FIT_POCK = 0.15;   // 金属（スイッチの胴）を入れて**動かさない**所。見込みだけでよい
 
 // ---- 顔（v1 の皿と同じ。天面の見た目は変えない）----
 B2_DISH_L = 19.2; B2_DISH_W = 13.2; B2_DISH_T = 2.25;      // 皿（v1 と同一）
@@ -92,11 +100,13 @@ B2_TRAVEL  = 1.95;                                    // 頭が皿の床に着�
 //   🔴 2026-08-29 X も同じ理由で絞る。バスタブが 22.4 だと、どの X に置いても INA の I2C ヘッダ
 //     （world X 33〜36 付近・Z 34〜37）に 9〜15mm³ 残った。スイッチの胴 12.8 が入る最小まで詰める。
 B2_OPN_L = 12.0; B2_OPN_W = 6.4;                     // 皿の床の口（首が通る）。頭 18 x 12 は変えない
-B2_NECK_GAP = 0.2;
+B2_NECK_GAP = B2_FIT_MOVE;   // 🔴 0.2 では見込みに負けて入らなかった（上）
 // 🔴 2026-08-29 ツバは「口より広ければよい」。大きくすると**ツバの部屋**が広がり、その部屋が
 //   バスタブの壁の上端を切って「支えの無い天井」を作る（刷る向きで 55mm² 出た）。
 //   ⇒ 口 17.6 × 11.6 に対して片側 0.7 / 0.5 だけ張り出す最小寸法にする。
-B2_FLG_L = B2_OPN_L + 1.0; B2_FLG_W = B2_OPN_W + 1.0; B2_FLG_T = 1.0;          // ツバ（口より広い＝上へ抜けない）
+B2_FLG_OVER = 0.4;   // 🔴 2026-08-30 口からの張り出しを片側 1.0 → 0.4 へ。ツバの部屋は動かさない
+//   （＝ツバの周りに片側 0.4 の隙間ができる。焼くと張り出しは 0.7 に太るので抜け止めは効いたまま）
+B2_FLG_L = B2_OPN_L + B2_FLG_OVER * 2; B2_FLG_W = B2_OPN_W + B2_FLG_OVER * 2; B2_FLG_T = 1.0;          // ツバ（口より広い＝上へ抜けない）
 
 // ---- Z（原点 = 天板の外面）----
 B2_Z_DISH_F = -B2_DISH_T;                    // -2.25 皿の床（上面）
@@ -107,11 +117,13 @@ B2_Z_SW_BOT = B2_Z_FLG_B - B2_PAD_H - b2_lever_z(B2_PUSH_X);   // 胴の底
 B2_Z_SW_TOP = B2_Z_SW_BOT + B2_SW[2];
 
 // ---- バスタブ（天板の裏に立つ・4 枚の壁＋端の棚。床は張らない）----
-B2_TUB_CL   = 0.1;                                   // 滑り嵌め（圧入しない。位置は棚とねじが出す）
+// 🔴 2026-08-30 ここに B2_TUB_CL（滑り嵌め 0.1）と、下の B2_LEDGE_*（棚）・B2_BTN2_SLOT_H（長穴）が
+//   **定義だけ**あって、一度も形になっていなかった。読むと「棚とねじが位置を出す」と書いてあるのに、
+//   実物はどこにも棚が無い。⇒ 亡霊は消して、上の B2_POCK_* / B2_LEDGE_W で実際に彫る。
 // 中のりは**ツバが通る大きさ**（ツバの部屋を兼ねる）。スイッチの位置は棚ではなくねじが出す
 // 🔴 X の中のりは**ツバではなくレバー**が決める。レバーは蝶番（胴の −X 端 −6.4）から 13.5 伸びて
 //   先端が +7.1 に来る。胴 12.8 より外へ出るので、バスタブは ±7.5 要る。
-B2_TUB_IX = 15.0; B2_TUB_IY = B2_FLG_W + 0.6;
+B2_TUB_IX = 15.0; B2_TUB_IY = B2_FLG_W + B2_FIT_MOVE * 2;   // 8.0（前と同じ値・外形は動かない）
 // 🔴 2026-08-29 ±Y の壁も厚くする。1.6 だと壁の上端がツバの部屋（幅 14.6）の**中**で終わり、
 //   刷る向きで 52mm² の「支えの無い天井」になった。支柱は立てられない（ツバの通り道であり、
 //   しかもバスタブの中は狭くて切り取れない＝ v1 で天板を割った罠と同じ）。
@@ -132,17 +144,37 @@ B2_NUT_AF  = 4.0;       // 同 二面幅
 //   バスタブの外形を X 22.4（±11.2）にすると、ツバの部屋の外（±10.3 より外）で床に直に届く。
 B2_TUB_WALL_X = 1.6;
 B2_SKIRT = 0.8;   // 胴の底より下へ伸ばす裾（端子と線の逃げ）
+// ============================================================
+// 🔒 2026-08-30 ユーザー案「押し子はハット＋上からカバー」（2 部品）
+// ============================================================
+// 実機 2026-08-30 の 3 つは全部ここが親だった:
+//   押し子のツバ（12.8 x 7.2）と スイッチの胴（12.8 x 5.8）が**同じ筒を通っていた**。
+//   筒を胴に合わせて絞れば押し子が入らず（当たり 877mm³ を実測）、押し子に合わせて広げれば
+//   胴が ±1.1 動く（ブカブカ・レバーが壁に挟まる）。しかも頭 18x12 もツバも皿の口 12x6.4 より
+//   大きいので、**押し子はそもそも上からも下からも組めなかった**。
+// ⇒ 皿の床（口を持つ板）を**カバー**として切り離す。天板の口はツバが通る大きさに広げ、
+//   押し子（ハット）は上から落とし、カバーを上から被せてツバを閉じ込める。
+//   これで筒は押し子の道ではなくなるので、**筒を胴の寸法に絞れる**（ポケットと棚が彫れる）。
+//   組む順: ①押し子を上から落とす ②カバーを上から被せる ③スイッチを下から筒へ ④横ネジ 2 本
+//   ⚠ 外形も筒の底の Z も 1mm も変えない（バスタブの底は INA226 の板まで 0.02mm しか無い）。
+B2_POCK_X   = B2_SW[0] + B2_FIT_POCK * 2;  // 13.10 胴のポケット
+B2_POCK_Y   = B2_SW[1] + B2_FIT_POCK * 2;  //  6.10
+B2_LEDGE_W  = 1.0;                         // 棚の出（片側・胴の底を受ける）。中央は端子の道
+B2_LEDGE_Y  = B2_POCK_Y - B2_LEDGE_W * 2;  //  4.10 端子は Y ±0.4 しか使わない
+// 🔴 レバーは蝶番（胴の −X 端）から 13.5 伸びるので、胴を筒の真ん中に置くと先端が +X へはみ出す
+//   （実機「取っ手が中で挟まって押せない」）。中心に置くのは胴ではなく**レバーの振る範囲**。
+B2_SW_DX = -(B2_SW_HINGE_X * 2 + msw_lever_l()) / 2;   // −0.35
+                   // 上は開いたまま（レバーは天板側の部屋で振る）
 B2_TUB_OX = B2_TUB_IX + B2_TUB_WALL_X * 2;   // 22.4 バスタブの外形 X（部屋 19.6 の外へ 1.4）
 B2_TUB_Y0 = -(B2_TUB_IY / 2 + B2_TUB_WALL);      // −Y の外面（local・頭の側）
 B2_TUB_Y1 =   B2_TUB_IY / 2 + B2_TUB_WALL_YP;    // +Y の外面（local・ナットの側）
 B2_TUB_OY = B2_TUB_Y1 - B2_TUB_Y0;               // 外形 Y
 // 🔴 2026-08-29 棚は ±X の端に置いていたが、端子は芯から ±5.08 に立っていて**棚の真上**だった。
 //   ⇒ 棚は**±Y の長辺**に付け替える。端子は Y ±0.4 しか使わないので、中央 2.2 を開ければ通る。
-B2_LEDGE_Y   = 2.2;   // 中央に開ける帯（端子の道）。両脇 1.85 ずつが胴を受ける棚になる
-B2_LEDGE_X   = 2.2;   // （旧・未使用）
-B2_LEDGE_T   = 0.8;   // 🔴 2026-08-29 1.2 だとバスタブの底が INA226 の板（世界 Z 34.00）に 0.38 沈んだ                                   // 端の棚（胴の底を受ける）。中央は端子のため開ける
-B2_BTN2_SCR_D = 2.3;                                  // M2 の通し（長穴の幅）
-B2_BTN2_SLOT_H = 3.2;                                 // 長穴の高さ（穴の Z の読みの ±0.6 を吸収）
+// ⚠ 裾（B2_SKIRT = 0.8）の深さは変えていない。🔒 2026-08-29「1.2 にしたらバスタブの底が
+//   INA226 の板（世界 Z 34.00）に 0.38 沈んだ」＝ **下へは 0.02mm も余裕が無い**。
+//   今回の直しは全部バスタブの**内側**なので、外形も底の Z も 1 つも動いていない。
+B2_BTN2_SCR_D = 2.3;                                  // M2 の通し
 
 module b2_ob(l, w, h) translate([-l / 2, -w / 2, 0]) spk_obround(l, w, h);
 
@@ -188,8 +220,22 @@ module btn2_station_add() difference() {
     }
     // 🔴 中の空洞は**皿の床の裏（B2_Z_FLOOR_B）で止める**。塊ごと突き抜けさせるとツバの座を食い、
     //   天板の残り 0.25mm だけになる（刷る前の検査に 45.56mm² の 0.25 板として出た）。
-    translate([-B2_TUB_IX / 2, -B2_TUB_IY / 2, B2_Z_SW_BOT - B2_SKIRT - 1])
-        cube([B2_TUB_IX, B2_TUB_IY, B2_Z_FLOOR_B - (B2_Z_SW_BOT - B2_SKIRT) + 1]);           // 上から下まで同じ断面
+    // 🔴 2026-08-30 ユーザー「なんでバスタブの構造こんななの？」。**15 x 8 はスイッチの寸法ではなく、
+    //   押し子のツバ（12.8 x 7.2）が通るための穴だった。**通り道と器を 1 つの穴で兼ねていたので、
+    //   胴の周りに片側 1.1 の空気が残り、ネジは何も掴んでいなかった。スナップにしてツバが消えた今、
+    //   箱を広く保つ理由は 2 つしか残っていない: **レバーが振れる X（±6.75）と、ツメが上下する Y（±3.55）。**
+    //   それ以外は胴に寄せる。4 段に彫る:
+    //   ①裾（棚を残して端子の道だけ）②胴のポケット（呼び+0.3 ＝ 焼くと胴とツライチ）
+    //   ③レバーだけの高さ（Y は胴のまま）④ツメが上下する所（ここだけ Y を開ける）
+    B2_HOOK_Z0 = B2_Z_FLOOR_B - B2_TRAVEL - B2_SNAP_HH - 0.1;   // ツメが押し切りで下がりきる高さ
+    translate([-B2_POCK_X / 2 + B2_SW_DX, -B2_LEDGE_Y / 2, B2_Z_SW_BOT - B2_SKIRT - 1])
+        cube([B2_POCK_X, B2_LEDGE_Y, B2_SKIRT + 1.01]);                                      // ① 裾（端子の道）
+    translate([-B2_POCK_X / 2 + B2_SW_DX, -B2_POCK_Y / 2, B2_Z_SW_BOT])
+        cube([B2_POCK_X, B2_POCK_Y, B2_SW[2] + 0.01]);                                       // ② 胴のポケット
+    translate([-B2_TUB_IX / 2, -B2_POCK_Y / 2, B2_Z_SW_TOP])
+        cube([B2_TUB_IX, B2_POCK_Y, B2_HOOK_Z0 - B2_Z_SW_TOP]);                              // ③ レバーだけ（Y は胴のまま）
+    translate([-B2_TUB_IX / 2, -B2_TUB_IY / 2, B2_HOOK_Z0])
+        cube([B2_TUB_IX, B2_TUB_IY, B2_Z_FLOOR_B - B2_HOOK_Z0]);                             // ④ ツメの通り道
     btn2_nut_seat();   // ナットの座と M2 の通し
 }
 // ---- ナットの座（−Y の壁の中・前から差す）と M2 の通し ----
@@ -199,7 +245,7 @@ module btn2_station_add() difference() {
 B2_SEAT_D  = 4.6;   // 座の径（頭 3.8・ナットの対角 4.62 が収まる）
 B2_SEAT_HN = 0.6;   // 頭の側（−Y）。壁が 4.5° 傾くので座の径 4.6 で 0.36 の段差が出る。それを飲む深さ
 B2_SEAT_HP = 0;     // ナットの側（+Y）は六角のポケットの底そのものが平らな面なので不要
-module btn2_nut_seat() for (sx = [-1, 1]) translate([sx * msw_hole_p() / 2, 0, B2_Z_SW_BOT + B2_SW_HOLE_Z]) {
+module btn2_nut_seat() for (sx = [-1, 1]) translate([sx * msw_hole_p() / 2 + B2_SW_DX, 0, B2_Z_SW_BOT + B2_SW_HOLE_Z]) {
     translate([0, -20, 0]) rotate([-90, 0, 0]) cylinder(d = B2_BTN2_SCR_D, h = 40, $fn = 24);                 // 通し（±Y 貫通）
     // 頭が座る平らな面（−Y）。壁が末広がりで傾いているので、ねじの軸に直角なざぐりで平面を出す
     if (B2_SEAT_HN > 0) translate([0, B2_TUB_Y0 + B2_SEAT_HN, 0]) rotate([90, 0, 0])
@@ -227,22 +273,56 @@ module btn2_station_cut() {
         translate([0, 0, 0]) b2_ob(B2_DISH_L, B2_DISH_W, 0.01);
         translate([0, 0, 0.3]) b2_ob(B2_DISH_L + 0.6, B2_DISH_W + 0.6, 0.01);
     }
-    translate([0, 0, B2_Z_FLOOR_B - 0.01]) b2_ob(B2_OPN_L, B2_OPN_W, B2_FLOOR_T + 0.02);         // 床の口（首の道）
+    translate([0, 0, B2_Z_FLOOR_B - 0.01]) b2_ob(B2_OPN_L, B2_OPN_W, B2_FLOOR_T + 0.02);         // 口（腕とツメが通る。**この裏にツメが掛かる**）
     translate([-B2_TUB_IX / 2, -B2_TUB_IY / 2, B2_Z_FLG_B - B2_TRAVEL]) cube([B2_TUB_IX, B2_TUB_IY, B2_TRAVEL + B2_FLG_T + 0.01]);   // ツバの部屋（＝バスタブの中と同じ断面）
 }
 // ---- 刷る部品: 押し子 ----
 //   🔴 2026-08-29 ツバ（20 × 14）も INA226 の直立ての口に 4.79mm³ 乗っていた。天板だけ逃がしても
 //     動く側が残っていては意味がない。**同じ逃げをツバにも掛ける**（相手は同じ world の物）。
-module btn2_piston() difference() {
-    color("#8fb4d9") {
-        translate([0, 0, B2_Z_HEAD_B]) b2_ob(B2_HEAD_L, B2_HEAD_W, B2_HEAD_OUT - B2_Z_HEAD_B);      // 頭
-        translate([0, 0, B2_Z_FLOOR_B]) b2_ob(B2_OPN_L - B2_NECK_GAP * 2, B2_OPN_W - B2_NECK_GAP * 2, B2_Z_HEAD_B - B2_Z_FLOOR_B + 0.02);   // +0.02 は頭と重ねるため（面で接すると manifold が 2 個に割る）  // 首
-        translate([0, 0, B2_Z_FLG_B]) b2_ob(B2_FLG_L, B2_FLG_W, B2_FLG_T);                       // ツバ
-        translate([B2_PUSH_X, 0, B2_Z_FLG_B - B2_PAD_H])                          // レバーを押す柱
-            cylinder(d = B2_PUSH_D, h = B2_PAD_H + 0.01, $fn = 32);
+// 🔒 2026-08-30 ユーザー指示「上からケースの穴に押し込んで固定するスナップフィット。
+//   側面に小さなツメを設け、押し込んだ後はトップケースの裏側にツメが引っかかって上に抜けない」
+// ---- 腕の設計（歪みが全て）----
+//   片持ち梁の最大歪み ε = 3・y・t / (2・L²)   y=たわみ量 t=厚み L=長さ
+//   🔴 付け根を**頭の下端**に置くと L = 3.55 しか取れず、同じ y を逃がすのに ε が 3 倍になる。
+//     ⇒ 頭を殻にして、腕は**天井の裏から**生やす。L = 6.05 が取れる。
+//   ⚠ docs/PRINT.md の「プリント一体の板バネはレジン①では作れない」は**繰り返し曲がるバネ**の話。
+//     ここは差し込みの一回だけ曲がる。それでも ε は 1% 以下に抑える（下の echo が出す）。
+B2_HEAD_WALL = 1.2;                                   // 頭の殻の厚み
+B2_HEAD_CEIL = 0.8;                                   // 頭の天井の厚み
+B2_SNAP_W    = 6.0;                                   // 腕の幅（X）
+B2_SNAP_TR   = 0.55;                                  // 腕の厚み（付け根）
+B2_SNAP_TT   = 0.40;                                  // 同（先）。先を細くすると同じたわみで歪みが下がる
+B2_SNAP_CL   = 0.10;                                  // 腕の外面 ↔ 口（滑る隙間）
+B2_SNAP_CATCH = 0.35;                                 // ツメが天板の裏に掛かる量
+B2_SNAP_HH   = 1.0;                                   // ツメの背（下側は差し込みの案内に斜めへ逃がす）
+B2_SNAP_YO   = B2_OPN_W / 2 - B2_SNAP_CL;             // 3.05 腕の外面
+B2_SNAP_HY   = B2_OPN_W / 2 + B2_SNAP_CATCH;          // 3.55 ツメの外面
+B2_SNAP_ROOT = B2_HEAD_OUT - B2_HEAD_CEIL;            // 2.20 腕の付け根（天井の裏）
+B2_SNAP_L    = B2_SNAP_ROOT - B2_Z_FLOOR_B;           // 6.05 腕の長さ
+B2_SNAP_Y    = B2_SNAP_HY - B2_SNAP_YO;               // 0.50 差し込むとき腕がたわむ量
+B2_SNAP_EPS  = 3 * B2_SNAP_Y * B2_SNAP_TR / (2 * B2_SNAP_L * B2_SNAP_L) * 100;   // 最大歪み [%]
+module btn2_snap_arm() {
+    translate([-B2_SNAP_W / 2, B2_SNAP_YO - B2_SNAP_TR, B2_SNAP_ROOT - 0.01]) cube([B2_SNAP_W, B2_SNAP_TR, 0.21]);
+    hull() {                                                                        // 腕（テーパー）
+        translate([-B2_SNAP_W / 2, B2_SNAP_YO - B2_SNAP_TR, B2_SNAP_ROOT - 0.01]) cube([B2_SNAP_W, B2_SNAP_TR, 0.01]);   // 天井へ 0.2 食い込ませる（面で接すると manifold が 2 個に割る）
+        translate([-B2_SNAP_W / 2, B2_SNAP_YO - B2_SNAP_TT, B2_Z_FLOOR_B - B2_SNAP_HH]) cube([B2_SNAP_W, B2_SNAP_TT, 0.01]);
+    }
+    hull() {                                                                        // ツメ（上面が天板の裏に掛かる）
+        translate([-B2_SNAP_W / 2, B2_SNAP_YO - B2_SNAP_TT, B2_Z_FLOOR_B - 0.01]) cube([B2_SNAP_W, B2_SNAP_HY - B2_SNAP_YO + B2_SNAP_TT, 0.01]);
+        translate([-B2_SNAP_W / 2, B2_SNAP_YO - B2_SNAP_TT, B2_Z_FLOOR_B - B2_SNAP_HH]) cube([B2_SNAP_W, B2_SNAP_TT, 0.01]);
     }
 }
-module btn2_switch(press = 0) translate([0, 0, B2_Z_SW_BOT]) difference() {
+module btn2_piston() color("#8fb4d9") {
+    difference() {                                                                  // 頭（殻）
+        translate([0, 0, B2_Z_HEAD_B]) b2_ob(B2_HEAD_L, B2_HEAD_W, B2_HEAD_OUT - B2_Z_HEAD_B);
+        translate([0, 0, B2_Z_HEAD_B - 0.01])
+            b2_ob(B2_HEAD_L - B2_HEAD_WALL * 2, B2_HEAD_W - B2_HEAD_WALL * 2, B2_SNAP_ROOT - B2_Z_HEAD_B + 0.01);
+    }
+    btn2_snap_arm(); mirror([0, 1, 0]) btn2_snap_arm();                              // ツメ付きの腕 2 本
+    translate([B2_PUSH_X + B2_SW_DX, 0, B2_Z_FLG_B - B2_PAD_H])                      // レバーを押す柱
+        cylinder(d = B2_PUSH_D, h = B2_SNAP_ROOT + 0.2 - (B2_Z_FLG_B - B2_PAD_H), $fn = 32);   // 天井へ 0.2 食い込ませる（面で接すると 2 個に割れる）
+}
+module btn2_switch(press = 0) translate([B2_SW_DX, 0, B2_Z_SW_BOT]) difference() {   // 胴は受け皿のポケットに座る
     microswitch_daokai(press);
     translate([-20, -20, -msw_pin_h() - 1]) cube([40, 40, msw_pin_h() - B2_PIN_LEN + 1]);   // 詰めた端子
 }
@@ -254,7 +334,7 @@ module btn2_switch(press = 0) translate([0, 0, B2_Z_SW_BOT]) difference() {
 //   完全に塞がっている（132.6）。⇒ **頭は +Y、ナットは −Y の外**。
 // 🔒 ユーザー「ネジの長さは色々あるので」＝長さで設計を縛らない。要る掴みは下の echo が出す。
 B2_HEAD_D = 3.8; B2_HEAD_T = 1.2;
-module btn2_screws(nut_y = 0) for (sx = [-1, 1]) translate([sx * msw_hole_p() / 2, 0, B2_Z_SW_BOT + B2_SW_HOLE_Z]) {
+module btn2_screws(nut_y = 0) for (sx = [-1, 1]) translate([sx * msw_hole_p() / 2 + B2_SW_DX, 0, B2_Z_SW_BOT + B2_SW_HOLE_Z]) {
     color("#b0b0b0") {
         translate([0, B2_TUB_Y0 + B2_SEAT_HN - B2_HEAD_T, 0]) rotate([-90, 0, 0]) cylinder(d = B2_HEAD_D, h = B2_HEAD_T, $fn = 24);   // 頭（−Y・OLED 側・ざぐりの底に座る）
         translate([0, B2_TUB_Y0 + B2_SEAT_HN, 0]) rotate([-90, 0, 0]) cylinder(d = 2.0, h = (B2_TUB_Y1 - B2_SEAT_HP) - (B2_TUB_Y0 + B2_SEAT_HN), $fn = 20);   // 軸
@@ -275,7 +355,8 @@ module btn2_piston_print() translate([0, 0, B2_HEAD_OUT]) rotate([180, 0, 0]) bt
 function btn2_tub_ox()  = B2_TUB_OX;                       // 18.2 バスタブの外形 X（＝羊羹の幅にする）
 function btn2_tub_oy()  = B2_TUB_OY;
 function btn2_tub_y0()  = B2_TUB_Y0;                       // −Y の外面（local）                       // 11.2 同 Y
-function btn2_scr_x()    = msw_hole_p() / 2;                 // ±3.25 ねじの芯（ボタンの芯から）
+function btn2_scr_x()    = msw_hole_p() / 2;                 // ±3.25 ねじの芯（ボタンの芯から・B2_SW_DX ぶんずれる）
+function btn2_sw_dx()    = B2_SW_DX;
 function btn2_scr_z()    = B2_Z_SW_BOT + B2_SW_HOLE_Z;       // ねじの芯の Z（ボタンのローカル）
 function btn2_tub_z0()  = B2_Z_SW_BOT - B2_SKIRT;           // バスタブの底（同）
 function btn2_floor_z()  = B2_Z_FLOOR_B;                     // 皿の床の裏（同）＝バスタブの上端
@@ -289,18 +370,70 @@ assert(BTN2_CLICK < B2_TRAVEL, "クリックより先に皿の床へ着いてし
 assert(B2_Z_FLG_B - (B2_Z_SW_BOT + b2_lever_z(B2_FLG_L / 2)) > 0.35, "ツバがレバーに当たる（柱の出 B2_PAD_H が足りない）");
 assert(B2_HEAD_OUT < 5.5, "🔒 押し子の頭が AS5600 のつまみ（5.5）より高い");
 
-// ---- 単体で開いたときの絵 ----
-// 🔒 単体で開くと**ボタンだけ**が出る。筐体は 1 つも出ない（ユーザー「ボタンで explode したら
-//   case が出てくるんだ」）。天板は、ボタンが乗る板の切れ端だけを絵として描く。
+// ============================================================
+// 単体で開いたときの絵（🔒 CAD のスイッチは part 一本・case_v4.scad と同じ流儀）
+// ============================================================
+// 🔴 2026-08-30 このファイルだけ BTN2_SOLO / B2_EX という**別の変数体系**を持っていて、
+//   Customizer から選べず、分解も断面も一度も出していなかった。ユーザー「btn_v2.scad の part が
+//   設定できず、explode で分解を見れなかったのも大敗因です」。⇒ `part` に統一する。
+// ---- part の一覧（UI・消さない）----
+//   絵   : look（組んだ姿）/ explode（分解）/ press（クリックまで押し込んだ姿）
+//   断面 : secx（レバーの伸びる X-Z 面で切る＝てこと壁の関係が見える）
+//          secy（ねじの Y-Z 面で切る＝胴とバスタブの壁の関係が見える）
+//   ガタ : slop（胴をガタの端まで寄せた姿。中のりが胴に合っていない事がそのまま見える）
+//   部品 : p_piston（押し子）/ p_station（天板側）/ p_sw（スイッチ単体）
+//   刷る : print_piston   ← **刷る物は 1 点**
+//   none : 何も出さない
+// 🔒 単体で開くと**ボタンだけ**が出る。筐体は 1 つも出ない。天板は、ボタンが乗る板の
+//   切れ端だけを絵として描く（部品ではない）。
+// ⚠ _v4_core.scad は include で読むので、あちらが BTN2_SOLO = false を立ててこの絵を丸ごと止める。
+part = "explode";
 BTN2_SOLO = true;
-B2_EX = 0;   // 0 = 組んだ姿 / 1 = 分解（-D B2_EX=1）
-module btn2_solo() {
-    color("#c9d0d8") difference() {   // 天板の切れ端（絵のためだけ・部品ではない）
-        union() { translate([0, 0, -B2_PLATE_T]) b2_ob(B2_TUB_OX + 8, B2_DISH_W + 6, B2_PLATE_T); btn2_station_add(); }
-        btn2_station_cut(); btn2_screw_cut();
-    }
-    translate([0, 0, -B2_EX * 7]) btn2_piston();
-    translate([0, 0, -B2_EX * 17]) btn2_switch();
-    translate([0, B2_EX * 12, 0]) btn2_screws();
+
+// ---- 胴が動ける量（バスタブの中のり − 胴）。0 が「寸法で決まっている」状態 ----
+B2_SLOP_X = (B2_POCK_X - B2_SW[0]) / 2;      // 片側
+B2_SLOP_Y = (B2_POCK_Y - B2_SW[1]) / 2;      // 片側（＝ねじの軸の向き）
+B2_LEVER_TIP_X = B2_SW_HINGE_X + msw_lever_l() + B2_SW_DX;   // レバー先端の X（ボタンの芯から）
+
+module btn2_top_slice() color("#c9d0d8") difference() {   // 天板の切れ端（絵のためだけ・部品ではない）
+    union() { translate([0, 0, -B2_PLATE_T]) b2_ob(B2_TUB_OX + 8, B2_DISH_W + 6, B2_PLATE_T); btn2_station_add(); }
+    btn2_station_cut(); btn2_screw_cut();
 }
-if (BTN2_SOLO) btn2_solo();
+// ex = 分解の量／dn = 押し子が下がる量／sx, sy = 胴をガタの端へ寄せる量
+module btn2_scene(ex = 0, dn = 0, sx = 0, sy = 0) {
+    btn2_top_slice();
+    translate([0, 0, ex * 8 - dn]) btn2_piston();      // ① 上から落とす（ハット）
+    translate([sx, sy, -ex * 14]) btn2_switch(dn / B2_LEVER_RATIO);   // ③ 下から筒へ
+    translate([0, ex * 12, 0]) btn2_screws();          // ④ 横ネジ 2 本
+}
+module btn2_half(ax) difference() {
+    children();
+    if (ax == "x") translate([-50, -100, -50]) cube(100);   // −Y を落とす ⇒ −Y から見ると X-Z の断面が見える
+    else           translate([-100, -50, -50]) cube(100);   // −X を落とす ⇒ −X から見ると Y-Z の断面が見える
+}
+if (BTN2_SOLO) {
+    if (part == "look")         btn2_scene();
+    if (part == "explode")      btn2_scene(ex = 1);
+    if (part == "press")        btn2_scene(dn = BTN2_CLICK);
+    if (part == "secx")         btn2_half("x") btn2_scene();
+    if (part == "secy")         btn2_half("y") btn2_scene();
+    if (part == "slop")         btn2_half("x") btn2_scene(sx = B2_SLOP_X, sy = B2_SLOP_Y);
+    if (part == "p_piston")     btn2_piston();
+    if (part == "p_station")    btn2_top_slice();
+    if (part == "p_sw")         btn2_switch();
+    if (part == "print_piston") btn2_piston_print();
+}
+echo(str("btn_v2 ガタ: 胴 ", B2_SW[0], " x ", B2_SW[1], " ↔ ポケット ", B2_POCK_X, " x ", B2_POCK_Y,
+         " ⇒ 胴が動けるのは X ±", B2_SLOP_X, " / Y ±", B2_SLOP_Y,
+         "／レバー先端 x ", B2_LEVER_TIP_X, " ↔ 壁の内面 ±", B2_TUB_IX / 2,
+         " ⇒ 隙間 ", B2_TUB_IX / 2 - B2_LEVER_TIP_X - B2_SLOP_X));
+echo(str("btn_v2 スナップ: 腕 L ", B2_SNAP_L, " x 幅 ", B2_SNAP_W, " x 厚み ", B2_SNAP_TR, "→", B2_SNAP_TT,
+         "／差し込みでたわむ量 ", B2_SNAP_Y, "／ツメの掛かり ", B2_SNAP_CATCH,
+         "／最大歪み ", B2_SNAP_EPS, "%（差し込みの一回だけ）"));
+echo(str("btn_v2 組む順: ①押し子を上から口（", B2_OPN_L, " x ", B2_OPN_W,
+         "）へ押し込む＝ツメが天板の裏に掛かる ②スイッチを下から筒へ ③横ネジ 2 本。刷る物は押し子 1 点"));
+assert(B2_SNAP_EPS < 1.2, "腕の歪みが大きすぎる（差し込みで折れる）");
+assert(B2_SNAP_CATCH >= 0.25, "ツメの掛かりが浅すぎる");
+assert(B2_TUB_IX / 2 - B2_LEVER_TIP_X - B2_SLOP_X > 0.5, "レバーの先が壁に当たる（実機 2026-08-30）");
+assert(B2_SLOP_X <= 0.2 && B2_SLOP_Y <= 0.2, "胴がポケットの中で動く（実機 2026-08-30 ブレブレ）");
+assert(B2_NECK_GAP >= 0.35 && (B2_TUB_IY - B2_FLG_W) / 2 >= 0.35, "滑る隙間が印刷の見込みに負ける（実機 2026-08-30 落ちない）");
