@@ -157,6 +157,15 @@ module sw4_band_cut() {
     sw4_magnets(sw4_yg() - SHUT_MAG_H, SHUT_MAG_H + 0.01);                                          // 相手側の磁石の座
 }
 // ロックのネジ穴とナットの座
+// 🔒 2026-08-29 ユーザー「磁石の中央穴開けちゃえば？だって蓋で見えなくなるでしょ？周囲に枠が
+//   あればそれでいい」。彫り込み帯の残り（Y 68.6〜69.0 の **0.40mm**）は、磁石の所だけ裏の
+//   増し肉（sw4_backing）が途切れていて単独の板になり、刷ると 7.9mm² が浮いた天井になっていた。
+//   支柱を立てると 0.40mm の皮を破るので立てられない、と警告に出ていた所。
+//   ⇒ 磁石の芯に窓を開けて枠だけ残す。蓋が閉まれば見えない。φ6.1 の磁石に対して φ4.1（枠 1.0）。
+SW4_MAG_WIN_D = 4.1;
+module sw4_mag_window() for (x = sw4_mag_xs())
+    translate([x, sw4_yg() - 4.0, sw4_mag_z()]) rotate([-90, 0, 0])
+        cylinder(d = SW4_MAG_WIN_D, h = 6.0, $fn = 48);
 module sw4_lock_cut() {
     sw4_lock_bore(sw4_yg() - SHUT_LOCK_B - 2, SHUT_LOCK_B + SHUT_T + 4, SHUT_LOCK_D);
     translate([sw4_lock_x(), sw4_yg() - SHUT_LOCK_B, sw4_lock_z()]) rotate([-90, 0, 0]) rotate([0, 0, 30])

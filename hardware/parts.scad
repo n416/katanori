@@ -504,6 +504,7 @@ MSW_PIN_PITCH =  5.08;
 MSW_PIN_H     =  3.5;      // ✅ 図面
 MSW_HOLE_P    =  6.5;      // ✅ 取付穴 2 つの間隔（図面）。φ2.0 / φ2.2・胴を横に貫通
 MSW_HOLE_D    =  2.0;
+MSW_HOLE_Z    =  2.0;      // ✅ 2026-08-29 ユーザー実測（胴の底から穴の芯まで）
 MSW_LEVER_L   = 13.5;      // ✅ レバー全長（図面）。ヒンジは -X（C 端子）側
 
 function msw_size()    = [MSW_W, MSW_D, MSW_H];
@@ -519,13 +520,19 @@ function msw_lever_l() = MSW_LEVER_L;     // ✅ レバー全長（図面 13.5�
 // press: 頂点を何mm押し下げた状態で描くか（0〜5）
 module microswitch_daokai(press = 0) {
     top = max(MSW_LEVER_BOT, MSW_LEVER_TOP - press);
-    color("#2b2b2b") translate([-MSW_W / 2, -MSW_D / 2, 0])   // 胴
-        cube([MSW_W, MSW_D, MSW_H]);
+    // 🔴 2026-08-29 取付穴を開けた。**それまで胴は無垢の箱**で、ねじが横腹に刺さって見えていた
+    //   （ユーザーが explode で指摘）。穴が無い＝ねじが穴に通っているかを誰も検算できていなかった。
+    //   ✅ 図面: φ2.2（C 側）と φ2.0（NC 側）が胴を Y に貫通・穴間 6.5・芯は**胴の底から 2.0**（実測）
+    color("#2b2b2b") difference() {
+        translate([-MSW_W / 2, -MSW_D / 2, 0]) cube([MSW_W, MSW_D, MSW_H]);
+        for (sx = [-1, 1]) translate([sx * MSW_HOLE_P / 2, -MSW_D / 2 - 1, MSW_HOLE_Z])
+            rotate([-90, 0, 0]) cylinder(d = sx < 0 ? 2.2 : MSW_HOLE_D, h = MSW_D + 2, $fn = 24);
+    }
     // レバー（片端が胴の上面に留まり、反対の端が持ち上がる腕）
     // ⬜ どちらの端がヒンジかは未確認。ここでは -X 側をヒンジにしている
     // 🔴 2026-08-29 レバーは **胴の −X 端（C 端子側）が蝶番で、全長 13.5**（図面）。
     //   それまで「胴の 1mm 内から MSW_W−2 ＝ 10.8」で描いていて、先端が胴の中で終わっていた。
-    //   実際は胴（12.8）を 0.7mm 越えて外へ出る。井戸との当たりがこれで見えていなかった。
+    //   実際は胴（12.8）を 0.7mm 越えて外へ出る。バスタブとの当たりがこれで見えていなかった。
     color("#9a9a9a") translate([-MSW_W / 2, -MSW_D / 2 + 0.6, 0]) rotate([90, 0, 0])
         translate([0, 0, -(MSW_D - 1.2)])
             linear_extrude(MSW_D - 1.2)

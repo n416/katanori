@@ -38,11 +38,11 @@ W = "none";      // _v4_core の内部スイッチ（芯だけの検査 deskseat
 //   電池   : chk_shut_slide（蓋を右へずらす）/ chk_shut_out（蓋を抜く）/ chk_lock_out（ロックを後ろへ外す）/ chk_swap（電池を後ろへ抜く・v3 と同名）
 //   絵（部分）: btnslot（会話ボタンの受けに彫った溝と、そこを通る電源 2 本・INA の直立ての口）
 //              seatgap（電流計の座ぐりの断面。ネジの先 ↔ 留め帯の天板の裏＝電池の上面。SEATGAP_Y で 1 本に絞れる）
-part = "inside";
+part = "explode";
 WP = "";         // chk_wire 系で束を 1 つに: xiao / oled / as5600 / btn2 / phin / phout / ina / tgl / reed / chg（"" で全部）
 
 // ---- v4 の配置（芯と同じ式。数字を増やさない） ----
-KNOB4 = [KNOB_AT[0] - 2.5, KNOB_AT[1] + 7, KNOB_AT[2]];  // 🔒 2026-08-26 ユーザー「両方を +4 移動」＝内側（−X）へ 4（+1.5 → −2.5・T-2 の直し）   // 🔒 2026-08-25 ユーザー「つまみも 2mm 移動」で +5 → +7            // 🔒 つまみ +1.5 右・+5 後ろ（2026-08-25「少しだけ内側へ」で +3 → +1.5・⚠ 量は仮）
+KNOB4 = [KNOB_AT[0] + KNOB_DX, KNOB_AT[1] + KNOB_DY, KNOB_AT[2]];   // 🔒 送りは _v4_core.scad の KNOB_DX / KNOB_DY（1 か所）  // 🔒 2026-08-26 ユーザー「両方を +4 移動」＝内側（−X）へ 4（+1.5 → −2.5・T-2 の直し）   // 🔒 2026-08-25 ユーザー「つまみも 2mm 移動」で +5 → +7            // 🔒 つまみ +1.5 右・+5 後ろ（2026-08-25「少しだけ内側へ」で +3 → +1.5・⚠ 量は仮）
 // BTN4 / SPK4 の定義は _v4_core.scad へ移した（二重の数字を消すため・2026-08-28）
 // 🔒 2026-08-28 会話ボタンの欠きは btn_v1.scad が BTN4 からの相対で持っている。ここは world へ
 //    直す関数と、検証済みの絶対値を守る assert（つまみの k4x0() と同じ置き方）。
@@ -81,12 +81,16 @@ HUB_HOLES4 = [for (h = HUB_HOLES) [h[0] + HUB_DX, h[1] + HUB_DY]]; // ハブの�
 // 🔒 2026-08-29 ユーザー「羊羹の幅をバスタブ（スイッチの枠）と同じにしてしまえばいいのでは」
 //   ＋「一体化させてしまうと相乗効果がありますよ」＋「どこに移動したっていいですよ。前のボタンの
 //   形状だったからあの位置だっただけで」。
-//   ⇒ 羊羹は**会話ボタンの井戸と同じ X・同じ幅**にして、Y も井戸まで伸ばして 1 本の塊にする。
-//     押さえは井戸に支えられ、井戸は押さえに支えられる。ナットの座もこの塊が持つ。
+//   ⇒ 羊羹は**会話ボタンのバスタブと同じ X・同じ幅**にして、Y もバスタブまで伸ばして 1 本の塊にする。
+//     押さえはバスタブに支えられ、バスタブは押さえに支えられる。ナットの座もこの塊が持つ。
 //   🔴 数字は btn_v2.scad から**関数で読む**（逆に btn_v2.scad が筐体を読むことはしない）。
-RIB4_X = BTN4[0] - btn2_well_ox() / 2;   // 14.9
-RIB4_W = btn2_well_ox();                 // 18.2 ＝ バスタブの外形
-RIB4_Y1 = BTN4[1] - btn2_well_oy() / 2;  // 11.2 井戸の −Y の面（ここまで伸ばして一体化）
+RIB4_X = 31.0;   // 🔒 2026-08-29 ユーザー「羊羹の X 座標をずらさないとダメだよ？」（下で掃引して決める）
+RIB4_W = 6.5;    // 🔒 元の幅に戻す（幅＝バスタブは一体化の案だったが、分離したので不要）
+// 🔒 2026-08-29 ユーザー「羊羹と分離しましょう」。取付穴が胴の底から 2.0（実測）で、ナットは
+//   Z 34.92〜39.52 に来る。羊羹の底は 36.207 なので**羊羹はナットを持てない**。
+//   ⇒ ナットはボタン自身の −Y の壁が持つ（btn_v2.scad）。羊羹は元の深さに戻し、押さえに専念する。
+//   X と幅はバスタブと同じまま（🔒「羊羹の幅をバスタブと同じにしてしまえばいいのでは」）。
+RIB4_Y1 = RSP_BD_Y0 - 0.5 + respeaker_T() + 1.0;   // 10.535 元の深さ
 // 🔒 2026-08-29 **この assert は v1（タクト）の留め板のもので、退役した。**
 //   v1 の板は羊羹の逃げを「腕」（BTN_ARM_X0/X1）から引いていたので、羊羹と腕が同じ footprint で
 //   あることを見張っていた。v2 に留め板は無く、腕も無い。BTN4 も X 22 → 25 へ動いたので条件が成立しない。
@@ -385,8 +389,13 @@ module spk_rim4() translate([SPK4_X - SPK_RIM_M, SPK4_Y - SPK_RIM_M, IN_Z - SPK_
     spk_obround(SPK_L + SPK_RIM_M * 2, SPK_W + SPK_RIM_M * 2, SPK_RIM);
     translate([SPK_RIM_T, SPK_RIM_T, -1]) spk_obround(SPK_L + SPK_RIM_CL * 2, SPK_W + SPK_RIM_CL * 2, SPK_RIM + 2);
 }
+// 🔒 2026-08-29 前リブ（羊羹）は**別 module にした**。試し刷り print_btntest も同じ物を使うため。
+//   🔴 これを忘れて、試し刷りに羊羹もナットの座も入っていなかった（ユーザー「羊羹の事を
+//     わすれていませんか？」）。あのまま刷ると**ねじを受ける物が無く、組めない**。
+module rsp_rib4() translate([RIB4_X, RSP_BD_Y0 - 0.5, RSP_TOP - RSP_PRESS])
+    cube([RIB4_W, RIB4_Y1 - (RSP_BD_Y0 - 0.5), IN_Z - RSP_TOP + RSP_PRESS + 0.01]);
 module rsp_press4() {
-    translate([RIB4_X, RSP_BD_Y0 - 0.5, RSP_TOP - RSP_PRESS]) cube([RIB4_W, RIB4_Y1 - (RSP_BD_Y0 - 0.5), IN_Z - RSP_TOP + RSP_PRESS + 0.01]);   // 🔒 井戸まで伸ばして一体化
+    rsp_rib4();   // 🔒 前リブ＝羊羹（会話ボタンのバスタブと一体）。形は 1 か所（下の module）だけが持つ
     translate([ARM4_X0, RSP_BD_Y0 - 0.5, RSP_TOP - RSP_PRESS]) cube([ARM4_X1 - ARM4_X0, respeaker_T() + 1.0, IN_Z - RSP_TOP + RSP_PRESS + 0.01]);
     // 🔒 2026-08-28 ユーザー案「こういう風にくっつけた構造体にしておいた方が堅牢なんじゃないのかね」
     //   「オレンジ＋赤の X 幅を持った羊羹の形状にしろって言ったんですよ？」
@@ -403,7 +412,7 @@ module btn2_nut_cut() for (sx = [-1, 1]) translate([BTN4[0] + sx * btn2_scr_x(),
     translate([-(NUT_AF + 0.3) / 2, RSP_BD_Y0 - 1.0, -(NUT_AF + 0.3) / 2])
         cube([NUT_AF + 0.3, B2_NUT_Y_W - (RSP_BD_Y0 - 1.0) + 0.01, NUT_AF + 0.3]);   // 横から差す口（−Y へ）
 }
-module btn_station4() difference() {   // 🔒 2026-08-29 中身は v2（井戸）。名前は検査表 TOPBITS が使っている
+module btn_station4() difference() {   // 🔒 2026-08-29 中身は v2（バスタブ）。名前は検査表 TOPBITS が使っている
     btn2_at_add();
     btn2_at_cut();
 }
@@ -413,7 +422,7 @@ module top_v4() {
         union() {
             color("#c9d0d8") translate([LW_X - WALL, FY_OUT, IN_Z]) cube([IN_X + 2 * WALL - LW_X, IN_Y - FY_OUT + HATCH_T, TOP_T]);
             knob_station_add4();                                                        // つまみの座（+3, +5・v4 の欠き入り）
-            color("#c9d0d8") btn2_at_add();   // 会話ボタン v2 の井戸と皿の床（形は btn_v2.scad が持つ）
+            // 会話ボタン v2 のバスタブは**継ぎ目の外**（下の btn_station4()）。ここには置かない。
             color("#c9d0d8") spk_rim4();                                                // スピーカーの位置出しの縁
         }
         translate(KNOB4) knob_station_cut();
@@ -421,7 +430,7 @@ module top_v4() {
         //   🔒 2026-08-28 形も欠きの座標も btn_v1.scad が持つ（BTN4 からの相対）。ここは置くだけ。
         //   移設前はこの 5 つが world の生の数字（9.3 / 17.8 / 45.9 / 6.7 / 10.0 / 12.4）で
         //   直書きされていて、BTN4 を動かしても付いてこなかった。
-        btn2_at_cut(); btn2_nut_cut();
+        btn2_at_cut();
         // スピーカー: 振動板の逃げ・天面のへこみ・音の穴（v3 と同じ形を SPK4 に）
         translate([SPK4_X + (SPK_L - SPK_DIA[0]) / 2 - 0.5, SPK4_Y + (SPK_W - SPK_DIA[1]) / 2 - 0.5, IN_Z - 0.01]) spk_obround(SPK_DIA[0] + 1, SPK_DIA[1] + 1, SPK_REL + 0.01);
         // 🔒 SPK_LIFT で持ち上げた分、**枠ごと**天板に入るのでその座（逃げは振動板 15×9 の分しか無く、枠 23×15 が 0.4 食い込んでいた）。
@@ -445,7 +454,14 @@ module top_v4() {
         //    ここが天板でいちばん薄い場所だった（ユーザー「天板が削られているのがすこし気になりました」）
     }
     }
-    oled_brackets();   // OLED の L（v3 のまま。継ぎ目の外に置く）
+    // 会話ボタン v2 のバスタブと皿の床。**継ぎ目の 45° の外**に置く。
+    //   🔴 2026-08-29 これを intersection の中に入れていたので、バスタブの前下の角が
+    //      幅 18.2 のまま 3.84 × 3.84 の三角柱で斜めに削られていた（前面 Y 11.2 での
+    //      継ぎ目は Z 38.25・バスタブの底は Z 34.42）。継ぎ目 45° が切るのは**殻（天板の板）だけ**で、
+    //      中へ垂れるバスタブ・押さえ・L は切る相手ではない。
+    //   ⚠ 皿・縁・首の道は天板の板そのものも抜くので、btn2_at_cut() は上の difference にも残してある。
+    color("#c9d0d8") btn_station4();
+    oled_brackets();   // OLED の L（継ぎ目の外に置く）
     // ReSpeaker の押さえ: 前リブ（⚠ X 31.4〜37.4）と腕（⚠ X 50.0〜54.7 へ移設・全高でそのまま天井へ）。
     // 🔴 継ぎ目の 45°（Y+Z ≥ 48.454）の**外**に置く。v3 は intersection の中に入れていて、リブの Z 36.2〜40.8 が
     //    切り落とされ、押さえが ReSpeaker（頭 36.5）に届いていなかった（close_top 18.6mm³ に押さえ分が無いのはこのため）。
@@ -474,10 +490,15 @@ function k4y0() = KNOB4[1] + 13.550;
 function k4y1() = KNOB4[1] + knob_pad_y1() + 0.400;   // 🔒 2026-08-27 板が Y に対称でなくなったので端を名指し（値は 19.9 のまま）
 // 🔒 検証済みの絶対値（2026-08-25 の全配線検証で当たり 0 を出したときの座標）
 assert(abs(k4x0() - 46.904) < 0.001 && abs(k4x1() - 56.250) < 0.001, "④ の X が凍結値からずれた");   // 🔒 2026-08-26 つまみ −4 で意図的に更新（50.904/56.250 → 46.904/52.250）
-assert(abs(k4y0() - 54.350) < 0.001 && abs(k4y1() - 60.700) < 0.001, "④ の Y が凍結値からずれた");
+assert(abs(k4y0() - 55.350) < 0.001 && abs(k4y1() - 61.700) < 0.001, "④ の Y が凍結値からずれた");   // 🔒 2026-08-29 つまみ +1（KNOB_DY 7 → 8）で意図的に更新（54.350/60.700 → 55.350/61.700）
 module knob_station_add4() difference() {
     color("#c9d0d8") translate(KNOB4) knob_station_add();
-    translate([KNOB4[0] - 30, KNOB4[1] - 30, 40]) cube([60, 22.3 - (KNOB4[1] - 30), 8.5]);
+    // ① スピーカー側の欠きは**廃止**。🔒 2026-08-29 ユーザー「これならノブを後ろに下げた方がいいです」。
+    //   ⚠ 旧版は Y < 22.3 の四角い欠きだったが、**座から 1mm³ も削っていなかった**（実測 0）。
+    //     22.3 は _v4_core.scad の ROW_Y = 22.3 - 0.5 - spk_w()/2 + BTN_ROW_DY と同じ基準線で、
+    //     BTN_ROW_DY = 0 のときスピーカーの後端がその 0.5 手前に来る、という関係の名残り。
+    //   ✅ 実際の接触は **座の板の前端（KNOB4[1] + PAD_Y0）↔ スピーカーの縁の後端**。
+    //     削るのでも肉を痩せさせるのでもなく、**KNOB4 を +Y へ下げて離す**（下の KNOB_DY）。
     translate([82.1, KNOB4[1] - 30, 30]) cube([10, 60, 18.454]);
     // 🔒 2026-08-27 欠き ③ は**外した**。役目は knob_v5 の柱の座面の扇形（post_relief）へ移った。
     //   ③ は柱の座面の内側 1.93mm を帯で削り、柱から 51.016mm³（板からは 0）を落としていた。
@@ -523,6 +544,7 @@ module hatch_v4() {
         translate([TGL_AT[0] - ANT_SLOT_W / 2, IN_Y - 1, TGL_AT[1] - (ANT_OFF + ANT_SLOT_W / 2)]) cube([ANT_SLOT_W, HATCH_T + 2, ANT_OFF + ANT_SLOT_W / 2]);   // アンテナ線のスリット（トグルの下・v3）
         sw4_band_cut();        // 電池の蓋の彫り込み帯
         sw4_lock_cut();        // ロックのネジ穴とナットの座
+        sw4_mag_window();      // 🔒 2026-08-29 磁石の芯の窓（枠 1.0 を残す・蓋で隠れる）
         battery_port_cut4();   // 電池の口（蓋が塞ぐのでベベル無し・v3 と同じ）
     }
 }
@@ -628,7 +650,8 @@ if (part == "print_btntest") {
         union() {
             translate([BTN4[0] - BTNT_PAD[0] / 2, BTN4[1] - BTNT_PAD[1] / 2, IN_Z])
                 cube([BTNT_PAD[0], BTNT_PAD[1], TOP_T]);           // 天板の板（ボタンの周りだけ）
-            btn2_at_add();                                          // 井戸＋皿の床
+            btn2_at_add();                                          // バスタブ＋皿の床
+            rsp_rib4();                                             // 🔒 羊羹（ナットの座を持つ側）。本番と同じ物
         }
         btn2_at_cut();                                              // 皿・縁・首の道・ツバの部屋
     }
@@ -782,10 +805,10 @@ module keepout_top() {
         translate([0, 0, IN_Z - 1]) cylinder(d = SCR_D, h = TOP_T + 2, $fn = 24);
         translate([0, 0, Z_TOP - SCR_CBT]) cylinder(d = SCR_CB, h = SCR_CBT + 1, $fn = 32);
     }
-    btn2_keepout(); btn2_nut_cut();   // 会話ボタン v2: ツバの部屋・井戸の中・ナットの座（支柱を立てさせない）
+    btn2_keepout();   // 会話ボタン v2: ツバの部屋とバスタブの中（外から支柱を切り取れない所だけ）
     // 🔴 2026-08-28 ナットの溝と留めねじの穴。登録し忘れて、生成器が溝の天井（刷る向き 5.65）に柱を
     //    1 本立てていた（溝の中の柱はナットを塞ぐ）。cut の module をそのまま呼ぶ（🔒 数字は書かない）
-    btn2_keepout(); btn2_nut_cut();  // （同上）
+    btn2_keepout();  // （同上）
     // つまみの座: **軸の穴・留めねじとナット・リードの穴・柱の M2 とナット**だけ。
     // 🔒 皿（見える面のへこみ）と床の掘り下げは入れない。ただの広いへこみで、そこの天井は柱で支える所。
     translate(KNOB4) { knob_station_shaft_cut(); knob_station_screw_cut();
@@ -797,7 +820,10 @@ module keepout_hatch() {
     sw4_magnets(sw4_yg() - SHUT_MAG_H, SHUT_MAG_H + 0.01);   // 磁石の座
     hatch_chg_cut4();                                 // 充電の口（プラグが通る）
 }
-module keepout_bridge() { brg_anchor_cuts(); brg_up_cuts(); brgf_cuts(); tab_slots(); }   // M2 の通し穴・座ぐり・ツバの溝（帯が滑る）
+// 🔒 2026-08-29 brgf_cuts() ではなく **brgf_neck_cut() だけ**（ユーザー了承）。掘り込みは
+//   フランジが沈むだけのポケットで、ネジも軸も来ない。ここを塞いでいたせいでブリッジに柱が
+//   1 本も立たず、78mm² が無支持のままだった。
+module keepout_bridge() { brg_anchor_cuts(); brg_up_cuts(); brgf_neck_cut(); tab_slots(); }   // M2 の通し穴・座ぐり・ツバの溝（帯が滑る）
 module keepout_seat() { for (h = HUB_HOLES4) translate([h[0], h[1], -1]) cylinder(d = HUB_POST_D + 0.6, h = BOARD_Z + 1, $fn = 32); }   // ハブの柱が入る
 module keepout_strap() { }   // 留め帯は穴もねじも持たない
 
