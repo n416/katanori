@@ -781,7 +781,11 @@ module seat_hole(hy, wy, th = THETA, lift = BOARD_LIFT, wx = undef, outx = undef
     }
 }
 // 穴の世界の Y（帯のどの面が近いかを決めるのに要る）。frame は 180° 回っているので local +y ＝ 世界 −Y
-function ina_frame_y() = PAIR_Y0 + ina_size()[1];
+// 🔴 2026-08-29 ここに INA_DY が入っていなかった。ina_frame() は
+//   `PAIR_Y0 + INA_DY + ina_size()[1]` なのに、こちらは INA_DY 抜きで、**INA の穴の world Y が
+//   3.0mm ずれていた**。この関数は seat_hole / slot_ok / ナットの穴が全部読むので、
+//   今日の「差し口が無い」の判定もこのずれた座標で出していた。ina_frame() と同じ式にする。
+function ina_frame_y() = PAIR_Y0 + INA_DY + ina_size()[1];
 function pb_frame_y()  = PAIR_Y0 + ina_size()[1] + 0.5 + PB_W;
 function ina_hole_wy(hy) = ina_frame_y() - hy * cos(INA_THETA);
 function pb_hole_wy(hy)  = pb_frame_y()  - hy * cos(THETA);
@@ -845,12 +849,77 @@ module seat_hw() {   // ネジとナットの現物（検査と絵の用。strap
     for (h = pb_mount())  pb_frame()  translate([h[0], h[1], 0]) seat_bolt(h[1], pb_pcb_t(), pb_hole_wy(h[1]), THETA);
 }
 
+// ============================================================
+// 🔒 2026-08-29 ユーザー案「座のパッドを別部品（スペーサー）にして、帯面を平らにする」
+//   「ナットを落とし、上からスペーサーで蓋をする。従ってナットの差込口が不要になる」
+//
+//   それまでの座は 2 つの役を 1 つの形でやっていた:
+//     ① 板を正しい高さに上げる  ② ナットを抱く
+//   ①を別部品（スペーサー）に出し、②は帯に**上へ開いた六角の穴**として残す。
+//   ・差し口が要らない ── 6 か所のうち 3 か所は帯の幅が足りず差し口が作れていなかった
+//     （PB①は slot_ok=false で床が −0.19mm、PB③は溝 0.35mm、INA 後は 0.82mm。ナットは入らない）
+//   ・0.30mm の床が消える ── 刷る向き（天面を下）で穴は**1 層目から始まる**ので天井ができない
+//   ・帯の天面が一枚の平らな面になり、支柱が要らなくなる（実測: 接地 316mm²・無支持 0）
+//   ・ナットは締めるとスペーサーの裏に引き上げられて止まる。穴の床は荷重を持たないので貫通でよい
+// ============================================================
+SPACER_R = 2.9;   // スペーサーの外径。六角の穴（対角 4.97 → 半径 2.49）を覆う最小＋肉 0.4
+module strap_nut_holes() {   // 帯の天板を貫く六角の落とし穴（上から落とす）
+    for (h = ina_holes()) translate([ina_hole_wx(h[0]), ina_hole_wy(h[1]), BAT_TOP - 0.01])
+        rotate([0, 0, 30]) hex_pocket(STRAP_T + 0.02);
+    for (h = pb_mount())  translate([pb_hole_wx(h[0]),  pb_hole_wy(h[1]),  BAT_TOP - 0.01])
+        rotate([0, 0, 30]) hex_pocket(STRAP_T + 0.02);
+}
+module strap_screw_thru() {   // M2 の通し（スペーサーと帯を貫く。ナットの穴と同軸）
+    for (h = ina_holes()) translate([ina_hole_wx(h[0]), ina_hole_wy(h[1]), BAT_TOP - 1])
+        cylinder(d = SCR_D, h = 20, $fn = 24);
+    for (h = pb_mount())  translate([pb_hole_wx(h[0]),  pb_hole_wy(h[1]),  BAT_TOP - 1])
+        cylinder(d = SCR_D, h = 20, $fn = 24);
+}
+// スペーサー（別部品・6 個）。下面は水平（帯の天面に座る）、上面は板の裏で切るので板と同じ傾き
+module spacer_blank(th, H) seat_vert(th) translate([0, 0, -H - 2]) cylinder(r = SPACER_R, h = H + 4, $fn = 48);
+// 🔴 2026-08-29 上面を board_under()（2 枚の和）で切ると、INA の下のスペーサーが**傾いた PB の裏**
+//   まで伸びる（INA は PB の下へ潜っているので footprint が重なる）。**自分の板だけ**で切る。
+//   🔴 板の footprint（箱）で切ると、縁に近い穴のスペーサーが**平面的にも**切られて欠ける
+//     （INA の穴は板の縁から 2.25mm で、r2.9 だと 2.74mm の三日月になっていた）。
+//     切りたいのは**上面だけ**なので、板の面より下の半空間で切る。
+module ina_under(h = 40)  ina_frame() translate([-200, -200, -h]) cube([400, 400, h]);
+module pb_under(h = 40)   pb_frame()  translate([-200, -200, -h]) cube([400, 400, h]);
+module spacers_v4() color("#9ad0ec") difference() {
+    union() {
+        intersection() {
+            union() for (h = ina_holes()) ina_frame() translate([h[0], h[1], 0])
+                spacer_blank(INA_THETA, seat_d(h[1], INA_THETA, INA_LIFT));
+            ina_under();
+        }
+        intersection() {
+            union() for (h = pb_mount()) pb_frame() translate([h[0], h[1], 0])
+                spacer_blank(THETA, seat_d(h[1], THETA, BOARD_LIFT));
+            pb_under();
+        }
+    }
+    translate([-100, -100, -200]) cube([400, 400, 200 + BAT_TOP + STRAP_T]);    // 帯の天面より下は落とす
+    strap_screw_thru();
+}
+function spacer_xy(i) = i < 2
+    ? [ina_hole_wx(ina_holes()[i][0]), ina_hole_wy(ina_holes()[i][1])]
+    : [pb_hole_wx(pb_mount()[i - 2][0]), pb_hole_wy(pb_mount()[i - 2][1])];
+function spacer_h(i) = i < 2
+    ? seat_d(ina_holes()[i][1], INA_THETA, INA_LIFT) - STRAP_T
+    : seat_d(pb_mount()[i - 2][1], THETA, BOARD_LIFT) - STRAP_T;
+module spacer_one(i) intersection() {   // i 番目だけ取り出す（刷る用）
+    spacers_v4();
+    // 箱は外径ぴったり。±6 にしていたら隣のスペーサーの角を拾って 8.90mm の塊になっていた
+    translate([spacer_xy(i)[0] - SPACER_R - 0.2, spacer_xy(i)[1] - SPACER_R - 0.2, -100])
+        cube([2 * SPACER_R + 0.4, 2 * SPACER_R + 0.4, 300]);
+}
+
 module straps_v4() color("#ed8936") difference() {
-    union() { for (s = STRAP_BANDS) strap_u(s[0], s[1]); seats_v4(); slot_outer_walls(); }
+    union() { for (s = STRAP_BANDS) strap_u(s[0], s[1]); }
     // 🔴 2026-08-25 皮の検査（strappb 2mm³）: PB の 8 ピン列の足（板の裏に 1.0）が C の天板に 1.02 刺さる
     //    → 足の列の逃げ溝（X 19.8〜38.8・Y 57.56〜・深さ 1.35・残り 0.65 ⚠）
     translate([19.8, 57.56, BAT_Z + lipo_size()[2] + STRAP_T - 1.35]) cube([19.0, 1.2, 1.4 + BOARD_LIFT]);   // 🔴 板を 0.5 上げた分だけ足の位置も上がる（床の残り 0.65 は据え置き）
-    seat_screws();
+    strap_nut_holes();
+    strap_screw_thru();
 }
 
 // ---- 配線（2026-08-25〜）: 電源系から。線は 1.5 角の箱の連結（直角のみ）。⚠ 経路は仮・見て判断する用 ----

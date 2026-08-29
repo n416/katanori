@@ -22,7 +22,11 @@ KNOB = 'knob_v5.scad'
 PARTS = [(k, CASE, 'print_%s' % k) for k in
          ['floor', 'lwall', 'rwall', 'top', 'front', 'hatch', 'shutter', 'lock', 'tail',
           'bridge', 'brgfront', 'strap_a', 'strap_b', 'strap_c', 'piston',
-          'seat']] + [   # seat = 充電基板の受け（2026-08-27・D-1 で床から独立した部品になった）
+          'seat',
+          # スペーサー 6 個（2026-08-29）。帯のナット穴に上から蓋をして、板の座の高さを稼ぐ。
+          # 帯の天板を平らにするために座のパッドを別部品にした結果で、ナットは帯へ落とし込む。
+          'spacer_0', 'spacer_1', 'spacer_2', 'spacer_3', 'spacer_4', 'spacer_5',
+          ]] + [   # seat = 充電基板の受け（2026-08-27・D-1 で床から独立した部品になった）
     ('knob',     KNOB, 'knob'),   # つまみ本体（φ27 ＋ 軸 φ7）
     ('knobwall', KNOB, 'wall'),   # つまみの島（座金＋タブ）
 ]

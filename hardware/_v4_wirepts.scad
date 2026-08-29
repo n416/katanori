@@ -1,7 +1,9 @@
 include <_v4_core.scad>
 // 📦 §9 の線の両端を機械で取るための探針（bbox 取り用・手写し防止）。W="none" で使う
 P = "";
-module inai2c_probe() translate([INA_DX + BAT_X0 + (lipo_size()[1] - ina_size()[0]) / 2 + ina_size()[0], PAIR_Y0 + ina_size()[1], BAT_TOP + STRAP_T]) rotate([-THETA, 0, 0]) rotate([0, 0, 180]) ina_hdr_ra();
+// 🔴 2026-08-29 ここは ina_frame() の 4 つ目の写しだった。INA_DY が抜け、傾きも PB の THETA を
+//   使っていたので、INA から出る線の起点が 3mm ずれていた。写しをやめて ina_frame() を呼ぶ。
+module inai2c_probe() ina_frame() ina_hdr_ra();
 // 🔒 2026-08-28 USB は L 字に揃えたので、探針は挿さる DuPont そのもの（旧: 直ピン pb_usb_pin_header の頭）
 module pbusb_probe()  pbu_hous();
 if (P == "xiao")   xiao_hous();

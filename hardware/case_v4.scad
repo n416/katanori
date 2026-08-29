@@ -577,7 +577,7 @@ module skin_all() for (k = SKINS) skin1(k);
 module skin_except(k) for (n = SKINS) if (n != k) skin1(n);
 // 🆕 2026-08-27（D-1）受けは印刷部品だが皮（SKINS）でも芯（core）でもないので、ここで箱の中身に混ぜる。
 //    こうしないと chk_floor / chk_lwall / chk_all が受けを一度も見ない
-module innards4(tgl = 0) { core(); color("#f6ad55") bat_v4(); pb_bat(); pbl_hous(); pbu_hous(); ina_bat(); tgl_v4(tgl); if (tgl != 0) tail_at(); tcb_v4(); color("#8d99a6") tc_seat4(); brg_v4(); brg_front(); straps_v4(); wires_pwr(); wires_sig(); door4(0, tgl != 0); }   // tgl: レバーの角度。絵は TAIL_ANG ＋ 尻尾＋蓋のビスの絵付き。door4 = 電池の蓋一式（閉）
+module innards4(tgl = 0) { core(); color("#f6ad55") bat_v4(); pb_bat(); pbl_hous(); pbu_hous(); ina_bat(); tgl_v4(tgl); if (tgl != 0) tail_at(); tcb_v4(); color("#8d99a6") tc_seat4(); brg_v4(); brg_front(); straps_v4(); spacers_v4(); wires_pwr(); wires_sig(); door4(0, tgl != 0); }   // tgl: レバーの角度。絵は TAIL_ANG ＋ 尻尾＋蓋のビスの絵付き。door4 = 電池の蓋一式（閉）
 
 if (part == "look") { rounded4() skin_all(); innards4(TAIL_ANG); }
 OPEN = ["floor", "lwall", "rwall", "top"];   // 🔒 2026-08-25 ユーザー「inside は本来 壁なし・床なし・天井なし（v3 から壊れてた）」。残すのはフロントとハッチ
@@ -596,7 +596,7 @@ for (k = P_NAMES) if (part == str("p_", k)) p_one(k);
 // 🔒 v3 と同じ名前（2026-08-25 ユーザー）。芯の _v4_core にある板なので p_ は付けない・角丸も無し・刷る向きは ⬜ 未決（CASE-V4 §10）
 // 🔒 2026-08-25 ユーザー「バッテリー、電流計、PowerBoost、左右の壁、結束バンドは必要です」: ブリッジは単体では判断できないので一緒に出す
 if (part == "bridge") {
-    brg_v4(); brg_front(); straps_v4(); brg_hw();   // brg_hw = 箱へ留める M2×6 とナットの現物（3 か所）
+    brg_v4(); brg_front(); straps_v4(); spacers_v4(); brg_hw();   // brg_hw = 箱へ留める M2×6 とナットの現物（3 か所）
     color("#f6ad55") bat_v4(); ina_bat(); pb_bat();
     rounded4() { skin1("lwall"); skin1("rwall"); }
 }
@@ -679,7 +679,8 @@ if (part == "plate") plate_all();
 
 // ---- 2026-08-26 ここから 5 点（ブリッジ・留め帯 A/B/C・会話ボタンのキャップ）----
 //   それまで STL の出口が無く、刷れるのは板 9 点だけだった（CASE-V4-OPEN A-2）。
-// 帯は 3 本が別々の部品。straps_v4() は 3 本＋座を一度に作るので、Y で 1 本ぶんだけ切り出す
+// 帯は 3 本が別々の部品。straps_v4() は 3 本を一度に作るので、Y で 1 本ぶんだけ切り出す
+//   🔒 2026-08-29 座（スペーサー）は別部品になったので、ここには入れない
 //   （座・ナットの横穴・PB の足の逃げ溝も、その帯に属するぶんだけ一緒に出る）
 // 🔒 2026-08-26 ツバ（TAB_*）は帯の Y の外へ出るので、切り出しはツバ込みの端（strap_ya/strap_yb）で取る
 module strap_one(s) intersection() {
@@ -692,9 +693,22 @@ module strap_one(s) intersection() {
 //   出るため 1 層目がツバだけの島になり、その上で断面が宙に浮く。もう使えない。
 //   ⚠ この向きでは天板が足と足の間（X 15〜51 ＝ 36）を渡る。支えは要らないがブリッジになる。
 module strap_print(s) translate([0, 0, -BAT_Z]) strap_one(s);
-if (part == "print_strap_a") { strap_print(STRAP_BANDS[0]); if (!PROPS_OFF) { props_strap_a(); raft_strap_a(); } }
-if (part == "print_strap_b") { strap_print(STRAP_BANDS[1]); if (!PROPS_OFF) { props_strap_b(); raft_strap_b(); } }
-if (part == "print_strap_c") { strap_print(STRAP_BANDS[2]); if (!PROPS_OFF) { props_strap_c(); raft_strap_c(); } }
+// 🔒 2026-08-29 帯は**天面（板が載る面）を下**にして刷る（ユーザー「印刷はじめの面を帯表面に」）。
+//   座がスペーサーへ出て天面が一枚の平らな面になったので、これで接地 316mm²・無支持 0・支柱 0 になる。
+//   ナットの落とし穴は 1 層目から始まるので天井ができない。⚠ 旧版（組んだ姿勢のまま）は足の先で
+//   点立ちし、天面が 240mm² の無支持だった。
+module strap_print_flip(s) translate([0, 0, BAT_TOP + STRAP_T]) rotate([180, 0, 0]) strap_one(s);
+// スペーサー 6 個。下面（帯に座る面）を下にして刷る。上面は板と同じ傾きなので庇にならない
+module spacer_print(i) translate([-spacer_xy(i)[0], -spacer_xy(i)[1], -(BAT_TOP + STRAP_T)]) spacer_one(i);
+if (part == "print_spacer_0") spacer_print(0);
+if (part == "print_spacer_1") spacer_print(1);
+if (part == "print_spacer_2") spacer_print(2);
+if (part == "print_spacer_3") spacer_print(3);
+if (part == "print_spacer_4") spacer_print(4);
+if (part == "print_spacer_5") spacer_print(5);
+if (part == "print_strap_a") { strap_print_flip(STRAP_BANDS[0]); if (!PROPS_OFF) { props_strap_a(); raft_strap_a(); } }
+if (part == "print_strap_b") { strap_print_flip(STRAP_BANDS[1]); if (!PROPS_OFF) { props_strap_b(); raft_strap_b(); } }
+if (part == "print_strap_c") { strap_print_flip(STRAP_BANDS[2]); if (!PROPS_OFF) { props_strap_c(); raft_strap_c(); } }
 // キャップ: 閉じている天面をベッドに伏せる（うつ伏せ）。中の空洞と押し棒が上を向くので支えは要らない
 //   （棒の先の返り φ5 × 0.8 だけが庇になる）。z_top = Z_TOP + BTN_OUT
 // 🔒 2026-08-29 v2 の押し子。頭を下（皿の面をベッド）に置く。首とツバは上に開くので支柱が要らない
@@ -833,16 +847,20 @@ module keepout_seat() { for (h = HUB_HOLES4) translate([h[0], h[1], -1]) cylinde
 //   基板の取付ネジの通し穴とナットの座（seat_screws）を持っている。そのため**ネジ穴の中に
 //   柱が立っていた**（帯 A で 2.91mm³・ユーザーが CHITUBOX で発見）。折っても取れないし、
 //   取れてもネジとナットが入らない。ブリッジの keepout（入れすぎ）と逆の間違い。
-module keepout_strap() { seat_screws(); }
+//   🔒 2026-08-29 座がスペーサーへ出たので、帯に残る穴は「ナットの落とし穴」と「M2 の通し」。
+module keepout_strap() { strap_nut_holes(); strap_screw_thru(); }
 
 // 刷る向きへ（それぞれ print_<部品> と同じ変換）。_v4_props.py が -D part="keepout_<部品>" で焼く
 module keepout_print_top()      translate([0, 0, Z_TOP]) rotate([180, 0, 0]) keepout_top();
 module keepout_print_hatch()    translate([0, 0, IN_Y + HATCH_T]) rotate([-90, 0, 0]) keepout_hatch();
 module keepout_print_bridge()   translate([0, 0, -(BAT_Z - BRG_T)]) keepout_bridge();
 module keepout_print_seat()     translate([TC4_ZT, 0, -LW_X]) rotate([0, -90, 0]) keepout_seat();
-module keepout_print_strap_a()  translate([0, 0, -BAT_Z]) keepout_strap();
-module keepout_print_strap_b()  translate([0, 0, -BAT_Z]) keepout_strap();
-module keepout_print_strap_c()  translate([0, 0, -BAT_Z]) keepout_strap();
+// 🔴 2026-08-29 帯を**天面を下にして伏せて刷る**（strap_print_flip）ようにしたのに、
+//   keepout だけ古い `translate([0,0,-BAT_Z])` のままで裏返しに付いてこなかった。
+//   ネジ穴の keepout が実物と上下逆の場所に立っていたことになる。同じ変換にする。
+module keepout_print_strap_a()  translate([0, 0, BAT_TOP + STRAP_T]) rotate([180, 0, 0]) keepout_strap();
+module keepout_print_strap_b()  keepout_print_strap_a();
+module keepout_print_strap_c()  keepout_print_strap_a();
 for (k = ["top", "hatch", "bridge", "seat", "strap_a", "strap_b", "strap_c"])
     if (part == str("keepout_", k)) {
         if (k == "top")     keepout_print_top();
@@ -913,7 +931,7 @@ if (part == "btnslot") {
 //   橙＝留め帯と座／灰＝M2×4 の頭と軸／濃灰＝ナット／赤＝INA226 の板／黄＝電池。
 SEATGAP_Y = 0;   // 0 = 2 本とも / 34.02 か 18.42 で 1 本だけ
 module seatgap_slice() intersection() {
-    union() { straps_v4(); seat_hw(); ina_bat(); color("#f6ad55") bat_v4(); }
+    union() { straps_v4(); spacers_v4(); seat_hw(); ina_bat(); color("#f6ad55") bat_v4(); }
     translate([20.0, SEATGAP_Y == 0 ? -5 : SEATGAP_Y - 6, 26]) cube([2.4, SEATGAP_Y == 0 ? 85 : 12, 22]);
 }
 if (part == "seatgap") seatgap_slice();
@@ -926,7 +944,7 @@ if (part == "seatgap") seatgap_slice();
 //      受け ↔ 枠は 0.25 逃げているので 0 が正。受けの底面と床の上面は面で接するだけ（体積は出ない）。
 if (part == "chk_tc") intersection() {
     union() { tc_seat4(); brg_tc_press(); }
-    union() { core(); tcb_v4(); bat_v4(); pb_bat(); pbl_hous(); pbu_hous(); ina_bat(); straps_v4();
+    union() { core(); tcb_v4(); bat_v4(); pb_bat(); pbl_hous(); pbu_hous(); ina_bat(); straps_v4(); spacers_v4();
               wires_pwr(); wires_sig(); door4(); difference() { lwall_v4(); brg_tc_press(); }
               floor_v4(); rwall_v4(); top_v4(); front_v4(); hatch_v4(); }
 }
@@ -990,7 +1008,7 @@ if (part == "close_rwall") intersection() { union() for (t = [0 : STEP : 30]) tr
 //     右の前の棚が通り抜ける分。この 2 本はスピーカー（天面の部品）に付いたまま最後に降りてくるので、
 //     壁を降ろす時点では箱に居ない。低い車線に居るのは口から壁ぎわまでの Z 19.5 の区間だけで、そこは 0
 // 天面と一緒に降りる物（島・コネクタ・スピーカー・タクト・傘 = core の top_group）は動く側。障害物に入れない
-module stage_top() { lower_group(); brg_v4(); brg_front(); bat_v4(); pb_bat(); ina_bat(); straps_v4(); pbl_hous(); pbu_hous();
+module stage_top() { lower_group(); brg_v4(); brg_front(); bat_v4(); pb_bat(); ina_bat(); straps_v4(); spacers_v4(); pbl_hous(); pbu_hous();
                      wires_pwr(); wires_sig(); floor_v4(); lwall_v4(); rwall_v4(); }
 if (part == "close_top") difference() { intersection() { union() for (t = [0 : STEP : 25]) translate([0, 0, t]) { top_v4(); top_group(); }
                                           stage_top(); } rsp_press_zone(); }   // 押し代は除外。
@@ -1004,7 +1022,7 @@ if (part == "close_top") difference() { intersection() { union() for (t = [0 : S
 if (part == "close_front") intersection() { union() for (t = [0 : STEP : 20]) translate([0, -t, 0]) front_v4();
                                             union() { stage_noskin(); lwall_v4(); rwall_v4(); top_v4(); } }
 if (part == "close_hatch") intersection() { union() for (t = [0 : STEP : 20]) translate([0, t, 0]) { hatch_v4(); tgl_v4(); door4(); }
-                                            union() { core(); bat_v4(); pb_bat(); pbl_hous(); pbu_hous(); ina_bat(); tcb_v4(); brg_v4(); brg_front(); straps_v4(); wires_pwr(); wires_sig(); floor_v4(); lwall_v4(); rwall_v4(); top_v4(); front_v4(); } }
+                                            union() { core(); bat_v4(); pb_bat(); pbl_hous(); pbu_hous(); ina_bat(); tcb_v4(); brg_v4(); brg_front(); straps_v4(); spacers_v4(); wires_pwr(); wires_sig(); floor_v4(); lwall_v4(); rwall_v4(); top_v4(); front_v4(); } }
 // 充電基板の入れ方（🆕 2026-08-25）。**左の壁の内面に当てて、壁と一緒に降ろす**。デュポンはまだ挿していない
 //   🔴 壁より先に立てることは出来ない: 板の裏を受ける面が左壁の内面そのものなので、壁が無いと −X 側へ倒れる。
 //   🔴 壁より後に真上から落とすことも出来ない: 天面の後ろ左のボス（左壁の一部・X 1.694〜・Y 64〜72・Z 38〜48）が
@@ -1020,15 +1038,15 @@ if (part == "close_desk") intersection() { union() for (t = [0 : STEP : 30]) tra
 // 線の検査（core の wchk/wwchk と同じ中身。WP で 1 束に絞る）
 if (part == "chk_wire")   intersection() { wsel(); wire_obst(); }
 if (part == "chk_wire_w") intersection() { wsel(); union() { wires_pwr(); if (WP != "") wsig_except(); } }
-if (part == "chk_wire_pwr") intersection() { wires_pwr(); union() { core(); bat_v4(); pb_bat(); pbl_hous(); pbu_hous(); ina_bat(); tgl_v4(); tcb_v4(); brg_v4(); brg_front(); straps_v4(); skin_all(); door4(); } }
+if (part == "chk_wire_pwr") intersection() { wires_pwr(); union() { core(); bat_v4(); pb_bat(); pbl_hous(); pbu_hous(); ina_bat(); tgl_v4(); tcb_v4(); brg_v4(); brg_front(); straps_v4(); spacers_v4(); skin_all(); door4(); } }
 
 // 電池の入れ替えの動き: ロックを外す → 蓋を右へずらす → 蓋を後ろへ抜く → JST を抜く → 電池を後ろへ抜く
-module world_no_door() { core(); bat_v4(); pb_bat(); pbl_hous(); pbu_hous(); ina_bat(); tgl_v4(); tcb_v4(); brg_v4(); brg_front(); straps_v4(); wires_pwr(); wires_sig(); skin_all(); }
+module world_no_door() { core(); bat_v4(); pb_bat(); pbl_hous(); pbu_hous(); ina_bat(); tgl_v4(); tcb_v4(); brg_v4(); brg_front(); straps_v4(); spacers_v4(); wires_pwr(); wires_sig(); skin_all(); }
 // 🆕 2026-08-27（11 度目の机上の通し）: ここは w_batin を**丸ごと**障害物から外していた。
 //   実物には外れる所が無かったので、それは「検査が穴を隠していた」だけだった。
 //   🔒 ユーザー「後ろの 8.35mm にコネクタ対を置きましょ」でコネクタが入ったので、外すのは
 //   **電池側（タブの線 2 本＋嵌合したコネクタ）だけ**。箱に残る延長（w_bat_ext）は障害物に入れる
-module world_no_door_bat() { core(); pb_bat(); pbl_hous(); pbu_hous(); ina_bat(); tgl_v4(); tcb_v4(); brg_v4(); brg_front(); straps_v4(); w_pwr3(); w_bat_ext(); w_batout(); wires_sig(); skin_all(); }
+module world_no_door_bat() { core(); pb_bat(); pbl_hous(); pbu_hous(); ina_bat(); tgl_v4(); tcb_v4(); brg_v4(); brg_front(); straps_v4(); spacers_v4(); w_pwr3(); w_bat_ext(); w_batout(); wires_sig(); skin_all(); }
 if (part == "chk_shut_slide") intersection() { union() for (t = [0 : 0.5 : SHUT_SLIDE]) translate([t, 0, 0]) battery_shutter4(0); world_no_door(); }   // 🔴 2026-08-26 下 → 右
 if (part == "chk_lock_out")    intersection() { union() for (t = [0 : STEP : 20]) translate([0, t, 0]) battery_lock4(); union() { world_no_door(); battery_shutter4(0); } }   // ロックはビスを抜いて後ろへ外す（蓋より先）
 if (part == "chk_shut_out")   intersection() { union() for (t = [0 : STEP : 20]) translate([0, t, 0]) battery_shutter4(1); world_no_door(); }
@@ -1074,7 +1092,10 @@ if (part == "explode") {
     translate([EX4, 0, EZ_WALL])  rounded4() rwall_v4();
     translate([0, 0, EZ_BRGF])    brg_front();                                          // 前板（先に床の溝へ差す）
     translate([0, 0, EZ_BRG])     brg_v4();                                             // ブリッジ（掘り込みが前板のフランジに被さる）
-    translate([EX_STRAP, 0, EZ_STRAP]) straps_v4();                                     // 留め帯 3 本（実際は横から差す・手順 6）
+    // 🔴 2026-08-29 ここは `translate(...) straps_v4(); spacers_v4();` と書いていて、translate が
+    //   帯にしか掛からず、スペーサーだけ組み上がりの位置に取り残されていた。同じ括りへ入れる。
+    //   スペーサーは帯へ落としたナットの蓋なので、帯より少し上へ離す（順番は 帯 → ナット → 蓋）。
+    translate([EX_STRAP, 0, EZ_STRAP]) { straps_v4(); translate([0, 0, 8]) spacers_v4(); }   // 留め帯 3 本＋蓋 6 個（実際は横から差す・手順 6）
     translate([0, EY_BAT, EZ_BAT]) color("#f6ad55") bat_v4();                           // 電池（ハッチ口から差す・図の一番外側）
     translate([0, 0, EZ_BOARD]) { pb_bat(); ina_bat(); }                                // 帯の天面に載る 2 枚
     translate([0, 0, EZ_TOP]) { rounded4() top_v4(); top_spk(); }                       // 天板＋スピーカー（両面テープで天板と一体）

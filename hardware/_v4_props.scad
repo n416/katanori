@@ -25,19 +25,11 @@ module raft_bridge() difference() {
     // 部品がプレートに着く足の周り 0.5 を空ける（手本のラフト ↔ ピンの隙間 0.4 と同等）
     translate([0, 0, -0.1]) linear_extrude(0.6) offset(r = 0.5) projection(cut = true) translate([0, 0, -0.15]) translate([0, 0, -(BAT_Z - BRG_T)]) brg_v4();
 }
-module props_strap_a() { one_prop(13.13, 19.81, 0.00, 6.00); one_prop(15.47, 17.81, 0.00, 6.00); one_prop(24.27, 17.81, 0.00, 6.00); one_prop(28.02, 18.00, 0.00, 6.00); one_prop(31.04, 17.78, 0.00, 6.00); one_prop(34.18, 17.69, 0.00, 6.00); one_prop(37.34, 17.81, 0.00, 6.00); one_prop(41.74, 17.81, 0.00, 6.00); one_prop(44.88, 19.50, 0.00, 6.00); one_prop(42.40, 22.01, 0.00, 6.00); one_prop(38.01, 22.06, 0.00, 6.00); one_prop(33.61, 22.06, 0.00, 6.00); one_prop(31.02, 22.10, 0.00, 6.00); one_prop(27.58, 22.08, 0.00, 6.00); one_prop(24.10, 22.31, 0.00, 6.00); one_prop(18.27, 22.06, 0.00, 6.00); one_prop(15.62, 22.06, 0.00, 6.00); one_prop(25.13, 20.06, 0.00, 6.00); one_prop(35.88, 20.06, 0.00, 6.00); one_prop(17.63, 19.56, 0.00, 6.00); one_prop(18.63, 17.31, 0.00, 6.00); one_prop(21.13, 17.31, 0.00, 6.00); one_prop(44.13, 17.06, 0.00, 6.00); one_prop(13.38, 23.06, 0.00, 6.00); one_prop(44.63, 23.06, 0.00, 6.00); one_prop(35.88, 23.31, 0.00, 6.00); }
-module raft_strap_a() difference() {
-    linear_extrude(0.3) union() { translate([25.13, 20.06]) circle(d = PROP_D2, $fn = 16); translate([35.88, 20.06]) circle(d = PROP_D2, $fn = 16); translate([17.63, 19.56]) circle(d = PROP_D2, $fn = 16); }
-    // 部品がプレートに着く足の周り 0.5 を空ける（手本のラフト ↔ ピンの隙間 0.4 と同等）
-    translate([0, 0, -0.1]) linear_extrude(0.6) offset(r = 0.5) projection(cut = true) translate([0, 0, -0.15]) strap_print(STRAP_BANDS[0]);
-}
-module props_strap_b() { one_prop(13.13, 37.56, 0.00, 6.00); one_prop(14.82, 35.56, 0.00, 6.00); one_prop(18.69, 35.56, 0.00, 6.00); one_prop(23.30, 35.56, 0.00, 6.00); one_prop(25.89, 35.31, 0.00, 6.00); one_prop(28.92, 35.60, 0.00, 6.00); one_prop(31.94, 35.56, 0.00, 6.00); one_prop(35.53, 35.56, 0.00, 6.00); one_prop(39.39, 35.56, 0.00, 6.00); one_prop(43.26, 35.60, 0.00, 6.00); one_prop(41.29, 39.81, 0.00, 6.00); one_prop(38.42, 39.81, 0.00, 6.00); one_prop(34.57, 39.64, 0.00, 6.00); one_prop(31.88, 39.56, 0.00, 6.00); one_prop(29.04, 39.56, 0.00, 6.00); one_prop(26.13, 39.97, 0.00, 6.00); one_prop(23.00, 40.06, 0.00, 6.00); one_prop(19.38, 39.81, 0.00, 6.00); one_prop(15.51, 39.81, 0.00, 6.00); one_prop(24.38, 37.81, 0.00, 6.00); }
-module raft_strap_b() difference() {
-    linear_extrude(0.3) union() { translate([24.38, 37.81]) circle(d = PROP_D2, $fn = 16); }
-    // 部品がプレートに着く足の周り 0.5 を空ける（手本のラフト ↔ ピンの隙間 0.4 と同等）
-    translate([0, 0, -0.1]) linear_extrude(0.6) offset(r = 0.5) projection(cut = true) translate([0, 0, -0.15]) strap_print(STRAP_BANDS[1]);
-}
-module props_strap_c() { one_prop(16.15, 54.21, 0.00, 6.00); one_prop(20.46, 54.21, 0.00, 6.00); one_prop(24.16, 54.09, 0.00, 6.00); one_prop(27.38, 54.01, 0.00, 6.00); one_prop(30.90, 54.03, 0.00, 6.00); one_prop(33.30, 54.21, 0.00, 6.00); one_prop(37.62, 54.21, 0.00, 6.00); one_prop(41.45, 55.08, 0.00, 6.00); one_prop(38.17, 56.96, 0.00, 6.00); one_prop(33.85, 56.96, 0.00, 6.00); one_prop(30.82, 56.94, 0.00, 6.00); one_prop(27.58, 56.98, 0.00, 6.00); one_prop(24.30, 57.04, 0.00, 6.00); one_prop(20.18, 56.96, 0.00, 6.00); one_prop(15.87, 56.96, 0.00, 6.00); one_prop(13.38, 57.21, 0.00, 6.00); }
+module props_strap_a() {  }
+module raft_strap_a() {}
+module props_strap_b() {  }
+module raft_strap_b() {}
+module props_strap_c() {  }
 module raft_strap_c() {}
 module props_seat() { one_prop(0.13, 63.56, 0.00, 1.85); one_prop(2.63, 63.56, 0.00, 1.85); one_prop(5.13, 63.56, 0.00, 1.85); one_prop(7.63, 63.56, 0.00, 1.85); one_prop(10.13, 63.56, 0.00, 1.85); one_prop(12.63, 63.56, 0.00, 1.85); one_prop(15.13, 63.56, 0.00, 1.85); one_prop(17.63, 63.56, 0.00, 1.85); }
 module raft_seat() {}
