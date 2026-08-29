@@ -47,6 +47,7 @@ RAFT_LINK = PITCH + 0.6   # ラフトで繋ぐ柱どうしの上限距離
 #   ラフト側に分類されると、**その 2 点を結ぶ棒**になり、部品の footprint を引いた残りが
 #   会話ボタンの首の口を横切る膜として残った（ユーザー「なんか変な事になってませんか」）。
 #   ⇒ 各柱の下に円を置き、**RAFT_LINK より近い柱どうしだけ**を繋ぐ。輪ならラフトも輪になる。
+DBG = os.environ.get('PROPDBG') == '1'
 PARTS = ['top', 'hatch', 'bridge', 'strap_a', 'strap_b', 'strap_c', 'seat']
 # 🔒 2026-08-28 ユーザー「その支柱はいらない。過去にノブでその形状はなにも無くても印刷できるの分かってる」。
 #    ここに挙げた（部品, 天井の高さ）には柱もヒレも立てない。**実機の実績が検査の判定より優先する。**
@@ -407,11 +408,23 @@ for part in PARTS:
                     if closed:
                         n = max(1, int(L // PITCH))
                         if L / n > 2 * REACH: n = int(math.ceil(L / (2 * REACH)))
-                        step = L / n
                     else:
                         n = max(2, int(L // PITCH) + 1)
                         if L / (n - 1) > 2 * REACH: n = int(math.ceil(L / (2 * REACH))) + 1
-                        step = L / (n - 1)
+                    # 🔴 2026-08-29 本数は**弧長**で決めていたが、胴が接するかどうかを決めるのは**弦**。
+                    #   曲がった輪では弦のほうが短いので、弧で 2.4 でも実距離が 2.12 まで詰まっていた。
+                    #   ⇒ 実際に置く点の**いちばん近い弦**が PITCH を割るなら、本数を 1 減らす。
+                    def _step_of(nn):
+                        return L / nn if closed else L / max(1, nn - 1)
+
+                    while n > 1:
+                        st = _step_of(n)
+                        pi = [at_arc_f(k * st) for k in range(n)]
+                        mind = min((_d(pi[a], pi[b]) for a in range(len(pi)) for b in range(a + 1, len(pi))),
+                                   default=1e9)
+                        if mind >= PITCH - 1e-9: break
+                        n -= 1
+                    step = _step_of(n)
                     laid = []
                     for k in range(n):
                         t = k * step
@@ -423,19 +436,27 @@ for part in PARTS:
                         # 🔴 2026-08-29 間隔の判定を**候補のマス**でしていた。柱は補間した実座標で
                         #   出すので、両側で最大 0.35mm ずつずれて 2.4 の狙いが 2.04 まで詰まっていた。
                         #   ⇒ 判定も**実座標どうし**で行う。laid はこの輪の中、placed は他の輪と埋め。
-                        def _farf(cf):
-                            # 輪の中の点はちょうど step 間隔で作ってあるので、掛け率は要らない。
-                            #   0.9 を掛けていたぶん（2.4 → 2.16）が最後まで残っていた。
-                            if any(_d(cf, f[1]) < step - 1e-6 for f in laid): return False
+                        # 🔴 2026-08-29 ここで「輪の中の点どうしが step 以上離れているか」を
+                        #   **直線距離**で見ていた。位置は**弧長**で等間隔に作ってあり、曲がった輪では
+                        #   弦は必ず弧より短いので、**構造的に必ず不合格**になる。18 点中 15 点が
+                        #   「近すぎる」と判定されてずらされ、輪が 2.4 の狙いに対し 2.4〜3.7 に歪んだ
+                        #   （ユーザー「先祖返りしてます？」で発覚）。
+                        #   ⇒ 理想の位置は等間隔だと分かっているので比べない。**他の輪・他の天井の柱
+                        #     （placed）とだけ**比べる。ずらした候補は輪の中の点とも比べる。
+                        def _farf(cf, nudged=False):
+                            if nudged and any(_d(cf, f[1]) < step * 0.9 for f in laid): return False
                             if any(_d(cf, pp) < PITCH - 1e-9 for pp in placed): return False
                             return True
 
+                        if DBG and part == 'top' and abs(h - 2.25) < 0.01 and 13 <= us[0] + qf[0] * P <= 35:
+                            print('  k=%2d (%6.2f,%7.2f) usable=%s far=%s' % (
+                                k, us[0] + qf[0] * P, vs[0] + qf[1] * P, usable(*q), _farf(qf)))
                         if not (usable(*q) and _farf(qf)):       # 弧の上で ±step/2 だけ探す
                             alt = None
                             for dt in np.arange(P, step / 2 + 1e-9, P):
                                 for sgn in (1, -1):
                                     c = at_arc(t + sgn * dt); cf = at_arc_f(t + sgn * dt)
-                                    if usable(*c) and _farf(cf): alt = (c, cf); break
+                                    if usable(*c) and _farf(cf, True): alt = (c, cf); break
                                 if alt: break
                             if alt is None:
                                 n_narrow[part] = n_narrow.get(part, 0) + 1
@@ -453,6 +474,10 @@ for part in PARTS:
                         #     **丸めずに補間した実座標で出す**。
                         laid.append((q, qf))
                     for (i2, j2), (fx, fy) in laid:
+                        # 🔒 2026-08-29 出す直前の最後の門。ずらした柱は輪の中で step×0.9 まで
+                        #   許していたので、1 組だけ 1.57mm（φ2.0 の胴が食い込む）が残っていた。
+                        #   ここで placed（＝既に出した柱すべて）と PITCH で比べて落とす。
+                        if any(_d((fx, fy), pp) < PITCH - 1e-9 for pp in placed): continue
                         # 🔒 2026-08-29 ユーザー「そしてこの外周の柱には絶対ラフトをつけてはいけない」。
                         #   🔴 距離の値（dist <= CLEAR + P）で見ていたので、同じ輪の上でも歩きで 1.80mm まで
                         #     振れた 2 本がラフト側に落ちていた。**輪の番号**で決める。0 番＝外周。

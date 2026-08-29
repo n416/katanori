@@ -609,6 +609,10 @@ if (part == "bridge") {
 //      跡は**外周の角丸そのものの上**に付く（TAB_IN が角丸を跨いで肉を埋めるので）。1.2 → 0.6 に落とす。
 //      角丸 CHAM=2.0 に対して、タブが本体に触る帯は 1.2 で ≈2.3mm 幅・0.6 で ≈1.6mm 幅（弧長）。
 //      曲げの強さは厚みの二乗で効くので 1/4 になる。⚠ タブが根元で折れて役に立たなくなったら 0.8 へ戻す。
+//   🔒 2026-08-29 ユーザー「天板、側板、底面板、ハッチ（＋フロントパネル）には犠牲のアレを付けないで」。
+//      **外皮の 6 枚（床・左右の壁・天面・フロント・ハッチ）からは犠牲タブを外した。** 下の print_* の
+//      呼び出しを消してあるので、タブは 6 枚のどれにも出ない。タブの形（tab_x / tab_y / tabs_x / tabs_y）は
+//      試し刷り print_btntest がまだ使うので残す。⚠ 6 枚へ戻すときはユーザーに聞いてから。
 TAB_T = 0.6; TAB_W = 8.0; TAB_IN = 3.0; TAB_OUT = 7.0;
 module tab_x(xe, y, s) color("#e0a0a0") translate([s > 0 ? xe - TAB_IN : xe - TAB_OUT, y - TAB_W / 2, 0]) cube([TAB_IN + TAB_OUT, TAB_W, TAB_T]);
 module tab_y(x, ye, s) color("#e0a0a0") translate([x - TAB_W / 2, s > 0 ? ye - TAB_IN : ye - TAB_OUT, 0]) cube([TAB_W, TAB_IN + TAB_OUT, TAB_T]);
@@ -618,12 +622,12 @@ module tabs_x(yc) { tab_x(XT0, yc, -1); tab_x(XT1, yc, +1); }
 //   長い軸が Y の 2 枚（左右の壁）は Y の両端（＝フロントとハッチの継ぎ目の側）
 module tabs_y(xc) { tab_y(xc, FY_IN, -1); tab_y(xc, IN_Y, +1); }
 
-if (part == "print_floor") { translate([0, 0, FLOOR_T]) p_one("floor"); tabs_x((FY_IN + IN_Y) / 2); }
-if (part == "print_lwall") { translate([0, 0, WALL - LW_X]) rotate([0, -90, 0]) p_one("lwall"); tabs_y(-IN_Z / 2); }   // 🔴 2026-08-27 [0,0,WALL] だと外面（X LW_X−WALL）が Z 1.694 に浮いた。左の壁だけ内面が LW_X ぶん内側に居る
-if (part == "print_rwall") { translate([0, 0, IN_X + WALL]) rotate([0, 90, 0]) p_one("rwall"); tabs_y(IN_Z / 2); }
-if (part == "print_top") { top_print(); tabs_x(-(IN_Y + HATCH_T + FY_OUT) / 2); if (!PROPS_OFF) { props_top(); raft_top(); } }
-if (part == "print_front") { translate([0, 0, -FY_OUT]) rotate([90, 0, 0]) p_one("front"); tabs_x(-(Z_TOP + FLOOR_T) / 2 + FLOOR_T); }   // 🔴 2026-08-27 [0,0,BEZ_T] だと外面（Y FY_OUT）が Z 1.0 に浮いた。板は FRONT_DY ぶん後ろに居る
-if (part == "print_hatch") { hatch_print(); tabs_x((IN_Z + TOP_T - FLOOR_T) / 2); // ⚠ 同じ高さの天井でも、足元は 1 つではない: ハッチの 3.00 は**電池の口の上（下は空でプレートまで）**と
+if (part == "print_floor") { translate([0, 0, FLOOR_T]) p_one("floor"); }
+if (part == "print_lwall") { translate([0, 0, WALL - LW_X]) rotate([0, -90, 0]) p_one("lwall"); }   // 🔴 2026-08-27 [0,0,WALL] だと外面（X LW_X−WALL）が Z 1.694 に浮いた。左の壁だけ内面が LW_X ぶん内側に居る
+if (part == "print_rwall") { translate([0, 0, IN_X + WALL]) rotate([0, 90, 0]) p_one("rwall"); }
+if (part == "print_top") { top_print(); if (!PROPS_OFF) { props_top(); raft_top(); } }
+if (part == "print_front") { translate([0, 0, -FY_OUT]) rotate([90, 0, 0]) p_one("front"); }   // 🔴 2026-08-27 [0,0,BEZ_T] だと外面（Y FY_OUT）が Z 1.0 に浮いた。板は FRONT_DY ぶん後ろに居る
+if (part == "print_hatch") { hatch_print(); // ⚠ 同じ高さの天井でも、足元は 1 つではない: ハッチの 3.00 は**電池の口の上（下は空でプレートまで）**と
    //    **板の上（0〜2.0）**の両方に跨がっている。両方の足元で立てる（重ならない場所どうしなので二重にはならない）
    if (!PROPS_OFF) { props_hatch(); raft_hatch(); } }
 // 充電基板の受け（🔒 2026-08-27 ユーザー決定・D-1 で床から独立した部品になった）。
@@ -825,7 +829,11 @@ module keepout_hatch() {
 //   1 本も立たず、78mm² が無支持のままだった。
 module keepout_bridge() { brg_anchor_cuts(); brg_up_cuts(); brgf_neck_cut(); tab_slots(); }   // M2 の通し穴・座ぐり・ツバの溝（帯が滑る）
 module keepout_seat() { for (h = HUB_HOLES4) translate([h[0], h[1], -1]) cylinder(d = HUB_POST_D + 0.6, h = BOARD_Z + 1, $fn = 32); }   // ハブの柱が入る
-module keepout_strap() { }   // 留め帯は穴もねじも持たない
+// 🔴 2026-08-29 ここは空だった。コメントの「留め帯は穴もねじも持たない」は古く、いまの帯は
+//   基板の取付ネジの通し穴とナットの座（seat_screws）を持っている。そのため**ネジ穴の中に
+//   柱が立っていた**（帯 A で 2.91mm³・ユーザーが CHITUBOX で発見）。折っても取れないし、
+//   取れてもネジとナットが入らない。ブリッジの keepout（入れすぎ）と逆の間違い。
+module keepout_strap() { seat_screws(); }
 
 // 刷る向きへ（それぞれ print_<部品> と同じ変換）。_v4_props.py が -D part="keepout_<部品>" で焼く
 module keepout_print_top()      translate([0, 0, Z_TOP]) rotate([180, 0, 0]) keepout_top();
