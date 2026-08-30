@@ -1,15 +1,16 @@
 include <btn_v1.scad>   // ⚠ v1（タクト）。2026-08-29 に v2 へ交代したが、まだ古い名前を参照する所が
                         //    残っているので読むだけ。**天板には v1 の受けはもう生えない**
-include <btn_v2.scad>   // 🔒 会話ボタン v2（レバー式マイクロスイッチ・ユーザー案）。天板が使うのはこちら。
+include <btn_v3.scad>   // 🔒 会話ボタン v3（2026-08-30 交代）。天板が使うのはこちら。
+                        //   v2 は凍結。🔒 ユーザー「v2 に戻る事はない」。ここから v2 は読まない。
                         //    🔴 case_base の二重 include になるが、順序はここが先で _v4_core の代入が後なので安全
                         // 🔴 このファイルが 1 行目で case_base.scad（v4 の土台）を読んでいるので、
                         //    ここで case_base を重ねて include しない（二重定義になる）。
 BTN_SOLO  = false;      // btn_v1.scad を単体で開いたときだけ絵を出す
-BTN2_SOLO = false;
+BTN3_SOLO = false;   // btn_v3.scad の単体の絵を止める
 
 // ---- 会話ボタン v2 の置き場所と、天板への置き道具（🔒 2026-08-29）----
 // ユーザー「なんでボタンは独立させないんですか？なんでボタンで explode したら case が出てくるんだ」。
-// ⇒ btn_v2.scad は**形だけ**（原点＝ボタンの芯・z0＝天面）。置き場所と world への変換はここ。
+// ⇒ btn_v3.scad は**形だけ**（原点＝ボタンの芯・z0＝天面）。置き場所と world への変換はここ。
 //   つまみ（knob_v5.scad ＋ knob_station_*）と同じ分け方。
 BTN_ROW_DY = 3.0;   // 🔒 2026-08-28 前列（会話ボタン＋スピーカー）の逃がし量。SPK4 も同じ値を読む
                     // 🔒 2026-08-29 2.5 → 3.0（ユーザー「Y方向に下げてみて ReSpeaker と当たらないように」）。
@@ -20,14 +21,15 @@ ROW_Y = 22.3 - 0.5 - spk_w() / 2 + BTN_ROW_DY;   // 16.8  🔒 Y はスピーカ
 // ⚠ 2026-08-29 一度「PH プラグの通り道にバスタブの +X 端がかぶる」と読んで X を動かしかけたが、
 //   測り直すと傾斜 14° では当たり 0 で再現しなかった。X は 24 のまま。
 BTN4 = [24, ROW_Y];
-B2_NUT_Y_W = RSP_BD_Y0 + 0.4;              // ナットの座の −Y 面（world・羊羹の中）
-B2_NUT_Y_L = B2_NUT_Y_W - BTN4[1];         // 同（ボタンのローカル）＝ ねじの掴みの終点
-module btn2_at_add()      translate([BTN4[0], BTN4[1], Z_TOP]) btn2_station_add();
-module btn2_at_cut()      translate([BTN4[0], BTN4[1], Z_TOP]) { btn2_station_cut(); btn2_screw_cut(); }
-module btn2_at_piston()   translate([BTN4[0], BTN4[1], Z_TOP]) btn2_piston();
-module btn2_at_switch(p = 0) translate([BTN4[0], BTN4[1], Z_TOP]) btn2_switch(p);
-module btn2_at_screws()   translate([BTN4[0], BTN4[1], Z_TOP]) btn2_screws(B2_NUT_Y_L);
-module btn2_keepout()     translate([BTN4[0], BTN4[1], Z_TOP]) btn2_tub_keepout();
+// 🔒 v3 のナットは**ボタン自身**が持つ（バスタブの +Y の壁と、天板から下りるブロックの中）。
+//   v2 は羊羹の中にナットの座を彫っていたが、v3 は羊羹に一切頼らない。
+module btn3_at_add()      translate([BTN4[0], BTN4[1], Z_TOP]) btn3_station_add();
+module btn3_at_cut()      translate([BTN4[0], BTN4[1], Z_TOP]) btn3_station_cut();
+module btn3_at_piston(dn = 0) translate([BTN4[0], BTN4[1], Z_TOP]) btn3_piston(dn);
+module btn3_at_tub()      translate([BTN4[0], BTN4[1], Z_TOP]) btn3_tub();
+module btn3_at_switch(p = 0) translate([BTN4[0], BTN4[1], Z_TOP]) btn3_switch(p);
+module btn3_at_screws()   translate([BTN4[0], BTN4[1], Z_TOP]) { btn3_sw_screws(); btn3_v_screws(); }
+module btn3_at_keepout()  translate([BTN4[0], BTN4[1], Z_TOP]) btn3_keepout();   // 名前が衝突しないよう at_ を付ける
       // 🔴 同じ。切り忘れて焼いた STL 全部に見本の絵が混ざった（2026-08-29 の事故）
 
 // ---- 天面の 2 つの置き場所。🔴 2026-08-28 ここを**唯一の定義**にした ----
@@ -156,9 +158,10 @@ module core() {
     //    （X 37.9〜48.1・Z 45〜48・Y が重なる）に当たるので、帯の手前 0.5 に傘の右端を付けた＝中心 X 28.4
     //    Y はスピーカーと同じ 14.3（🔒 同日「Y 軸をスピーカーに揃えて」）
     // 2026-08-25 ユーザー「よせすぎ」→ 28.4 から 22 へ戻し（傘 X 13〜31）。値は BTN4 が持つ
-    btn2_at_switch();                                                              // 会話ボタン v2（レバー式）
-    btn2_at_piston();                                                              // と押し子
-    color("#b0b0b0") btn2_at_screws();                                             // バスタブの M2 2 本
+    btn3_at_tub();                                                                 // 会話ボタン v3: バスタブ（刷る物）
+    btn3_at_switch();                                                              // レバー式スイッチ
+    btn3_at_piston();                                                              // と押し子（刷る物）
+    color("#b0b0b0") btn3_at_screws();                                             // M2 x4（スイッチ 2・縦 2）
 }
 // v3 の外皮（比較対象の薄い影。設計の入力ではない）
 module v3_ghost() {
@@ -850,76 +853,86 @@ module seat_hw() {   // ネジとナットの現物（検査と絵の用。strap
 }
 
 // ============================================================
-// 🔒 2026-08-29 ユーザー案「座のパッドを別部品（スペーサー）にして、帯面を平らにする」
-//   「ナットを落とし、上からスペーサーで蓋をする。従ってナットの差込口が不要になる」
+// 支柱（ダボ）＋ E リング  🔒 2026-08-30 ユーザー「じゃあEリングにしましょう」「ダボ棒＋Eリングです」
+//   「２でも３でも４でもありますよ」（E リングは呼び 2/3/4 が手元にある）
+//   「忘れてはいけないのは『印刷できない』からここまで来ているということ」
 //
-//   それまでの座は 2 つの役を 1 つの形でやっていた:
-//     ① 板を正しい高さに上げる  ② ナットを抱く
-//   ①を別部品（スペーサー）に出し、②は帯に**上へ開いた六角の穴**として残す。
-//   ・差し口が要らない ── 6 か所のうち 3 か所は帯の幅が足りず差し口が作れていなかった
-//     （PB①は slot_ok=false で床が −0.19mm、PB③は溝 0.35mm、INA 後は 0.82mm。ナットは入らない）
-//   ・0.30mm の床が消える ── 刷る向き（天面を下）で穴は**1 層目から始まる**ので天井ができない
-//   ・帯の天面が一枚の平らな面になり、支柱が要らなくなる（実測: 接地 316mm²・無支持 0）
-//   ・ナットは締めるとスペーサーの裏に引き上げられて止まる。穴の床は荷重を持たないので貫通でよい
+//   ここへ来るまでに潰れた案（同日・全部実測で潰れた。同じ道を二度通らないため残す）:
+//     ・座のパッドを帯に持たせる（旧）……帯の天面が平らでなくなり伏せて刷れない。
+//       ナットの床 0.30mm と、6 か所中 3 か所で差し口が作れない問題が残る
+//     ・ナットを天板に貫通させ、上からスペーサーで蓋（前案）……**抜ける**。締める力は
+//       「ナットが上・板が下」でスペーサーを挟むだけで帯に届かない。穴の下は電池の面
+//     ・天板を 3.0 に厚くしてナットを裏から入れる……板が下へ 0.372mm³ 当たっており逃げ場が無い。
+//       板ごと 1.0 上げると close_top 26.47mm³ / chk_all 24.54 / 上の道の線 13.40 で天面に当たる
+//
+//   E リングで解ける理由は**厚み**。ナットは 1.8 で、天板 2.0 に沈めると肉が 0.2 しか残らない。
+//   E リングは 0.4 なので裏のザグリ 0.5 で済み、**肉が 1.5 残る**（D の窪み 0.4 を引いても 1.1）。
+//
+//   組み: 上の E リング ── 板 ── φ5.8 の胴（＝座。板の傾きで切る）── D の足（回り止め）
+//         ── 天板 2.0 ── 下の E リング（裏のザグリ 0.5 に沈む・電池が蓋）
+//   上のリングが板を押さえ、下のリングが支柱を帯に留めるので、**締め代が帯を通る**。
+//
+//   🔴 φ2 の棒を単独で刷るのは、まさに逃げてきた「細くて刷れない物」なので、
+//     **座（胴）と一体の 1 部品**にした。細い φ2 は上下 2〜3mm だけで、下は φ5.8 の胴。
 // ============================================================
-SPACER_R = 2.9;   // スペーサーの外径。六角の穴（対角 4.97 → 半径 2.49）を覆う最小＋肉 0.4
-module strap_nut_holes() {   // 帯の天板を貫く六角の落とし穴（上から落とす）
-    for (h = ina_holes()) translate([ina_hole_wx(h[0]), ina_hole_wy(h[1]), BAT_TOP - 0.01])
-        rotate([0, 0, 30]) hex_pocket(STRAP_T + 0.02);
-    for (h = pb_mount())  translate([pb_hole_wx(h[0]),  pb_hole_wy(h[1]),  BAT_TOP - 0.01])
-        rotate([0, 0, 30]) hex_pocket(STRAP_T + 0.02);
+SPACER_R  = 2.9;    // 胴（＝座）の半径
+POST_D    = 2.0;    // 軸。E リング 呼び 2 の適用軸径
+POST_FIT  = 0.1;    // 帯の通し穴の逃げ（軸 φ2.0 → 穴 φ2.1）
+ER_GD     = 1.5;    // 溝の径
+ER_GW     = 0.5;    // 溝の幅
+ER_OD     = 4.0;    // リングの外径（ザグリの径に使う）
+POST_CB_H = 0.5;    // 裏のザグリの深さ（リング 0.4 ＋ 0.1）
+POST_KEY_H = 0.4;   // D の足が天面へ沈む深さ
+POST_KEY_F = 2.0;   // D の平らな面（中心から）
+POST_BRD  = 1.9;    // 板を抜けるまでの高さ（板 1.6 を 14° で抜けるぶん込み）
+POST_TIP  = 0.5;    // 上の溝より先に残す長さ
+
+function plate_top()    = BAT_TOP + STRAP_T;                       // 帯の天面 31.4
+function post_xy(i)     = i < 2 ? [ina_hole_wx(ina_holes()[i][0]), ina_hole_wy(ina_holes()[i][1])]
+                                : [pb_hole_wx(pb_mount()[i - 2][0]), pb_hole_wy(pb_mount()[i - 2][1])];
+function post_board_z(i) = BAT_TOP + (i < 2 ? seat_d(ina_holes()[i][1], INA_THETA, INA_LIFT)
+                                            : seat_d(pb_mount()[i - 2][1], THETA, BOARD_LIFT));   // 板の裏（鉛直）
+function post_top_z(i)   = post_board_z(i) + POST_BRD + ER_GW + POST_TIP;
+
+module post_key_2d(cl = 0) difference() {   // D 形（回り止め）
+    circle(r = SPACER_R + cl, $fn = 48);
+    translate([-50, POST_KEY_F + cl]) square([100, 100]);
 }
-module strap_screw_thru() {   // M2 の通し（スペーサーと帯を貫く。ナットの穴と同軸）
-    for (h = ina_holes()) translate([ina_hole_wx(h[0]), ina_hole_wy(h[1]), BAT_TOP - 1])
-        cylinder(d = SCR_D, h = 20, $fn = 24);
-    for (h = pb_mount())  translate([pb_hole_wx(h[0]),  pb_hole_wy(h[1]),  BAT_TOP - 1])
-        cylinder(d = SCR_D, h = 20, $fn = 24);
+// 帯にあける物: 軸の通し穴・裏のザグリ・天面の D の窪み
+module strap_post_holes() for (i = [0 : 5]) translate([post_xy(i)[0], post_xy(i)[1], 0]) {
+    translate([0, 0, BAT_TOP - 1]) cylinder(d = POST_D + POST_FIT, h = STRAP_T + 2, $fn = 24);
+    translate([0, 0, BAT_TOP - 0.01]) cylinder(d = ER_OD + 0.4, h = POST_CB_H + 0.01, $fn = 32);
+    translate([0, 0, plate_top() - POST_KEY_H]) linear_extrude(POST_KEY_H + 0.02) post_key_2d(0.15);
 }
-// スペーサー（別部品・6 個）。下面は水平（帯の天面に座る）、上面は板の裏で切るので板と同じ傾き
-module spacer_blank(th, H) seat_vert(th) translate([0, 0, -H - 2]) cylinder(r = SPACER_R, h = H + 4, $fn = 48);
-// 🔴 2026-08-29 上面を board_under()（2 枚の和）で切ると、INA の下のスペーサーが**傾いた PB の裏**
-//   まで伸びる（INA は PB の下へ潜っているので footprint が重なる）。**自分の板だけ**で切る。
-//   🔴 板の footprint（箱）で切ると、縁に近い穴のスペーサーが**平面的にも**切られて欠ける
-//     （INA の穴は板の縁から 2.25mm で、r2.9 だと 2.74mm の三日月になっていた）。
-//     切りたいのは**上面だけ**なので、板の面より下の半空間で切る。
-module ina_under(h = 40)  ina_frame() translate([-200, -200, -h]) cube([400, 400, h]);
-module pb_under(h = 40)   pb_frame()  translate([-200, -200, -h]) cube([400, 400, h]);
-module spacers_v4() color("#9ad0ec") difference() {
+module post_under(i) if (i < 2) ina_frame() translate([-200, -200, -40]) cube([400, 400, 40]);
+                     else       pb_frame()  translate([-200, -200, -40]) cube([400, 400, 40]);
+module post_body(i) intersection() {   // 胴: 下は天面、上は自分の板の裏（傾きで切る）
+    translate([post_xy(i)[0], post_xy(i)[1], plate_top()]) cylinder(r = SPACER_R, h = 30, $fn = 48);
+    post_under(i);
+}
+module post_at(i) translate([post_xy(i)[0], post_xy(i)[1], 0]) children();
+// 🔴 溝は軸を**細くする**ので、削るのは芯ではなく**輪**。芯（φ1.5 の丸棒）を抜くと筒になる
+module er_groove(h) difference() {
+    cylinder(d = POST_D + 2, h = h, $fn = 24);
+    translate([0, 0, -1]) cylinder(d = ER_GD, h = h + 2, $fn = 24);
+}
+module post_one(i) difference() {
     union() {
-        intersection() {
-            union() for (h = ina_holes()) ina_frame() translate([h[0], h[1], 0])
-                spacer_blank(INA_THETA, seat_d(h[1], INA_THETA, INA_LIFT));
-            ina_under();
-        }
-        intersection() {
-            union() for (h = pb_mount()) pb_frame() translate([h[0], h[1], 0])
-                spacer_blank(THETA, seat_d(h[1], THETA, BOARD_LIFT));
-            pb_under();
-        }
+        post_body(i);                                                                        // 胴（世界座標）
+        post_at(i) translate([0, 0, plate_top() - POST_KEY_H]) linear_extrude(POST_KEY_H) post_key_2d(0);
+        post_at(i) translate([0, 0, BAT_TOP]) cylinder(d = POST_D, h = post_top_z(i) - BAT_TOP, $fn = 24);
     }
-    translate([-100, -100, -200]) cube([400, 400, 200 + BAT_TOP + STRAP_T]);    // 帯の天面より下は落とす
-    strap_screw_thru();
+    post_at(i) translate([0, 0, BAT_TOP - 0.01]) er_groove(ER_GW + 0.01);                              // 下の溝
+    post_at(i) translate([0, 0, post_board_z(i) + POST_BRD]) er_groove(ER_GW);                         // 上の溝
 }
-function spacer_xy(i) = i < 2
-    ? [ina_hole_wx(ina_holes()[i][0]), ina_hole_wy(ina_holes()[i][1])]
-    : [pb_hole_wx(pb_mount()[i - 2][0]), pb_hole_wy(pb_mount()[i - 2][1])];
-function spacer_h(i) = i < 2
-    ? seat_d(ina_holes()[i][1], INA_THETA, INA_LIFT) - STRAP_T
-    : seat_d(pb_mount()[i - 2][1], THETA, BOARD_LIFT) - STRAP_T;
-module spacer_one(i) intersection() {   // i 番目だけ取り出す（刷る用）
-    spacers_v4();
-    // 箱は外径ぴったり。±6 にしていたら隣のスペーサーの角を拾って 8.90mm の塊になっていた
-    translate([spacer_xy(i)[0] - SPACER_R - 0.2, spacer_xy(i)[1] - SPACER_R - 0.2, -100])
-        cube([2 * SPACER_R + 0.4, 2 * SPACER_R + 0.4, 300]);
-}
+module posts_v4() color("#9ad0ec") for (i = [0 : 5]) post_one(i);
 
 module straps_v4() color("#ed8936") difference() {
     union() { for (s = STRAP_BANDS) strap_u(s[0], s[1]); }
     // 🔴 2026-08-25 皮の検査（strappb 2mm³）: PB の 8 ピン列の足（板の裏に 1.0）が C の天板に 1.02 刺さる
     //    → 足の列の逃げ溝（X 19.8〜38.8・Y 57.56〜・深さ 1.35・残り 0.65 ⚠）
     translate([19.8, 57.56, BAT_Z + lipo_size()[2] + STRAP_T - 1.35]) cube([19.0, 1.2, 1.4 + BOARD_LIFT]);   // 🔴 板を 0.5 上げた分だけ足の位置も上がる（床の残り 0.65 は据え置き）
-    strap_nut_holes();
-    strap_screw_thru();
+    strap_post_holes();
 }
 
 // ---- 配線（2026-08-25〜）: 電源系から。線は 1.5 角の箱の連結（直角のみ）。⚠ 経路は仮・見て判断する用 ----
@@ -1265,11 +1278,12 @@ module top_asconn() translate([KNOB_DX, KNOB_DY, 0]) as_conn();   // AS5600 の�
 //   検査は 2.5mm 手前のボタンとスピーカーで当たりを見ていた。⇒ BTN4 / SPK4 から読む。
 module top_spk()    translate([SPK4[0], SPK4[1], IN_Z - spk_th() - 0.2 + SPK_LIFT]) translate([-SPK_L / 2, -SPK_W / 2, 0]) speaker_112495();
 module top_btn() {   // 会話ボタン（中のタクトスイッチ＋外のキャップ）
-    btn2_at_switch();
-    btn2_at_piston();
+    btn3_at_tub();
+    btn3_at_switch();
+    btn3_at_piston();
     // 🔴 2026-08-28 下から留める板をここに足した。**足すまで当たり検査が 1 度も見ていなかった**
     //    （chk_* は innards4 経由でこの module を見る）。足した直後に BTN2 の線と 0.74mm³ 当たった。
-    color("#b0b0b0") btn2_at_screws();
+    color("#b0b0b0") btn3_at_screws();
 }
 // 🔒 2026-08-28 top_asconn() を外した。ASC_DY を消したいま、コネクタは基板のヘッダと
 //   完全に同じ場所に来るので、両方描くと当たり検査が自分自身を数える（chk_all 1299 → 1697 になった）。

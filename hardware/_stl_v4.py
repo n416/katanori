@@ -21,11 +21,11 @@ CASE = 'case_v4.scad'
 KNOB = 'knob_v5.scad'
 PARTS = [(k, CASE, 'print_%s' % k) for k in
          ['floor', 'lwall', 'rwall', 'top', 'front', 'hatch', 'shutter', 'lock', 'tail',
-          'bridge', 'brgfront', 'strap_a', 'strap_b', 'strap_c', 'piston',
+          'bridge', 'brgfront', 'strap_a', 'strap_b', 'strap_c', 'piston', 'tub',
           'seat',
-          # スペーサー 6 個（2026-08-29）。帯のナット穴に上から蓋をして、板の座の高さを稼ぐ。
-          # 帯の天板を平らにするために座のパッドを別部品にした結果で、ナットは帯へ落とし込む。
-          'spacer_0', 'spacer_1', 'spacer_2', 'spacer_3', 'spacer_4', 'spacer_5',
+          # 支柱 6 本（2026-08-30）。座（胴）＋ダボの軸が一体。上下の溝に E リング（呼び 2）を嵌めて、
+          # 上は板を押さえ、下は帯の裏のザグリに沈んで支柱を帯へ留める。
+          'post_0', 'post_1', 'post_2', 'post_3', 'post_4', 'post_5',
           ]] + [   # seat = 充電基板の受け（2026-08-27・D-1 で床から独立した部品になった）
     ('knob',     KNOB, 'knob'),   # つまみ本体（φ27 ＋ 軸 φ7）
     ('knobwall', KNOB, 'wall'),   # つまみの島（座金＋タブ）
