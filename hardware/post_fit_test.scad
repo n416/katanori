@@ -36,11 +36,16 @@ PITCHES = [16.05, 16.10, 16.15];
 GAP     = 3.0;
 
 POST_D    = 3.5;    // 🔒 knob_v5.scad の POST_D と同じ。細くしない
-POST_H    = 2.6;    // 座の上に出る胴（基板 1.6 を貫いて 1.0 出る）
+POST_H    = 3.0;    // 座の上に出る胴（基板 1.6 を貫いて 1.4 出る）
 TIP_H     = 0.4;    // 先の面取り（入れ始めが分かる）
 TIP_D     = 2.7;
-NECK_H    = 0.4;    // 座と柱のあいだの逃げ（隅にたまる樹脂を判定に効かせない）
-NECK_D    = 3.0;
+// 🔴 2026-08-29 初版は座と柱のあいだに φ3.0 × 0.4 の逃げ（NECK）を入れていた。
+//    樹脂の溜まりを判定に効かせないためだったが、**置き場所が逆**だった:
+//    実物の柱（knob_v5.scad の post_body）は**根元が φ3.5** で、φ3.0 に細るのは
+//    先端側の E リングの溝だけ。細い所を曲げの力が集中する根元に置くと、
+//    ユーザーが「2 本でも平行に抜かないと外れない」と言う締まり具合で 4 本を
+//    抜き差しした時に折れる。⇒ **逃げは廃止。根元から先まで φ3.5。**
+//    根元の隅に樹脂が溜まっても、基板が 0.1〜0.2 高く座るだけで、入る／入らないは変わらない。
 
 SEAT_D    = 4.5;    // ピンに当たらない径（当たり検査済み）
 SEAT_H    = 3.0;    // 裏へ出るピンの先 2.5mm の逃げ
@@ -54,10 +59,8 @@ TXT_H     = 0.6;
 
 module post() {
     cylinder(d = SEAT_D, h = SEAT_H);
-    translate([0, 0, SEAT_H])                        cylinder(d = NECK_D, h = NECK_H + 0.01);
-    translate([0, 0, SEAT_H + NECK_H])               cylinder(d = POST_D, h = POST_H - TIP_H);
-    translate([0, 0, SEAT_H + NECK_H + POST_H - TIP_H])
-                                                     cylinder(d1 = POST_D, d2 = TIP_D, h = TIP_H);
+    translate([0, 0, SEAT_H])                        cylinder(d = POST_D, h = POST_H - TIP_H);
+    translate([0, 0, SEAT_H + POST_H - TIP_H])       cylinder(d1 = POST_D, d2 = TIP_D, h = TIP_H);
 }
 
 // 台座は中央を窓で抜く（接地と樹脂を減らす・洗浄液を溜めない）
@@ -79,7 +82,7 @@ OUT  = PMAX + RIM * 2;
 for (i = [0 : len(PITCHES) - 1])
     translate([(OUT + HANDLE + GAP) * i, 0, 0]) tile(PITCHES[i]);
 
-H = BASE_T + SEAT_H + NECK_H + POST_H;
+H = BASE_T + SEAT_H + POST_H;
 echo(str("ピッチ ", PITCHES, " の 3 枚"));
 echo(str("柱 φ", POST_D, "（knob_v5 と同寸）／ 座 φ", SEAT_D, " × ", SEAT_H,
          " ／ 基板の裏は台座から ", SEAT_H, "mm 浮く（ピンの先 2.5 の逃げ 0.5）"));
