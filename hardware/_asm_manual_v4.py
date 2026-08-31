@@ -268,8 +268,9 @@ STEPS = [
    '🔒 2026-08-07 決定「<b>DuPont のまま＋抜け止め。はんだ付けはしない</b>」——分解できるようにするため。',
    '<b>ハウジングのピン数は、下の「線」の表の「本数」そのまま</b>: '
    'XIAO 7・スピーカー IN 2・OLED 4・つまみ 5・会話ボタン 2・リード 2・スピーカー OUT 2・電源 3・電流計 4・トグル 2。',
-   '<b>作る長さは「模型の実長 ＋ 65mm」</b>（端末処理に 25、天面を机に置くための余りに 40）。'
-   '実長は下の「線」の表にある。',
+   '<b>切る長さはこれ。下の表を見に行かなくていい。</b>'
+   '（内訳は「模型の実長 ＋ 65mm」＝端末処理 25 ＋ 天面を机に置くための余り 40。1mm 上へ丸め）'
+   '__CUTTABLE__',
    '<b>逆側の端が直はんだなのは 3 束だけ</b>——会話ボタン 2・リード 2・スピーカー OUT 2。'
    'この 3 本はハブ側だけ圧着して、反対側は<b>裸のまま</b>にしておく（手順 10 で付ける）。',
  ], warn='<b>ここを飛ばすと手順 3 で止まる。</b>手順 3 は「ハブの口を全部挿す」から始まっていて、'
@@ -555,6 +556,25 @@ WIRES = [
  ('INA → PB',   '2', '60.4', '左の壁ぎわ → 棚の上（Z42 / 43.5）を右へ → JST のプラグ'),
  ('CHG',        '2', '72.2', '左の壁ぎわ → 天井の下 Z47.3 → PowerBoost の USB ピン'),
 ]
+
+# 手順 0 に出す「切る長さ」。🔒 WIRES から作る（同じ数字を 2 か所に置かない）
+HUB10 = [('XIAO', 'XIAO'), ('スピーカー IN', 'PHIN'), ('OLED', 'OLED'), ('つまみ', 'AS5600'),
+         ('会話ボタン', 'BTN2'), ('リード', 'REED'), ('スピーカー OUT', 'PHOUT'),
+         ('電源', 'PWR'), ('電流計', 'INA (I2C)'), ('トグル', 'TOGGLE')]
+WIRE_MARGIN = 65   # 端末処理 25 ＋ 天面を机に置くための余り 40（_asm_wirepose.py）
+
+def cuttable():
+    import math
+    d = {r[0]: r for r in WIRES}
+    rows = []
+    for disp, key in HUB10:
+        n, ln = d[key][1], float(d[key][2])
+        rows.append('<tr><td class="w">{}</td><td class="n">{}</td>'
+                    '<td class="n hi"><b>{} mm</b></td></tr>'
+                    .format(disp, n, int(math.ceil(ln + WIRE_MARGIN))))
+    return ('<div class="tw"><table><thead><tr><th>束</th>'
+            '<th>本数（＝殻のピン数）</th><th>切る長さ</th></tr></thead>'
+            '<tbody>' + ''.join(rows) + '</tbody></table></div>')
 
 SCREWS = [
  ('M3 × 8',  '4', 'ハブ基板 → 床（頭は床の裏のザグリ・ナットは基板の上）', '1'),
@@ -1338,6 +1358,7 @@ def build():
             .replace('__ACCESSSUM__', accsum)
             .replace('__NCHK__', str(len(CHECKS)))
             .replace('__NACC__', str(ACCESS_N[0]))
+            .replace('__CUTTABLE__', cuttable())
             .replace('__WIREROWS__', '\n'.join(
                 '<tr><td class="w">{}</td><td class="n">{}</td><td class="n hi">{}</td>'
                 '<td>{}</td></tr>'.format(*r) for r in WIRES))
