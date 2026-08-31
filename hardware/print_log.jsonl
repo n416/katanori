@@ -45,3 +45,4 @@
 {"t": "term", "id": "2026-09-01-0107", "out": "hardware/stl/term/2026-09-01-0107.stl", "move": [19.5, -30.5], "parts": [{"name": "cb_depth_gauge.stl", "path": "hardware/stl/test/cb_depth_gauge.stl", "grip": 812.6, "profile_max": null, "layers": 82, "height": 4.1, "cx": 19.5, "cy": -30.5}], "at": "2026-09-01T01:07:26", "by": "ai"}
 {"t": "placed", "term": "2026-09-01-0107", "at": "2026-09-01T01:07:50", "by": "human"}
 {"t": "term", "id": "2026-09-01-0107", "out": "hardware/stl/term/2026-09-01-0107.stl", "move": [-19.5, 30.5], "parts": [{"name": "cb_depth_gauge.stl", "path": "hardware/stl/test/cb_depth_gauge.stl", "grip": 812.6, "layers": 82, "height": 4.1, "cx": -19.5, "cy": 30.5}], "at": "2026-09-01T01:07:58", "by": "human"}
+{"t": "result", "term": "2026-09-01-0107", "ok": true, "detail": "裏の文字が消えてる。薄すぎるよ", "at": "2026-09-01T02:50:23", "by": "human", "archived": "hardware/stl/term/archive/2026-09-01-0107.stl"}
