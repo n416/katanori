@@ -47,3 +47,7 @@
 {"t": "term", "id": "2026-09-01-0107", "out": "hardware/stl/term/2026-09-01-0107.stl", "move": [-19.5, 30.5], "parts": [{"name": "cb_depth_gauge.stl", "path": "hardware/stl/test/cb_depth_gauge.stl", "grip": 812.6, "layers": 82, "height": 4.1, "cx": -19.5, "cy": 30.5}], "at": "2026-09-01T01:07:58", "by": "human"}
 {"t": "result", "term": "2026-09-01-0107", "ok": true, "detail": "裏の文字が消えてる。薄すぎるよ", "at": "2026-09-01T02:50:23", "by": "human", "archived": "hardware/stl/term/archive/2026-09-01-0107.stl"}
 {"t": "term", "id": "2026-09-01-0352", "out": "hardware/stl/term/2026-09-01-0352.stl", "move": [-39.5, 1.0], "parts": [{"name": "v4_lwall.stl", "path": "hardware/stl/v4/v4_lwall.stl", "grip": 3383.8, "profile_max": null, "layers": 181, "height": 9.0, "cx": -39.5, "cy": 1.0}], "at": "2026-09-01T03:52:16", "by": "ai"}
+{"t": "plan", "id": "p-2026-0901-040229", "kind": "plate", "grit": 1000, "at": "2026-09-01T04:02:29", "by": "human"}
+{"t": "order", "ids": ["p-2026-0901-040229", "2026-09-01-0352"], "at": "2026-09-01T04:02:32", "by": "human"}
+{"t": "did", "plan": "p-2026-0901-040229", "at": "2026-09-01T04:02:34", "by": "human"}
+{"t": "plate", "grit": 1000, "at": "2026-09-01T04:02:34", "by": "human"}
