@@ -41,6 +41,17 @@ TIP_CLEAR = PROP_TIP / 2 + MIN_GAP   # 先が天井の縁から離れている�
 #   これは**胴を天井の輪郭で測っていた**もので、間違い。胴は天井の外へはみ出してよい（そこは空）。
 #   効くのは ①先が天井に乗るか ②胴が部品にぶつからないか の 2 つ。②は柱の足元を
 #   「胴の footprint の中でいちばん高い肉の上」に置くことで満たす（basemax）。
+# 🔴 2026-08-30 輪と輪の刻み。ユーザー指摘「外周が壁から 2mm 開けるのは分かるんですが、
+#   4mm もあけたら部分的にこうなるのは当たり前では」（天板の CHITUBOX の絵・外周に柱が
+#   ばらばらに 10 本だけ立っていた）。それまで 1 本目を縁から 2*REACH（4.0）に置き、
+#   2*REACH ごとに重ねていた。根拠は「輪 1 本が [r−REACH, r+REACH] を持つ」で、これは
+#   **輪が切れ目のない線なら**正しい。実際の輪は PITCH（2.4）おきの**点の列**で、
+#   隣り合う柱のちょうど中間では、外向きに √(REACH² − (PITCH/2)²) = 1.6mm しか届かない。
+#   その結果、壁の受け持ち（縁から 2.0）との間に 0.4mm の帯が空き、そこを「埋め」が
+#   ばらばらに拾っていた（天板では斜め 45°付近だけに 10 本。dil() が十字なので斜めの
+#   受け持ちが √2 分短く出るため、残りも斜めに寄る）。
+#   ⇒ 1 本目は縁から REACH（2.0）ちょうど、輪と輪は 2*REACH_EFF（3.2）刻み。
+REACH_EFF = (REACH ** 2 - (PITCH / 2) ** 2) ** 0.5   # 1.60 点で並べた輪が外へ実際に届く量
 FILL_PITCH = 2.4  # 埋めの最小間隔（隣との隙間 0.4 ＝ 癒着の実績 0.36 の外）
 RAFT_LINK = PITCH + 0.6   # ラフトで繋ぐ柱どうしの上限距離
 # 🔴 2026-08-29 ラフトは「その層の柱を全部 1 つの hull() で包む」だった。輪の上の 2 本だけが
@@ -323,12 +334,15 @@ for part in PARTS:
                 rads = []
             elif dmax_k <= 2 * REACH:
                 rads = [dmax_k / 2]
+            #   🔴 2026-08-30 上の「2*REACH ごと」は**輪を切れ目のない線と見た**計算だった。
+            #     点の列では外向きに REACH_EFF（1.6）しか届かない。1 本目は縁から REACH に置き
+            #     （壁の受け持ち 2.0 の境目ちょうど）、以降は 2*REACH_EFF 刻みにする。定義は冒頭。
             else:
                 rads = []
-                rr = 2 * REACH
+                rr = REACH
                 while rr <= dmax_k:
-                    rads.append(rr); rr += 2 * REACH
-                if not rads or dmax_k - rads[-1] > REACH:
+                    rads.append(rr); rr += 2 * REACH_EFF
+                if not rads or dmax_k - rads[-1] > REACH_EFF:
                     rads.append(dmax_k * 0.98)
             rads = [max(CLEAR + P, x) for x in rads]
             for ring_idx, r in enumerate(rads):

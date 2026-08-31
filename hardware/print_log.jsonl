@@ -1,0 +1,47 @@
+{"t": "term", "id": "2026-08-31-1558", "out": "hardware/stl/term/2026-08-31-1558.stl", "parts": [{"name": "v4_knob.stl", "path": "hardware/stl/v4/v4_knob.stl", "grip": 496.5, "layers": 428, "height": 21.4, "cx": -12.5, "cy": 0.0}, {"name": "v4_knobwall.stl", "path": "hardware/stl/v4/v4_knobwall.stl", "grip": 284.5, "layers": 79, "height": 3.9, "cx": 15.0, "cy": -1.5}], "at": "2026-08-31T15:58:40", "by": "ai"}
+{"t": "drop", "term": "2026-08-31-1558", "reason": "", "at": "2026-08-31T16:09:41", "by": "human"}
+{"t": "term", "id": "2026-08-31-1611", "out": "hardware/stl/term/2026-08-31-1611.stl", "parts": [{"name": "v4_knob.stl", "path": "hardware/stl/v4/v4_knob.stl", "grip": 496.5, "profile_max": null, "layers": 428, "height": 21.4, "cx": -12.5, "cy": 0.0}, {"name": "v4_knobwall.stl", "path": "hardware/stl/v4/v4_knobwall.stl", "grip": 284.5, "profile_max": null, "layers": 79, "height": 3.9, "cx": 15.0, "cy": -1.5}], "at": "2026-08-31T16:11:15", "by": "ai"}
+{"t": "drop", "term": "2026-08-31-1611", "reason": "", "at": "2026-08-31T16:12:45", "by": "human"}
+{"t": "term", "id": "2026-08-31-1611", "out": "hardware/stl/term/2026-08-31-1611.stl", "parts": [{"name": "v4_knob.stl", "path": "hardware/stl/v4/v4_knob.stl", "grip": 496.5, "profile_max": null, "layers": 428, "height": 21.4, "cx": -23.9, "cy": 0.0}, {"name": "v4_knobwall.stl", "path": "hardware/stl/v4/v4_knobwall.stl", "grip": 284.5, "profile_max": null, "layers": 79, "height": 3.9, "cx": 3.6, "cy": -1.5}, {"name": "v4_piston.stl", "path": "hardware/stl/v4/v4_piston.stl", "grip": 148.4, "profile_max": null, "layers": 166, "height": 8.29, "cx": 27.5, "cy": -7.5}], "at": "2026-08-31T16:12:57", "by": "ai"}
+{"t": "placed", "term": "2026-08-31-1611", "at": "2026-08-31T16:14:15", "by": "human"}
+{"t": "term", "id": "2026-08-31-1614", "out": "hardware/stl/term/2026-08-31-1614.stl", "parts": [{"name": "v4_knob.stl", "path": "hardware/stl/v4/v4_knob.stl", "grip": 496.5, "layers": 428, "height": 21.4, "cx": -23.9, "cy": 0}, {"name": "v4_knobwall.stl", "path": "hardware/stl/v4/v4_knobwall.stl", "grip": 284.5, "layers": 79, "height": 3.9, "cx": 3.6, "cy": -1.5}, {"name": "v4_piston.stl", "path": "hardware/stl/v4/v4_piston.stl", "grip": 148.4, "layers": 166, "height": 8.29, "cx": 27.5, "cy": -7.5}], "at": "2026-08-31T16:15:13", "by": "human"}
+{"t": "drop", "term": "2026-08-31-1611", "reason": "", "at": "2026-08-31T16:31:21", "by": "human"}
+{"t": "drop", "term": "2026-08-31-1614", "reason": "", "at": "2026-08-31T16:31:40", "by": "human"}
+{"t": "term", "id": "2026-08-31-1631", "out": "hardware/stl/term/2026-08-31-1631.stl", "parts": [{"name": "v4_knob.stl", "path": "hardware/stl/v4/v4_knob.stl", "grip": 496.5, "layers": 428, "height": 21.4, "cx": -23.9, "cy": 0}, {"name": "v4_knobwall.stl", "path": "hardware/stl/v4/v4_knobwall.stl", "grip": 284.5, "layers": 79, "height": 3.9, "cx": 3.6, "cy": -1.5}, {"name": "v4_piston.stl", "path": "hardware/stl/v4/v4_piston.stl", "grip": 148.4, "layers": 166, "height": 8.29, "cx": 27.5, "cy": -7.5}], "at": "2026-08-31T16:31:54", "by": "human"}
+{"t": "placed", "term": "2026-08-31-1631", "at": "2026-08-31T17:12:05", "by": "human"}
+{"t": "term", "id": "2026-08-31-1732", "out": "hardware/stl/term/2026-08-31-1732.stl", "parts": [{"name": "v4_floor.stl", "path": "hardware/stl/v4/v4_floor.stl", "grip": 5770.4, "profile_max": null, "layers": 170, "height": 8.496, "cx": 0.0, "cy": 0.0}], "at": "2026-08-31T17:32:39", "by": "ai"}
+{"t": "placed", "term": "2026-08-31-1732", "at": "2026-08-31T17:35:02", "by": "human"}
+{"t": "plate", "grit": 1000, "at": "2026-08-31T17:35:25", "by": "human"}
+{"t": "plate", "grit": 1000, "at": "2026-08-31T17:35:29", "by": "human"}
+{"t": "plate", "grit": 600, "at": "2026-08-31T17:46:03", "by": "human"}
+{"t": "plan", "id": "p-2026-0831-174928", "kind": "plate", "grit": 600, "at": "2026-08-31T17:49:28", "by": "human"}
+{"t": "did", "plan": "p-2026-0831-174928", "cancelled": true, "at": "2026-08-31T17:49:34", "by": "human"}
+{"t": "plan", "id": "p-2026-0831-174958", "kind": "resin", "name": "あ", "at": "2026-08-31T17:49:58", "by": "human"}
+{"t": "did", "plan": "p-2026-0831-174958", "cancelled": true, "at": "2026-08-31T17:50:01", "by": "human"}
+{"t": "result", "term": "2026-08-31-1631", "ok": true, "detail": "問題なく出た。多少張り付きが厳しかったかも", "at": "2026-08-31T18:41:29", "by": "human"}
+{"t": "term", "id": "2026-08-31-1957", "out": "hardware/stl/term/2026-08-31-1957.stl", "parts": [{"name": "v4_knob.stl", "path": "hardware/stl/v4/v4_knob.stl", "grip": 496.5, "profile_max": null, "layers": 428, "height": 21.4, "cx": -12.5, "cy": 0.0}, {"name": "v4_knobwall.stl", "path": "hardware/stl/v4/v4_knobwall.stl", "grip": 271.4, "profile_max": null, "layers": 79, "height": 3.9, "cx": 15.0, "cy": -1.5}], "at": "2026-08-31T19:57:46", "by": "ai"}
+{"t": "order", "ids": ["2026-08-31-1957", "2026-08-31-1732"], "at": "2026-08-31T19:57:58", "by": "human"}
+{"t": "placed", "term": "2026-08-31-1957", "at": "2026-08-31T19:59:22", "by": "human"}
+{"t": "term", "id": "2026-08-31-1957", "out": "hardware/stl/term/2026-08-31-1957.stl", "move": [37.5, -23], "parts": [{"name": "v4_knob.stl", "path": "hardware/stl/v4/v4_knob.stl", "grip": 496.5, "layers": 428, "height": 21.4, "cx": 25, "cy": -23}, {"name": "v4_knobwall.stl", "path": "hardware/stl/v4/v4_knobwall.stl", "grip": 271.4, "layers": 79, "height": 3.9, "cx": 52.5, "cy": -24.5}], "at": "2026-08-31T20:18:47", "by": "human"}
+{"t": "drop", "term": "2026-08-31-1732", "reason": "ネジのザグリサイズで逃げが無かったため", "at": "2026-08-31T21:07:20", "by": "human"}
+{"t": "term", "id": "2026-08-31-2108", "out": "hardware/stl/term/2026-08-31-2108.stl", "move": [20.0, 1.0], "parts": [{"name": "v4_floor.stl", "path": "hardware/stl/v4/v4_floor.stl", "grip": 5737.4, "profile_max": null, "layers": 170, "height": 8.496, "cx": 20.0, "cy": 1.0}], "at": "2026-08-31T21:08:48", "by": "ai"}
+{"t": "drop", "term": "2026-08-31-2108", "reason": "", "at": "2026-08-31T21:09:10", "by": "human"}
+{"t": "term", "id": "2026-08-31-2112", "out": "hardware/stl/term/2026-08-31-2112.stl", "move": [20.0, 1.0], "parts": [{"name": "v4_floor.stl", "path": "hardware/stl/v4/v4_floor.stl", "grip": 5737.4, "profile_max": null, "layers": 170, "height": 8.496, "cx": 20.0, "cy": 1.0}], "at": "2026-08-31T21:12:21", "by": "ai"}
+{"t": "result", "term": "2026-08-31-1957", "ok": true, "detail": "ばっちり", "at": "2026-08-31T23:09:28", "by": "human", "archived": "hardware/stl/term/archive/2026-08-31-1957.stl"}
+{"t": "placed", "term": "2026-08-31-2112", "at": "2026-08-31T23:09:31", "by": "human"}
+{"t": "term", "id": "2026-08-31-2112", "out": "hardware/stl/term/2026-08-31-2112.stl", "move": [20, -1], "parts": [{"name": "v4_floor.stl", "path": "hardware/stl/v4/v4_floor.stl", "grip": 5737.4, "layers": 170, "height": 8.496, "cx": 20, "cy": -1}], "at": "2026-08-31T23:09:39", "by": "human"}
+{"t": "drop", "term": "2026-08-31-2112", "reason": "", "at": "2026-08-31T23:25:06", "by": "human"}
+{"t": "term", "id": "2026-08-31-2325", "out": "hardware/stl/term/2026-08-31-2325.stl", "move": [20.0, 1.0], "parts": [{"name": "v4_floor.stl", "path": "hardware/stl/v4/v4_floor.stl", "grip": 5737.4, "profile_max": null, "layers": 171, "height": 8.5, "cx": 20.0, "cy": 1.0}], "at": "2026-08-31T23:25:55", "by": "ai"}
+{"t": "term", "id": "2026-08-31-2325", "out": "hardware/stl/term/2026-08-31-2325.stl", "move": [20, -1], "parts": [{"name": "v4_floor.stl", "path": "hardware/stl/v4/v4_floor.stl", "grip": 5737.4, "layers": 171, "height": 8.5, "cx": 20, "cy": -1}], "at": "2026-08-31T23:36:25", "by": "human"}
+{"t": "placed", "term": "2026-08-31-2325", "at": "2026-08-31T23:48:48", "by": "human"}
+{"t": "plan", "id": "p-2026-0831-234854", "kind": "plate", "grit": 1000, "at": "2026-08-31T23:48:54", "by": "human"}
+{"t": "order", "ids": ["p-2026-0831-234854", "2026-08-31-2325"], "at": "2026-08-31T23:48:56", "by": "human"}
+{"t": "did", "plan": "p-2026-0831-234854", "at": "2026-08-31T23:48:58", "by": "human"}
+{"t": "plate", "grit": 1000, "at": "2026-08-31T23:48:58", "by": "human"}
+{"t": "term", "id": "2026-09-01-0012", "out": "hardware/stl/term/2026-09-01-0012.stl", "move": [19.5, -30.5], "parts": [{"name": "cb_depth_gauge.stl", "path": "hardware/stl/test/cb_depth_gauge.stl", "grip": 812.6, "profile_max": null, "layers": 82, "height": 4.1, "cx": 19.5, "cy": -30.5}], "at": "2026-09-01T00:12:23", "by": "ai"}
+{"t": "result", "term": "2026-08-31-2325", "ok": true, "detail": "ばっちり", "at": "2026-09-01T00:54:42", "by": "human", "archived": "hardware/stl/term/archive/2026-08-31-2325.stl"}
+{"t": "placed", "term": "2026-09-01-0012", "at": "2026-09-01T00:54:47", "by": "human"}
+{"t": "drop", "term": "2026-09-01-0012", "reason": "", "at": "2026-09-01T01:07:04", "by": "human"}
+{"t": "term", "id": "2026-09-01-0107", "out": "hardware/stl/term/2026-09-01-0107.stl", "move": [19.5, -30.5], "parts": [{"name": "cb_depth_gauge.stl", "path": "hardware/stl/test/cb_depth_gauge.stl", "grip": 812.6, "profile_max": null, "layers": 82, "height": 4.1, "cx": 19.5, "cy": -30.5}], "at": "2026-09-01T01:07:26", "by": "ai"}
+{"t": "placed", "term": "2026-09-01-0107", "at": "2026-09-01T01:07:50", "by": "human"}
+{"t": "term", "id": "2026-09-01-0107", "out": "hardware/stl/term/2026-09-01-0107.stl", "move": [-19.5, 30.5], "parts": [{"name": "cb_depth_gauge.stl", "path": "hardware/stl/test/cb_depth_gauge.stl", "grip": 812.6, "layers": 82, "height": 4.1, "cx": -19.5, "cy": 30.5}], "at": "2026-09-01T01:07:58", "by": "human"}

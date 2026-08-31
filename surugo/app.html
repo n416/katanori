@@ -1,0 +1,418 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>刷るぞー</title>
+<style>
+  :root{ --bg:#15171a; --fg:#e6e8ea; --dim:#9aa3ad; --line:#2b3038; --hi:#4ea1ff; --warn:#ffb454; --bad:#ff6b6b; --ok:#5ecb8b; }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:13px/1.6 "Yu Gothic UI","Meiryo",system-ui,sans-serif}
+  header{padding:10px 16px;border-bottom:1px solid var(--line);display:flex;gap:20px;align-items:baseline;flex-wrap:wrap}
+  h1{font-size:15px;margin:0;letter-spacing:.08em}
+  .st{color:var(--dim)} .st b{color:var(--fg);font-weight:600}
+  main{display:grid;grid-template-columns:270px 1fr 320px;gap:0;height:calc(100vh - 46px)}
+  section{padding:12px 14px;overflow:auto;border-right:1px solid var(--line)}
+  section:last-child{border-right:0}
+  h2{font-size:12px;color:var(--dim);margin:0 0 8px;font-weight:600;letter-spacing:.06em}
+  label.row{display:flex;gap:7px;align-items:flex-start;padding:3px 0;cursor:pointer}
+  label.row span.n{flex:1;word-break:break-all}
+  label.row span.m{color:var(--dim);font-size:11px;white-space:nowrap}
+  button{background:#222831;color:var(--fg);border:1px solid var(--line);border-radius:5px;padding:6px 11px;cursor:pointer;font:inherit}
+  button:hover{border-color:var(--hi)}
+  button.p{background:var(--hi);border-color:var(--hi);color:#08121e;font-weight:600}
+  button:disabled{opacity:.4;cursor:default}
+  .bar{display:flex;gap:7px;flex-wrap:wrap;margin:10px 0}
+  .msg{margin:8px 0;padding:8px 10px;border-radius:5px;border-left:3px solid var(--line);background:#1b1f25;white-space:pre-wrap}
+  .msg.w{border-left-color:var(--warn)} .msg.b{border-left-color:var(--bad)} .msg.o{border-left-color:var(--ok)}
+  svg{width:100%;height:auto;background:#0f1114;border:1px solid var(--line);border-radius:5px}
+  .plate{fill:#1a1e24;stroke:#39414c}
+  .part{fill:#1d3b5c;stroke:var(--hi)}
+  .part.big{fill:#5c3a1d;stroke:var(--warn)}
+  .lbl{fill:#cfd6de;font-size:2.6px;text-anchor:middle}
+  .grid{stroke:#232a33;stroke-width:.15}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  td,th{text-align:left;padding:3px 4px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--dim);font-weight:600}
+  input,select{background:#12151a;color:var(--fg);border:1px solid var(--line);border-radius:4px;padding:4px 6px;font:inherit}
+  .hint{color:var(--dim);font-size:11px}
+</style>
+</head>
+<body>
+<header>
+  <h1>刷るぞー</h1>
+  <div class="st" id="state">読み込み中…</div>
+</header>
+
+<main>
+  <section>
+    <h2>刷る物</h2>
+    <input id="filter" placeholder="絞り込み" style="width:100%">
+    <div id="stls"></div>
+  </section>
+
+  <section>
+    <h2>プレート 143 × 89（真上から・Front は下）</h2>
+    <svg id="plate" viewBox="-75 -48 150 96"></svg>
+    <div class="bar">
+      <button id="btnArrange" class="p">測って並べる</button>
+      <button id="btnExport" disabled>結合して書き出す</button>
+      <span id="term" class="hint"></span>
+    </div>
+    <div id="out"></div>
+  </section>
+
+  <section>
+    <h2>スケジュール ── これからやること</h2>
+    <div id="open"></div>
+    <h2 style="margin-top:18px">予定に積む</h2>
+    <div class="hint">積むと下の列に残ります。やったら「やった」を押してください。
+      そこで初めて記録になります（🔒 実際に手を動かしたかどうかは人しか書けない）。</div>
+    <div class="bar">
+      <button onclick="plan({kind:'film',reason:'fail'})">フィルム交換（失敗して）</button>
+      <button onclick="plan({kind:'film',reason:'prevent'})">フィルム交換（予防）</button>
+    </div>
+    <div class="bar">
+      番手 <select id="grit"><option>600</option><option>800</option><option>1000</option></select>
+      <button onclick="plan({kind:'plate',grit:+document.getElementById('grit').value})">研ぎ直す</button>
+    </div>
+    <div class="bar">
+      <input id="resin" placeholder="レジン名" style="flex:1">
+      <button onclick="plan({kind:'resin',name:document.getElementById('resin').value})">レジンを替える</button>
+    </div>
+  </section>
+</main>
+
+<script>
+const $ = s => document.querySelector(s);
+let STLS = [], PLACED = [], TERM = null;
+
+const api = async (p, body) => {
+  const r = await fetch(p, body ? {method:'POST',headers:{'Content-Type':'application/json'},
+                                   body:JSON.stringify(body)} : {});
+  return await r.json();
+};
+
+function msg(t, cls){ const d=document.createElement('div'); d.className='msg '+(cls||''); d.textContent=t; $('#out').appendChild(d); }
+
+let STATE = null;
+let SHIFT = {dx:0, dy:0, i:0};   // この回、フィルムを散らすために置き場所をずらした量
+let EDITING = null;   // 編集中のターム名。書き出すと新しい名前ではなく、この名前で更新する
+async function loadState(){
+  const s = await api('/api/state');
+  STATE = s;
+  $('#state').innerHTML =
+    `番手 <b>${s.grit ? '#'+s.grit : '未記録'}</b>　`+
+    `レジン <b>${s.resin || '未記録'}</b>　`+
+    `フィルム <b>${s.film_terms_since_change}</b> ターム / 摩耗 <b>${s.film_wear_mm2_layer.toLocaleString()}</b>`+
+    `　<span style="font-size:11px">${s.film_wear_note}</span>`;
+  const q = s.queue || [];
+  $('#open').innerHTML = q.length
+    ? '<table><tr><th></th><th>いつ積んだか</th><th>やること</th><th></th></tr>' + q.map((t, n) =>
+        t.type === 'plan'
+          ? `<tr>${moveCell(n, q.length)}<td><span class="hint">${t.at.replace('T',' ')}</span></td>`+
+            `<td><b>${planName(t)}</b></td>`+
+            `<td><button onclick="didPlan('${t.id}')">やった</button> `+
+            `<button onclick="unplan('${t.id}')">取り消す</button></td></tr>`
+          : `<tr>${moveCell(n, q.length)}<td><a href="#" onclick="return toggleTerm('${t.id}')">${t.id}</a>`+
+            `<br><span class="hint">${t.at.replace('T',' ')}</span></td>`+
+            `<td>刷る<br>${t.parts.join('<br>')}</td>`+
+            `<td>${termButtons(t)}</td></tr>`+
+            `<tr id="d-${t.id}" style="display:none"><td colspan="4">${termDetail(t)}</td></tr>`).join('')
+      + '</table>'
+    : '<div class="hint">やることはありません。</div>';
+}
+
+// ターム名をクリックすると、その回の中身（接地・層数・高さ・置いた場所・書き出し先）を出す。
+// ⚠ 数字はログに書いてあるものをそのまま出すだけ。ここで計算し直さない
+function termDetail(t){
+  const d = t.detail || [];
+  if(!d.length) return '<div class="hint">この回の詳細はログに入っていません。</div>';
+  const rows = d.map(p =>
+    `<tr><td>${p.name}</td>`+
+    `<td align="right">${Number(p.grip||0).toFixed(1)}</td>`+
+    `<td align="right">${p.profile_max ? Number(p.profile_max).toFixed(1) : '—'}</td>`+
+    `<td align="right">${p.layers}</td>`+
+    `<td align="right">${Number(p.height||0).toFixed(2)}</td>`+
+    `<td align="right">${p.cx}, ${p.cy}</td></tr>`).join('');
+  const tall = d.reduce((a,b) => (b.layers||0) > (a.layers||0) ? b : a, d[0]);
+  // ⚠ 見るべきは接地ではなく断面（土台がたわむ原因は剥離力なので、効くのはその層の断面）。
+  //    断面の最大が「—」なのは、その回を記録した時点のログに入っていなかったという意味
+  return '<table><tr><th>部品</th><th>接地 mm²</th><th>断面の最大 mm²</th>'+
+         '<th>層数</th><th>高さ mm</th><th>置いた場所 x, y</th></tr>' + rows + '</table>'+
+         `<div class="hint">層数 ${tall.layers}（一番背の高い ${tall.name} が決めている）`+
+         `　／　書き出し ${t.out || '（無し）'}`+
+         (t.move && (t.move[0] || t.move[1])
+            ? `　／　CHITUBOX の移動 X ${t.move[0]} , Y ${t.move[1]}` : '')+`</div>`+
+         '<div class="hint">CHITUBOX は bbox の中心をプレート中央に置く。'+
+         '読み込んだら動かさずにスライスすること。</div>';
+}
+
+// 1 回ぶんのボタン。並びは、刷る前にやること → 刷った後に書くこと、の順
+function termButtons(t){
+  const b = [];
+  // 置いた … CHITUBOX で移動指示を実際に当てたという人の確認。⚠ 道具が勝手には書けない
+  b.push(t.placed ? '<span class="hint">✓ 置いた</span>'
+                  : `<button onclick="placedOk('${t.id}')">置いた</button>`);
+  b.push(`<br><button onclick="result('${t.id}',true)">出た</button> `
+       + `<button onclick="result('${t.id}',false)">失敗</button>`);
+  b.push(`<br><button onclick="editTerm('${t.id}')">編集</button> `
+       + `<button onclick="drop('${t.id}')">取りやめ</button>`);
+  return b.join('');
+}
+
+// 移動指示を実際に当てた、という確認を書く。⚠ 人が見て押すもの
+async function placedOk(id){
+  const r = await api('/api/event', {by:'human', ev:{t:'placed', term:id}});
+  if(r.error) return alert(r.error);
+  await loadState();
+}
+
+// 刷るのを辞めた回を閉じる。⚠ 刷っていないので、フィルムの摩耗にも数えない
+async function drop(id){
+  const reason = prompt('刷るのを辞めた理由（空のままでも構いません）');
+  if(reason === null) return;
+  const r = await api('/api/event', {by:'human', ev:{t:'drop', term:id, reason}});
+  if(r.error) return alert(r.error);
+  await loadState();
+}
+
+// その回の部品を選び直した状態に戻す。⚠ ログは追記だけなので、行そのものは書き換えない。
+//    並べ直して書き出すと新しいターム名が付くので、古い方は「取りやめ」で閉じる
+function editTerm(id){
+  const t = (STATE && STATE.open_terms || []).find(x => x.id === id);
+  if(!t) return false;
+  const paths = (t.detail || []).map(p => p.path);
+  EDITING = id;
+  $('#filter').value = ''; drawList();
+  document.querySelectorAll('#stls input').forEach(i => { i.checked = paths.includes(i.value); });
+  $('#out').innerHTML = '';
+  msg(`${id} を編集します（${paths.length} 点を選び直しました）。`
+    + '部品を足し引きして「測って並べる」→「結合して書き出す」で、同じ名前のまま更新されます。', 'o');
+  showTerm();
+  return false;
+}
+
+// 編集をやめて、次の書き出しを新しい回にする
+function clearEditing(){ EDITING = null; showTerm(); return false; }
+
+function showTerm(){
+  if(EDITING) $('#term').innerHTML = 'ターム名 ' + EDITING + '（更新） '
+    + '<button onclick="return clearEditing()">新しい回にする</button>';
+  else if(TERM) $('#term').textContent = 'ターム名 ' + TERM + '（新規）';
+  else $('#term').textContent = '';
+}
+
+function toggleTerm(id){
+  const e = document.getElementById('d-' + id);
+  if(e) e.style.display = (e.style.display === 'none') ? '' : 'none';
+  return false;
+}
+
+async function loadStls(){
+  const r = await api('/api/stls'); STLS = r.stls; drawList();
+}
+const dir = p => { const d = p.replace('hardware/stl/','').split('/').slice(0,-1).join('/'); return d ? d+'/' : ''; };
+function drawList(){
+  const q = $('#filter').value.trim();
+  $('#stls').innerHTML = STLS.filter(s => !q || s.path.includes(q)).map(s =>
+    `<label class="row"><input type="checkbox" value="${s.path}">`+
+    `<span class="n">${s.name}${dir(s.path) ? '<br><span class="hint">'+dir(s.path)+'</span>' : ''}</span></label>`
+  ).join('');
+}
+const picked = () => [...document.querySelectorAll('#stls input:checked')].map(i => i.value);
+
+function drawPlate(pl){
+  const g = [];
+  for(let x=-70;x<=70;x+=10) g.push(`<line class="grid" x1="${x}" y1="-44.5" x2="${x}" y2="44.5"/>`);
+  for(let y=-40;y<=40;y+=10) g.push(`<line class="grid" x1="-71.5" y1="${y}" x2="71.5" y2="${y}"/>`);
+  const parts = pl.map(p => {
+    const big = p.grip >= 2000;
+    // SVG は Y が下向きなので反転（Front は下＝ -Y）
+    return `<rect class="part${big?' big':''}" x="${p.cx-p.w/2}" y="${-p.cy-p.h/2}" `+
+           `width="${p.w}" height="${p.h}" rx="1"/>`+
+           `<text class="lbl" x="${p.cx}" y="${-p.cy+1}">${p.name.replace('.stl','')}${p.rot?' ↻':''}</text>`;
+  }).join('');
+  $('#plate').innerHTML =
+    `<rect class="plate" x="-71.5" y="-44.5" width="143" height="89" rx="2"/>${g.join('')}${parts}`+
+    `<text class="lbl" x="0" y="47" style="fill:#6b7683">Front</text>`;
+}
+
+$('#filter').oninput = drawList;
+
+$('#btnArrange').onclick = async () => {
+  const paths = picked();
+  $('#out').innerHTML = '';
+  if(!paths.length) return msg('刷る物を選んでください','w');
+  msg('測っています（初回は STL ごとに数秒かかります）…');
+  const r = await api('/api/arrange', {paths});
+  $('#out').innerHTML = '';
+  if(r.error) return msg(r.error,'b');
+  if(r.stop){ $('#btnExport').disabled = true; return msg('■ 止めました\n'+r.stop,'b'); }
+  // 🔒 フィルムの同じ所ばかり使わないよう、置き場所ごとずらす。
+  //    四隅のアンカーで座標が固定されるので、ここでずらせばそのまま刷る位置になる。
+  //    ⚠ 図もこのあとの記録も、ずらした後の座標で揃える（片方だけ動くと嘘になる）
+  PLACED = r.placements;
+  const bb = [Math.min(...PLACED.map(p=>p.cx-p.w/2)), Math.min(...PLACED.map(p=>p.cy-p.h/2)),
+              Math.max(...PLACED.map(p=>p.cx+p.w/2)), Math.max(...PLACED.map(p=>p.cy+p.h/2))];
+  SHIFT = spreadMove(bb, (STATE && STATE.film_terms_since_change) || 0);
+  if(SHIFT.dx || SHIFT.dy)
+    PLACED = PLACED.map(p => ({...p, cx: p.cx + SHIFT.dx, cy: p.cy + SHIFT.dy}));
+  drawPlate(PLACED);
+  (r.warn||[]).forEach(w => msg(w,'w'));
+  msg(SHIFT.dx || SHIFT.dy
+      ? `フィルムを散らすため、まん中から X ${SHIFT.dx} / Y ${SHIFT.dy} ずらして置きました`
+        + `（${SHIFT.i + 1} 回目・動かせる範囲は ±${SHIFT.room[0]} / ±${SHIFT.room[1]}）。`
+      : 'この回はまん中に置きます（フィルム交換の直後）。', 'o');
+  if(r.used) msg(`${r.used.parts} 点を置きました（プレートの ${r.used.fill_pct}%）`+
+                 (PLACED.some(p=>p.rot) ? '　※ 印は 90° 回して入れた物' : ''),'o');
+  if(r.time) msg(`層数 ${r.time.layers}（一番背の高い ${r.time.by} が決めている）`+
+                 `／露光だけの下限 ${Math.round(r.time.min_sec/60)} 分\n${r.time.note}`,'o');
+  // 🔒 編集中なら名前を変えない。変えると、同じ計画が 2 行に分かれて片方が居残る
+  const d=new Date(), z=n=>String(n).padStart(2,'0');
+  TERM = EDITING ||
+    `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}`;
+  showTerm();
+  $('#btnExport').disabled = !PLACED.length;
+};
+
+// ---- フィルムの同じ所ばかり使わないために、載せる場所を毎回ずらす ----
+// 🔒 CHITUBOX は読み込んだ物の bbox の中心をプレート中央へ置く。放っておくと毎回まん中に
+//    載り、フィルムの中心だけが減る。
+// 🔒 2026-08-31 ユーザー案 ＋ ✅ 実物で確認: **プレートの外の四隅にアンカーを 4 個混ぜて
+//    書き出す。**4 個が原点対称なので bbox の中心がプレート中央と一致し、中央合わせで
+//    何も動かない ＝ **書き出した座標がそのまま生きる。**
+//    ⇒ 移動量を人が数値欄に打つ必要は無い。置き場所をここでずらせば、そのまま出る。
+//    ✅ アンカーは露光されない（体積 3.06ml → 2.91994ml・差はアンカー 4 個ぶん）。
+//    ⚠ スライス時に「プラットフォームを超えています」の警告が出るが、「はい」で通る。
+// ⚠ STL 側に「印刷されない小さな点」を足して bbox をずらす手は採らない。
+//    小さい点は硬化しないとは限らず、固まればフィルムに貼り付いた小片になる。
+//    フィルムを守るための細工がフィルムを傷める。おまけに接地も配置図も嘘になる。
+// PLATE_EDGE … プレートの端に寄せない余白。⬜ 端で露光が落ちるという話はよく聞くが、
+//   **この機械では確かめていない**ので、確かめるまでは近寄らせない。確かめたら縮めてよい
+const PLATE_W = 143, PLATE_H = 89, PLATE_EDGE = 8.0;
+// まん中から始めて、隅・辺へ飛ばす。順に隣へ動かすと結局帯状に減るので飛ばす
+const SPREAD = [[0,0],[-1,-1],[1,1],[1,-1],[-1,1],[-1,0],[1,0],[0,1],[0,-1]];
+
+// 四隅のアンカー。🔒 原点対称に 4 個。1 個でも欠けると bbox の中心がずれて全部ずれる
+const ANCHOR_STL = 'surugo/anchor.stl', ANCHOR_SZ = 6.0, ANCHOR_OUT = 6.0;
+function anchorPlacements(){
+    const ax = PLATE_W / 2 + ANCHOR_OUT, ay = PLATE_H / 2 + ANCHOR_OUT;
+    const out = [];
+    for (const sx of [-1, 1]) for (const sy of [-1, 1])
+        out.push({path: ANCHOR_STL, name: 'anchor', cx: sx * ax, cy: sy * ay,
+                  w: ANCHOR_SZ, h: ANCHOR_SZ, rot: 0, grip: 0, layers: 0, height: 0});
+    return out;
+}
+
+function spreadMove(bbox, n){
+  const w = bbox[2] - bbox[0], h = bbox[3] - bbox[1];
+  const rx = Math.max(0, (PLATE_W - w) / 2 - PLATE_EDGE);
+  const ry = Math.max(0, (PLATE_H - h) / 2 - PLATE_EDGE);
+  const u = SPREAD[((n % SPREAD.length) + SPREAD.length) % SPREAD.length];
+  const q = v => Math.round(v * 2) / 2;          // 人が打つ数字なので 0.5mm 刻み
+  return {dx: q(u[0] * rx), dy: q(u[1] * ry), i: n, room: [q(rx), q(ry)]};
+}
+
+$('#btnExport').onclick = async () => {
+  const out = `hardware/stl/term/${TERM}.stl`;
+  const r = await api('/api/export', {placements: PLACED.concat(anchorPlacements()), out});
+  if(r.error) return msg(r.error,'b');
+  msg(`書き出しました: ${r.out}（面 ${r.facets.toLocaleString()}）`, 'o');
+  msg('CHITUBOX では**動かさずに**スライスしてください。四隅のアンカーで座標を固定して'+
+      'あるので、読み込んだ位置がそのまま刷る位置です。\n'+
+      '⚠「モデルは印刷プラットフォームを超えていますが、続行するかどうか?」が出ますが、'+
+      '「はい」で進めてください。枠の外に出ているのはアンカーで、露光されません。', 'o');
+  const wasEditing = EDITING; EDITING = null;
+  await api('/api/event', {by:'human', ev:{t:'term', id:TERM, out, move:[SHIFT.dx, SHIFT.dy],
+    parts: PLACED.map(p => ({name:p.name, path:p.path, grip:p.grip,
+                             profile_max:p.profile_max,
+                             layers:p.layers, height:p.height, cx:p.cx, cy:p.cy}))}});
+  if(wasEditing) msg(`${TERM} を更新しました（新しい回は作っていません）。`, 'o');
+  showTerm();
+  await loadState();
+};
+
+// ⚠ 押した手ごたえは、**押した場所に**出す。
+//   ヘッダは「いまの番手」を出しているだけなので、#1000 のときに #1000 を
+//   記録しても 1 文字も変わらない。それで 4 秒差で 2 回押された（ログに残っている）。
+function evName(e){
+  if(e.t==='plate') return `プレートを #${e.grit} に研ぎ直した`;
+  if(e.t==='resin') return `レジンを「${e.name}」に替えた`;
+  if(e.t==='film')  return `フィルムを交換した（${e.reason==='fail'?'失敗して':'予防'}）`;
+  return e.t;
+}
+function evNote(e){
+  const box = $('#evout'); if(!box) return;
+  const d = document.createElement('div');
+  d.className = 'msg o';
+  d.textContent = `${(e.at||'').slice(11,16)}  ${evName(e)}`;
+  box.insertBefore(d, box.firstChild);
+  while(box.children.length > 5) box.removeChild(box.lastChild);
+}
+// 並べ替えの ↑↓。⚠ 位置ではなく**列全体の並び**を 1 件書く（ログは追記だけなので）
+function moveCell(n, len){
+  return `<td style="white-space:nowrap;padding-right:0">`+
+    `<button ${n===0?'disabled':''} onclick="move(${n},-1)" title="上へ">↑</button>`+
+    `<button ${n===len-1?'disabled':''} onclick="move(${n},1)" title="下へ">↓</button></td>`;
+}
+async function move(n, d){
+  const ids = (STATE && STATE.queue || []).map(x => x.id);
+  const m = n + d;
+  if(m < 0 || m >= ids.length) return;
+  [ids[n], ids[m]] = [ids[m], ids[n]];
+  const r = await api('/api/event',{by:'human',ev:{t:'order', ids}});
+  if(r.error){ alert(r.error); return; }
+  await loadState();
+}
+
+function planName(t){
+  if(t.kind==='plate') return `プレートを #${t.grit} に研ぎ直す`;
+  if(t.kind==='resin') return `レジンを「${t.name}」に替える`;
+  if(t.kind==='film')  return `フィルムを交換する（${t.reason==='fail'?'失敗して':'予防'}）`;
+  return t.kind;
+}
+// 予定を積む。⚠ ここではまだ記録にしない（やっていないので）
+async function plan(x){
+  if(x.kind==='resin' && !(x.name||'').trim()){ alert('レジン名を入れてください'); return; }
+  const d=new Date(), z=n=>String(n).padStart(2,'0');
+  const id = `p-${d.getFullYear()}-${z(d.getMonth()+1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}${z(d.getSeconds())}`;
+  const r = await api('/api/event',{by:'human',ev:Object.assign({t:'plan',id},x)});
+  if(r.error){ alert(r.error); return; }
+  await loadState();
+}
+// やった → 予定を閉じ、**そのとき初めて**本物の記録を書く
+async function didPlan(id){
+  const t = (STATE && STATE.queue || []).find(x => x.id === id);
+  if(!t) return;
+  await api('/api/event',{by:'human',ev:{t:'did', plan:id}});
+  const real = t.kind==='plate' ? {t:'plate', grit:t.grit}
+             : t.kind==='resin' ? {t:'resin', name:t.name}
+             : {t:'film', reason:t.reason};
+  const r = await api('/api/event',{by:'human',ev:real});
+  if(r.error) alert(r.error);
+  await loadState();
+}
+async function unplan(id){
+  await api('/api/event',{by:'human',ev:{t:'did', plan:id, cancelled:true}});
+  await loadState();
+}
+
+async function ev(e){
+  if(e.t==='resin' && !(e.name||'').trim()){ alert('レジン名を入れてください'); return; }
+  const r = await api('/api/event',{by:'human',ev:e});
+  if(r.error){ alert(r.error); return; }
+  evNote(r.ev);
+  await loadState();
+}
+async function result(id, ok){
+  const detail = prompt(ok ? 'どう出ましたか（剥がれ方・寸法・気づいたこと）'
+                           : '何が起きましたか（どこが・どう失敗したか）') ;
+  if(detail === null) return;
+  await api('/api/event',{by:'human',ev:{t:'result',term:id,ok,detail}});
+  await loadState();
+}
+
+loadState(); loadStls();
+</script>
+</body>
+</html>

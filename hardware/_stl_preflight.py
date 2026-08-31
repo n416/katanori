@@ -50,6 +50,7 @@ def bodies(tris):
 #   🔒 長い部品（おおむね 40mm 超）に逃げ溝を張ってはいけない。蝶番になって破断した（4 枚で確定）。
 #      長い部品は犠牲タブ（見本: knob_jig.scad の bridge_print・両端 7 x 8 x 1.2）
 GRIP_BAD = 1709.0; GRIP_WARN = 585.0; LONG = 40.0
+SPRUE_W = 2.0   # 🔒 桟の幅（fit_gauge.scad / peg_bore_gauge の作法）。これでつながった物は別と数える
 #   🔴 島（浮いた欠片）だけを見る検査は**縁で繋がった天井を素通りする**。つまみの皿もそれで合格してしまう
 #      （2026-08-27 ユーザー指摘）。下向きの天井は「支えからどれだけ離れているか」で見る。
 #      実績: 支柱のピッチ 3.0 ＝ 隣まで 4mm を超えない。支えから REACH 以上離れた天井は持たれていない。
@@ -90,6 +91,43 @@ def grip_and_islands(tris, pitch=0.25):
     cell=pitch*pitch
     grip=((zs<=z0+DZ*0.5)&(ze>z0+DZ*0.5)).sum()*cell
     long_mm=max(us.max()-us.min(), vs.max()-vs.min())
+    # 🔒 2026-09-01 **1 枚あたりの接地**（つながっている領域の最大）。合計とは別物。
+    #   剥がれ・角の欠けは「1 枚の板の大きさ」で効くので、実績 585 / 1709 と比べるのはこちら。
+    #   合計（grip）はプレート全体の剥離力なので、LCD 比の判定にはそのまま使う。
+    #   ⚠ 基準の数字は変えていない。当てる数字を変えただけ
+    #   （ユーザー指摘 2026-09-01「角が欠けるのは、それが 1 枚の大きな板だった場合でしょ？」）
+    # 🔒 **桟でしかつながっていない物は別々に数える。**桟は 2.0 × 1.5（fit_gauge.scad 冒頭
+    #   「輪と枠を桟（2.0×1.5・ニッパーで切る）で 1 枚につなぐ」／ peg_bore_gauge と同じ）。
+    #   ⚠ 新しい数字ではない。既にリポジトリに宣言してある作法の値をそのまま使う。
+    #   やり方: 桟の半分（1.0mm）だけ縮めると幅 2.0 の首は消える。残った塊を数え、
+    #   同じだけ膨らませて元の接地と重ねたものが「1 枚ぶん」。
+    G=np.zeros(nu*nv,bool); G[col[(zs<=z0+DZ*0.5)&(ze>z0+DZ*0.5)]]=True
+    A2=G.reshape(nu,nv)
+    er=max(1,int(round((SPRUE_W/2.0)/pitch)))
+    E=A2.copy()
+    for _ in range(er):
+        F=E.copy()
+        F[1:,:]&=E[:-1,:]; F[:-1,:]&=E[1:,:]; F[:,1:]&=E[:,:-1]; F[:,:-1]&=E[:,1:]
+        F[0,:]=False; F[-1,:]=False; F[:,0]=False; F[:,-1]=False
+        E=F
+    grip_max=0.0; seenE=np.zeros_like(E)
+    for i0,j0 in np.argwhere(E):
+        if seenE[i0,j0]: continue
+        q=deque([(i0,j0)]); seenE[i0,j0]=True; comp=[(i0,j0)]
+        while q:
+            i,j=q.popleft()
+            for di,dj in ((1,0),(-1,0),(0,1),(0,-1)):
+                ii,jj=i+di,j+dj
+                if 0<=ii<nu and 0<=jj<nv and E[ii,jj] and not seenE[ii,jj]:
+                    seenE[ii,jj]=True; q.append((ii,jj)); comp.append((ii,jj))
+        M=np.zeros_like(E)
+        for i,j in comp: M[i,j]=True
+        for _ in range(er):
+            F=M.copy()
+            F[1:,:]|=M[:-1,:]; F[:-1,:]|=M[1:,:]; F[:,1:]|=M[:,:-1]; F[:,:-1]|=M[:,1:]
+            M=F
+        grip_max=max(grip_max,float((M&A2).sum())*cell)
+    if grip_max==0.0: grip_max=grip   # 全部が桟より細い（＝1 枚が極小）ときは合計で見る
     isl=[]
     for lay in np.unique(np.round((zs-z0)/DZ).astype(int)):
         if lay<=0: continue
@@ -133,7 +171,7 @@ def grip_and_islands(tris, pitch=0.25):
         if un.sum()*cell>=0.5:
             xi,yi=np.nonzero(un)
             ceil.append((z0+lay*DZ, un.sum()*cell, Ng.sum()*cell, us[xi].min(),us[xi].max(),vs[yi].min(),vs[yi].max()))
-    return grip, long_mm, isl, ceil, ze.max()-z0
+    return grip, long_mm, isl, ceil, ze.max()-z0, grip_max
 
 def scan(tris, axis):
     u,v=[i for i in range(3) if i!=axis]
@@ -177,11 +215,12 @@ for p in sorted(glob.glob(sys.argv[1])):
     if len(bd)>1:
         for m in sorted(bd,key=lambda m:m[2]):
             print("   🔴 欠片  X %.2f..%.2f  Y %.2f..%.2f  Z %.2f..%.2f" % (m[0],m[3],m[1],m[4],m[2],m[5]))
-    grip,long_mm,isl,ceil,hh=grip_and_islands(tris)
-    if grip>GRIP_BAD: v="🔴 base.stl（1709・剥がれず/プレート傷/部品折れ）を超えている"
-    elif grip>GRIP_WARN: v="⚠ frame（585・角が欠けた）を超えている"
+    grip,long_mm,isl,ceil,hh,grip_max=grip_and_islands(tris)
+    # 🔒 比べるのは 1 枚あたり（grip_max）。実績の 585 / 1709 は 1 枚の板で出た値
+    if grip_max>GRIP_BAD: v="🔴 base.stl（1709・剥がれず/プレート傷/部品折れ）を超えている"
+    elif grip_max>GRIP_WARN: v="⚠ frame（585・角が欠けた）を超えている"
     else: v="✅ bridge（513・無事）の側"
-    print("   接地 %.0f mm2  %s" % (grip, v))
+    print("   接地 %.0f mm2（1 枚あたり %.0f）  %s" % (grip, grip_max, v))
     if grip>GRIP_WARN:
         print("      → %s（長辺 %.0fmm）" % ("**犠牲タブ**（逃げ溝は蝶番になって破断する）" if long_mm>LONG else "逃げ溝で 4 割落とせる", long_mm))
     if ceil:

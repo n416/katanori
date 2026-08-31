@@ -240,7 +240,7 @@ module floor_v4() {
         // ハブのビス（M3）: 通し穴＋裏のザグリ
         for (h = HUB_HOLES4) translate([h[0], h[1], 0]) {
             translate([0, 0, -FLOOR_T - 1]) cylinder(d = M3_CLEAR, h = FLOOR_T + BOARD_Z + 2, $fn = 24);
-            translate([0, 0, -FLOOR_T - 1]) cylinder(d = M3_HEAD_D, h = M3_HEAD_H + 1, $fn = 32);
+            translate([0, 0, -FLOOR_T - 1]) cylinder(d = M3_CB, h = M3_HEAD_H + 1, $fn = 32);   // 🔴 頭の径そのものではなく逃げ込みの M3_CB
         }
         // 壁のビス（M2）: 通し穴＋裏のザグリ
         for (c = V4_FLOOR_SCREWS) translate([c[0], c[1], 0]) {
@@ -635,7 +635,15 @@ if (part == "print_seat") { translate([TC4_ZT, 0, -LW_X]) rotate([0, -90, 0]) tc
                             if (!PROPS_OFF) { props_seat(); raft_seat(); } }
 if (part == "print_shutter") translate([0, 0, SW4_YOUT]) rotate([-90, 0, 0]) battery_shutter4(0);
 if (part == "print_lock")    translate([0, 0, SW4_YOUT]) rotate([-90, 0, 0]) battery_lock4();
-if (part == "print_tail")    translate([0, 0, -0.2]) tail_cap();
+// 🔴 2026-08-31 底が z=0 に乗っていなかった（0.012 浮き）。丸い先端に穴が開いているので
+//   いちばん下は穴の縁の輪で、その高さ 0.2 を手で決めた -0.2 で落としていたが、
+//   丸みの多角形近似のぶんが残っていた。⇒ **0.3 落として z=0 より下を切り落とす。**
+//   ⚠ 0.2 のままだと 0.012 浮いたままで、切っても何にも当たらない（浮いていて沈んでいない）。
+//   ⚠ 先端が 0.1mm 短くなり、接地が穴の縁の輪から小さな面になる。底は正確に 0 に乗る
+if (part == "print_tail")    difference() {
+    translate([0, 0, -0.3]) tail_cap();
+    translate([-100, -100, -100]) cube([200, 200, 100]);
+}
 
 // ---- 会話ボタンだけの試し刷り（🔒 2026-08-28 ユーザー「ちょっと部品印刷したいね。ここだけで」
 //      「ボタンも込みでさ」）。3 点: ①天板の受けの所を刷る向きのまま切り出した物 ②下から留める板

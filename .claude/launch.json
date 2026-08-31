@@ -4,14 +4,44 @@
     {
       "name": "dev",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--", "--port", "5199"],
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "5199"
+      ],
       "port": 5199
+    },
+    {
+      "name": "surugo",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "surugo/server.py",
+        "8731"
+      ],
+      "port": 8731
     },
     {
       "name": "manual",
       "runtimeExecutable": "python",
-      "runtimeArgs": ["-m", "http.server", "5233", "--directory", "hardware"],
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "5233",
+        "--directory",
+        "hardware"
+      ],
       "port": 5233
+    },
+    {
+      "name": "surugo-check",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "surugo/server.py",
+        "8732"
+      ],
+      "port": 8732
     }
   ]
 }
