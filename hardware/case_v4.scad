@@ -748,9 +748,6 @@ if (part == "print_strap_c") { strap_print_flip(STRAP_BANDS[2]); if (!PROPS_OFF)
 if (part == "print_piston")  btn3_piston_print();
 if (part == "print_tub")     btn3_tub_print();      // 🔒 v3 で増えた 2 点目
 if (part == "print_btn")     btn3_piston_print();   // ⚠ 旧名。焼き出しの名前が変わるまでの別名
-// 留め板: そのままの向きで、板の裏（Z_TSW_BOT − BTN_PLATE_T ＝ 38.154）をベッドへ。厚み 1.5 の平板なので支えも要らない。
-//   🔴 2026-08-29 それまで留め板は print_btntest（試し刷り）の中にしか無く、**本番で刷る 18 点に入っていなかった。**
-//     08-29 に羊羹の逃げを欠いたので、試し刷りで刷ってある板はもう使えない。単体で焼けるようにする。
 // 🔒 2026-08-29 v2 に留め板は無い（スイッチは自分の取付穴の M2 2 本と棚で持つ）。print_btnplate は廃止
 // ブリッジ: 皿を伏せる（2026-08-26・前板を別部品にしたので L 字ではなくなった）。レール・パッドは全部上を向く。
 //   ⚠ 皿の裏に 1 つだけ出っ張りが残る: 充電の Type-C の押さえ（X 1.69〜3.9・Y 58.6〜62.2・皿の裏から 0.7 下）。
@@ -1041,7 +1038,7 @@ if (part == "close_rwall") intersection() { union() for (t = [0 : STEP : 30]) tr
 //   ⚠ close_rwall に残る 25mm³ は スピーカー OUT の**天井下の区間**（X 82.55〜84.05・Y 30〜36・Z 44.35〜47.35）を
 //     右の前の棚が通り抜ける分。この 2 本はスピーカー（天面の部品）に付いたまま最後に降りてくるので、
 //     壁を降ろす時点では箱に居ない。低い車線に居るのは口から壁ぎわまでの Z 19.5 の区間だけで、そこは 0
-// 天面と一緒に降りる物（島・コネクタ・スピーカー・タクト・傘 = core の top_group）は動く側。障害物に入れない
+// 天面と一緒に降りる物（島・コネクタ・スピーカー・会話ボタン = core の top_group）は動く側。障害物に入れない
 module stage_top() { lower_group(); brg_v4(); brg_front(); bat_v4(); pb_bat(); ina_bat(); straps_v4(); posts_v4(); pbl_hous(); pbu_hous();
                      wires_pwr(); wires_sig(); floor_v4(); lwall_v4(); rwall_v4(); }
 if (part == "close_top") difference() { intersection() { union() for (t = [0 : STEP : 25]) translate([0, 0, t]) { top_v4(); top_group(); }

@@ -42,9 +42,9 @@ module btn3_at_keepout()  translate([BTN4[0], BTN4[1], Z_TOP]) btn3_keepout();  
 //    ⚠ +2.22 はナットの下端がリブの上端に**並ぶ**値（余裕 0.002mm）なので採らない。下の実測で決める。
 //    🔒 スピーカーも同じだけ動かす（ユーザー「デザイン的にスピーカーの中央とは一緒にしたい」）。
 //       ROW_Y を 2 つで共有しているので、片方だけ動かすことはできない。
-//   🔴 2026-08-29 ROW_Y と BTN4 の定義は btn_v1.scad（先に読まれる側）へ移した。btn_plate() が
-//     羊羹の逃げを彫るのに自分の Y を要り、外にあると btn_v1.scad が単体で開けなかったため。
-//     ここは読むだけ。スピーカーの X だけがここの持ち物。
+//   🔴 2026-09-01 ROW_Y と BTN4 は **btn_v1.scad にも同名の定義がある**（[22, ROW_Y]）。
+//     include が先に読まれ、下の [24, ROW_Y] が上書きするので現行は 24 で正しいが、
+//     ⬜ 同じ名前が 2 か所にある状態は残っている（v1 の留め板が自分の Y を要ったときの名残）。
 // ---- つまみ一式の送り（KNOB_AT からの相対）----
 // 🔴 2026-08-29 この (-2.5, +7) は 3 か所に直書きされていた:
 //   ① case_v4.scad の KNOB4 ② core() ③ top_knob() ④ top_asconn() ⑤ as_plug()
@@ -1205,8 +1205,7 @@ module core_rest() {
     oled_at(); oled_hous();
     knob_at_v4();   // 🔒 2026-08-28 as_conn() は外した（基板がヘッダを持つので同じ場所に重なる）
     translate([SPK_X, SPK_Y, IN_Z - spk_th() - 0.2 + SPK_LIFT]) speaker_112495();
-    translate([BTN_AT[0], BTN_AT[1], Z_TSW_BOT]) tactswitch();
-    translate([BTN_AT[0], BTN_AT[1], 0]) button_cap();
+    btn3_at_tub(); btn3_at_switch(); btn3_at_piston();   // 🔴 2026-09-01 v1 のタクトとキャップを置いたままだった
 }
 if (W == "hubchk") intersection() { hub_unit(); core_rest(); }
 if (W == "hubonly") hub_unit();
