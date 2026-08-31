@@ -20,3 +20,6 @@ _access_tmp/
 
 # 刷る前の検算で出した使い捨てSTL
 hardware/_pf/
+
+# 刷るぞー の測定キャッシュ（絶対パスと mtime で作る派生物。他人の環境では当たらない）
+surugo/.measure_cache.json
