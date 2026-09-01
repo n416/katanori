@@ -150,11 +150,30 @@ for m in re.finditer(r"\{ id:'(PH\w+)',\s*name:'([^']+)',\s*body:\{L:([\d.]+),\s
     add(pid, name, "ph", hs, w=float(W), l=float(L))
     add_port(pid, name, exit_, hs)
 
+# 🔒 2026-08-24（ユーザー）。**OLED と AS5600 の口は役割を入れ替えて使う。**
+#    OLED 用に計画したヘッダを AS5600 に充て、つまみの線が OLED から見て右に出るように
+#    した（鏡事故の補正）。両口とも GND・3V3・SCL・SDA で電気的に同一なので、名札だけが動く。
+# 🔴 **relay_board.html の名札は計画のままなので、ここで実配線へ直す。**
+#    これを外すと、流し直すたびに補正が消えて事故が再発する。「食い違い」と見て戻さないこと。
+SWAP = {"OLED": "AS5600", "AS5600": "OLED"}
+SWAP_NOTE = {
+    "AS5600": "🔒 2026-08-24 実配線: 旧 OLED 計画のヘッダをユーザーが AS5600 に充てた"
+              "（鏡事故の補正。つまみの線が OLED から見て右に出る＝このロボットの核心）",
+    "OLED": "🔒 2026-08-24 実配線: 旧 AS5600 計画のヘッダ（上の入れ替えの相方）",
+}
+plan = {}   # 計画の id → (label, exit, 穴)。入れ替えは全部読んでから当てる
+
 for m in re.finditer(r"\{ id:'(\w+)',\s*label:'([^']+)',\s*exit:'(\w+)',\s*pins:\[(.*?)\]\s*\}", body, re.S):
     pid, label, exit_, pins = m.groups()
     hs = holes_in(pins)
-    add(pid, label, "header", hs)
-    add_port(pid, label, exit_, hs)
+    add(pid, label, "header", hs)      # ⚠ 胴の名前は計画のまま（口だけ入れ替える）
+    plan[pid] = (label, exit_, hs)
+
+for pid, (label, exit_, hs) in plan.items():
+    real = SWAP.get(pid, pid)          # この穴に実際に挿さる相手
+    if real != pid:
+        label = plan[real][0] + " " + SWAP_NOTE[real]
+    add_port(real, label, exit_, hs)
 
 with DST.open("w", encoding="utf-8") as f:
     f.write("// 🔴 自動生成。手で編集しない。\n")
