@@ -186,8 +186,11 @@ module sw4_lock_cut() {
         cube([SHUT_LOCK_NAF, SHUT_LOCK_NT + 0.01, sw4_lk_boss_z1() - sw4_lock_z() + 0.01]);         // 落とす溝（ボスの頭まで）
 }
 // 彫ったぶんハッチの裏へ足す肉＋ロックのボス＋磁石のパッド
-module sw4_lock_boss() translate([sw4_lock_x() - 4.5, sw4_yg() - SHUT_LOCK_B, sw4_lock_z() - 2.5])
-    cube([9.0, SHUT_LOCK_B, sw4_lk_boss_z1() - sw4_lock_z() + 2.5]);
+// ボスの下端 ＝ 六角の下の頂点 − 床の厚み。🔒 旧「− 2.5」は直書きで、床が 0.017mm しか
+//   残っていなかった（2026-09-02。case_v3_shutter.scad の SHUT_LOCK_FLR の節）
+function sw4_lock_boss_z0() = sw4_lock_z() - SHUT_LOCK_NAF / cos(30) / 2 - SHUT_LOCK_FLR;
+module sw4_lock_boss() translate([sw4_lock_x() - 4.5, sw4_yg() - SHUT_LOCK_B, sw4_lock_boss_z0()])
+    cube([9.0, SHUT_LOCK_B, sw4_lk_boss_z1() - sw4_lock_boss_z0()]);
 module sw4_backing() {
     // 🔴 2026-09-02 ここは角の立った直方体だった。彫り込み（sw4_band_cut の rrect）は角丸 SHUT_R なので、
     //   四隅の**彫っていない所にまで肉が出ていた**。SHUT_EXT を 6.30 → 7.30 に広げたとき、

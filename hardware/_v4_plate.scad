@@ -21,7 +21,7 @@ module plate_all() {
     color(PLATE_COLOR) translate([56.760, 154.735, 0]) import("stl/v4/v4_front.stl");
     plate_label(56.454, 93.640, "front", "86.7 x 52.1 x 11.0  09-02 03:52");
     color(PLATE_COLOR) translate([151.420, 106.640, 0]) import("stl/v4/v4_hatch.stl");
-    plate_label(151.114, 93.640, "hatch", "86.7 x 50.5 x 6.6  09-02 02:19");
+    plate_label(151.114, 93.640, "hatch", "86.7 x 50.5 x 6.6  09-02 05:08");
     color(PLATE_COLOR) translate([160.520, 208.140, 0]) import("stl/v4/v4_knob.stl");
     plate_label(147.020, 183.640, "knob", "27.0 x 27.0 x 21.4  08-31 23:21");
     color(PLATE_COLOR) translate([215.992, 205.640, 0]) import("stl/v4/v4_knobwall.stl");
