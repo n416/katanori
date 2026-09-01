@@ -244,6 +244,16 @@ B3_CB_D    = 4.2;  B3_CB_H   = 1.6;  // 頭のザグリ（バスタブの底に�
 //     +X の真下には電池／INA の塊が world Z 35.87〜36.82 の帯で来ていて、4.7 で当たる。
 //     ⇒ +X 側だけ 1.085mm の隙間が残る。これは埋められない（支えを付けて刷る）。
 B3_EAR_T   = [4.5, 5.585];           // 耳の厚み（Z）。[+X 側, -X 側]
+// 🔄 2026-09-02 上の「+X 側は埋められない」は**耳の厚みを一様に掃引した**結果で、部分的には埋まる。
+//   実測（hardware/_tub_ear_probe.scad・相手は innards4 の全部）: 耳の足あと 7.25 x 7.0 = 50.75mm² のうち
+//   **39.18mm²（77%）は 1.085mm ぜんぶプレートまで空いている**。塞いでいるのは INA226 の板の縁 1 枚だけで、
+//   局所 y 6.54 以上・厚み 0.29mm（当たり 2.007mm³）。電池・PowerBoost・橋・帯・柱・線・OLED・ハブ・
+//   ReSpeaker・蓋は全部 0。⇒ +X の耳にも**底まで届く足**を付け、+Y 側だけ INA の手前で止める。
+//   これで浮いた庇（斜めに出た所）が消え、支柱もラフトも要らなくなる。
+B3_EAR_FOOT_Y1 = 6.04;               // 足の +Y の端（局所 y）。INA の縁 6.54 − 逃げ 0.5
+// 足の下面。+X だけ底まで下ろす（-X は元から底とツライチ）
+function b3_ear_foot_z0(i) = (i == 0) ? B3_Z_TUB_B : b3_ear_z0(i);
+function b3_ear_foot_y0()  = B3_TUB_CY - B3_BLK_W / 2 + B3_BLK_DY[0];
 // 2026-08-30 耳を一度バスタブの一番上へ上げた（ユーザーの絵に合わせて）。
 //   ⚠ それは**指示ではなかった**（「なんとなく線の通りが良いだろうと思ったから」）。
 //   ⇒ 今はブロックの厚み（印刷の安全）を優先して下げてある。耳の高さは従属値。
@@ -347,6 +357,11 @@ module btn3_tub() color("#a8b6a0") difference() {
         for (i = [0, 1]) mirror([i, 0, 0]) translate([0, B3_BLK_DY[i], 0])                // 耳 2 か所
             translate([B3_TUB_OX / 2 - 1, B3_TUB_CY - B3_BLK_W / 2, b3_ear_z0(i)])
                 cube([B3_EAR_XO - B3_TUB_OX / 2 + 1, B3_BLK_W, B3_EAR_Z1 - b3_ear_z0(i)]);
+        // +X の耳の足（🔒 B3_EAR_FOOT_Y1 の節）。X は耳と同じ・+Y だけ INA の手前で止める
+        translate([B3_TUB_OX / 2 - 1, b3_ear_foot_y0(), B3_Z_TUB_B])
+            cube([B3_EAR_XO - B3_TUB_OX / 2 + 1,
+                  B3_EAR_FOOT_Y1 - b3_ear_foot_y0(),
+                  b3_ear_z0(0) - B3_Z_TUB_B]);
     }
     // ---- 中を彫る。🔒 上は全開（天井側に張り出しを一切作らない）----
     translate([0, 0, B3_Z_SW_TOP])                                                        // レバーの部屋
@@ -370,11 +385,13 @@ module btn3_sw_screw_cut() for (sx = [-1, 1]) translate([sx * B3_SCR_X + B3_SW_D
 }
 
 // ---- 縦ねじ（耳の通しと、底に沈める頭のザグリ）----
+//   ⚠ 足を付けた側は下面が 1.085 下がるので、ザグリも同じだけ深くする。**頭の座の Z は動かさない**
+//     （動かすと M2 を 1.085 長い物へ買い替えることになる）。深さ 1.6 → 2.685、残る肉 2.9（assert 1.5）
 module btn3_v_screw_cut() for (i = [0, 1]) mirror([i, 0, 0]) translate([0, B3_BLK_DY[i], 0]) {
-    translate([B3_V_SCR_X, 0, b3_ear_z0(i) - 1])
-        cylinder(d = B3_V_SCR_D, h = B3_EAR_Z1 - b3_ear_z0(i) + 2, $fn = 24);
-    translate([B3_V_SCR_X, 0, b3_ear_z0(i) - 0.01])                                        // 頭のザグリ
-        cylinder(d = B3_CB_D, h = B3_CB_H + 0.01, $fn = 32);
+    translate([B3_V_SCR_X, 0, b3_ear_foot_z0(i) - 1])
+        cylinder(d = B3_V_SCR_D, h = B3_EAR_Z1 - b3_ear_foot_z0(i) + 2, $fn = 24);
+    translate([B3_V_SCR_X, 0, b3_ear_foot_z0(i) - 0.01])                                   // 頭のザグリ
+        cylinder(d = B3_CB_D, h = B3_CB_H + (b3_ear_z0(i) - b3_ear_foot_z0(i)) + 0.01, $fn = 32);
 }
 
 
@@ -568,6 +585,9 @@ assert(B3_HEAD_OUT < 5.5, "🔒 頭が AS5600 のつまみ（5.5）より高い"
 assert((B3_WALL_YP + B3_WALL_YN) / 2 - B3_NUT_T >= 0.55,
        "ナットの床が薄い（実寸 = (WALL_YP + WALL_YN)/2 - NUT_T）");
 assert(min(B3_EAR_T) - B3_CB_H >= 1.5, "耳がザグリに食われて薄い（頭が抜ける）");
+// 足の +Y の縁 ↔ ザグリ（φ4.2・芯は B3_BLK_DY[0]）の間に残る肉。ここが足の最薄部
+assert(B3_EAR_FOOT_Y1 - (B3_BLK_DY[0] + B3_CB_D / 2) >= 0.42,
+       "足の +Y の壁が 0.42 を切る（PRINT.md の最薄肉）");
 assert(B3_BLK_XI > B3_TUB_OX / 2, "ブロックがバスタブに食い込んでいる（入らない）");
 // 🔴 2026-08-30 ユーザー「押し子にあたってんじゃん」。ツバは ±FLG_L/2 で上下に動く
 assert(B3_BLK_XI >= B3_WIN_L / 2, "ブロックがツバの部屋に入っている ⇒ 押し子に当たる");
