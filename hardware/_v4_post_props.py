@@ -132,6 +132,12 @@ RAFT_SKIRT = 0.6  # 縁の反り。**上を底より広げる**量（45°）。
 #      逆に入りづらいじゃん」。あれは縁が薄い刃先になるだけで、ヘラが乗り上げて刺さらない。
 #      スケート（スキーの先）は**縁が上へ反っている**形で、その反りの下へヘラを差し込む。
 RAFT_TOP = 0.05   # 上面の厚み（hull の種にする薄い板）
+# 🔴 **足の球はラフトに触れてはいけない。** 球の底がラフト（0〜RAFT_T）に埋まると、
+#    そこだけラフトが薄い板でなく塊になり、ヘラで曲げても逃げず力がプレートへ行く。
+#    🔒 2026-09-02 ユーザー「支柱の足の球がプレートを割るって指摘が来たヨ」。
+#    実際 post_3 の枝の足が球の底 z=+0.43（ラフトの中）だった。⇒ 球の中心の下限を
+#    「ラフトの上面 ＋ 球の半径 ＋ 逃げ」にする。
+FOOT_MIN_MARGIN = 0.1
 RAFT_D = 5.0      # 🔒 ラフトの円の径。出典の「台は φ2〜5」の上限（docs/PRINT.md §3.9）。
                   #   ⚠ 直置きの部品と違い、**浮かせた部品ではラフトが唯一の接地**になる。
                   #   🔴 2026-09-02 刃の空きを 2.0 にして支柱が 3〜4 本に減ったぶん、接地が
@@ -142,6 +148,7 @@ RAFT_LINK = PITCH + 0.6   # この距離までは無条件で繋ぐ（_v4_props.
 #      固定の距離だけでは届かない対が出る（2026-09-01・post_4 で合計 60mm² のうち
 #      1 枚が 23mm² に割れた）。浮かせた部品ではラフトが唯一の接地なので、
 #      割れると小さい方が自分だけで剥離力を受けることになる。⇒ 最小全域木で必ず繋ぐ。
+FOOT_MIN = RAFT_T + PROP_D / 2 + FOOT_MIN_MARGIN   # 1.70 足の球の中心はここより上
 RAY = 0.1         # 下面を拾うレイの間隔
 
 # ---- 触ってはいけない面（部品の素の向きで書く。post_one の数字から出す）----
@@ -472,7 +479,7 @@ def stand(h, pts, got):
             d = ((h['M'][0] - g['M'][0]) ** 2 + (h['M'][1] - g['M'][1]) ** 2) ** 0.5
             if d > BRANCH_MAX:
                 break
-            bz = max(RAFT_T, min(g['S'][2], h['S'][2] - max(d, 1.2)))
+            bz = max(FOOT_MIN, min(g['S'][2], h['S'][2] - max(d, 1.2)))
             if bz >= h['S'][2] - 0.3:
                 continue
             if not seg_clear(h['S'], (g['M'][0], g['M'][1], bz), pts):
@@ -497,7 +504,7 @@ def stand(h, pts, got):
         for t in np.arange(0.5, BRANCH_MAX + 0.01, 0.25):
             tx = h['S'][0] + u[0] * t; ty = h['S'][1] + u[1] * t
             tz = h['S'][2] - t                       # 斜材 45°
-            if tz < RAFT_T + 0.2:
+            if tz < FOOT_MIN:                        # 足の球がラフトに埋まる
                 break
             near2 = (pts[:, 0] - tx) ** 2 + (pts[:, 1] - ty) ** 2 <= (PROP_D / 2 + MIN_GAP) ** 2
             if near2.any() and pts[near2, 2].min() <= tz + 0.05:
@@ -518,7 +525,7 @@ def stand(h, pts, got):
         d = ((h['M'][0] - g['M'][0]) ** 2 + (h['M'][1] - g['M'][1]) ** 2) ** 0.5
         if d > BRANCH_MAX:
             break
-        bz = max(RAFT_T, min(g['S'][2], h['S'][2] - max(d, 1.2)))
+        bz = max(FOOT_MIN, min(g['S'][2], h['S'][2] - max(d, 1.2)))
         if bz >= h['S'][2] - 0.3:
             continue                              # 枝が寝すぎる
         if not seg_clear(h['S'], (g['M'][0], g['M'][1], bz), pts):
@@ -906,11 +913,17 @@ def main():
                             d = seg_dist(p0, p1, q0, q1) - ra - rb
                             if d > -MERGE:
                                 mc = min(mc, d)
+        # 足の球（斜材・枝の根元 φ2.0）の底がラフトに入っていないか
+        foot = [h['T'][2] if h['mode'] == 'strut' else h['base'][2]
+                for h in hs if h['mode'] != 'pillar']
+        fb = (min(foot) - PROP_D / 2) if foot else float('inf')
+        fmark = '' if fb >= RAFT_T else '  🔴 足の球がラフトに埋まっている'
         bt = sorted(h['beta'] for h in hs); hh = sorted(h['hl'] for h in hs)
         print('post_%d  支柱どうし %.2fmm（要 %.2f）／**先まわり %.2fmm（要 %.2f）**'
-              '  振った角度 %.0f〜%.0f°  円錐の長さ %.1f〜%.1fmm'
+              '  振った角度 %.0f〜%.0f°  円錐の長さ %.1f〜%.1fmm  足の球の底 %s%s'
               % (i, m, GAP, mc if mc < 1e8 else float('nan'), NIP_GAP,
-                 bt[0], bt[-1], hh[0], hh[-1]))
+                 bt[0], bt[-1], hh[0], hh[-1],
+                 ('z%+.2f' % fb) if foot else '足の球なし', fmark))
     print('→ hardware/_v4_post_props.scad')
 
 
