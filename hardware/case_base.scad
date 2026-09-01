@@ -428,7 +428,11 @@ module xiao_pad() {
     }
 }
 // 印（v2 の規則: 丈は口の丈の 7 割・彫り 0.4・彫り込みの右（+Y）・縁から 1.5）
-ICONS_ON = true;  ICON_D = 0.4;  ICON_GAP = 1.5;  ICON_H = 0.7 * USBC_PORT[1];  SVC_MIN_W = 0.5;
+// 🔴 2026-09-01 ICON_D 0.4 → 1.0。左右の壁を刷ったら**印が出なかった**（刻印は外面にあり、
+//   その外面をプレートに伏せて刷る）。PRINT.md 160 行「UV が下の層まで届いて下向きの面が
+//   Z 方向にずれる・50〜500µm」の範囲に 0.4 が入っていた。最悪値 0.5 の 2 倍を取る。
+//   壁 WALL 2.0 / ハッチ HATCH_T 2.0 に対して残り 1.0mm（薄壁の実績下限 0.3 の 3 倍）。
+ICONS_ON = true;  ICON_D = 1.0;  ICON_GAP = 1.5;  ICON_H = 0.7 * USBC_PORT[1];  SVC_MIN_W = 0.5;
 function icon_col_y() = XIAO_PORT_C[0] + xiao_pocket_sz()[0] / 2 + (SLOT_D + SLOT_BEV) + ICON_GAP + ICON_H / 2;
 module wall_icon_x(c) { translate([0, c[0], c[1]]) rotate([90, 0, 90]) translate([0, 0, IN_X + WALL - ICON_D]) linear_extrude(ICON_D + 1.0) children(); }
 module icon_svg() { sc = ICON_H / icon_gear_wrench_size()[1]; sw = max(icon_gear_wrench_sw(), SVC_MIN_W / sc); scale(sc) icon_gear_wrench(sw); }
