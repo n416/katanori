@@ -12,6 +12,9 @@
 import base64, os, subprocess, sys
 from collections import deque
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import hub_ports   # ハブの口とピンの並び（出どころは relay_board.html）
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 IMGDIR = os.path.join(HERE, '_manual_img_v4')
 OUT = os.path.join(HERE, 'assembly_v4.html')
@@ -266,8 +269,14 @@ STEPS = [
    '<b>殻</b>（プラスチックのハウジング）と、その中へ差し込む<b>金属のピン</b>の 2 部品で、'
    'ピンを線に圧着してから殻へ挿す。'
    '🔒 2026-08-07 決定「<b>DuPont のまま＋抜け止め。はんだ付けはしない</b>」——分解できるようにするため。',
-   '<b>ハウジングのピン数は、下の「線」の表の「本数」そのまま</b>: '
-   'XIAO 7・スピーカー IN 2・OLED 4・つまみ 5・会話ボタン 2・リード 2・スピーカー OUT 2・電源 3・電流計 4・トグル 2。',
+   '🔴 <b>殻のピン数は、線の本数と同じとは限らない。</b>下の表の「ハブ側の殻」の数で買う——'
+   '<span class="w">つまみ</span>は線 5 本に対して殻は <b>4 連</b>（GND が二股で DIR へ行く）、'
+   '<span class="w">電源</span>は線 3 本に対して殻は <b>4 連</b>（3 本目は空きのまま空ける）。'
+   '<b>ここを本数どおりに作ると、手順 3 で 1 本ずつずれて挿さる。</b>',
+   '⚠ <b>XIAO の逆側だけは 7 連の殻が使えない。</b>7 本が XIAO の 2 つの列に'
+   'またがるため（手順 3 の図）。🔒 <b>1 連・4 連・2 連の 3 個</b>に分けて作る'
+   '（2026-09-01 ユーザー）——<b>5V だけ 1 連で単独</b>、GND と 3V3 が 2 連、'
+   'D2〜D5 が 4 連。<b>5V と GND を同じ殻に入れない。</b>',
    '<b>切る長さはこれ。下の表を見に行かなくていい。</b>'
    '（内訳は「模型の実長 ＋ 65mm」＝端末処理 25 ＋ 天面を机に置くための余り 40。1mm 上へ丸め）'
    '__CUTTABLE__',
@@ -295,11 +304,18 @@ STEPS = [
  ], warn='<b>壁より先に入れる。</b>壁を降ろした後では、ReSpeaker はもう上から入らない。',
     note='充電の Type-C 基板は<b>この手順では入れない</b>。手順 4 で左の壁と一緒に降ろす。その受けも手順 4。'),
 
- dict(n='3', t='ハブの口を全部挿して、低い方の道に寝かせる', img='st3', acts=[
+ dict(n='3', t='ハブの口を全部挿して、低い方の道に寝かせる', img='st3',
+      extra=lambda: hub_map_svg() + xiao_svg() + pin_table(), acts=[
    '<span class="w">XIAO</span> 7・<span class="w">スピーカー IN</span> 2・<span class="w">OLED</span> 4・'
    '<span class="w">つまみ</span> 5・<span class="w">会話ボタン</span> 2・<span class="w">リード</span> 2・'
    '<span class="w">スピーカー OUT</span> 2・<span class="w">電源</span> 3・<span class="w">電流計</span> 4・'
-   '<span class="w">トグル</span> 2 の 10 束を、<b>ハブ側だけ全部挿す。</b>',
+   '<span class="w">トグル</span> 2 の 10 束を、<b>ハブ側だけ全部挿す。</b>'
+   '<b>どの口の何本目に何が来るかは、この手順の下の図と表に全部書いてある</b>——ほかの資料を見に行かなくてよい。',
+   '<b>板の向きをまず固定する。</b>いちばん長い 7 本の口（XIAO）が<b>手前</b>、'
+   '口が 4 つ 1 列に並んでいる縁が<b>奥</b>。この向きで下の図と一致する。'
+   '⚠ <b>実物の板に行や列の刻印は無い。</b>口は「どの縁か・その縁の何番目か」で見分ける。',
+   '🔴 <b>数え始めは口ごとに違う。</b>手前と奥の縁の口は<b>左から</b>、'
+   '左右の縁の口は<b>前（OLED 側）から</b>数える。表の「数え始め」を必ず読む。',
    '<b>低い方の道に寝かせるのは 5 束</b>: <span class="w">XIAO</span>・<span class="w">つまみ</span>・'
    '<span class="w">会話ボタン</span>・<span class="w">スピーカー IN</span>・<span class="w">スピーカー OUT</span>。'
    'ブリッジの皿と帯の<b>下</b>をくぐる道は、いましか通せない。',
@@ -310,7 +326,11 @@ STEPS = [
    '充電は Type-C 基板と PowerBoost をつなぐ線（手順 4 と 9）。',
    '<b>スピーカー IN は、ReSpeaker の J2 側もここで挿す。</b>手順 5 でブリッジの皿が J2 の真上に載るので、'
    '後からではピンセットが口まで届かない。',
-   'XIAO 側は、ReSpeaker に直付けした XIAO の上のピンヘッダへ。<b>使うのは 7 本だけ</b>で、残り 7 ピンは裸のまま。',
+   'XIAO 側は、ReSpeaker に直付けした XIAO の上のピンヘッダへ。'
+   '🔴 <b>7 本は 2 つの列にまたがる</b>——<b>左の列の 3〜6 本目</b>に 4 本、'
+   '<b>右の列の 1〜3 本目</b>に 3 本（下の図）。<b>7 連の殻は XIAO 側には挿さらない。</b>'
+   '残る 7 本は裸のままで、<b>左の列の 1・2 本目には触らない</b>（ReSpeaker が握っている）。'
+   '⚠ <b>ピン名は基板の裏に印刷されていて読めない。</b>USB-C を上にして数えること。',
    '<b>後ろに並んでいる 4 本（電流計・トグル・リード・電源）はピンセットで挿す。</b>'
    'この 4 本は箱の後ろぎわに 1 列に並んでいて、トグルとリードのあいだは <span class="d">7.6mm</span> しかない。'
    '先に挿した口の線が上へ立ち上がるので、後から来る口の上に指の腹（φ12）が下りない。'
@@ -557,6 +577,218 @@ WIRES = [
  ('CHG',        '2', '72.2', '左の壁ぎわ → 天井の下 Z47.3 → PowerBoost の USB ピン'),
 ]
 
+
+# ---------------------------------------------------------------- 口とピンの表
+# 🔒 ハブ側の「どの口の何本目か」は hub_ports.py が relay_board.html から作る。
+#    ここに書くのは **相手側**（線の逆の端がどこへ行くか）だけ。
+# 🔴 ピン番号は口ごとに数え始めが違う。数え始めは PLACE の文に必ず入れること。
+PLACE = {
+ 'XIAO':   '前の縁（OLED 側）に 1 列。板でいちばん長い口。<b>左から</b>数える',
+ 'AS5600': 'XIAO の口の 1 列うしろ、板の中ほど。<b>左から</b>数える',
+ 'BTN2':   '左の縁の後ろ寄り（2 つあるうち<b>後ろ</b>）。<b>前（OLED 側）から</b>数える',
+ 'PHIN':   '右の縁の<b>前寄り</b>の白いコネクタ。<b>前（OLED 側）から</b>数える',
+ 'PHOUT':  '右の縁の<b>後ろ寄り</b>の白いコネクタ。<b>前（OLED 側）から</b>数える',
+ 'OLED':   '左の縁の前寄り（2 つあるうち<b>前</b>）。<b>前（OLED 側）から</b>数える',
+ 'INA':    '後ろの縁に並ぶ 4 つのうち、<b>左から 1 つ目</b>。<b>左から</b>数える',
+ 'TOGGLE': '後ろの縁に並ぶ 4 つのうち、<b>左から 2 つ目</b>。<b>左から</b>数える',
+ 'REED':   '後ろの縁に並ぶ 4 つのうち、<b>左から 3 つ目</b>。<b>左から</b>数える',
+ 'PWR':    '後ろの縁に並ぶ 4 つのうち、<b>左から 4 つ目</b>（いちばん右）。<b>左から</b>数える',
+}
+
+# 相手側。ハブの口のピン順（PLACE の数え方）と同じ並びで書く。
+MATE = {
+ 'XIAO': ['<b>左の列・USB-C 側から 3 本目</b>（D2）',
+          '<b>左の列・USB-C 側から 5 本目</b>（D4 ＝ SDA）',
+          '<b>左の列・USB-C 側から 6 本目</b>（D5 ＝ SCL）',
+          '<b>右の列・USB-C 側から 3 本目</b>（3V3）',
+          '<b>右の列・USB-C 側から 2 本目</b>（GND）',
+          '<b>左の列・USB-C 側から 4 本目</b>（D3）',
+          '<b>右の列・USB-C 側から 1 本目</b>（5V）'],
+ 'AS5600': ['<b>4 本列</b>を <b>DIR の角から 2 本目</b>（印字は SCL だが、この個体は逆）',
+            '<b>4 本列</b>を <b>DIR の角から 3 本目</b>（印字は SDA・同上）',
+            '<b>3 本列</b>の <b>DIR に近い方の端</b>（VCC）',
+            '<b>3 本列</b>の<b>反対の端</b>（GND）と、'
+            '<b>4 本列の DIR の角そのもの</b>（DIR）。<b>この 1 本が二股</b>'],
+ 'BTN2': ['天面の会話ボタンの足（<b>直はんだ</b>・手順 10）',
+          'その対角の足（<b>直はんだ</b>・手順 10）'],
+ 'PHIN': ['ReSpeaker の <b>J2</b>（PH2.0 のソケット）の <b>+</b>',
+          '同じく <b>−</b>'],
+ 'PHOUT': ['スピーカーの <b>−</b>', 'スピーカーの <b>+</b>'],
+ 'OLED': ['モジュールのシルク <b>SDA</b>', 'モジュールのシルク <b>SCL</b>',
+          'モジュールのシルク <b>VCC</b>', 'モジュールのシルク <b>GND</b>'],
+ 'INA': ['5 ピン列の <b>SDA</b>（列は VCC・GND・SDA・SCL・ALER）', '同じ列の <b>SCL</b>',
+         '同じ列の <b>VCC</b>（3V3 を入れる）', '同じ列の <b>GND</b>'],
+ 'TOGGLE': ['MTS-102 の<b>真ん中の足</b>', 'MTS-102 の<b>端の足のどちらか一方</b>'],
+ 'REED': ['リードスイッチの足（<b>直はんだ</b>・手順 10）', 'もう一方の足（<b>直はんだ</b>）'],
+ 'PWR': ['下辺 8 ピンを <b>5Vo の端から 5 本目</b>（EN）',
+         '下辺 8 ピンの <b>5Vo の隣</b>（GND）',
+         '——（<b>挿さない</b>）',
+         '下辺 8 ピンの <b>micro USB からいちばん遠い端</b>（5Vo）'],
+}
+
+# 口ごとの注意。表の下に 1 行で出る。
+MATE_NOTE = {
+ 'XIAO': '🔴 <b>この 7 本は XIAO の 2 つの列にまたがる</b>（上の図）。'
+         'ハブ側は 7 連の殻 1 個だが、<b>XIAO 側は 1 個では挿さらない</b>——'
+         '左の列の 3〜6 本目に 4 本、右の列の 1〜3 本目に 3 本。'
+         '🔒 <b>殻は 1 ＋ 4 ＋ 2 の 3 個に分ける</b>（2026-09-01 ユーザー）——'
+         '<b>5V だけを 1 連で単独にし</b>、GND と 3V3 を 2 連、D2〜D5 を 4 連にする。'
+         '右の列を 3 連にすると <b>5V と GND が同じ殻の中で隣り合う</b>うえ、'
+         '1 つずれたときに <b>5V が GND のピンに乗る</b>。'
+         '（板の上でも同じ理由で、電源の口は 3 本の線に 4 連の殻を使って間を空けてある）'
+         '<b>5V の 1 連は USB-C 側の端に突き当てる</b>ので、位置は一つしかない。'
+         '🔴 <b>左の 4 連は、1 本ずれると D1（XMOS のリセット）に乗る。</b>'
+         '挿したあと、<b>USB-C 側に裸のピンが 2 本・反対側に 1 本</b>残っていることを数えて確かめる。',
+ 'AS5600': '🔴 <b>挿すのは印字の無い面。</b>ピンヘッダは平らな面から挿して IC 側で半田付けするので、'
+           '線が来る側に文字は 1 つも出ていない。<b>目印は天板から下りる 4 本の棒</b>——'
+           'そのうち <b>E リングの溝が切っていない 1 本</b>が <b>DIR の角</b>で、'
+           '基板はその棒へ DIR が来る向きにしか通らない（🔒 2026-08-28 ユーザー'
+           '「溝を切って無い所に近いのが DIR だよ」）。<b>3 本列の VCC は、DIR と隣り合う角。</b>'
+           '⚠ <b>4 本列は DIR の角から DIR・SCL・SDA・GPO の順</b>で、'
+           '🔴 <b>4 本目（GPO）には何も繋がない</b>（焼くと戻せない）。'
+           '⚠ <b>この個体は印字の SCL と SDA が逆</b>（2026-08-10 に入れ替えたら動いた）ので、'
+           '上の表は<b>位置</b>で書いてある。文字を読んで挿し直さないこと。'
+           '⚠ モジュール側は <b>1 本ずつバラして</b>挿す（3 本列は VCC と GND のあいだに OUT が挟まる）。'
+           'ハブ側の殻は <b>4 連</b>で、線は 5 本（GND が二股で DIR へ）。',
+ 'OLED': '⚠ <b>モジュール側の並びはハブの口と逆順</b>（🔒 実物は GND・VCC・SCL・SDA）。'
+         '殻をそのまま向かい合わせに挿すと VCC に SDA が入る。'
+         '🔒 VCC は <b>3V3</b>。5V を繋がない。'
+         'ヘッダは<b>上辺から後ろへ出るストレート</b>なので、挿すときに見えるのは<b>基板の裏</b>。'
+         'この並びは 2026-08-17 に<b>現物を見て確定した</b>ものなので、'
+         '<b>裏の印字を読んで挿す</b>（GND の端をハブの 4 本目に合わせる）。',
+ 'PHOUT': '⚠ <b>スピーカー IN と OUT で +/− の並びが逆</b>（IN は前が +、OUT は前が −）。'
+          '2 つとも右の縁にあるので、見た目では区別できない。',
+ 'PWR': '🔴 <b>3 本目は空きのまま空ける。</b>線は 3 本だが、'
+        'ハブ側の殻は <b>4 連</b>でなければならない——3 連を挿すと 1 本ずつずれる。'
+        '（空きは +5V と GND を隣り合わせないための緩衝）'
+        '✅ <b>8 ピンの並びは micro USB のコネクタ側から</b> '
+        'USB・LiPo・Vsh・EN・GND・LBO・GND・5Vo（基板ファイル <code>pb1000c.brd</code> の '
+        'JP2 のパッドとシルクで確認・2026-09-01）。<b>端の見分けは micro USB で付く。数えなくてよい。</b>'
+        '⚠ <b>GND は 2 本あるが、基板の中で同じネット</b>（JP2 の 5 番と 7 番がどちらも GND）。'
+        'どちらに挿しても通電する——<b>5Vo の隣</b>を使うのは、5V の戻りを 5V の隣に置くため。',
+ 'INA': '✅ 並びは <b>VCC・GND・SDA・SCL・ALER</b> の 5 本で確定（2026-08-24 実物写真）。'
+        'ALER は使わない。列は<b>ネジ端子の反対側の長辺</b>にある。'
+        '<b>印字を読んで挿す。</b>ヘッダは<b>部品面（印字とチップのある側）に立てる</b>と'
+        '決まっている（🔒 L 字・ブリッジに密着）ので、線を挿す側から 5 文字が見える。'
+        '⚠ ヘッダはまだ半田付けしていない。<b>立てる面を間違えると印字が裏に回る。</b>',
+ 'TOGGLE': '⚠ ON-ON なので<b>コモンと片側だけ</b>を配線する。EN と GND に極性は無い（どちらが'
+           'どちらでもよい）。',
+ 'REED': '極性は無い。',
+}
+
+# 表に出す順（手順 3 の「低い方 5 束 → 上へ登る 5 束」と同じ）
+PORT_ORDER = ['XIAO', 'AS5600', 'BTN2', 'PHIN', 'PHOUT',
+              'OLED', 'INA', 'TOGGLE', 'REED', 'PWR']
+
+
+def hub_map_svg():
+    return ('<figure class="wide">' + hub_ports.board_svg() +
+            '<figcaption>ハブ基板を<b>上から</b>見た図（OLED が手前）。'
+            'ピンの中の数字が「何本目」で、<b>数え始めは口ごとに違う</b>。'
+            '色は信号の別（<b>赤</b>=5V・<b>黒</b>=GND・<b>橙</b>=3V3・<b>青</b>=SDA/SCL）。'
+            '実物の板に行や列の刻印は無いので、口は縁と並び順で見分ける。</figcaption></figure>')
+
+
+def pin_table():
+    ps = {p.id: p for p in hub_ports.ports()}
+    rows = []
+    for pid in PORT_ORDER:
+        p = ps[pid]
+        mates = MATE[pid]
+        for i, (h, fn, net, x, y) in enumerate(p.pins):
+            cells = []
+            if i == 0:
+                cells.append('<td class="w" rowspan="%d"><b>%s</b><br>'
+                             '<span class="n">%d 本</span></td>' % (p.n, p.bundle, p.n))
+                cells.append('<td rowspan="%d">%s</td>' % (p.n, PLACE[pid]))
+            cells.append('<td class="n hi"><b>%d 本目</b></td>' % (i + 1))
+            cells.append('<td class="n">%s</td>' % hub_ports.disp(fn, net))
+            cells.append('<td>%s</td>' % mates[i])
+            rows.append('<tr%s>%s</tr>'
+                        % (' class="bs"' if i == 0 else '', ''.join(cells)))
+        if MATE_NOTE.get(pid):
+            rows.append('<tr><td colspan="5" class="pn">%s</td></tr>' % MATE_NOTE[pid])
+    return ('<div class="tw"><table class="pins"><thead><tr><th>束</th>'
+            '<th>ハブ基板のどの口か（数え始め）</th><th>何本目</th><th>信号</th>'
+            '<th>線の逆の端は、相手の何本目か</th></tr></thead><tbody>'
+            + '\n'.join(rows) + '</tbody></table></div>')
+
+
+# ---------------------------------------------------------------- XIAO 側の図
+# 🔴 XIAO のピン名は基板の**裏**に印刷されていて、ReSpeaker に直付けされた今は読めない。
+#    だから「D の列」のような名前では現物と照らせない。**USB-C を上にした図で呼ぶ。**
+# 出どころ: hardware/xiao_pinout.svg（2026-08-14）と docs/RESPEAKER-LITE.md 4章
+XIAO_L = ['D0', 'D1', 'D2', 'D3', 'D4', 'D5', 'D6']          # USB-C 側から
+XIAO_R = ['5V', 'GND', '3V3', 'D10', 'D9', 'D8', 'D7']       # USB-C 側から
+XIAO_ALT = {'D4': 'SDA', 'D5': 'SCL'}
+# ハブの口の信号 → XIAO の（列, 何本目）。USB-C 側から数える
+XIAO_AT = {'D2': ('L', 3), 'SDA': ('L', 5), 'SCL': ('L', 6), 'D3': ('L', 4),
+           '5V': ('R', 1), 'GND': ('R', 2), '3V3': ('R', 3)}
+# 触ってはいけないピン（ReSpeaker が握っている）
+XIAO_STOP = {'D0': 'RGB LED のデータ線', 'D1': 'XMOS のリセット', 'D10': 'I2S MCLK'}
+XIAO_BUSY = {'D6': 'I2S DIN', 'D9': 'I2S BCLK', 'D8': 'I2S LRCK', 'D7': 'I2S DOUT'}
+
+
+def xiao_svg():
+    """XIAO を USB-C を上にして上から見た図。ハブの何本目が来るかまで入れる。"""
+    hub = {hub_ports.disp(fn, net): i + 1
+           for p in hub_ports.ports() if p.id == 'XIAO'
+           for i, (h, fn, net, x, y) in enumerate(p.pins)}
+    P = hub_ports.PAL
+    NC = {'5V': P['v5'], 'GND': P['gnd'], '3V3': P['v33'],
+          'SDA': P['i2c'], 'SCL': P['i2c'], 'D2': P['ink'], 'D3': P['ink']}
+    W, H, pitch, top = 760, 470, 46, 96
+    o = ['<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %d %d" width="%d" '
+         'height="%d" preserveAspectRatio="xMidYMid meet" '
+         'font-family="system-ui, sans-serif">' % (W, H, W, H)]
+    bx, bw = W / 2 - 62, 124
+    o.append('<rect x="%.0f" y="%.0f" width="%d" height="%d" rx="9" fill="#2f3a43"/>'
+             % (bx, top - 18, bw, pitch * 7 + 8))
+    o.append('<rect x="%.0f" y="%.0f" width="52" height="22" rx="5" fill="#9aa5ad"/>'
+             % (W / 2 - 26, top - 38))
+    o.append('<text x="%.0f" y="%.0f" font-size="11" font-weight="700" fill="#1b2227" '
+             'text-anchor="middle">USB-C</text>' % (W / 2, top - 22))
+    o.append('<text x="%.0f" y="%.0f" font-size="12" font-weight="700" fill="#9aa5ad" '
+             'text-anchor="middle">XIAO</text>' % (W / 2, top + pitch * 3 + 4))
+    for side, names in (('L', XIAO_L), ('R', XIAO_R)):
+        left = side == 'L'
+        o.append('<text x="%.0f" y="%.0f" font-size="15" font-weight="700" fill="%s" '
+                 'text-anchor="middle">%sの列</text>'
+                 % (bx - 96 if left else bx + bw + 96, top - 34, P['sub'],
+                    '左' if left else '右'))
+        for i, nm in enumerate(names):
+            cy = top + i * pitch
+            px = bx - 13 if left else bx + bw - 13
+            use = XIAO_ALT.get(nm, nm)
+            n = hub.get(use)
+            col = NC.get(use, P['sub']) if n else P['sub']
+            o.append('<rect x="%.0f" y="%.0f" width="26" height="26" rx="3" fill="%s" '
+                     'stroke="%s" stroke-width="1.6"/>'
+                     % (px, cy - 13, '#ffffff' if n else '#e6e3dc', col))
+            o.append('<text x="%.0f" y="%.0f" font-size="12" font-weight="700" fill="%s" '
+                     'text-anchor="middle">%d</text>' % (px + 13, cy + 4.5, col, i + 1))
+            lab = nm + ('（%s）' % XIAO_ALT[nm] if nm in XIAO_ALT else '')
+            tx = px - 12 if left else px + 38
+            anc = 'end' if left else 'start'
+            o.append('<text x="%.0f" y="%.0f" font-size="14" font-weight="700" fill="%s" '
+                     'text-anchor="%s">%s</text>'
+                     % (tx, cy - 1, col if n else P['sub'], anc, lab))
+            if n:
+                sub = 'ハブの %d 本目' % n
+            elif nm in XIAO_STOP:
+                sub = '🔴 触らない（%s）' % XIAO_STOP[nm]
+            else:
+                sub = '使わない（%s）' % XIAO_BUSY.get(nm, '')
+            o.append('<text x="%.0f" y="%.0f" font-size="11.5" fill="%s" '
+                     'text-anchor="%s">%s</text>' % (tx, cy + 14, P['sub'], anc, sub))
+    o.append('</svg>')
+    return ('<figure class="wide">' + ''.join(o) +
+            '<figcaption>XIAO を <b>USB-C が上</b>になるように置いて、'
+            '<b>上から</b>見た図。ピンの中の数字は <b>USB-C 側から何本目か</b>。'
+            'ハブから来る 7 本は色が付いていて、その下に<b>ハブの口の何本目か</b>が入っている。'
+            '⚠ XIAO のピン名は基板の裏に印刷されていて、'
+            'ReSpeaker に直付けした今は読めない——<b>数えるしかない</b>。</figcaption></figure>')
+
 # 手順 0 に出す「切る長さ」。🔒 WIRES から作る（同じ数字を 2 か所に置かない）
 HUB10 = [('XIAO', 'XIAO'), ('スピーカー IN', 'PHIN'), ('OLED', 'OLED'), ('つまみ', 'AS5600'),
          ('会話ボタン', 'BTN2'), ('リード', 'REED'), ('スピーカー OUT', 'PHOUT'),
@@ -564,16 +796,22 @@ HUB10 = [('XIAO', 'XIAO'), ('スピーカー IN', 'PHIN'), ('OLED', 'OLED'), ('�
 WIRE_MARGIN = 65   # 端末処理 25 ＋ 天面を机に置くための余り 40（_asm_wirepose.py）
 
 def cuttable():
+    # 🔒 本数は WIRES、殻のピン数は hub_ports（＝実際の口）。同じ数字を 2 か所に書かない。
     import math
     d = {r[0]: r for r in WIRES}
+    shell = {p.id: p.n for p in hub_ports.ports()}
     rows = []
     for disp, key in HUB10:
         n, ln = d[key][1], float(d[key][2])
+        sh = shell[key.split()[0]]
+        cls = 'n hi' if str(sh) != n else 'n'
         rows.append('<tr><td class="w">{}</td><td class="n">{}</td>'
+                    '<td class="{}">{} 連{}</td>'
                     '<td class="n hi"><b>{} mm</b></td></tr>'
-                    .format(disp, n, int(math.ceil(ln + WIRE_MARGIN))))
+                    .format(disp, n, cls, sh, '' if str(sh) == n else ' ⚠',
+                            int(math.ceil(ln + WIRE_MARGIN))))
     return ('<div class="tw"><table><thead><tr><th>束</th>'
-            '<th>本数（＝殻のピン数）</th><th>切る長さ</th></tr></thead>'
+            '<th>線の本数</th><th>ハブ側の殻</th><th>切る長さ</th></tr></thead>'
             '<tbody>' + ''.join(rows) + '</tbody></table></div>')
 
 SCREWS = [
@@ -771,10 +1009,10 @@ PARTS = [
   '（掘り込み 1.1 ↔ フランジ 1.0）。天井は厚み 0.9mm の棚で 3 辺が繋がり、奥の壁まで 6.0mm'),
  ('前板（電池の返し＋前の脚）', 'print_brgfront', '<b>前面を伏せて寝かせる。</b>前面が 1 枚の平らな面になる'),
  ('留め帯 A / B / C', 'print_strap_a / _b / _c', '🔴 2026-08-29 から<b>天面を下にして伏せる</b>。天面が平らな 1 枚でベッドに着き、支えの無い天井も柱も 0'),
- ('支柱 6 本', 'print_post_0 〜 _5', '細い軸を下にして立てる。接地 2mm² しかないので<b>必ず他の部品と一緒に並べてラフトを敷く</b>'),
+ ('支柱 6 本', 'print_post_0 〜 _5', '細い軸を下にして立てる'),
  ('会話ボタンの押し子', 'print_piston', '<b>顔を下にして伏せる。</b>柱もラフトも付けない（跡が縁に残るため）'),
  ('会話ボタンのバスタブ', 'print_tub', '<b>そのままの向き（回さない）。</b>開いている側が上を向く'),
- ('充電基板の受け', 'p_seat / print_seat', '<b>壁に当たる面を伏せて寝かせる。</b>立てると細い足の塔になって倒れる。接地が小さいのでラフトを敷く'),
+ ('充電基板の受け', 'p_seat / print_seat', '<b>壁に当たる面を伏せて寝かせる。</b>立てると細い足の塔になって倒れる'),
  ('つまみ', '<b>knob_v5.scad</b> の part="knob"', '天面を伏せる（軸が上）'),
  ('つまみの島', '<b>knob_v5.scad</b> の part="wall"', 'へこみの底を下'),
 ]
@@ -902,6 +1140,10 @@ td.stop { color:var(--stop); font-weight:700; }
 td.warn { color:var(--mark); font-weight:700; }
 figure.wide { margin:0 0 8px; background:var(--sheet); border:1px solid var(--rule); padding:8px; filter:brightness(var(--sheetdim)); }
 figure.wide img { display:block; width:100%; height:auto; }
+figure.wide svg { display:block; width:100%; height:auto; }
+table.pins td.pn { background:var(--sunk); font-size:13.5px; color:var(--ink2); }
+table.pins tr.bs td { border-top:2px solid var(--rule); }
+table.pins td.w { white-space:nowrap; }
 figcaption { font-size:13px; color:var(--ink2); margin-top:8px; }
 .gloss { display:grid; grid-template-columns:repeat(auto-fill, minmax(320px,1fr)); gap:20px; }
 .gloss .card { border:1px solid var(--rule); background:var(--card); display:flex; flex-direction:column; }
@@ -1322,16 +1564,20 @@ def build():
             bits.append('<p class="cal open"><span class="tag">未定</span>{}</p>'.format(s['open_']))
         if s.get('note'):
             bits.append('<p class="cal note"><span class="tag">なぜ</span>{}</p>'.format(s['note']))
+        # extra は表や図の生 HTML。用語の絵を差し込む mark_terms は通さない
+        extra = s.get('extra')
+        extra = extra() if callable(extra) else (extra or '')
         return ('<section class="step" id="s{n}" data-n="{n}">\n'
                 '  <div class="num"><span>{n}</span></div>\n'
                 '  <div class="body">\n'
                 '    <h3>{t}</h3>\n'
                 '    {fig}\n'
                 '    <ol class="acts">{acts}</ol>\n'
+                '    {extra}\n'
                 '    {bits}\n'
                 '  </div>\n'
                 '</section>').format(
-                    n=s['n'], t=s['t'], fig=fig,
+                    n=s['n'], t=s['t'], fig=fig, extra=extra,
                     acts='\n'.join('<li>{}</li>'.format(x) for x in s['acts']),
                     bits=''.join(bits))
 
