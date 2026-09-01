@@ -1,0 +1,93 @@
+// M2 ナットの六角ポケットの二面幅を決め直す試験板 ── 2026-09-02
+//
+//   openscad --backend=manifold --render -o hardware/stl/test/hex_gauge.stl hardware/hex_gauge.scad
+//
+// 何のために作るか
+//   いまの 4.30 は「呼び 4.0 ＋ 0.3」で、**SK本舗のレジンで焼くと 0.3 縮んで 4.0 になる**という
+//   実績の値である（docs/PRINT.md §2）。レジンが ELEGOO に替わり、縮みがほとんど無いことが
+//   分かった（✅ 2026-08-31 つまみの溝 2.02 → 焼き ≒2.02）。それでも底板の六角は機能している
+//   （✅ 2026-09-02 ユーザー）ので、**4.30 が緩いとは言い切れない。** 前後を実物で決める。
+//
+// 🔒 ゲージの答えは「どの入れ方で測ったか」とセットでしか使えない（docs/PRINT.md）。
+//   φ6 磁石で一度これを外している（丸穴で測った 6.10 を、滑り込ませる溝へ持ち込んで入らなかった）。
+//   ⇒ **本物の 2 つの入れ方を両方作る。**
+//     A 落とし込み … 袋の六角穴・上が開く・深さ 1.8（ナット 1.6 ＋ 0.2）
+//                    写した先: case_base.scad の bottom_boss（底板・天面のボス）
+//     B 横差し     … 六角を +X へ 6mm 掃いた溝・片側が開く・高さ 1.6（ナットと同じ）
+//                    写した先: btn_v3.scad の btn3_block_cut（天板の腕）
+//
+// 見かた
+//   ナットを入れて、**板を逆さにする**。
+//     落ちる → 緩い ／ 入らない → きつい ／ 入って落ちない → これが答え
+//   ⚠ 「ちょうど」に感じたら**一段ゆるい方**を採る（fit_gauge.scad の流儀）。
+//   ⚠ A と B で答えが違ってよい。違ったら、それぞれの場所に別の値を使う。
+//
+// 刷る向き
+//   この板のまま。**穴の口は上を向く**（本物と同じ）。B の溝が開いているのは +X の側面。
+
+$fn = 96;
+
+// ---- ナット（実物）----
+NUT_AF_NOM = 4.0;    // 📄 M2 ナットの二面幅（呼び）
+NUT_T_NOM  = 1.6;    // 📄 同 厚み
+
+// ---- 試す二面幅 ----
+W_SET = [4.30, 4.25, 4.20, 4.15, 4.10, 4.05, 4.00];
+// 印は「丸い穴の数」。1 個 = 4.30、2 個 = 4.25 … 7 個 = 4.00
+
+// ---- 本物から写した寸法 ----
+A_DEPTH = 1.8;       // 落とし込み: 袋穴の深さ（case_base の NUT_T = 1.6 + 0.2）
+B_H     = 1.6;       // 横差し: 溝の高さ（btn_v3 の B3_NUT_T。ナットと同じ）
+B_SWEEP = 6.0;       // 横差し: 掃く長さ（btn_v3 と同じ）
+
+// ---- 板 ----
+// 🔴 2026-09-02 一辺 12.0 では、上面の文字（y 1.6〜4.8）が六角の穴（y 3.5 から）に食い込み、
+//   0.05mm の薄片ができた。穴の外接半径は 2.48 なので、**穴の外に文字が丸ごと入る幅**が要る。
+BLK   = 14.0;        // 1 マスの一辺（穴 y 4.5〜9.5・文字 y 0.8〜4.0 で 0.5 空く）
+T_A   = A_DEPTH + 1.2;   // 3.0 落とし込みの側の厚み（底に 1.2 残す）
+T_B   = B_H + 1.2;       // 2.8 横差しの側の厚み
+PITCH = 16.0;
+ROW_GAP = 18.0;
+BAR_W = 2.0; BAR_H = 1.5;        // 連結棒（ニッパーで切る）
+// 🔴 2026-09-02 最初は側面に size 3.0・彫り 0.4 で置いたが、板が 3.0mm しかないので
+//   文字が上へはみ出していた。彫り 0.4 は同日の実機で「USB の刻印がみえませんね」と
+//   言われた深さでもある（ELEGOO のクリアでは 0.4 の凹凸が読めない）。⇒ **上面に・彫り 1.0**。
+// 🔴 2026-09-02 **彫った数字はやめた。** 画の合流点で必ず鋭い稜ができる
+//   （size 3.2 で 0.02mm、4.0 で 0.08mm、しかも穴との間に 0.30mm の壁ができた）。
+//   ⇒ **丸い穴を数える印**にする。丸なら稜が出ない。穴どうしの壁 0.6mm・穴と六角の間 1.9mm。
+//   印の数 = 左から 1, 2, 3 …。表は下の echo と W_SET の並びが持つ。
+DOT_D = 1.2; DOT_P = 1.8; DOT_DEEP = 1.0; DOT_X = 2.0;
+
+module hexz(af, h) rotate([0, 0, 30]) cylinder(d = af / cos(30), h = h, $fn = 6);
+// 上面の印。左から n 個の丸い穴（n = 1 が二面幅のいちばん大きい方）
+module label(n, t) for (k = [0 : n - 1])
+    translate([DOT_X, BLK / 2 - (n - 1) * DOT_P / 2 + k * DOT_P, t - DOT_DEEP])
+        cylinder(d = DOT_D, h = DOT_DEEP + 0.01, $fn = 24);
+
+// A: 落とし込み（袋穴・上が開く）
+module cell_a(w, n) difference() {
+    cube([BLK, BLK, T_A], center = false);
+    translate([BLK / 2, BLK / 2, T_A - A_DEPTH]) hexz(w, A_DEPTH + 1);
+    label(n, T_A);
+}
+// B: 横差し（+X へ掃いた溝・片側が開く）
+module cell_b(w, n) difference() {
+    cube([BLK, BLK, T_B], center = false);
+    hull() for (dx = [0, B_SWEEP])
+        translate([BLK / 2 + dx, BLK / 2, T_B - B_H]) hexz(w, B_H + 1);
+    label(n, T_B);
+}
+
+for (i = [0 : len(W_SET) - 1]) {
+    translate([i * PITCH, 0, 0]) cell_a(W_SET[i], i + 1);
+    translate([i * PITCH, ROW_GAP, 0]) cell_b(W_SET[i], i + 1);
+    if (i < len(W_SET) - 1) {
+        translate([i * PITCH + BLK, BLK / 2 - BAR_W / 2, 0]) cube([PITCH - BLK, BAR_W, BAR_H]);
+        translate([i * PITCH + BLK, ROW_GAP + BLK / 2 - BAR_W / 2, 0]) cube([PITCH - BLK, BAR_W, BAR_H]);
+    }
+}
+// 2 列をつなぐ棒（1 枚で持てるように）
+translate([BLK / 2 - BAR_W / 2, BLK, 0]) cube([BAR_W, ROW_GAP - BLK, BAR_H]);
+
+echo(str("六角ゲージ: 二面幅 ", W_SET, "  A 袋穴 深さ ", A_DEPTH, " / B 横差し 高さ ", B_H,
+         " × 掃き ", B_SWEEP, "  外形 ", (len(W_SET) - 1) * PITCH + BLK, " x ", ROW_GAP + BLK));
