@@ -13,6 +13,7 @@ include <_v4_core.scad>
 // ============================================================
 include <_v4_props.scad>   // 🔴 自動生成の支柱の位置（`python hardware/_v4_props.py`）。素の形を焼くときは -D PROPS_OFF=true
 include <_v4_post_props.scad>   // 🔴 自動生成の「浮かせる」置き方・柱・ラフト（`python hardware/_v4_post_props.py`）
+include <_spot_props.scad>   // 🔴 自動生成。検算が出した 1 か所にだけ足す支柱（`python hardware/_spot_props.py`）
 include <_v4_plate.scad>   // 🔴 自動生成の並べ方（`python hardware/_v4_plate.py`）。part="plate" で使う
 PROPS_OFF = false;
 use <icon_headphone.scad>   // ミニプラグの印（ユーザーの EPS → icon_headphone.svg → gen_icon_svg.py）
@@ -807,7 +808,13 @@ module brg_props() color("#e0a0a0") intersection() {
     linear_extrude(BRG_PROP_H + BRG_PROP_BITE + 0.02) offset(r = -BRG_PROP_D / 2 - 0.3)
         projection(cut = true) translate([0, 0, -(BAT_Z - BRG_T) - (BRG_PROP_H + 0.2)]) brg_v4();
 }
-if (part == "print_bridge") { translate([0, 0, -(BAT_Z - BRG_T)]) brg_v4(); if (!PROPS_OFF) { props_bridge(); raft_bridge(); } }   // 🔒 2026-08-27 押さえを壁へ移したので、皿の裏（BAT_Z − BRG_T）が平らにプレートへ着く
+// 🔒 2026-08-27 押さえを壁へ移したので、皿の裏（BAT_Z − BRG_T）が平らにプレートへ着く。
+// 🔴 2026-09-02 箱へ留める M2 のボス（X 4.2 / Y 47.7）の下面 22.50mm² が Z 3.00 で宙に始まり、
+//    検算が 🔴 急な立ち上がり 5.00mm を出した。真下はネジで塞がっていて φ0.3 の柱すら立たないので、
+//    縁の 45° の面取りに斜めから当てる支柱を `_spot_props.py` が足す（5.00 → 2.75mm）。
+module spot_body_bridge() translate([0, 0, -(BAT_Z - BRG_T)]) brg_v4();   // ラフトが引く「素の部品」
+if (part == "print_bridge") { spot_body_bridge();
+   if (!PROPS_OFF) { props_bridge(); raft_bridge(); spot_props_bridge(); spot_raft_bridge(); } }
 
 // ---- 下向きの天井を持つ支柱（一般形）----
 //   🔴 島（浮いた欠片）の検査は**縁で繋がった天井を素通りする**（つまみの皿もそれで合格する）。

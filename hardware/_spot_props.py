@@ -29,7 +29,7 @@ STL = os.path.join(HERE, 'stl', 'v4')
 SPOTS = [
     dict(
         name='bridge',
-        stl='v4_bridge.stl',
+        part='print_bridge',        # case_v4.scad の part。**素の形**（PROPS_OFF=true）を焼いて読む
         # 🔴 検算: 急な立ち上がり 5.00mm（Z 3.03・X 2.3..4.1 Y 45.5..45.5）
         #    実体は箱へ留める M2 のボス。下面 22.50mm² が Z 3.00 で宙に始まる。
         box=(1.5, 7.0, 44.8, 53.5),
@@ -99,8 +99,22 @@ def place_one(v, pts, x, y, z, keep, got):
 #   ⇒ 置く間だけ床を球の半径ぶん上げる。ラフト自身の高さは元のまま（0.6）。
 #   ⬜ 本来は stand() 側で「足の球がプレートを割らない」を条件にするのが筋。あちらは別セッションの
 #      持ち物なので、ここで受けている。
+def bake_bare(spot):
+    """素の形（支柱の入っていない形）を焼いて読む。
+
+    🔴 2026-09-02 最初は stl/v4/v4_<名前>.stl を読んでいたが、**そこには自分が足した支柱が
+       入っている**。次に回すと支柱の上に支柱を置く。⇒ case_v4.scad を PROPS_OFF=true で
+       焼き直して読む（_v4_props.py / _v4_post_props.py と同じ流儀）。
+    """
+    out = os.path.join(PP.TMP, 'bare_spot_%s.stl' % spot['name'])
+    PP.subprocess.run([PP.OPENSCAD, '--backend=manifold', '--export-format=binstl', '-o', out,
+                       '-D', 'PROPS_OFF=true', '-D', 'part="%s"' % spot['part'],
+                       os.path.join(HERE, 'case_v4.scad')], check=True, capture_output=True)
+    return out
+
+
 def build(spot):
-    tris = PP.PF.read_stl(os.path.join(STL, spot['stl']))
+    tris = PP.PF.read_stl(bake_bare(spot))
     v = tris
     pts = PP.lowest_surface(v)
     seeds = seeds_in(pts, spot['box'], spot['slope'])
@@ -140,10 +154,11 @@ def write(results):
         if body:
             L.append('module spot_raft_%s() difference() {' % name)
             L.append('    %s' % body)
+            # ⚠ 引くのは **呼ぶ側が定義する素の部品**（spot_body_<名前>）。焼いた STL を
+            #   import すると、その STL 自身にラフトが入った後で自分を引くことになり、回すたびに形が動く。
             L.append('    translate([0, 0, -0.1]) linear_extrude(%.2f) offset(r = 0.5)'
                      % (PP.RAFT_T + 0.2))
-            L.append('        projection(cut = true) translate([0, 0, -0.15]) import("%s");'
-                     % ('stl/v4/' + spot['stl']))
+            L.append('        projection(cut = true) translate([0, 0, -0.15]) spot_body_%s();' % name)
             L.append('}')
         else:
             L.append('module spot_raft_%s() {}' % name)

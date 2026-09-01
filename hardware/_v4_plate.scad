@@ -10,22 +10,22 @@ module plate_label(x, y, name, sub) color("#8a8a8a") translate([x, y, 0]) {
     translate([0, PLATE_SUB_H * 1.7, 0]) linear_extrude(0.2) text(name, size = PLATE_NAME_H);
 }
 
-// 並べた全体は 253.4 x 374.9 mm（25 部品）
+// 並べた全体は 257.9 x 374.9 mm（25 部品）
 module plate_all() {
-    color(PLATE_COLOR) translate([73.160, 224.040, 0]) import("stl/v4/v4_brgfront.stl");
-    plate_label(90.660, 183.640, "brgfront", "23.0 x 29.4 x 8.0  08-31 23:21");
-    color(PLATE_COLOR) translate([-1.694, 181.740, 0]) import("stl/v4/v4_bridge.stl");
-    plate_label(0.000, 183.640, "bridge", "82.7 x 50.0 x 6.0  08-31 23:21");
+    color(PLATE_COLOR) translate([77.694, 224.040, 0]) import("stl/v4/v4_brgfront.stl");
+    plate_label(95.194, 183.640, "brgfront", "23.0 x 29.4 x 8.0  08-31 23:21");
+    color(PLATE_COLOR) translate([2.840, 181.740, 0]) import("stl/v4/v4_bridge.stl");
+    plate_label(0.000, 183.640, "bridge", "87.2 x 50.0 x 6.0  09-02 04:43");
     color(PLATE_COLOR) translate([94.966, 10.000, 0]) import("stl/v4/v4_floor.stl");
     plate_label(94.660, 0.000, "floor", "86.7 x 71.0 x 8.5  08-31 23:21");
     color(PLATE_COLOR) translate([56.760, 154.735, 0]) import("stl/v4/v4_front.stl");
     plate_label(56.454, 93.640, "front", "86.7 x 52.1 x 11.0  09-02 03:52");
     color(PLATE_COLOR) translate([151.420, 106.640, 0]) import("stl/v4/v4_hatch.stl");
     plate_label(151.114, 93.640, "hatch", "86.7 x 50.5 x 6.6  09-02 02:19");
-    color(PLATE_COLOR) translate([160.520, 208.140, 0]) import("stl/v4/v4_knob.stl");
-    plate_label(147.020, 183.640, "knob", "27.0 x 27.0 x 21.4  08-31 23:21");
-    color(PLATE_COLOR) translate([215.992, 205.640, 0]) import("stl/v4/v4_knobwall.stl");
-    plate_label(204.992, 183.640, "knobwall", "22.0 x 24.0 x 3.9  08-31 23:21");
+    color(PLATE_COLOR) translate([165.054, 208.140, 0]) import("stl/v4/v4_knob.stl");
+    plate_label(151.554, 183.640, "knob", "27.0 x 27.0 x 21.4  08-31 23:21");
+    color(PLATE_COLOR) translate([220.526, 205.640, 0]) import("stl/v4/v4_knobwall.stl");
+    plate_label(209.526, 183.640, "knobwall", "22.0 x 24.0 x 3.9  08-31 23:21");
     color(PLATE_COLOR) translate([140.304, 311.480, 0]) import("stl/v4/v4_lock.stl");
     plate_label(172.304, 320.980, "lock", "29.3 x 11.8 x 3.0  09-02 01:52");
     color(PLATE_COLOR) translate([237.774, 10.000, 0]) import("stl/v4/v4_lwall.stl");
