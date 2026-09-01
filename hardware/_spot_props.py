@@ -133,7 +133,20 @@ def write(results):
                 src.append(PP.head_call('one_prop_branch', h, '%.3f, %.3f, %.3f, ' % h['base']))
         L.append('// %s: 接触点の候補 %d / 置けた %d' % (name, len(seeds), len(got)))
         L.append('module spot_props_%s() { %s }' % (name, ' '.join(src)))
-        L.append('module spot_raft_%s() %s' % (name, PP.raft_src(PP.raft_pts(got)) or '{}'))
+        # 🔴 2026-09-02 ラフトが部品に 12.080mm³ 食い込んでいた（焼いたら外れない）。
+        #   浮かせる仕組みでは部品が 5mm 上がっているので当たらず、出なかった不具合。
+        #   ⇒ _v4_props.py の raft_* と同じ流儀で、**部品がプレートに着く足の周り 0.5 を空ける**。
+        body = PP.raft_src(PP.raft_pts(got))
+        if body:
+            L.append('module spot_raft_%s() difference() {' % name)
+            L.append('    %s' % body)
+            L.append('    translate([0, 0, -0.1]) linear_extrude(%.2f) offset(r = 0.5)'
+                     % (PP.RAFT_T + 0.2))
+            L.append('        projection(cut = true) translate([0, 0, -0.15]) import("%s");'
+                     % ('stl/v4/' + spot['stl']))
+            L.append('}')
+        else:
+            L.append('module spot_raft_%s() {}' % name)
     io.open(os.path.join(HERE, '_spot_props.scad'), 'w',
             encoding='utf-8').write('\n'.join(L) + '\n')
 
