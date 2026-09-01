@@ -51,8 +51,20 @@ function sw4_ex0()  = sw4_lx0() + (sw4_lw() - SHUT_EAR_H) / 2;
 function sw4_lend() = sw4_ex0() + SHUT_EAR_H + 0.5;   // 🔒 リップの右端（閉の耳の先 +0.5）＝逃がし口の左端
 
 // ---- 磁石（左右の部屋の中央・Z は蓋の中央）----
+// 🔴 2026-09-01 実機（1525）ユーザー「電池の蓋の磁石部分の淵が印刷されなかった」。
+//   芯を SHUT_EXT（6.30）の中央に置いていたので、蓋の外周までの肉が
+//   **6.30/2 − 6.10/2 = 0.10mm** しか無かった。外面の 0.75 はプレートに着くので残り、
+//   その上に立つ 0.10 x 高さ 2.0 の輪だけが消えた。
+//   ⇒ 芯は**蓋の外周から数えて置く**（山分けにしない）。効くのは外周側だけで、内側は無限に肉。
+//     残りが口までの肉（＝ハッチ側の座と穴の間の壁）になる。SHUT_EXT 6.80 で 1.00 / 0.50。
+SW4_MAG_WALL = 1.00;   // 🔒 蓋の外周 ↔ 磁石の穴。ここが 0.10 で焼けなかった（実機 1525）
 function sw4_mag_z()  = (sw4_lz0() + sw4_lz1()) / 2;
-function sw4_mag_xs() = [sw4_lx0() + SHUT_EXT / 2, sw4_lx1() - SHUT_EXT / 2];
+function sw4_mag_room() = SHUT_MARG + SHUT_EXT;                       // 口の外に残っている帯の幅
+function sw4_mag_inner() = sw4_mag_room() - SW4_MAG_WALL - SHUT_MAG_D;   // 口までの肉（ハッチ側の壁）
+function sw4_mag_xs() = [sw4_lx0() + SW4_MAG_WALL + SHUT_MAG_D / 2,
+                         sw4_lx1() - SW4_MAG_WALL - SHUT_MAG_D / 2];
+assert(sw4_mag_inner() >= 0.42,
+       "磁石の座と電池の口の間の壁が 0.42 を切る（PRINT.md の最薄肉）。SHUT_EXT を増やす");
 
 // ---- ロック（v3 の門形を右へ回したもの）----
 //   v3: 帯の上端に横棒・脚は下・舌は蓋の頭に乗る  →  ここ: 帯の右端に縦棒・脚は左・舌は蓋の右端に乗る
@@ -177,8 +189,11 @@ module sw4_lock_cut() {
 module sw4_lock_boss() translate([sw4_lock_x() - 4.5, sw4_yg() - SHUT_LOCK_B, sw4_lock_z() - 2.5])
     cube([9.0, SHUT_LOCK_B, sw4_lk_boss_z1() - sw4_lock_z() + 2.5]);
 module sw4_backing() {
-    translate([sw4_bx0(), IN_Y - SHUT_BACK, sw4_bz0()])
-        cube([sw4_bx1() - sw4_bx0(), SHUT_BACK, sw4_bz1() - sw4_bz0()]);
+    // 🔴 2026-09-02 ここは角の立った直方体だった。彫り込み（sw4_band_cut の rrect）は角丸 SHUT_R なので、
+    //   四隅の**彫っていない所にまで肉が出ていた**。SHUT_EXT を 6.30 → 7.30 に広げたとき、
+    //   その左下の角が Type-C の基板へ 0.721mm³ 食い込んだ（chk_hatch）。
+    //   ⇒ 彫り込みと同じ角丸にする。彫った所は必ず backing が受け、彫っていない所には出ない。
+    sw4_rrect(IN_Y - SHUT_BACK, SHUT_BACK, sw4_bx0(), sw4_bx1(), sw4_bz0(), sw4_bz1(), SHUT_R);
     sw4_ext(IN_Y - SHUT_BACK, SHUT_BACK) offset(r = SHUT_CL + 1.0) sw4_lk_out_2d();   // ロックの座の裏（帯の四角から出る分）
     sw4_lock_boss();
     for (x = sw4_mag_xs()) translate([x, sw4_yg() - SHUT_MAG_H - 0.4, sw4_mag_z()])   // 磁石の座の増し
