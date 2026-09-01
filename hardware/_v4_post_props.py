@@ -161,10 +161,14 @@ END_FACE = 0.2    # 🔒 軸の**端面**（上下の切り口）はこの逃げ
                   #   ⚠ ここを塞ぐと、傾けたとき最下点になる軸の先を誰も支えられず、
                   #     1 層目が宙に浮いた島になる（2026-09-01・post_5 に 0.38mm² で出た）。
 
-ISL_PITCH = (0.25, 0.15, 0.10)
-#   🔴 レイ間隔を 1 つだけにしない。島の判定は「0.25mm² 以上」なので、その大きさの島は
-#      レイの刻み方しだいで出たり出なかったりする（2026-09-01・0.10 で 0 と出た島が
-#      0.15 では 0.25 / 0.38mm² で出た）。**検査で使う刻みを全部通す。**
+RISE_PITCH = (0.25, 0.15, 0.10)
+RISE_WARN = PF.RISE_WARN      # 4.00 実績の較正値。数字はあちらが持つ
+# 🔒 2026-09-02 ユーザー「もう島だのなんだの曖昧な話は無しにしました」
+#    「面積は惑わせ、混乱させる元凶だから急な立ち上がりに統合だね」。
+#    ⇒ 支柱を足す基準を**島の個数から「急な立ち上がり（mm）」へ**乗り換えた。
+#    急な立ち上がり ＝ ある層で新しく出た肉が、直下の肉からどれだけ離れているか の最大値。
+#    島（下に何も無い）も庇（下から離れている）も、これ 1 つの mm に入る。
+#    ⚠ レイ間隔は 1 つにしない。刻み方で拾える所が変わるので、3 通りの**最大**を採る。
 
 
 def bake(name):
@@ -750,20 +754,25 @@ def write_scad(state):
             encoding='utf-8').write('\n'.join(L) + '\n')
 
 
-def islands_of(i):
-    """刷る向きの STL を焼いて、残っている島を返す。判定は検査器（_stl_preflight）に任せる"""
+def rise_of(i):
+    """刷る向きの STL を焼いて、**急な立ち上がり**（mm）と、それが出た場所を返す。
+
+    判定は検査器（_stl_preflight.steep_rise）に任せる。
+    戻り: (立ち上がり mm, Z, X0, X1, Y0, Y1)。測れないときは None。
+    """
     out = os.path.join(TMP, 'post_chk_%d.stl' % i)
     subprocess.run([OPENSCAD, '--backend=manifold', '-o', out,
                     '-D', 'part="print_post_%d"' % i,
                     os.path.join(HERE, 'case_v4.scad')], capture_output=True)
     tris = PF.read_stl(out)
-    got = []
-    for q in ISL_PITCH:
-        for it in PF.grip_and_islands(tris, q)[2]:
-            if not any(abs(it[0] - g[0]) < 0.3 and abs(it[2] - g[2]) < 0.6 and
-                       abs(it[4] - g[4]) < 0.6 for g in got):
-                got.append(it)
-    return got
+    best = None
+    for q in RISE_PITCH:
+        rs = PF.steep_rise(tris, q)
+        if rs is None:
+            continue
+        if best is None or rs[0] > best[0]:
+            best = (rs[0], rs[1], rs[3], rs[4], rs[5], rs[6])
+    return best
 
 
 def weld_mm3(i):
@@ -809,37 +818,40 @@ def build_one(tris, tilt, az):
     return dict(v=v, ofs=ofs, raw_top=raw_top, Rinv=Rinv, pts=pts, hs=list(best))
 
 
-def kill_islands(i, st, state, rounds=4):
-    """検査器に島を出させ、その位置へ支柱を足す。残った島を返す"""
-    stuck = []
+def cut_rise(i, st, state, rounds=6):
+    """検査器に**急な立ち上がり**を出させ、その場所へ支柱を足す。最後の値（mm）を返す。
+
+    🔒 2026-09-02 ユーザー「もう島だのなんだの曖昧な話は無しにしました」。
+    それまでは島の個数で回していた。いまは 1 つの mm で回す。
+    しきい値は検査器の RISE_WARN（実績の較正値）をそのまま使う。
+    """
     for _ in range(rounds):
         write_scad(state)
-        isl = islands_of(i)
-        if not isl:
-            return []
+        rs = rise_of(i)
+        if rs is None or rs[0] <= RISE_WARN:
+            return rs
+        rise, z, x0, x1, y0, y1 = rs
         grew = False
-        for z, area, x0, x1, y0, y1 in isl:
-            done = False
-            for fx in (0.5, 0.15, 0.85, 0.35, 0.65):
-                for fy in (0.5, 0.15, 0.85, 0.35, 0.65):
-                    x = x0 + (x1 - x0) * fx; y = y0 + (y1 - y0) * fy
-                    h, _ = cone_at(st['v'], st['pts'], x, y, z, st['Rinv'], st['ofs'], st['raw_top'])
-                    if h is None:
-                        continue
-                    if any(abs(g['A'][0] - h['A'][0]) < 0.05 and abs(g['A'][1] - h['A'][1]) < 0.05
-                           for g in st['hs']):
-                        continue
-                    g, _ = stand(h, st['pts'], st['hs'])
-                    if g is None:
-                        continue
-                    st['hs'].append(g); grew = done = True
-                    break
-                if done:
-                    break
+        for fx in (0.5, 0.15, 0.85, 0.35, 0.65):
+            for fy in (0.5, 0.15, 0.85, 0.35, 0.65):
+                x = x0 + (x1 - x0) * fx; y = y0 + (y1 - y0) * fy
+                h, _ = cone_at(st['v'], st['pts'], x, y, z, st['Rinv'], st['ofs'], st['raw_top'])
+                if h is None:
+                    continue
+                if any(abs(g['A'][0] - h['A'][0]) < 0.05 and abs(g['A'][1] - h['A'][1]) < 0.05
+                       for g in st['hs']):
+                    continue
+                g, _ = stand(h, st['pts'], st['hs'])
+                if g is None:
+                    continue
+                st['hs'].append(g); grew = True
+                break
+            if grew:
+                break
         if not grew:
             break
     write_scad(state)
-    return islands_of(i)
+    return rise_of(i)
 
 
 def main():
@@ -859,21 +871,21 @@ def main():
             st = build_one(tris, r['tilt'], r['az'])
             state['tilt'][i] = r['tilt']; state['az'][i] = r['az']
             state['ofs'][i] = st['ofs']; state['hs'][i] = st['hs']
-            left = kill_islands(i, st, state)
-            if picked is None:
-                picked = (r, st, left)            # 跳ねが最良のもの（保険）
-            if not left:
-                picked = (r, st, [])
+            rise = cut_rise(i, st, state)
+            rv = rise[0] if rise else float('inf')
+            if picked is None or rv < picked[3]:
+                picked = (r, st, rise, rv)        # いちばん立ち上がりが小さい向き
+            if rv <= RISE_WARN:
                 break
-        r, st, left = picked
+        r, st, rise, rv = picked
         state['tilt'][i] = r['tilt']; state['az'][i] = r['az']
         state['ofs'][i] = st['ofs']; state['hs'][i] = st['hs']
         write_scad(state)
-        report.append((i, r, st, left))
+        report.append((i, r, st, rise))
     write_scad(state)
 
-    print('部品   向き       真下 斜め  枝  接触面の合計   ラフト    島   面の傾き   食い込み(見込み)')
-    for i, r, st, left in report:
+    print('部品   向き       真下 斜め  枝  接触面の合計   ラフト   急な立ち上がり  面の傾き   食い込み(見込み)')
+    for i, r, st, rise in report:
         hs = state['hs'][i]
         npil = sum(1 for h in hs if h['mode'] == 'pillar')
         nst = sum(1 for h in hs if h['mode'] == 'strut')
@@ -882,12 +894,12 @@ def main():
         want = len(hs) * np.pi * (PROP_TIP / 2) ** 2 * PROP_BITE
         got_w = weld_mm3(i)
         flag = '' if got_w <= want * 1.6 + 0.01 else '  🔴 突き抜けている'
-        print('post_%d %2d°/%-3d  %3d %3d %3d  %7.2fmm²  %6.1fmm²  %3d  %3.0f〜%2.0f°  '
+        rv = rise[0] if rise else float('nan')
+        rmark = '' if (rise and rv <= RISE_WARN) else '  🔴 しきい値 %.2f 超' % RISE_WARN
+        print('post_%d %2d°/%-3d  %3d %3d %3d  %7.2fmm²  %6.1fmm²  %6.2fmm%s  %3.0f〜%2.0f°  '
               '%.4f(%.4f)mm³%s'
               % (i, r['tilt'], r['az'], npil, nst, len(hs) - npil - nst, tips,
-                 raft_area(raft_pts(hs)), len(left), sl[0], sl[-1], got_w, want, flag))
-        for z, area, x0, x1, y0, y1 in left:
-            print('  🔴 post_%d に島が残った %.2fmm²（Z %.2f）' % (i, area, z))
+                 raft_area(raft_pts(hs)), rv, rmark, sl[0], sl[-1], got_w, want, flag))
     # 支柱どうしの隙間（枝と親の繋ぎ目は除く）
     print()
     for i in range(6):
