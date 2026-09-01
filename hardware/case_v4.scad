@@ -12,6 +12,7 @@ include <_v4_core.scad>
 //   実行例: openscad --backend=manifold -o x.stl -D 'part="chk_top"' hardware/case_v4.scad
 // ============================================================
 include <_v4_props.scad>   // 🔴 自動生成の支柱の位置（`python hardware/_v4_props.py`）。素の形を焼くときは -D PROPS_OFF=true
+include <_v4_post_props.scad>   // 🔴 自動生成の「浮かせる」置き方・柱・ラフト（`python hardware/_v4_post_props.py`）
 include <_v4_plate.scad>   // 🔴 自動生成の並べ方（`python hardware/_v4_plate.py`）。part="plate" で使う
 PROPS_OFF = false;
 use <icon_headphone.scad>   // ミニプラグの印（ユーザーの EPS → icon_headphone.svg → gen_icon_svg.py）
@@ -38,7 +39,7 @@ W = "none";      // _v4_core の内部スイッチ（芯だけの検査 deskseat
 //   電池   : chk_shut_slide（蓋を右へずらす）/ chk_shut_out（蓋を抜く）/ chk_lock_out（ロックを後ろへ外す）/ chk_swap（電池を後ろへ抜く・v3 と同名）
 //   絵（部分）: btnslot（会話ボタンの受けに彫った溝と、そこを通る電源 2 本・INA の直立ての口）
 //              seatgap（電流計の座ぐりの断面。ネジの先 ↔ 留め帯の天板の裏＝電池の上面。SEATGAP_Y で 1 本に絞れる）
-part = "inside";
+part = "explode";
 WP = "";         // chk_wire 系で束を 1 つに: xiao / oled / as5600 / btn2 / phin / phout / ina / tgl / reed / chg（"" で全部）
 
 // ---- v4 の配置（芯と同じ式。数字を増やさない） ----
@@ -680,10 +681,12 @@ module btntest_loose() {
 }
 // 🔒 2026-08-30 ユーザー「耳が浮いてるから印刷失敗する」「印刷用の柱を立てるしかない」「ラフトと。」
 //   庇は 2 か所（刷る向きの座標）:
-//     ① バスタブの +X の耳の下  Z 1.085  X 76.5..81.4 / Y -33.4..-26.4（真下は電池なので埋められない）
+//     ① バスタブの +X の耳の下  Z 1.085  X 76.5..81.4 / Y -33.4..-26.4（🔄 2026-09-02 「真下は電池なので埋められない」と書いていたが、実測では 77% が空だった）
 //     ② 押し子のツバの下        Z 5.50   ツバ（19.8）と頭（18.0）の差の輪。±X の端だけ
-BTNT_P1 = concat([for (x = [77.4, 79.0, 80.6], y = [-32.4, -29.9, -27.4]) [x, y]],
-                 [[80.9, -26.9], [80.9, -31.4], [76.9, -26.9], [76.9, -31.4]]);   // 耳の隅
+// 🔄 2026-09-02 ① の柱を**外した**。耳の下に足が入って庇そのものが無くなったため
+//   （btn_v3.scad の B3_EAR_FOOT_Y1 の節。刷る前の検算: 支えの無い天井 17.19mm² → なし）。
+//   ⚠ 残したままだと柱が足の肉の中に埋まる。② は元から空リスト。
+BTNT_P1 = [];
 // 🔒 2026-08-30 ユーザー「ボタンの部分のラフトがボタンの角を傷つけてしまうので、柱もラフトも
 //   つけてはだめかも」。押し子は**顔を下にして刷る**ので、柱とラフトの跡が見える面の縁に残る。
 //   ⇒ 押し子には柱もラフトも付けない（空リスト）。支え無しになるのはツバの張り出し
@@ -729,16 +732,44 @@ module strap_print(s) translate([0, 0, -BAT_Z]) strap_one(s);
 //   ナットの落とし穴は 1 層目から始まるので天井ができない。⚠ 旧版（組んだ姿勢のまま）は足の先で
 //   点立ちし、天面が 240mm² の無支持だった。
 module strap_print_flip(s) translate([0, 0, BAT_TOP + STRAP_T]) rotate([180, 0, 0]) strap_one(s);
-// スペーサー 6 個。下面（帯に座る面）を下にして刷る。上面は板と同じ傾きなので庇にならない
-// 支柱は**細い軸を下**にして立てる（胴が上）。接地は φ2 の 3.1mm² しかないので、
+// スペーサー（支柱）6 個は**細い軸を下**にして立てる（胴が上）。高さ 5.90〜10.32mm。
+//   立てる理由は 1 層あたりの剥離力。立てれば断面は最大でも胴の φ5.8 ＝ 26mm²、寝かせると
+//   全長 × 径 ＝ 58mm² が一度に剥がれる。
+//   ⚠ 2026-09-01 ユーザー「過去の実績は当てに出来ない。形状が違いすぎる」。stand_ab（長い丸棒の
+//     トラス）の実績は**この部品には効かない**。痕・浮かせ方とも、この形での実績は無い。
+//   ⚠ 2026-09-01 STL 実測: 接地は φ2（3.1mm²）ではなく **φ1.5・1.77mm²**。下の E リングの首
+//     （z 0.00〜0.50）がそのままプレートに着いており、そこが最小断面でもある。
 //   必ず他の部品と一緒にプレートへ並べ、ラフトを敷く（_v4_props.py が付ける）。
-module post_print(i) translate([-post_xy(i)[0], -post_xy(i)[1], -BAT_TOP]) post_one(i);
-if (part == "print_post_0") post_print(0);
-if (part == "print_post_1") post_print(1);
-if (part == "print_post_2") post_print(2);
-if (part == "print_post_3") post_print(3);
-if (part == "print_post_4") post_print(4);
-if (part == "print_post_5") post_print(5);
+//   ⚠ 旧: 「下面（帯に座る面）を下にして刷る」は E リング化（2026-08-30）より前の書き置き。
+// 素の向き（軸が Z・底が z=0）。**生成器がこれを焼いて足の位置を決める**ので、ここは動かさない
+module post_raw(i) translate([-post_xy(i)[0], -post_xy(i)[1], -BAT_TOP]) post_one(i);
+if (part == "post_bare_0") post_raw(0);
+if (part == "post_bare_1") post_raw(1);
+if (part == "post_bare_2") post_raw(2);
+if (part == "post_bare_3") post_raw(3);
+if (part == "post_bare_4") post_raw(4);
+if (part == "post_bare_5") post_raw(5);
+// 刷る向き: post_place() が傾けて POST_LIFT だけ浮かせる（角度も送りも _v4_post_props.scad が持つ）
+module post_print(i) post_place(i) post_raw(i);
+// 支柱と部品が**食い込んでいる体積**。剥がせるかの物差し（円錐の先の食い込みだけなら極小）
+//   ⚠ 2026-09-01 斜材が部品を突き抜けて融着した事故の検査（ユーザーのスクショで発見）
+module post_weld(i) intersection() { post_print(i); post_props(i); }
+module post_props(i) {
+    if (i == 0) props_post_0(); if (i == 1) props_post_1(); if (i == 2) props_post_2();
+    if (i == 3) props_post_3(); if (i == 4) props_post_4(); if (i == 5) props_post_5();
+}
+if (part == "post_weld_0") post_weld(0);
+if (part == "post_weld_1") post_weld(1);
+if (part == "post_weld_2") post_weld(2);
+if (part == "post_weld_3") post_weld(3);
+if (part == "post_weld_4") post_weld(4);
+if (part == "post_weld_5") post_weld(5);
+if (part == "print_post_0") { post_print(0); if (!PROPS_OFF) { props_post_0(); raft_post_0(); } }
+if (part == "print_post_1") { post_print(1); if (!PROPS_OFF) { props_post_1(); raft_post_1(); } }
+if (part == "print_post_2") { post_print(2); if (!PROPS_OFF) { props_post_2(); raft_post_2(); } }
+if (part == "print_post_3") { post_print(3); if (!PROPS_OFF) { props_post_3(); raft_post_3(); } }
+if (part == "print_post_4") { post_print(4); if (!PROPS_OFF) { props_post_4(); raft_post_4(); } }
+if (part == "print_post_5") { post_print(5); if (!PROPS_OFF) { props_post_5(); raft_post_5(); } }
 if (part == "print_strap_a") { strap_print_flip(STRAP_BANDS[0]); if (!PROPS_OFF) { props_strap_a(); raft_strap_a(); } }
 if (part == "print_strap_b") { strap_print_flip(STRAP_BANDS[1]); if (!PROPS_OFF) { props_strap_b(); raft_strap_b(); } }
 if (part == "print_strap_c") { strap_print_flip(STRAP_BANDS[2]); if (!PROPS_OFF) { props_strap_c(); raft_strap_c(); } }
