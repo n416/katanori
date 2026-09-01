@@ -812,9 +812,10 @@ module brg_props() color("#e0a0a0") intersection() {
 // 🔴 2026-09-02 箱へ留める M2 のボス（X 4.2 / Y 47.7）の下面 22.50mm² が Z 3.00 で宙に始まり、
 //    検算が 🔴 急な立ち上がり 5.00mm を出した。真下はネジで塞がっていて φ0.3 の柱すら立たないので、
 //    縁の 45° の面取りに斜めから当てる支柱を `_spot_props.py` が足す（5.00 → 2.75mm）。
-module spot_body_bridge() translate([0, 0, -(BAT_Z - BRG_T)]) brg_v4();   // ラフトが引く「素の部品」
-if (part == "print_bridge") { spot_body_bridge();
-   if (!PROPS_OFF) { props_bridge(); raft_bridge(); spot_props_bridge(); spot_raft_bridge(); } }
+// 🔄 2026-09-02 一度ここへ _spot_props の支柱を繋いだが、**適用先が間違っていた**ので外した
+//    （5.00mm は幅 4.0mm で壁につながった奥行き 5.0mm の棚で、欠陥ではなかった）。
+if (part == "print_bridge") { translate([0, 0, -(BAT_Z - BRG_T)]) brg_v4();
+   if (!PROPS_OFF) { props_bridge(); raft_bridge(); } }
 
 // ---- 下向きの天井を持つ支柱（一般形）----
 //   🔴 島（浮いた欠片）の検査は**縁で繋がった天井を素通りする**（つまみの皿もそれで合格する）。
