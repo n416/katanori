@@ -27,9 +27,12 @@ import numpy as np                 # noqa: E402
 DZ = PF.DZ                         # 層の高さ 0.050mm（PRINT.md §1）
 GRIP_BAD = PF.GRIP_BAD             # 1709mm² 剥がれず・プレートに傷（PRINT.md §4）
 GRIP_WARN = PF.GRIP_WARN           # 585mm² 角が欠けた
+RISE_WARN = PF.RISE_WARN           # 4.00mm 急な立ち上がり（無事だった最大＝floor）
 
 CACHE = os.path.join(_HERE, ".measure_cache.json")
-SCHEMA = 6      # 返す形を変えたら上げる（上げないと古い結果が残る）。4→5: warn の文面を直した
+SCHEMA = 8      # 返す形を変えたら上げる（上げないと古い結果が残る）。4→5: warn の文面を直した
+                # 6→7: 急な立ち上がり（rise_mm）を足した
+                # 7→8: 面積の警告 2 本（島・持たれていない天井）を立ち上がりに統合
 
 
 def _load_cache():
@@ -58,6 +61,7 @@ def measure(path, pitch=0.25):
     tris = PF.read_stl(path)
     grip, long_mm, isl, ceil, height, grip_max = PF.grip_and_islands(tris, pitch)
     prof = _profile(tris, pitch)
+    rise = PF.steep_rise(tris, pitch) or (0.0,)*7
 
     lo = tris.reshape(-1, 3).min(axis=0)
     hi = tris.reshape(-1, 3).max(axis=0)
@@ -81,6 +85,14 @@ def measure(path, pitch=0.25):
         "island_mm2": round(float(sum(i[1] for i in isl)), 2),
         "ceilings": len(ceil),                      # 支えから離れた天井（層の数）
         "ceiling_mm2": round(float(sum(c[1] for c in ceil)), 2),
+        # 🔒 2026-09-02 ユーザー定義の「急な立ち上がり」＝一つ前のスライスから次のスライスの
+        #   最大範囲の差（新しく出た肉が、直下の肉からどれだけ離れているか・mm）。
+        #   🔴 面積では合否が分かれない。この機の失敗 3 件は全部「小さい面積」だった
+        #   （蓋の枠 3.4mm² / 耳 17mm²）。実装は _stl_preflight.steep_rise（数字は 1 か所）。
+        "rise_mm": round(float(rise[0]), 2),
+        "rise_z": round(float(rise[1]), 2),
+        "rise_mm2": round(float(rise[2]), 1),
+        "rise_at": [round(float(v), 1) for v in rise[3:7]],   # 立ち上がりの先端 X0,X1,Y0,Y1
         # 🔴 「浮かせて刷る必要があるか」は**ここでは決めない。**
         #   幾何から推論すると、いま直置きで刷れている部品まで弾く（実際に弾いた）。
         #   置き方の判断は PRINT.md §3 のとおり人が決めるもので、server.py の
@@ -125,9 +137,14 @@ def _warn(r):
     elif r["z0"] > 1e-4:
         w.append("🟡 底が %.4f 浮いているが層の高さ %.2f より小さい"
                  "（1 層目に入るので刷り上がりは変わらない）" % (r["z0"], LAYER))
-    if r["islands"]:
-        w.append("宙に浮いた欠片 %d か所（計 %.1fmm²）" % (r["islands"], r["island_mm2"]))
-    if r["ceilings"]:
+    # 🔒 2026-09-02 「宙に浮いた欠片 ◯mm²」「持たれていない天井 ◯mm²」の 2 本を**削除**した。
+    #   ユーザー「面積は惑わせ、混乱させる元凶だから急な立ち上がりに統合だね。だって無駄過ぎない？」。
+    #   🔴 **面積は合否に関係がない。** 決めているのは肉の厚み（mm）と支えからの出（mm）で、
+    #     面積はその 2 つを面で塗りつぶした数字。同じ面積で刷れる形も刷れない形も作れる。
+    #   下の「急な立ち上がり」が、島も持たれていない天井も **mm で・実績付きで**拾う。
+    #   ⚠ 観測値そのもの（islands / ceilings / island_mm2 / ceiling_mm2）は r に残してある。
+    #     消したのは**警告に出すこと**だけ。
+    if False:
         # 🔴 2026-08-31 文面を直した。前は「支柱入りの knob_v5_deck で 19mm²」とだけ出ていて、
         #    無関係の部品の名前が理由なしに現れ、読む側に「なぜここで別の部品？」しか伝わらなかった
         #    （ユーザー「ノブデックが出てくるのも良く分かりませんし」「floor につまみってないですよね？」）。
@@ -137,6 +154,14 @@ def _warn(r):
         w.append("持たれていない天井 %.0fmm²（%d 層）⬜ 何 mm² までなら大丈夫かの実績は無い"
                  "（比較: 同じ測り方で knob_v5_deck.stl が 19.1mm²。ただしその刷り上がりは未記録）"
                  % (r["ceiling_mm2"], r["ceilings"]))
+    # 🔒 2026-09-02 急な立ち上がり。**実績を必ず並べて出す**（ユーザー「面積で言われると、
+    #   なんとなく小さいから大丈夫かなと思ってしまう。非常に危険」）。較正は
+    #   無事 … lwall 1.25 / lock 1.25 / rwall 1.75 / floor 4.00 ／ 失敗 … tub 6.83（耳が斜め）。
+    if r.get("rise_mm", 0) > RISE_WARN:
+        at = r.get("rise_at") or [0, 0, 0, 0]
+        w.append("急な立ち上がり %.2fmm（Z %.2f・X %.1f..%.1f Y %.1f..%.1f）── 実績: 無事は "
+                 "floor の %.2fmm まで／tub は 6.83mm で耳が斜めに出た"
+                 % (r["rise_mm"], r.get("rise_z", 0), at[0], at[1], at[2], at[3], RISE_WARN))
     # 🔒 2026-09-01 比べるのは合計ではなく **1 枚あたり**（grip_max）。
     #   実績 585 / 1709 は 1 枚の大きな板で出た値で、小さい板が棒でつながった物には当たらない
     #   （ユーザー指摘「角が欠けるのは、それが 1 枚の大きな板だった場合でしょ？」）。

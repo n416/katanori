@@ -205,6 +205,47 @@ def scan(tris, axis):
     return [(seg[i],us[r[i]//nv],vs[r[i]%nv],t[i]) for i in idx],u,v
 
 
+# ---- 急な立ち上がり（2026-09-02） ----
+# 🔒 ユーザー定義: 「一つ前のスライスから次のスライスの最大範囲の差」。
+#    ある層で新しく出た肉が、**直下の肉からどれだけ離れているか**。その最大値（mm）。
+# 🔴 面積で言ってはいけない。ユーザー「面積で言われると、なんとなく小さいから大丈夫かなと
+#    思ってしまう。非常に危険」。実際この機の失敗 3 件は全部「小さい面積」だった
+#    （蓋の枠 3.4mm² / 耳 17mm²）。1 層の増分（mm²）でも分かれない
+#    （floor は +92mm² で無事、shutter は +14mm² で失敗）。
+# ✅ 較正（刷って結果が分かっている v4 の部品・2026-09-02）:
+#      無事 … lwall 1.25 / lock 1.25 / rwall 1.75 / **floor 4.00**
+#      失敗 … **tub 6.83**（耳が斜めに出た。庇で落ちた唯一の部品）
+#      ⇒ 境目は 4.00 と 6.83 の間。しきい値は「無事だった最大」に置いてある。
+#   ⚠ 残り 2 件の失敗（蓋の枠 0.10mm・フロントの縁 0.40mm）は立ち上がり 3.26 / 0.35 と小さい。
+#     あれは**厚みの方**で落ちている。この 2 つは別の壊れ方なので、別々に見ること。
+RISE_WARN = 4.0
+
+def steep_rise(tris, pitch=0.25, dz=0.05):
+    try:
+        from scipy.ndimage import distance_transform_edt as edt
+    except ImportError:
+        return None
+    col,zs,ze,us,vs,nu,nv = zcolumns(tris, pitch)
+    zz = np.arange(dz/2, ze.max(), dz)
+    prev=None; best=(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+    for z in zz:
+        m=np.zeros(nu*nv, bool); np.logical_or.at(m, col, (zs<=z)&(ze>z))
+        g=m.reshape(nu,nv)
+        if prev is not None and prev.any():
+            new = g & ~prev
+            if new.any():
+                d = edt(~prev, sampling=(pitch,pitch))
+                r = float(d[new].max())
+                if r > best[0]:
+                    far = new & (d > r - pitch)      # いちばん離れている所（＝立ち上がりの先端）
+                    ii,jj = np.nonzero(far)
+                    best=(r, float(z), float(new.sum())*pitch*pitch,
+                          float(us[ii].min()), float(us[ii].max()),
+                          float(vs[jj].min()), float(vs[jj].max()))
+        prev=g
+    return best
+
+
 for p in sorted(glob.glob(sys.argv[1])):
     tris=read_stl(p); v=tris.reshape(-1,3)
     bd=bodies(tris)
@@ -223,18 +264,23 @@ for p in sorted(glob.glob(sys.argv[1])):
     print("   接地 %.0f mm2（1 枚あたり %.0f）  %s" % (grip, grip_max, v))
     if grip>GRIP_WARN:
         print("      → %s（長辺 %.0fmm）" % ("**犠牲タブ**（逃げ溝は蝶番になって破断する）" if long_mm>LONG else "逃げ溝で 4 割落とせる", long_mm))
-    if ceil:
-        tot=sum(c[1] for c in ceil)
-        print("   🔴 支えの無い天井 %.0f mm2（%d 層）。**縁で繋がっていても持たれていない**（支えから %.1fmm 超）" % (tot,len(ceil),REACH))
-        for z,a,t2,x0,x1,y0,y1 in sorted(ceil,key=lambda c:-c[1])[:4]:
-            print("      Z %6.2f  %7.2f / %7.2f mm2  X %.1f..%.1f Y %.1f..%.1f" % (z,a,t2,x0,x1,y0,y1))
+    # 🔒 2026-09-02 「支えの無い天井 ◯mm²」「島 ◯mm²」の 2 行を**急な立ち上がりに統合した**。
+    #   ユーザー「面積は惑わせ、混乱させる元凶だから急な立ち上がりに統合だね。だって無駄過ぎない？」。
+    #   🔴 **面積は合否に関係がない。** 落ちるかどうかを決めているのは、肉の厚み（mm）と、
+    #   支えからの出（mm）。面積はその 2 つを面で塗りつぶした数字なので、**同じ面積で刷れる形も
+    #   刷れない形も作れる。** データが増えても関係が出てくる種類の数字ではない。
+    #   ⇒ 面積は「どこにあるか」を指すのにだけ使う。判断には使わない。
+    #   ⚠ 島も持たれていない天井も「直下に肉が無い新しい面」なので、立ち上がりが両方を拾う。
+    rs = steep_rise(tris)
+    if rs is None:
+        print("   急な立ち上がり … scipy が無いので測っていない")
+    elif rs[0] > RISE_WARN:
+        print("   🔴 急な立ち上がり **%.2fmm**（Z %.2f・X %.1f..%.1f Y %.1f..%.1f）" % (rs[0],rs[1],rs[3],rs[4],rs[5],rs[6]))
+        print("      実績: 無事は floor の %.2fmm まで／tub は 6.83mm で耳が斜めに出た" % RISE_WARN)
     else:
-        print("   支えの無い天井 なし")
+        print("   急な立ち上がり %.2fmm（Z %.2f）。実績で無事な範囲（≤ %.2fmm）の内側" % (rs[0], rs[1], RISE_WARN))
     if grip<40.0:
         print("   🔴 点で立っている（接地 %.0f mm2 < つまみの棒の 1 層 38mm2）。あれは 1 個置きで軸がズレた → **置き方と、一緒に置く相手を決めてから刷る**" % grip)
-    print("   島 %d か所（0.25mm2 以上）%s" % (len(isl), "" if not isl else "："))
-    for z,a,x0,x1,y0,y1 in sorted(isl,key=lambda f:-f[1])[:4]:
-        print("      Z %6.2f  %6.2f mm2  X %.1f..%.1f Y %.1f..%.1f" % (z,a,x0,x1,y0,y1))
     any_=False
     for ax in (0,1,2):
         hits,u,vv=scan(tris,ax)
@@ -254,10 +300,24 @@ for p in sorted(glob.glob(sys.argv[1])):
             area=len(cl)*PITCH*PITCH
             if area<0.35: continue
             mn,me,mx=th[cl].min(),th[cl].mean(),th[cl].max()
-            kind="平行" if (mx-mn)<0.06 else ("先細り" if me<(mn+mx)*0.62 else "?")
+            # 🔒 2026-09-02 **形を名指しして、mm で言う。面積は出さない。**
+            #   ユーザー「毎度毎度これを私が脳内で考えるのがばかばかしいと思わない？…無駄！！」
+            #   前は「0.152..0.287 mm 先細り 面積 4.12mm2 …」と数字だけ並べていて、
+            #   読む側が CAD を開いて「これは何の形か」を考える仕事が残っていた。
             o=[i for i in range(3) if i!=ax]
-            print("   %6.3f..%.3f mm (mean %.3f) %s [%s向き]  面積 %5.2f mm2  %s %.1f..%.1f  %s %.1f..%.1f  %s=%.2f" % (
-                mn,mx,me,kind,"XYZ"[ax],area,"XYZ"[o[0]],pts[cl,0].min(),pts[cl,0].max(),
-                "XYZ"[o[1]],pts[cl,1].min(),pts[cl,1].max(),"XYZ"[ax],tt[cl].mean()))
+            w0,w1=pts[cl,0].min(),pts[cl,0].max(); h0,h1=pts[cl,1].min(),pts[cl,1].max()
+            if (mx-mn)<0.06:
+                mark = "🔴 " if mn < 0.42 else ""
+                what = "%s平たい肉 %.2fmm" % (mark, me)
+                note = "（実績の下限 0.42 を割る）" if mn < 0.42 else "（0.42 は超えている）"
+            elif me<(mn+mx)*0.62:
+                what = "先細りの縁 %.2f→%.2fmm" % (mn, mx)
+                note = "（面取りやツメの先端なら不良ではない。立った壁なら 0.42 を割っている）"
+            else:
+                what = "?（平行でも先細りでもない）%.2f..%.2fmm" % (mn, mx)
+                note = ""
+            print("   %s  %s %.1f x %s %.1f mm の面  %s %.1f..%.1f / %s %.1f..%.1f（%s=%.2f）%s" % (
+                what, "XYZ"[o[0]], w1-w0, "XYZ"[o[1]], h1-h0,
+                "XYZ"[o[0]], w0, w1, "XYZ"[o[1]], h0, h1, "XYZ"[ax], tt[cl].mean(), note))
             any_=True
     if not any_: print("   （%.2fmm 未満の面は無し）"%LIM)
