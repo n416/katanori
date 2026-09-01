@@ -231,6 +231,16 @@ B3_V_SCR_D = 2.3;                    // M2 の通し
 //   13.2 - 2.13 = 11.07 に対しブロックの内面が 10.70 → 0.37。⇒ ねじを 13.5 へ、外面を 15.8 へ。
 B3_V_SCR_X = 13.1;                   // ねじの芯（ボタンの芯から ±）
 B3_NUT_T   = 1.6;  B3_NUT_AF = 4.0;  // M2 ナット
+// 🔴 2026-09-02 **見込みを対角（外接円）に足していた。** 正しくは二面幅に足す。
+//   旧: B3_NUT_AF/cos(30) + B3_SHRINK = 4.965 + 0.30 = 5.265 ⇒ 二面幅 **4.56**（呼び +0.56）
+//   新: (B3_NUT_AF + B3_SHRINK)/cos(30)                      ⇒ 二面幅 **4.30**（呼び +0.30）
+//   他は全部 4.30（case_base の NUT_AF / case_v3_shutter の SHUT_LOCK_NAF）。ここだけ 0.26 大きかった。
+//   ✅ ユーザー実測が裏付け: 「底板の 6 角はうまく機能している。上面の裏のバスタブを付ける腕と
+//     バスタブも逆さまにすると落ちる」。**落ちる方が 0.26 大きい方**だった。
+//   ⚠ 下の assert は最初から (B3_NUT_AF + B3_SHRINK) の形で書いてある。検算の側は正しく、
+//     彫っている側だけが違っていた。
+//   🔒 天板は刷り済み（旧 4.56 のまま）。ユーザー「もう印刷したものをやり直すのは嫌」
+//     「気が向いたらやり直すくらいですね。割れたり壊れたら」⇒ **刷り直さない。**
 // 🔴 2026-08-31 ザグリの**深さ**を 1.2 → **1.6** に（ユーザー指示・刷り直しの理由）。
 //   1.2 は実測の頭の高さ 1.3 より低く、頭が沈みきらない形だった。1.3 ＋ 沈み 0.3 ＝ 1.6。
 //   耳の厚み [4.5, 5.585] に対し assert（耳 − ザグリ ≥ 1.5）も通る。
@@ -381,7 +391,7 @@ module btn3_sw_screw_cut() for (sx = [-1, 1]) translate([sx * B3_SCR_X + B3_SW_D
     translate([0, B3_TUB_Y0 + B3_SEAT_H, 0]) rotate([90, 0, 0])                            // 頭の平らな座
         cylinder(d = B3_SEAT_D, h = 4, $fn = 32);
     translate([0, B3_TUB_Y1 - B3_NUT_T, 0]) rotate([-90, 0, 0])                            // 六角の座
-        cylinder(d = B3_NUT_AF / cos(30) + B3_SHRINK, h = B3_NUT_T + 1.0, $fn = 6);
+        cylinder(d = (B3_NUT_AF + B3_SHRINK) / cos(30), h = B3_NUT_T + 1.0, $fn = 6);
 }
 
 // ---- 縦ねじ（耳の通しと、底に沈める頭のザグリ）----
@@ -418,7 +428,7 @@ module btn3_block_cut() {
         cylinder(d = B3_V_SCR_D, h = B3_NUT_Z1 - B3_EAR_Z1 + 2.0, $fn = 24);
     hull() for (dx = [0, 6])                                                               // ナットの溝（+X から差す）
         translate([B3_V_SCR_X + dx, 0, B3_NUT_Z0]) rotate([0, 0, 30])                      // 二面幅を X に向ける
-            cylinder(d = B3_NUT_AF / cos(30) + B3_SHRINK, h = B3_NUT_T, $fn = 6);
+            cylinder(d = (B3_NUT_AF + B3_SHRINK) / cos(30), h = B3_NUT_T, $fn = 6);
 }
 
 module btn3_station_add() difference() {

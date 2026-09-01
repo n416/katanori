@@ -59,7 +59,7 @@ module plate_all() {
     color(PLATE_COLOR) translate([178.790, 306.257, 0]) import("stl/v4/v4_tail.stl");
     plate_label(172.304, 288.770, "tail", "13.0 x 13.0 x 33.7  08-31 23:23");
     color(PLATE_COLOR) translate([0.306, 85.000, 0]) import("stl/v4/v4_top.stl");
-    plate_label(0.000, 0.000, "top", "86.7 x 74.6 x 20.9  09-02 01:02");
+    plate_label(0.000, 0.000, "top", "86.7 x 74.6 x 20.9  09-02 05:18");
     color(PLATE_COLOR) translate([186.042, 269.540, 0]) import("stl/v4/v4_tub.stl");
-    plate_label(170.692, 252.640, "tub", "30.7 x 13.5 x 9.3  09-02 00:53");
+    plate_label(170.692, 252.640, "tub", "30.7 x 13.5 x 9.3  09-02 05:18");
 }
