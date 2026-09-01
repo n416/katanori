@@ -218,12 +218,24 @@ RSP_TOP = RSP_Z + respeaker_H(); RSP_PRESS = 0.3; RIB1_X = 39.1; RIB1_W = 6.0; R
 SHELF_HOOK_T = 1.6; SHELF_HOOK_LIP = 1.5; SHELF_FLANGE_T = 1.2;
 
 // ---- フロント（OLED の窓・ベベル・マイクのヒゲ。v2 §4.6 そのまま）----
-WIN_CR = 2.0; WIN_CH = 1.2; WIN_R = 0.4;
+// 🔴 2026-09-02 実機（1525 のフロント）ユーザー「OLED をはめてみたら、OLED の黒い所のアールと
+//   このフロントパネルのアールが違うので黒い部分が前に出せない」「むしろ OLED にはアールなんてほとんどない」。
+//   R2.0 は v1 から写してきた値で、**この機で一度も確かめていない**（✅ も 📄 も無い）。
+//   窓は「ガラス ＋ 0.3（片側）」なので、角の弧の中心は窓の角から (R, R)、ガラスの角は (0.3, 0.3)。
+//   ガラスの角が直角だと、ガラスの角は窓の弧を **0.404mm はみ出す**（＝入らない）。
+//   通る条件は WIN_CR ≦ 1.02 + ガラスの角の R。⇒ ガラスが直角なら 1.02 が上限。
+//   🔒 **四角いガラスを 0.3 で囲めば角の丸みは 0.3。** 元のコメント「窓（ガラス＋0.3）」の
+//     宣言どおりに戻す（R2.0 は角だけその宣言を破っていた）。角の隙間も辺と同じ 0.3 で揃う。
+//   ⚠ 丸みを残したいなら 0.5（角の余り 0.22）／0.8（0.09）。1.0 は余り 0.01 で実質ゼロ。
+WIN_CR = 0.3; WIN_CH = 1.2; WIN_R = 0.4;
 // OLED の所だけ壁を薄くする彫り込み（既定 0 ＝ 彫らない。v1/v2/v3 は今までどおり）
 WIN_SUNK = 0;      // 外面をこの深さだけ彫る ⇒ 窓まわりの壁の厚みは BEZ_T − WIN_SUNK
 WIN_SUNK_M = 2.5;  // 彫り込みが窓の外へ出る量（⚠ 仮）
-WIN_X0 = OLED_X0 + oled_glass_x() - 0.3;  WIN_X1 = WIN_X0 + oled_glass()[0] + 0.6;
-WIN_Z0 = OLED_Z0 + oled_glass_y() - 0.3;  WIN_Z1 = WIN_Z0 + oled_glass()[1] + 0.6;
+WIN_CL   = 0.3;        // 窓 ↔ 黒枠の隙間・片側（既定。v1/v2/v3 は 0.3 のまま）
+WIN_CL_X = WIN_CL;     // 横だけ別に取れる
+WIN_CL_Z = WIN_CL;     // 縦だけ別に取れる
+WIN_X0 = OLED_X0 + oled_glass_x() - WIN_CL_X;  WIN_X1 = WIN_X0 + oled_glass()[0] + 2 * WIN_CL_X;
+WIN_Z0 = OLED_Z0 + oled_glass_y() - WIN_CL_Z;  WIN_Z1 = WIN_Z0 + oled_glass()[1] + 2 * WIN_CL_Z;
 WSK_L = 6.0; WSK_W = 1.0; WSK_CH = 0.5; WSK_R = 0.4; WSK_ANG = 4;
 // ---- 外周の角丸（v2 と同じ。12 辺と 8 隅を半径 WALL で丸める。🔒 天面とフロントの継ぎ目は角丸の真ん中）----
 CHAM = WALL; EDGE_ROUND = true;
@@ -300,6 +312,17 @@ function bev_pts(c, k, n = 10) = [for (i = [0 : n]) let (t = i / n, p = (1 - k) 
 module win_rrect(g = 0) { hull() for (x = [WIN_X0 + WIN_CR, WIN_X1 - WIN_CR], z = [WIN_Z0 + WIN_CR, WIN_Z1 - WIN_CR]) translate([x, z]) circle(r = WIN_CR + g, $fn = 40); }
 module win_bev_slab(g, y) { translate([0, y + 0.01, 0]) rotate([90, 0, 0]) linear_extrude(0.01) win_rrect(g); }
 module win_chamfer_cut() { hull() { win_bev_slab(WIN_CH, FY_OUT - 0.5); for (p = bev_pts(WIN_CH, WIN_R)) win_bev_slab(p[1], FY_OUT + p[0]); } }
+// ---- 表（外面）の座。黒枠がここへ収まる。45° のベベルではなく**角ばった段** ----
+//   🔒 2026-09-02 ユーザー「裏掘りをやめ、表を掘りましょう」「周囲のベベルはもっと角ばっていていい」
+//     「座の話なら 3mm でいいんじゃないですか？」。WIN_SEAT = 0 なら従来どおり 45° ベベル（v1/v2/v3）。
+//   🔴 2026-09-02 v4 では**使っていない**。一度 v4 で座を掘ったが、ユーザー
+//     「これじゃ 2 段ベゼルの二の舞だよ」で廃止した（btn_v3 で捨てた「皿」と同じ形だった）。
+//     いまの窓は口（Type-C）と同じ「貫通 ＋ 縁のベベル」だけ。仕組みは残すが既定は 0。
+WIN_SEAT   = 0;     // 座の深さ（外面から）。0 = 掘らない
+WIN_SEAT_M = 1.0;   // 座が窓の外へ出る量（片側）。⚠ WIN_SEAT = 0 なので効いていない
+module win_seat_cut() if (WIN_SEAT > 0)
+    translate([0, FY_OUT - 0.01, 0]) rotate([-90, 0, 0]) linear_extrude(WIN_SEAT + 0.01)
+        offset(r = WIN_SEAT_M) mirror([0, 1]) win_rrect(0);
 // 🔴 彫り込みは**裏**（内面 Y=0 側）。外面は平らのまま = 外から見た顔は変わらない。
 //    深さ WIN_SUNK だけ内面を彫るので、窓まわりの壁の厚みが BEZ_T − WIN_SUNK になる
 module win_sunk_cut() if (WIN_SUNK > 0) hull() {
@@ -594,6 +617,7 @@ module front_plate_raw() {
         translate([0, FY_OUT - 1, 0]) rotate([-90, 0, 0]) linear_extrude(BEZ_T + 2) mirror([0, 1]) win_rrect(0);   // 窓（ガラス＋0.3）
         win_sunk_cut();                                                                                          // OLED の所だけ壁を薄くする彫り込み（**裏**）
         win_chamfer_cut();                                                                                       // 窓のベベル（外面）
+        win_seat_cut();                                                                                          // 窓の座（外面・WIN_SEAT > 0 のときだけ）
         whiskers_cut();                                                                                          // マイクのヒゲ
     }
     } }
