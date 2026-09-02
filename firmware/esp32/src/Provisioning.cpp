@@ -4,6 +4,7 @@
 #include <WiFi.h>
 #include <DNSServer.h>
 #include <WebServer.h>
+#include <Preferences.h>
 
 namespace katanori {
 
@@ -62,6 +63,7 @@ String buildPage() {
         "border-radius:8px;border:1px solid #334155;background:#1e293b;color:#e2e8f0}"
         "button{width:100%;margin-top:24px;padding:14px;font-size:16px;font-weight:bold;"
         "border:0;border-radius:8px;background:#38bdf8;color:#0b1220}"
+        "select:disabled,input:disabled,button:disabled{opacity:.4}"
         ".note{margin-top:20px;padding:12px;border-radius:8px;background:#1e293b;"
         "font-size:12px;color:#94a3b8}"
         "</style></head><body>"
@@ -77,13 +79,21 @@ String buildPage() {
         "<label for=\"p\">パスワード</label>"
         "<input id=\"p\" name=\"pass\" type=\"password\" autocomplete=\"off\" "
         "placeholder=\"8文字以上\">"
-        "<button type=\"submit\">保存して再起動</button></form>"
+        "<button id=\"b\" type=\"submit\">保存して再起動</button></form>"
         // 再検索中はAPのビーコンが数秒止まり、スマホが一時的に切れる。
         // 一覧に目的のWi-Fiが無いときだけ使ってもらう。
         "<p style=\"text-align:center;margin-top:16px\">"
-        "<a href=\"/rescan\" style=\"color:#38bdf8;font-size:13px\">Wi-Fiを再検索"
+        "<a id=\"r\" href=\"/rescan\" style=\"color:#38bdf8;font-size:13px\">Wi-Fiを再検索"
         "</a><br><span style=\"color:#64748b;font-size:11px\">"
         "（数秒つながりが切れます）</span></p>"
+        // 再検索を押したら入力を無効化する。検索中はサーバー側が数秒黙り、
+        // ページ遷移も待たされる。その間に触れても保存されないし、
+        // 完了時にはページが作り直されて入力は消える。触れないほうが正直。
+        "<script>document.getElementById('r').addEventListener('click',function(){"
+        "document.getElementById('s').disabled=true;"
+        "document.getElementById('p').disabled=true;"
+        "document.getElementById('b').disabled=true;"
+        "this.textContent='さいけんさく中...';});</script>"
         "<div class=\"note\">"
         "この設定画面は暗号化されていません。設定が終わるとロボットは自動で再起動し、"
         "この画面は消えます。<br>"
@@ -189,8 +199,17 @@ bool Provisioning::begin() {
             return;
         }
 
-        netLink.setSsid(ssid.c_str());
-        netLink.setPassword(pass.c_str());
+        // 追加保存（最新5件まで）。前の設定は消さないので、自宅とテザリングの
+        // 併用ができる。同じSSIDを選び直した場合はパスワードが更新される。
+        netLink.addCredential(ssid.c_str(), pass.c_str());
+
+        // 「設定した直後」の印。再起動をまたぐのでNVSに置く。次の接続成功時に
+        // 「ワイファイにつながりました」を鳴らして、入れたパスワードが
+        // 合っていたことを声で伝える（main.cpp の noteWifiUp が消費する）。
+        Preferences p;
+        p.begin("katanori", false);
+        p.putBool("provok", true);
+        p.end();
 
         http.send(200, "text/html; charset=utf-8",
                   F("<meta charset=\"utf-8\"><body style=\"font-family:sans-serif;padding:20px;"

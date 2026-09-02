@@ -14,8 +14,16 @@ Preferences prefs;
 WebSocketsClient ws;
 
 const char* kPrefNamespace = "katanori";
-const char* kKeySsid = "ssid";
-const char* kKeyPass = "pass";
+// 旧形式（1件だけ保存）のキー。読み出せたら新形式へ移行して消す。
+const char* kKeyLegacySsid = "ssid";
+const char* kKeyLegacyPass = "pass";
+// 新形式: 件数 + スロット別キー "s0".."s4" / "p0".."p4"（新しい順）
+const char* kKeyCredCount = "wifin";
+
+void slotKeys(int i, char* sk, char* pk) {
+    snprintf(sk, 8, "s%d", i);
+    snprintf(pk, 8, "p%d", i);
+}
 
 // 「張りにいっている / 張っている」状態か。
 // ライブラリは既定で自動再接続するが、DOはクライアント接続と同時にGeminiへ
@@ -236,9 +244,45 @@ void onWsEvent(WStype_t type, uint8_t* payload, size_t length) {
 NetLink netLink;
 
 void NetLink::begin() {
-    prefs.begin(kPrefNamespace, /* readOnly= */ true);
-    ssid_ = prefs.getString(kKeySsid, "");
-    pass_ = prefs.getString(kKeyPass, "");
+    // 移行の書き込みがあり得るので read-write で開く
+    if (!prefs.begin(kPrefNamespace, /* readOnly= */ false)) {
+        Serial.println("[NET] !! NVSを開けませんでした。Wi-Fi設定を読めません");
+    }
+
+    credCount_ = 0;
+    int n = prefs.getInt(kKeyCredCount, 0);
+    Serial.printf("[NET] NVS読込: 件数キー=%d\n", n);
+    if (n > kMaxCreds) {
+        n = kMaxCreds;
+    }
+    char sk[8], pk[8];
+    for (int i = 0; i < n; ++i) {
+        slotKeys(i, sk, pk);
+        String s = prefs.getString(sk, "");
+        if (s.length() == 0) {
+            continue;
+        }
+        creds_[credCount_].ssid = s;
+        creds_[credCount_].pass = prefs.getString(pk, "");
+        ++credCount_;
+    }
+
+    // 旧形式（ssid/pass 1件だけ）からの移行。既存の機体を設定し直させないため。
+    if (credCount_ == 0 && prefs.isKey(kKeyLegacySsid)) {
+        String s = prefs.getString(kKeyLegacySsid, "");
+        if (s.length() > 0) {
+            creds_[0].ssid = s;
+            creds_[0].pass = prefs.getString(kKeyLegacyPass, "");
+            credCount_ = 1;
+            slotKeys(0, sk, pk);
+            prefs.putInt(kKeyCredCount, 1);
+            prefs.putString(sk, creds_[0].ssid);
+            prefs.putString(pk, creds_[0].pass);
+            Serial.printf("[NET] 旧形式のWi-Fi設定を移行しました: \"%s\"\n", s.c_str());
+        }
+        prefs.remove(kKeyLegacySsid);
+        prefs.remove(kKeyLegacyPass);
+    }
     prefs.end();
 
     WiFi.mode(WIFI_STA);
@@ -246,7 +290,8 @@ void NetLink::begin() {
     ws.onEvent(onWsEvent);
 
     if (hasCredentials()) {
-        Serial.printf("[NET] 保存済みのWi-Fi設定: SSID=\"%s\"\n", ssid_.c_str());
+        Serial.printf("[NET] 保存済みのWi-Fi設定: %d件（最新: \"%s\"）\n",
+                      credCount_, creds_[0].ssid.c_str());
     } else {
         Serial.println("[NET] Wi-Fi未設定です。'ssid <名前>' と 'pass <パスワード>' で設定してください");
     }
@@ -286,34 +331,145 @@ bool NetLink::sendControl(const char* json) {
     return ws.sendTXT(json);
 }
 
-void NetLink::setSsid(const char* ssid) {
-    ssid_ = ssid;
-    prefs.begin(kPrefNamespace, false);
-    prefs.putString(kKeySsid, ssid_);
+void NetLink::persist() {
+    if (!prefs.begin(kPrefNamespace, false)) {
+        // 静かに失敗すると「保存したのに毎回設定を求められる」形で現れ、
+        // 原因がNVSだと分からなくなる。必ず声を上げる。
+        Serial.println("[NET] !! NVSを開けませんでした。Wi-Fi設定を保存できません");
+        return;
+    }
+    prefs.putInt(kKeyCredCount, credCount_);
+    char sk[8], pk[8];
+    for (int i = 0; i < kMaxCreds; ++i) {
+        slotKeys(i, sk, pk);
+        if (i < credCount_) {
+            if (prefs.putString(sk, creds_[i].ssid) == 0 ||
+                (creds_[i].pass.length() > 0 && prefs.putString(pk, creds_[i].pass) == 0)) {
+                Serial.printf("[NET] !! \"%s\" のNVS書き込みに失敗しました\n",
+                              creds_[i].ssid.c_str());
+            }
+            if (creds_[i].pass.length() == 0) {
+                prefs.putString(pk, ""); // 開放APはパスワード空も正しい値
+            }
+        } else {
+            // 減った枠は消す。古い中身が残っていると件数を増やしたときに化けて出る
+            // （無いキーの remove は log_e を吐くので isKey で黙らせる）
+            if (prefs.isKey(sk)) {
+                prefs.remove(sk);
+            }
+            if (prefs.isKey(pk)) {
+                prefs.remove(pk);
+            }
+        }
+    }
+
+    // 書けたつもりで消えているのが最悪なので、その場で読み返して確かめる
+    int back = prefs.getInt(kKeyCredCount, -1);
+    slotKeys(0, sk, pk);
+    String s0 = credCount_ > 0 ? prefs.getString(sk, "") : String();
     prefs.end();
-    Serial.printf("[NET] SSIDを保存しました: \"%s\"\n", ssid_.c_str());
+    if (back != credCount_ || (credCount_ > 0 && s0 != creds_[0].ssid)) {
+        Serial.printf("[NET] !! 保存の読み返しが一致しません (件数 %d/%d, 先頭 \"%s\")\n",
+                      back, credCount_, s0.c_str());
+    }
+}
+
+void NetLink::upsertFront(const char* ssid) {
+    int found = -1;
+    for (int i = 0; i < credCount_; ++i) {
+        if (creds_[i].ssid == ssid) {
+            found = i;
+            break;
+        }
+    }
+    if (found == 0) {
+        return; // すでに先頭
+    }
+
+    Cred moved;
+    if (found > 0) {
+        moved = creds_[found];
+    } else {
+        moved.ssid = ssid;
+        if (credCount_ == kMaxCreds) {
+            Serial.printf("[NET] 保存枠が一杯のため最も古い \"%s\" を消しました\n",
+                          creds_[kMaxCreds - 1].ssid.c_str());
+        }
+    }
+
+    // found より前（見つからなければ末尾まで）を1つずつ後ろへずらして先頭を空ける
+    int shiftFrom = (found > 0) ? found
+                                : ((credCount_ < kMaxCreds) ? credCount_ : kMaxCreds - 1);
+    for (int i = shiftFrom; i > 0; --i) {
+        creds_[i] = creds_[i - 1];
+    }
+    creds_[0] = moved;
+    if (found < 0 && credCount_ < kMaxCreds) {
+        ++credCount_;
+    }
+}
+
+void NetLink::setSsid(const char* ssid) {
+    upsertFront(ssid);
+    persist();
+    Serial.printf("[NET] SSIDを保存しました: \"%s\" (%d/%d件)\n",
+                  ssid, credCount_, kMaxCreds);
+    if (creds_[0].pass.length() == 0) {
+        Serial.println("[NET] 続けて 'pass <パスワード>' を設定してください");
+    }
 }
 
 void NetLink::setPassword(const char* pass) {
-    pass_ = pass;
-    prefs.begin(kPrefNamespace, false);
-    prefs.putString(kKeyPass, pass_);
-    prefs.end();
+    if (credCount_ == 0) {
+        Serial.println("[NET] 先に 'ssid <名前>' でSSIDを設定してください");
+        return;
+    }
+    creds_[0].pass = pass;
+    persist();
     // パスワードは表示しない
-    Serial.printf("[NET] パスワードを保存しました (%d文字)\n", pass_.length());
+    Serial.printf("[NET] \"%s\" のパスワードを保存しました (%d文字)\n",
+                  creds_[0].ssid.c_str(), creds_[0].pass.length());
+}
+
+void NetLink::addCredential(const char* ssid, const char* pass) {
+    upsertFront(ssid);
+    creds_[0].pass = pass;
+    persist();
+    Serial.printf("[NET] Wi-Fi設定を保存しました: \"%s\" (%d/%d件)\n",
+                  ssid, credCount_, kMaxCreds);
+}
+
+bool NetLink::removeCredential(const char* ssid) {
+    for (int i = 0; i < credCount_; ++i) {
+        if (creds_[i].ssid != ssid) {
+            continue;
+        }
+        for (int j = i; j < credCount_ - 1; ++j) {
+            creds_[j] = creds_[j + 1];
+        }
+        --credCount_;
+        creds_[credCount_] = Cred();
+        persist();
+        Serial.printf("[NET] \"%s\" を削除しました（残り%d件）\n", ssid, credCount_);
+        return true;
+    }
+    Serial.printf("[NET] \"%s\" は保存されていません（'n' で一覧）\n", ssid);
+    return false;
 }
 
 void NetLink::clearCredentials() {
-    ssid_ = "";
-    pass_ = "";
+    for (int i = 0; i < kMaxCreds; ++i) {
+        creds_[i] = Cred();
+    }
+    credCount_ = 0;
     prefs.begin(kPrefNamespace, false);
     prefs.clear();
     prefs.end();
-    Serial.println("[NET] Wi-Fi設定を消去しました");
+    Serial.println("[NET] Wi-Fi設定をすべて消去しました");
 }
 
 bool NetLink::hasCredentials() const {
-    return ssid_.length() > 0;
+    return credCount_ > 0;
 }
 
 bool NetLink::wifiConnected() const {
@@ -325,7 +481,16 @@ bool NetLink::wsReady() const {
 }
 
 bool NetLink::lastFailureWasAuth() const {
-    switch (lastReason) {
+    return anyAuthFail_;
+}
+
+bool NetLink::lastFailureWasNoAp() const {
+    return allNoAp_;
+}
+
+/** 切断理由が「パスワードが違う」を指しているか。 */
+static bool reasonIsAuth(uint8_t r) {
+    switch (r) {
     case 15:  // 4WAY_HANDSHAKE_TIMEOUT (ほぼパスワード誤り)
     case 23:  // 802_1X_AUTH_FAILED
     case 24:  // CIPHER_SUITE_REJECTED
@@ -339,31 +504,11 @@ bool NetLink::lastFailureWasAuth() const {
     }
 }
 
-bool NetLink::lastFailureWasNoAp() const {
-    return lastReason == 201; // NO_AP_FOUND
-}
-
-bool NetLink::wifiConnect(uint32_t timeoutMs, WaitHook onWait) {
-    if (!hasCredentials()) {
-        Serial.println("[NET] SSIDが未設定です。'ssid <名前>' から設定してください");
-        return false;
-    }
-
-    // 設定モードのAPが残っているとSTA側の接続が不安定になる。確実にSTAへ戻す。
-    if (WiFi.getMode() != WIFI_STA) {
-        Serial.printf("[NET] WiFiモードを %d から STA へ戻します\n", WiFi.getMode());
-        WiFi.softAPdisconnect(true);
-        WiFi.mode(WIFI_STA);
-        delay(100);
-    }
-    if (wifiConnected()) {
-        Serial.println("[NET] すでに接続済みです");
-        return true;
-    }
-
-    Serial.printf("[NET] \"%s\" へ接続します...\n", ssid_.c_str());
+bool NetLink::tryConnectOne(int idx, uint32_t timeoutMs, WaitHook onWait) {
+    const Cred& c = creds_[idx];
+    Serial.printf("[NET] \"%s\" へ接続します...\n", c.ssid.c_str());
     lastReason = 0;
-    WiFi.begin(ssid_.c_str(), pass_.c_str());
+    WiFi.begin(c.ssid.c_str(), c.pass.c_str());
 
     uint32_t start = millis();
     while (WiFi.status() != WL_CONNECTED && (millis() - start) < timeoutMs) {
@@ -388,25 +533,161 @@ bool NetLink::wifiConnect(uint32_t timeoutMs, WaitHook onWait) {
 
     if (!wifiConnected()) {
         int st = WiFi.status();
-        Serial.printf("[NET] 接続できませんでした: %s (status=%d)\n", wifiStatusName(st), st);
-        if (pass_.length() > 0 && pass_.length() < 8) {
+        Serial.printf("[NET] \"%s\" に接続できませんでした: %s (status=%d)\n",
+                      c.ssid.c_str(), wifiStatusName(st), st);
+        if (c.pass.length() > 0 && c.pass.length() < 8) {
             Serial.printf("[NET] !! パスワードが%d文字です。WPA/WPA2/WPA3のパスフレーズは\n",
-                          pass_.length());
+                          c.pass.length());
             Serial.println("[NET]    8〜63文字と規格で決まっており、これでは接続できません。");
         }
         if (lastReason != 0) {
             Serial.printf("[NET] 切断理由: %u %s\n",
                           lastReason, disconnectReasonName(lastReason));
         }
-        Serial.println("[NET]   'scan' で該当SSIDが見えているか確認してください");
-        Serial.println("[NET]   ESP32は2.4GHz帯のみです。5GHz専用のSSIDには繋がりません");
         return false;
     }
 
-    Serial.printf("[NET] 接続しました  IP=%s  RSSI=%ddBm  (%.1f秒)\n",
-                  WiFi.localIP().toString().c_str(), WiFi.RSSI(),
+    Serial.printf("[NET] 接続しました  SSID=\"%s\"  IP=%s  RSSI=%ddBm  (%.1f秒)\n",
+                  c.ssid.c_str(), WiFi.localIP().toString().c_str(), WiFi.RSSI(),
                   (millis() - start) / 1000.0f);
     return true;
+}
+
+bool NetLink::wifiConnect(uint32_t timeoutMs, WaitHook onWait) {
+    if (!hasCredentials()) {
+        Serial.println("[NET] SSIDが未設定です。'ssid <名前>' から設定してください");
+        return false;
+    }
+
+    // 設定モードのAPが残っているとSTA側の接続が不安定になる。確実にSTAへ戻す。
+    if (WiFi.getMode() != WIFI_STA) {
+        Serial.printf("[NET] WiFiモードを %d から STA へ戻します\n", WiFi.getMode());
+        WiFi.softAPdisconnect(true);
+        WiFi.mode(WIFI_STA);
+        delay(100);
+    }
+    if (wifiConnected()) {
+        Serial.println("[NET] すでに接続済みです");
+        return true;
+    }
+
+    // --- 試す順番を決める ---
+    // 1件だけならスキャンの数秒がまるごと無駄なので、直接試す。
+    // 2件以上なら先にスキャンし、見えている保存済みSSIDを電波の強い順へ。
+    // 見えなかった保存分も捨てない（名前を隠したAPはスキャンに映らないため）。
+    int order[kMaxCreds];
+    for (int i = 0; i < credCount_; ++i) {
+        order[i] = i;
+    }
+
+    if (credCount_ >= 2) {
+        WiFi.disconnect(false, false); // 再接続の試行中はスキャンが失敗する
+
+        // 起動直後やdisconnect直後はスキャンを開始できず -2 が返る（実機で確認。
+        // 'scan' コマンドにも同じ知見がある）。少し置いてから、駄目なら1回だけやり直す。
+        int n = WIFI_SCAN_FAILED;
+        for (int attempt = 0; attempt < 2 && n < 0; ++attempt) {
+            for (int t = 0; t < (attempt == 0 ? 200 : 500); t += 20) {
+                if (onWait != nullptr) {
+                    onWait();
+                }
+                delay(20);
+            }
+            WiFi.scanDelete();
+            // 同期スキャンは数秒ブロックして顔が固まるので、非同期で回して待つ
+            WiFi.scanNetworks(/* async= */ true);
+            uint32_t scanStart = millis();
+            while ((n = WiFi.scanComplete()) == WIFI_SCAN_RUNNING &&
+                   (millis() - scanStart) < 8000) {
+                if (onWait != nullptr) {
+                    onWait();
+                }
+                delay(20);
+            }
+        }
+
+        if (n > 0) {
+            int rssi[kMaxCreds];
+            for (int i = 0; i < credCount_; ++i) {
+                rssi[i] = -1000; // 見えていない印
+            }
+            for (int i = 0; i < n; ++i) {
+                for (int k = 0; k < credCount_; ++k) {
+                    if (WiFi.SSID(i) == creds_[k].ssid && WiFi.RSSI(i) > rssi[k]) {
+                        rssi[k] = WiFi.RSSI(i);
+                    }
+                }
+            }
+            // 見えているものをRSSI降順で前へ（同値・不可視は保存順=新しい順を保つ）
+            for (int i = 1; i < credCount_; ++i) {
+                int o = order[i];
+                int j = i;
+                while (j > 0 && rssi[order[j - 1]] < rssi[o]) {
+                    order[j] = order[j - 1];
+                    --j;
+                }
+                order[j] = o;
+            }
+            for (int i = 0; i < credCount_; ++i) {
+                int k = order[i];
+                if (rssi[k] > -1000) {
+                    Serial.printf("[NET] 候補%d: \"%s\" (%ddBm)\n",
+                                  i + 1, creds_[k].ssid.c_str(), rssi[k]);
+                } else {
+                    Serial.printf("[NET] 候補%d: \"%s\" (スキャンに映らず。隠れAPなら繋がる)\n",
+                                  i + 1, creds_[k].ssid.c_str());
+                }
+            }
+        } else {
+            Serial.printf("[NET] スキャンできなかったため保存の新しい順に試します (戻り値 %d)\n", n);
+        }
+        WiFi.scanDelete();
+    }
+
+    // --- 順に試す ---
+    anyAuthFail_ = false;
+    allNoAp_ = true;
+    for (int i = 0; i < credCount_; ++i) {
+        if (i > 0) {
+            WiFi.disconnect(false, false); // 前候補の再接続試行を確実に止めてから
+            delay(100);
+        }
+        bool ok = tryConnectOne(order[i], timeoutMs, onWait);
+        if (!ok && (lastReason == 15 || lastReason == 204)) {
+            // ハンドシェイク不成立は「パスワード誤り」と「再起動直後のタイミング」の
+            // 両方で出る（実機で正しいパスワードでも初回に理由15を確認）。
+            // 1回で結論を出さず、同じ候補をもう一度だけ試す。
+            Serial.println("[NET] ハンドシェイク不成立。同じ設定でもう一度だけ試します");
+            WiFi.disconnect(false, false);
+            for (int t = 0; t < 300; t += 20) {
+                if (onWait != nullptr) {
+                    onWait();
+                }
+                delay(20);
+            }
+            ok = tryConnectOne(order[i], timeoutMs, onWait);
+        }
+        if (ok) {
+            // 繋がったSSIDを「最新」へ繰り上げる。次回はスキャン前でもこれが先頭
+            if (order[i] != 0) {
+                String ssid = creds_[order[i]].ssid;
+                upsertFront(ssid.c_str());
+                persist();
+            }
+            return true;
+        }
+        if (reasonIsAuth(lastReason)) {
+            anyAuthFail_ = true;
+        }
+        if (lastReason != 201) { // NO_AP_FOUND 以外が1つでもあれば「全滅=圏外」ではない
+            allNoAp_ = false;
+        }
+    }
+
+    Serial.printf("[NET] 保存済みの%d件すべてに接続できませんでした\n", credCount_);
+    Serial.println("[NET]   'scan' で該当SSIDが見えているか確認してください");
+    Serial.println("[NET]   ESP32は2.4GHz帯のみです。5GHz専用のSSIDには繋がりません");
+    return false;
 }
 
 void NetLink::scan() {
@@ -459,16 +740,21 @@ void NetLink::scan() {
         case WIFI_AUTH_WPA2_WPA3_PSK:   enc = "WPA2/WPA3"; break;
         default:                        enc = "?"; break;
         }
-        bool isTarget = (ssid_.length() > 0 && WiFi.SSID(i) == ssid_);
+        bool isSaved = false;
+        for (int k = 0; k < credCount_; ++k) {
+            if (WiFi.SSID(i) == creds_[k].ssid) {
+                isSaved = true;
+                break;
+            }
+        }
         Serial.printf("  %s %-32s ch%-3d %4ddBm  %s\n",
-                      isTarget ? "->" : "  ",
+                      isSaved ? "->" : "  ",
                       WiFi.SSID(i).c_str(), WiFi.channel(i), WiFi.RSSI(i), enc);
     }
     WiFi.scanDelete();
 
-    if (ssid_.length() > 0) {
-        Serial.printf("[NET] 設定中のSSID \"%s\" が上の一覧に -> 付きで居れば電波は届いています\n",
-                      ssid_.c_str());
+    if (credCount_ > 0) {
+        Serial.println("[NET] 保存済みのSSIDが上の一覧に -> 付きで居れば電波は届いています");
     }
 }
 
@@ -531,8 +817,17 @@ void NetLink::printStatus() const {
     Serial.println("--- ネットワーク状態 ---");
     // パスワードは出さないが、桁数は出す。設定モードで空や誤りを保存してしまった
     // 場合に「保存されているつもりだった」を見抜けるようにするため。
-    Serial.printf("  Wi-Fi設定 : %s  (パスワード %d文字)\n",
-                  hasCredentials() ? ssid_.c_str() : "(未設定)", pass_.length());
+    if (credCount_ == 0) {
+        Serial.println("  Wi-Fi設定 : (未設定)");
+    } else {
+        Serial.printf("  Wi-Fi設定 : %d/%d件（新しい順）\n", credCount_, kMaxCreds);
+        for (int i = 0; i < credCount_; ++i) {
+            bool inUse = wifiConnected() && WiFi.SSID() == creds_[i].ssid;
+            Serial.printf("   %s %d. \"%s\" (パスワード %d文字)\n",
+                          inUse ? "->" : "  ", i + 1,
+                          creds_[i].ssid.c_str(), creds_[i].pass.length());
+        }
+    }
     if (wifiConnected()) {
         Serial.printf("  Wi-Fi     : 接続中  IP=%s  RSSI=%ddBm\n",
                       WiFi.localIP().toString().c_str(), WiFi.RSSI());
