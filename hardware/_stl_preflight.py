@@ -253,9 +253,16 @@ for p in sorted(glob.glob(sys.argv[1])):
     flag=" 🔴 プレートから %.3f 浮いている" % z0 if z0>0.05 else ""
     print("== %-20s 底 Z=%.3f%s  外形 %.2f x %.2f x %.2f  中身 %d 個" % (
         os.path.basename(p), z0, flag, v[:,0].max()-v[:,0].min(), v[:,1].max()-v[:,1].min(), v[:,2].max()-v[:,2].min(), len(bd)))
+    # 🔴 2026-09-02 前は「中身が 2 個以上 ＝ 全部 🔴 欠片」だった。**壊れて欠けたのか、
+    #   元々別々の部品なのかを区別していない。** 六角ゲージ（独立した 7 マス）が 🔴 欠片 7 と出た
+    #   （ユーザー「欠片 7 ってなんですかその検算」）。
+    #   ⇒ 分ける材料は持っている: **プレートに着いていない塊が問題**で、着いている塊は別部品。
     if len(bd)>1:
-        for m in sorted(bd,key=lambda m:m[2]):
-            print("   🔴 欠片  X %.2f..%.2f  Y %.2f..%.2f  Z %.2f..%.2f" % (m[0],m[3],m[1],m[4],m[2],m[5]))
+        # ⚠ プレートに着いている塊は**何も言わない**。数は見出しの「中身 N 個」に出ている
+        #   （ユーザー「それを注意にする意味が分からない」）。言うのは浮いている物だけ。
+        for m in sorted([m for m in bd if m[2]>0.05], key=lambda m:m[2]):
+            print("   🔴 浮いている塊  X %.2f..%.2f  Y %.2f..%.2f  Z %.2f..%.2f（底が %.2f）"
+                  % (m[0],m[3],m[1],m[4],m[2],m[5],m[2]))
     grip,long_mm,isl,ceil,hh,grip_max=grip_and_islands(tris)
     # 🔒 比べるのは 1 枚あたり（grip_max）。実績の 585 / 1709 は 1 枚の板で出た値
     if grip_max>GRIP_BAD: v="🔴 base.stl（1709・剥がれず/プレート傷/部品折れ）を超えている"
