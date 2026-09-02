@@ -59,6 +59,9 @@ RAFT_LINK = PITCH + 0.6   # ラフトで繋ぐ柱どうしの上限距離
 #   会話ボタンの首の口を横切る膜として残った（ユーザー「なんか変な事になってませんか」）。
 #   ⇒ 各柱の下に円を置き、**RAFT_LINK より近い柱どうしだけ**を繋ぐ。輪ならラフトも輪になる。
 DBG = os.environ.get('PROPDBG') == '1'
+# 🔒 2026-09-03 帯 A/B/C は**この道具（立てる柱）に戻した**。ユーザー「帯については浮かすのも
+#    傾けるのもやめましょう。この帯については柱を立てる方のパイプラインで作りましょう」。
+#    同日いったん「傾けて浮かせる」側（_v4_post_props.py）へ移したが、その道具は凍結した。
 PARTS = ['top', 'hatch', 'bridge', 'strap_a', 'strap_b', 'strap_c', 'seat']
 # 🔒 2026-08-28 ユーザー「その支柱はいらない。過去にノブでその形状はなにも無くても印刷できるの分かってる」。
 #    ここに挙げた（部品, 天井の高さ）には柱もヒレも立てない。**実機の実績が検査の判定より優先する。**
@@ -533,8 +536,7 @@ for part in PARTS:
         rep.append((part, h, need.sum() * cell, n_ring, n_fill, rem.sum() * cell))
     BARE = {'top': 'top_print()', 'hatch': 'hatch_print()',
             'bridge': 'translate([0, 0, -(BAT_Z - BRG_T)]) brg_v4()',
-            'strap_a': 'strap_print(STRAP_BANDS[0])', 'strap_b': 'strap_print(STRAP_BANDS[1])',
-            'strap_c': 'strap_print(STRAP_BANDS[2])',
+            'strap_a': 'strap_print(0)', 'strap_b': 'strap_print(1)', 'strap_c': 'strap_print(2)',
             'seat': 'translate([TC4_ZT, 0, -LW_X]) rotate([0, -90, 0]) tc_seat4()'}[part]
     # 🔴 2026-08-29 同じ座標に 2 本出ることがある（開いた道の端と埋めが重なる等）。
     #   union では消えるが、ラフトの点も二重になるので、出す直前に落とす。

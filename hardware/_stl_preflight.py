@@ -220,9 +220,49 @@ def scan(tris, axis):
 #     あれは**厚みの方**で落ちている。この 2 つは別の壊れ方なので、別々に見ること。
 RISE_WARN = 4.0
 
-def steep_rise(tris, pitch=0.25, dz=0.05):
+# 🔴 2026-09-03 ユーザー「これは急な立ち上がりというよりも、開始点ですね」
+#   「差分という意味なら無限大です。立ち上がりの計算なんかおかしいんじゃないですか」。**そのとおりだった。**
+#   それまで steep_rise は「新しく出た肉」から**直下の肉ではなく、平面上でいちばん近い肉**までを測っていた
+#   （edt(~prev) は前の層の肉ぜんぶが相手なので、隣に立っている無関係な柱までの距離が出る）。
+#   ⇒ 下に何も無い島でも 1.95mm のような**有限の値**が出て、しきい値 4.00 を素通りした。
+#   実際 CHITUBOX のスライスで、帯 A（Z 18.5）・帯 B/C（Z 24.1）に宙から始まる肉が出ていた。
+#   ⇒ **2 つに分ける。**
+#     ・開始点（island）… 直下にも真横にも肉が無い所から始まる肉。**距離は ∞ で、しきい値は無い。**
+#       これは 0 でなければならない（数と場所で言う。面積は言わない）。
+#     ・立ち上がり（rise）… 直下の肉に**つながっている**庇が、その付け根からどれだけ出ているか。
+#       こちらは実績 4.00mm と比べてよい（つながっている幅とセットで読める数字）。
+def layer_starts(tris, pitch=0.15, dz=0.05):
+    """宙から始まる肉（開始点）を全部返す。[(z, x, y, 面積mm²), ...]"""
     try:
-        from scipy.ndimage import distance_transform_edt as edt
+        from scipy.ndimage import label, binary_dilation
+    except ImportError:
+        return None
+    col,zs,ze,us,vs,nu,nv = zcolumns(tris, pitch)
+    zz = np.arange(dz/2, ze.max(), dz)
+    prev=None; out=[]
+    for z in zz:
+        m=np.zeros(nu*nv, bool); np.logical_or.at(m, col, (zs<=z)&(ze>z))
+        g=m.reshape(nu,nv)
+        if prev is not None and prev.any():
+            new = g & ~prev
+            if new.any():
+                near = binary_dilation(prev)        # 直下の肉と、その 1 マス隣（＝つながって出た庇）
+                lab,n = label(new)
+                for k in range(1, n+1):
+                    sel = lab==k
+                    if (sel & near).any():
+                        continue                    # 下の肉につながっている ＝ 庇であって開始点ではない
+                    ii,jj = np.nonzero(sel)
+                    out.append((float(z), float(us[ii].mean()), float(vs[jj].mean()),
+                                float(sel.sum())*pitch*pitch))
+        prev=g
+    return out
+
+
+def steep_rise(tris, pitch=0.25, dz=0.05):
+    """つながって出た庇の、付け根からの出（mm）。開始点（島）はここに入れない（上の 🔴）"""
+    try:
+        from scipy.ndimage import distance_transform_edt as edt, label, binary_dilation
     except ImportError:
         return None
     col,zs,ze,us,vs,nu,nv = zcolumns(tris, pitch)
@@ -234,14 +274,22 @@ def steep_rise(tris, pitch=0.25, dz=0.05):
         if prev is not None and prev.any():
             new = g & ~prev
             if new.any():
-                d = edt(~prev, sampling=(pitch,pitch))
-                r = float(d[new].max())
-                if r > best[0]:
-                    far = new & (d > r - pitch)      # いちばん離れている所（＝立ち上がりの先端）
-                    ii,jj = np.nonzero(far)
-                    best=(r, float(z), float(new.sum())*pitch*pitch,
-                          float(us[ii].min()), float(us[ii].max()),
-                          float(vs[jj].min()), float(vs[jj].max()))
+                near = binary_dilation(prev)
+                lab,n = label(new)
+                att = np.zeros_like(new)
+                for k in range(1, n+1):
+                    sel = lab==k
+                    if (sel & near).any():
+                        att |= sel                  # つながっている塊だけを測る
+                if att.any():
+                    d = edt(~prev, sampling=(pitch,pitch))
+                    r = float(d[att].max())
+                    if r > best[0]:
+                        far = att & (d > r - pitch)      # いちばん離れている所（＝立ち上がりの先端）
+                        ii,jj = np.nonzero(far)
+                        best=(r, float(z), float(att.sum())*pitch*pitch,
+                              float(us[ii].min()), float(us[ii].max()),
+                              float(vs[jj].min()), float(vs[jj].max()))
         prev=g
     return best
 
@@ -264,20 +312,34 @@ for p in sorted(glob.glob(sys.argv[1])):
             print("   🔴 浮いている塊  X %.2f..%.2f  Y %.2f..%.2f  Z %.2f..%.2f（底が %.2f）"
                   % (m[0],m[3],m[1],m[4],m[2],m[5],m[2]))
     grip,long_mm,isl,ceil,hh,grip_max=grip_and_islands(tris)
-    # 🔒 比べるのは 1 枚あたり（grip_max）。実績の 585 / 1709 は 1 枚の板で出た値
-    if grip_max>GRIP_BAD: v="🔴 base.stl（1709・剥がれず/プレート傷/部品折れ）を超えている"
-    elif grip_max>GRIP_WARN: v="⚠ frame（585・角が欠けた）を超えている"
-    else: v="✅ bridge（513・無事）の側"
-    print("   接地 %.0f mm2（1 枚あたり %.0f）  %s" % (grip, grip_max, v))
-    if grip>GRIP_WARN:
-        print("      → %s（長辺 %.0fmm）" % ("**犠牲タブ**（逃げ溝は蝶番になって破断する）" if long_mm>LONG else "逃げ溝で 4 割落とせる", long_mm))
+    # 🔒 2026-09-03 **接地の警告（585 / 1709）は消した。** ユーザー「この警告意味無いので消してください。
+    #   ビルドプレートを磨くようになってから失敗なんて一度もないのです」。
+    #   記録とも合う: あの 3 つの実績（base 1709・frame 585・bridge 513）は**傷のあるプレート**で取った値で、
+    #   2026-08-06 の研ぎ直しのあと同じ橋が「めっちゃ簡単に取れた。綺麗。」になり、**傷が原因だったことが
+    #   独立に裏付けられている**（PRINT.md §4「変わった変数はプレートだけ」）。⇒ 面積は数字だけ残す。
+    #   ⚠ 消したのは「剥がれにくさ」の警告だけ。LCD の 30%（土台のたわみ・rules.json の alone_grip_mm2）は別で、
+    #     あちらは刷るぞーが見ている。
+    print("   接地 %.0f mm2（1 枚あたり %.0f）" % (grip, grip_max))
     # 🔒 2026-09-02 「支えの無い天井 ◯mm²」「島 ◯mm²」の 2 行を**急な立ち上がりに統合した**。
     #   ユーザー「面積は惑わせ、混乱させる元凶だから急な立ち上がりに統合だね。だって無駄過ぎない？」。
     #   🔴 **面積は合否に関係がない。** 落ちるかどうかを決めているのは、肉の厚み（mm）と、
     #   支えからの出（mm）。面積はその 2 つを面で塗りつぶした数字なので、**同じ面積で刷れる形も
     #   刷れない形も作れる。** データが増えても関係が出てくる種類の数字ではない。
     #   ⇒ 面積は「どこにあるか」を指すのにだけ使う。判断には使わない。
-    #   ⚠ 島も持たれていない天井も「直下に肉が無い新しい面」なので、立ち上がりが両方を拾う。
+    # 🔴 2026-09-03 **開始点は立ち上がりと別に出す**（上の layer_starts の 🔴）。
+    #    しきい値は無い。宙から始まる肉は 1 か所でも刷れない。
+    st = layer_starts(tris)
+    if st is None:
+        print("   宙から始まる肉 … scipy が無いので測っていない")
+    elif st:
+        print("   🔴 **宙から始まる肉（開始点）が %d か所**。しきい値は無い ── 下に何も無いので差は ∞。" % len(st))
+        for z, x, y, a in sorted(st, key=lambda r: r[0])[:8]:
+            print("      Z %6.2f（層 %4d）  X %7.2f  Y %7.2f  面積 %.2fmm²" % (z, int(round(z / DZ)), x, y, a))
+        if len(st) > 8:
+            print("      … ほか %d か所" % (len(st) - 8))
+        print("      直す先は形か支柱。**ここに柱を立てるか、置き方を変える。**")
+    else:
+        print("   宙から始まる肉 0 か所")
     rs = steep_rise(tris)
     if rs is None:
         print("   急な立ち上がり … scipy が無いので測っていない")
