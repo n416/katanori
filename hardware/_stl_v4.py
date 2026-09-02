@@ -3,7 +3,8 @@
    python hardware/_stl_v4.py              全部
    python hardware/_stl_v4.py seat floor   名前を指定（stl/v4/v4_<名前>.stl）
    ⚠ 出力先は書き出す前に必ず消す（OpenSCAD は空だと STL を書かないので、古いファイルを読む事故が起きる）。
-   ⚠ 支柱とラフトは _v4_props.scad（`python hardware/_v4_props.py`）が持っている。形を変えたら先にあちらを回す。
+   ⚠ 支柱とラフトは _v4_props.scad（`python hardware/_v4_props.py`）が持っている。形を変えたら**先にあちらを回す**。
+      （傾けて浮かせる _v4_post_props.py は 2026-09-03 に凍結し archive/ へ移した）
    書き出したら `python hardware/_stl_preflight.py "hardware/stl/v4/*.stl"` を通す（PRINT.md §4）。
    書き出しの最後に _v4_plate.py を回すので、case_v4.scad の part="plate"（刷る物を全部並べた絵）も一緒に付いてくる。
 """
@@ -23,9 +24,8 @@ PARTS = [(k, CASE, 'print_%s' % k) for k in
          ['floor', 'lwall', 'rwall', 'top', 'front', 'hatch', 'shutter', 'lock', 'tail',
           'bridge', 'brgfront', 'strap_a', 'strap_b', 'strap_c', 'piston', 'tub',
           'seat',
-          # 支柱 6 本（2026-08-30）。座（胴）＋ダボの軸が一体。上下の溝に E リング（呼び 2）を嵌めて、
-          # 上は板を押さえ、下は帯の裏のザグリに沈んで支柱を帯へ留める。
-          'post_0', 'post_1', 'post_2', 'post_3', 'post_4', 'post_5',
+          # 🔒 2026-09-03 支柱 6 本（post_0〜5）は**留め帯の一部**になったので、単独の出口は無い。
+          #    帯 A/B/C を焼けば支柱ごと出る（傾けて浮かせる向き＋柱＋ラフト付き）。
           ]] + [   # seat = 充電基板の受け（2026-08-27・D-1 で床から独立した部品になった）
     ('knob',     KNOB, 'knob'),   # つまみ本体（φ27 ＋ 軸 φ7）
     ('knobwall', KNOB, 'wall'),   # つまみの島（座金＋タブ）

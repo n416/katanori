@@ -711,7 +711,15 @@ module strap_u(y0, w) {   // ⊓: 足（厚み2）は皿の縁の上（Z 23.4〜
 //   🔴 前端を +3 動かす案は駄目だった。足がブリッジの皿の縁から外れて 42.45mm³ 食い込む。
 //      前端（足の位置）は動かさず、後ろへ伸ばすだけにする。
 //   ⚠ 帯 B・C は動かさない（INA の後ろの穴 37.02 と PB の 4 穴 39.31 / 41.31 / 54.45 / 57.09 は中に居る）
-STRAP_BANDS = [[15.45, 9], [33.2, 9], [52.6, 6]];   // A / B / C（幅は取付穴をまたぐ量）
+// 🔒 2026-09-03 支柱と一体にしたので、幅は**取付穴**ではなく**胴 φ5.8 の外**でまたぐ量になった。
+//   B を 9 → 11.6（33.2〜44.8）で post 5 の胴 44.754 と post 3 の 42.814 が中に入り、
+//   C を前へ 0.9（51.7〜58.6）で post 4 の 51.704 が入る。⇒ 4 本あったはみ出しが post 2 の 1.47mm だけになる。
+//   🔴 **C の後ろは広げない。** 60.1 まで伸ばせば post 2 も入るが、後ろの土手が 62.9 − 60.1 = 2.8 になり
+//     TAB_MIN 3.5 を割って**ツバが消える**（横差しの抜け止めが前だけになる）。1.47mm のはみ出しの方が軽い。
+//   測った（2026-09-03・広げる前と同じ値 ＝ 広げても増えていない）: 帯 ∩ 箱の中身 0.63mm³・帯 ∩ 板 2 枚 0.37mm³・
+//   支柱 ∩ 箱の中身 0.00・帯 ∩ 線 0.00・横差し（+X 2mm から押し込む）の掃引 0.63mm³。
+//   レールの切れ目とツバは STRAP_BANDS から作るので追従する（左 24.45〜33.2 / 44.8〜51.7 / 58.6〜62.9）。
+STRAP_BANDS = [[15.45, 9], [33.2, 11.6], [51.7, 6.9]];   // A / B / C（幅は胴をまたぐ量）
 // ---- 傾斜の座とネジ（🔒 2026-08-25 ユーザー「固定具作って下さい」→「ネジにしないと逆さまにしたら落ちちゃう」）----
 //   🔴 THETA = 10° は板の座標を回しただけで、前縁の下は空だった（PowerBoost 3.97・電流計 3.49 浮き）。
 //   帯 A/B/C の天板の上に、板の裏の面と同じ 10° の面を持つ座を立てて**全面で受け**、取付穴 6 つを M2 で締める。
@@ -902,16 +910,22 @@ module seat_hw() {   // ネジとナットの現物（検査と絵の用。strap
 //
 //   🔴 φ2 の棒を単独で刷るのは、まさに逃げてきた「細くて刷れない物」なので、
 //     **座（胴）と一体の 1 部品**にした。細い φ2 は上下 2〜3mm だけで、下は φ5.8 の胴。
+//
+//   🔒 2026-09-03 ユーザー「スペーサーが上からひっぱると抜ける問題があり、帯と一体化に戻す事になりました」。
+//     ⇒ 支柱は**帯の天板から生えている**（別部品ではない）。通し穴・裏のザグリ・D の窪み・下の溝は
+//       全部無くなり、帯の裏（＝電池に触る面）に出る物は 0 になる。板は上の E リング 6 個だけで押さえる。
+//       抜け止めは「支柱が帯そのもの」なので、締め代は帯を通る（別部品のときに欠けていたのはこれ）。
+//     ⚠ 一体にすると天面が平らでなくなるので、**伏せて刷る**（🔒 08-29）は成り立たない。
+//       ユーザー「印刷時に長いアーチになるので柱が必須です」。⇒ **直置き（組んだ姿勢・足の裏が下）**で刷り、
+//       天板の裏のアーチ（足と足の間 36mm）は **_v4_props.py が立てる柱**で受ける
+//       （🔒 2026-09-03 ユーザー「帯については浮かすのも傾けるのもやめましょう」。傾けて浮かせる道具は凍結）。
 // ============================================================
 SPACER_R  = 2.9;    // 胴（＝座）の半径
 POST_D    = 2.0;    // 軸。E リング 呼び 2 の適用軸径
-POST_FIT  = 0.1;    // 帯の通し穴の逃げ（軸 φ2.0 → 穴 φ2.1）
 ER_GD     = 1.5;    // 溝の径
 ER_GW     = 0.5;    // 溝の幅
-ER_OD     = 4.0;    // リングの外径（ザグリの径に使う）
-POST_CB_H = 0.5;    // 裏のザグリの深さ（リング 0.4 ＋ 0.1）
-POST_KEY_H = 0.4;   // D の足が天面へ沈む深さ
-POST_KEY_F = 2.0;   // D の平らな面（中心から）
+// 🔒 2026-09-03 一体化で消えた数字: POST_FIT（通し穴の逃げ）・ER_OD（裏のザグリの径）・POST_CB_H（同 深さ）・
+//    POST_KEY_H / POST_KEY_F（D の回り止め）。どれも「別部品の支柱を帯へ差す」ための物だった。
 POST_BRD  = 1.9;    // 板を抜けるまでの高さ（板 1.6 を 14° で抜けるぶん込み）
 POST_TIP  = 0.5;    // 上の溝より先に残す長さ
 
@@ -922,20 +936,15 @@ function post_board_z(i) = BAT_TOP + (i < 2 ? seat_d(ina_holes()[i][1], INA_THET
                                             : seat_d(pb_mount()[i - 2][1], THETA, BOARD_LIFT));   // 板の裏（鉛直）
 function post_top_z(i)   = post_board_z(i) + POST_BRD + ER_GW + POST_TIP;
 
-module post_key_2d(cl = 0) difference() {   // D 形（回り止め）
-    circle(r = SPACER_R + cl, $fn = 48);
-    translate([-50, POST_KEY_F + cl]) square([100, 100]);
-}
-// 帯にあける物: 軸の通し穴・裏のザグリ・天面の D の窪み
-module strap_post_holes() for (i = [0 : 5]) translate([post_xy(i)[0], post_xy(i)[1], 0]) {
-    translate([0, 0, BAT_TOP - 1]) cylinder(d = POST_D + POST_FIT, h = STRAP_T + 2, $fn = 24);
-    translate([0, 0, BAT_TOP - 0.01]) cylinder(d = ER_OD + 0.4, h = POST_CB_H + 0.01, $fn = 32);
-    translate([0, 0, plate_top() - POST_KEY_H]) linear_extrude(POST_KEY_H + 0.02) post_key_2d(0.15);
-}
+// 🔒 2026-09-03 帯にあける物は無くなった（穴もザグリも D の窪みも、別部品を差すための物だった）
 module post_under(i) if (i < 2) ina_frame() translate([-200, -200, -40]) cube([400, 400, 40]);
                      else       pb_frame()  translate([-200, -200, -40]) cube([400, 400, 40]);
-module post_body(i) intersection() {   // 胴: 下は天面、上は自分の板の裏（傾きで切る）
-    translate([post_xy(i)[0], post_xy(i)[1], plate_top()]) cylinder(r = SPACER_R, h = 30, $fn = 48);
+// 🔴 2026-09-03 胴を天面 31.4 ちょうどから立てると、帯と**面で触れているだけの別の塊**になる
+//   （焼いた STL が 2 つの塊になっていた）。POST_MERGE だけ天板へ沈めて 1 つの肉にする。
+//   沈めるのは天板 2.0 の中だけなので、外から見える形も帯の裏（電池の面）も変わらない。
+POST_MERGE = 0.5;
+module post_body(i) intersection() {   // 胴: 下は天板の中、上は自分の板の裏（傾きで切る）
+    translate([post_xy(i)[0], post_xy(i)[1], plate_top() - POST_MERGE]) cylinder(r = SPACER_R, h = 30, $fn = 48);
     post_under(i);
 }
 module post_at(i) translate([post_xy(i)[0], post_xy(i)[1], 0]) children();
@@ -944,23 +953,27 @@ module er_groove(h) difference() {
     cylinder(d = POST_D + 2, h = h, $fn = 24);
     translate([0, 0, -1]) cylinder(d = ER_GD, h = h + 2, $fn = 24);
 }
+// 🔒 2026-09-03 帯の天板（天面 31.4）から生える。下へは何も出さない（帯の裏 ＝ 電池の面）
 module post_one(i) difference() {
     union() {
         post_body(i);                                                                        // 胴（世界座標）
-        post_at(i) translate([0, 0, plate_top() - POST_KEY_H]) linear_extrude(POST_KEY_H) post_key_2d(0);
-        post_at(i) translate([0, 0, BAT_TOP]) cylinder(d = POST_D, h = post_top_z(i) - BAT_TOP, $fn = 24);
+        post_at(i) translate([0, 0, plate_top()]) cylinder(d = POST_D, h = post_top_z(i) - plate_top(), $fn = 24);
     }
-    post_at(i) translate([0, 0, BAT_TOP - 0.01]) er_groove(ER_GW + 0.01);                              // 下の溝
-    post_at(i) translate([0, 0, post_board_z(i) + POST_BRD]) er_groove(ER_GW);                         // 上の溝
+    post_at(i) translate([0, 0, post_board_z(i) + POST_BRD]) er_groove(ER_GW);                         // 上の E リングの溝
 }
+// 支柱 6 本の形。**帯の一部**なので straps_v4() が呼ぶ（単独では刷らない）
 module posts_v4() color("#9ad0ec") for (i = [0 : 5]) post_one(i);
+// 帯 1 本に載る支柱の番号と、その胴まで含めた Y の端（印刷の切り出しに使う）
+function strap_posts(s) = [for (i = [0 : 5]) if (post_xy(i)[1] >= s[0] - 0.01 && post_xy(i)[1] <= s[0] + s[1] + 0.01) i];
+function strap_ya_all(s) = min(concat([strap_ya(s)], [for (i = strap_posts(s)) post_xy(i)[1] - SPACER_R]));
+function strap_yb_all(s) = max(concat([strap_yb(s)], [for (i = strap_posts(s)) post_xy(i)[1] + SPACER_R]));
 
+// 🔒 2026-09-03 支柱は帯の一部（一体）。ここで union するので、帯を intersection する検査は支柱も見る
 module straps_v4() color("#ed8936") difference() {
-    union() { for (s = STRAP_BANDS) strap_u(s[0], s[1]); }
+    union() { for (s = STRAP_BANDS) strap_u(s[0], s[1]); posts_v4(); }
     // 🔴 2026-08-25 皮の検査（strappb 2mm³）: PB の 8 ピン列の足（板の裏に 1.0）が C の天板に 1.02 刺さる
     //    → 足の列の逃げ溝（X 19.8〜38.8・Y 57.56〜・深さ 1.35・残り 0.65 ⚠）
     translate([19.8, 57.56, BAT_Z + lipo_size()[2] + STRAP_T - 1.35]) cube([19.0, 1.2, 1.4 + BOARD_LIFT]);   // 🔴 板を 0.5 上げた分だけ足の位置も上がる（床の残り 0.65 は据え置き）
-    strap_post_holes();
 }
 
 // ---- 配線（2026-08-25〜）: 電源系から。線は 1.5 角の箱の連結（直角のみ）。⚠ 経路は仮・見て判断する用 ----

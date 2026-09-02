@@ -1,7 +1,15 @@
 # -*- coding: utf-8 -*-
-"""支柱（スペーサー）6 本を**傾けて浮かせて**刷るための、置き方・柱・ラフトを書き出す。
+"""留め帯 A/B/C（支柱と一体）を**傾けて浮かせて**刷るための、置き方・柱・ラフトを書き出す。
 
   python hardware/_v4_post_props.py     → hardware/_v4_post_props.scad
+
+🔒 2026-09-03 ユーザー「スペーサーが上からひっぱると抜ける問題があり、帯と一体化に戻す事に
+   なりました。ただ、印刷時に長いアーチになるので柱が必須です。浮かせるスペーサーを作る時に
+   使った保持具を付けて欲しいです」「角度についても、最も印刷に適した極端な変化にならない角度を
+   付けたいです」。⇒ この道具の相手を**支柱 6 本から帯 3 本へ**移した。作りは変えていない
+   （柱＋球＋円錐・ラフト・向きの選び方は 2026-09-01〜02 に決めたまま）。
+   「極端な変化にならない角度」＝ 1 層あたりの断面積の増分の最大値（_tilt_sweep.py の物差し）が
+   いちばん小さい向き。ここで毎回選び直すので、形が変われば角度も追従する。
 
 なぜ浮かせるか（docs/PRINT.md §3.9）:
   真っ直ぐ立てると断面が φ1.5＝1.74mm² から φ5.8＝26.37mm² へ **z 1.60 で一段に跳ぶ**。
@@ -25,7 +33,9 @@
     🔒 2026-09-01 ユーザー「通常の柱の間隔と同じで良いと思うけど」
   ・傾きと方位は毎回 _tilt_sweep.py の物差し（1 層あたりの断面積の増分の最大値）で選び直す。
     ⇒ 部品の形が変われば向きも追従する。ここに角度を書かない。
-  ・素の形は case_v4.scad の part="post_bare_N"（傾ける前）を焼いて読む。
+  ・素の形は case_v4.scad の part="strap_bare_a/b/c"（傾ける前・組んだ姿勢）を焼いて読む。
+  ・触ってはいけない面の座標（支柱の位置・座の高さ・帯の Y）も case_v4.scad の
+    part="strap_nums" の echo から読む。**モデルが出どころ**で、ここには書き写さない。
 """
 import io, math, os, re, subprocess, sys
 import numpy as np
@@ -155,15 +165,65 @@ RAFT_LINK = PITCH + 0.6   # この距離までは無条件で繋ぐ（_v4_props.
 FOOT_MIN = RAFT_T + PROP_D / 2 + FOOT_MIN_MARGIN   # 1.70 足の球の中心はここより上
 RAY = 0.1         # 下面を拾うレイの間隔
 
-# ---- 触ってはいけない面（部品の素の向きで書く。post_one の数字から出す）----
-POST_D = 2.0                          # 軸の径（_v4_core.scad の POST_D）
+# ---- 触ってはいけない面（部品の素の向き ＝ 組んだ姿勢のまま z を BAT_Z ぶん下げた座標）----
+# 数字は case_v4.scad の part="strap_nums" が出す。ここに書き写さない
+def read_nums():
+    r = subprocess.run([OPENSCAD, '--backend=manifold', '-o', os.path.join(TMP, 'nums.stl'),
+                        '-D', 'PROPS_OFF=true', '-D', 'part="strap_nums"',
+                        os.path.join(HERE, 'case_v4.scad')], capture_output=True)
+    txt = r.stderr.decode('utf-8', 'replace')
+    d = {'posts': [], 'bands': []}
+    for line in txt.splitlines():
+        if 'SNUM' in line:
+            w = line.split('SNUM')[1].strip(' "').split()
+            d.update({w[i]: float(w[i + 1]) for i in range(0, len(w) - 1, 2)})
+        elif 'SPOST' in line:
+            w = line.split('SPOST')[1].strip(' "').split()
+            d['posts'].append([float(x) for x in w])       # i, x, y, 板の裏 z, 軸の先 z, 板の傾き°
+        elif 'SBAND' in line:
+            w = line.split('SBAND')[1].strip(' "').split()
+            d['bands'].append([float(x) for x in w])       # k, y0, 幅, 胴込みの前端, 同 後端
+    if len(d['posts']) != 6 or len(d['bands']) != 3:
+        raise SystemExit('strap_nums を読めなかった: ' + txt[-2000:])
+    return d
+
+
+NUM = read_nums()
+BAT_Z = NUM['bat_z']
+PLATE_TOP = NUM['plate_top'] - BAT_Z          # 8.00 帯の天面（ここから支柱が生える）
+SPACER_R = NUM['spacer_r']                    # 2.90 胴の半径
+POST_D = NUM['post_d']                        # 2.00 軸の径
+TAB_H = NUM['tab_h']                          # 2.00 ツバの高さ
 SHAFT_KEEP = POST_D / 2 + PROP_TIP / 2 + MIN_GAP   # 1.55 先が軸と E リングの溝に触れない距離
-#   ⚠ ここを 2.3 にすると胴 φ5.8 の 6 割が消え、柱が 2〜3 本しか立たない（2026-09-01 に一度やった）
-KEY_Y, KEY_Z0, KEY_Z1 = 1.8, 1.5, 2.1  # D の平らな面（回り止め）
-END_FACE = 0.2    # 🔒 軸の**端面**（上下の切り口）はこの逃げから外す。
-                  #   嵌合に効くのは軸の側面（帯の φ2.1 を通る）と E リングの溝で、端面は軸方向。
-                  #   ⚠ ここを塞ぐと、傾けたとき最下点になる軸の先を誰も支えられず、
-                  #     1 層目が宙に浮いた島になる（2026-09-01・post_5 に 0.38mm² で出た）。
+SEAT_KEEP = SPACER_R + MIN_GAP                # 3.20 板が載る座（胴の天面）に触れない距離
+END_FACE = 0.2    # 🔒 軸の**端面**（先の切り口）はこの逃げから外す。嵌合に効くのは軸の側面と溝で、
+                  #   端面は軸方向。ここを塞ぐと、傾けたとき最下点になる先を誰も支えられない。
+FOOT_FACE = 0.3   # 足の裏とツバの裏（皿に載る面）は**当ててよい**（紙やすりで落とす）。
+                  #   🔒 2026-09-02 の提案どおり「支えは足の裏に立つ」。痕の実績 0.3mm。
+TAB_KEEP = 0.3    # ツバの上面（45°）と側面は当てない。溝の逃げ TAB_CL が 0.2 しか無く、痕 0.3 が勝つ
+
+POSTS = []
+for _i, _x, _y, _bz, _tz, _th in NUM['posts']:
+    POSTS.append(dict(x=_x, y=_y,
+                      seat_lo=_bz - BAT_Z - SPACER_R * math.tan(math.radians(_th)),   # 座の面のいちばん低い所
+                      tip=_tz - BAT_Z))
+BAND = None       # build する帯（main が入れる）: (y0, y1)
+
+
+def blocked(raw, raw_top):
+    """そこへ先を当ててはいけないか（raw は素の向きの座標）"""
+    x, y, z = float(raw[0]), float(raw[1]), float(raw[2])
+    for q in POSTS:
+        r2 = (x - q['x']) ** 2 + (y - q['y']) ** 2
+        if z > PLATE_TOP - 0.01:
+            if r2 < SHAFT_KEEP ** 2 and z < q['tip'] - END_FACE:
+                return True                       # 軸の側面と E リングの溝
+            if r2 < SEAT_KEEP ** 2 and z > q['seat_lo'] - MIN_GAP:
+                return True                       # 板が載る座（胴の天面）
+    if BAND is not None and FOOT_FACE < z < TAB_H + TAB_KEEP and (y < BAND[0] or y > BAND[1]):
+        return True                               # ツバ（横差しの嵌合面）。裏（z < 0.3）は当ててよい
+    return False
+
 
 RISE_PITCH = (0.25, 0.15, 0.10)
 RISE_WARN = PF.RISE_WARN      # 4.00 実績の較正値。数字はあちらが持つ
@@ -286,16 +346,6 @@ def head_at(v, x, y, z, beta=0.0, phi=0.0, hl=None):
                 beta=beta, phi=phi)
 
 
-def blocked(raw, raw_top):
-    """そこへ先を当ててはいけないか。端面（上下の切り口）は当ててよい"""
-    on_end = raw[2] < END_FACE or raw[2] > raw_top - END_FACE
-    if raw[0] ** 2 + raw[1] ** 2 < SHAFT_KEEP ** 2 and not on_end:
-        return True                               # 軸の側面と E リングの溝
-    if raw[1] > KEY_Y and KEY_Z0 < raw[2] < KEY_Z1:
-        return True                               # D の平らな面
-    return False
-
-
 # ---- 部品の全表面（2026-09-02・胴の側面を見落としていた）----
 # 🔴 当たり検査は lowest_surface（レイごとの最下面）だけで行っていた。それは下から見える面しか
 #    持たないので、**胴の側面（壁）や上向きの面**の脇を通る斜材・枝を見落とす。
@@ -303,7 +353,9 @@ def blocked(raw, raw_top):
 #    入らなかった（ユーザーのスクショ「ニッパー入りません」）。柱の頭のテーパーも部品から
 #    0.30〜0.46 で「癒着しそう」。⇒ 三角形を SURF_STEP で点にして KD 木に入れ、胴・首の
 #    検査はこちらで行う。lowest_surface は接触点を探すふるいにだけ使う。
-SURF_STEP = 0.08
+# 🔒 2026-09-03 環境変数で落とせるようにした（速さのため）。逃げ（GAP 0.4）より細かければ用は足りる。
+#    0.08 → 560 万点・0.15 → 160 万点。点の数は刻みの 2 乗で効き、以後の当たり判定が全部これに乗る。
+SURF_STEP = float(os.environ.get('SURF_STEP', '0.08'))
 _SURF = {}      # build_one が置く: tree（3D）・xy（2D）・z
 
 
@@ -819,17 +871,17 @@ def head_call(name, h, pre=''):
 def write_scad(state):
     tilts, azs, ofss, headlist = state['tilt'], state['az'], state['ofs'], state['hs']
     L = ['// 🔴 自動生成。手で直さない。作り直しは `python hardware/_v4_post_props.py`',
-         '//    支柱（スペーサー）6 本を**傾けて浮かせて**刷るための、置き方と柱とラフト。',
-         '//    向きは 1 層あたりの断面積の増分がいちばん小さい所を毎回選び直している。',
+         '//    留め帯 A/B/C（支柱と一体）を**傾けて浮かせて**刷るための、置き方と柱とラフト。',
+         '//    向きは 1 層あたりの断面積の増分（＝極端な変化）がいちばん小さい所を毎回選び直している。',
          '//    数字（胴 φ2.0・接触面 φ0.5・食い込み 0.1）は _v4_props.scad が持つ。',
-         'POST_LIFT = %.2f;' % LIFT,
-         'POST_TILT = [%s];' % ', '.join('%d' % t for t in tilts),
-         'POST_AZ   = [%s];' % ', '.join('%d' % a for a in azs),
-         'POST_OFS  = [%s];' % ', '.join('[%.3f, %.3f, %.3f]' % tuple(o) for o in ofss),
-         'module post_place(i) translate(POST_OFS[i]) rotate([POST_TILT[i], 0, 0]) '
-         'rotate([0, 0, POST_AZ[i]]) children();',
+         'STRAP_LIFT = %.2f;' % LIFT,
+         'STRAP_TILT = [%s];' % ', '.join('%d' % t for t in tilts),
+         'STRAP_AZ   = [%s];' % ', '.join('%d' % a for a in azs),
+         'STRAP_OFS  = [%s];' % ', '.join('[%.3f, %.3f, %.3f]' % tuple(o) for o in ofss),
+         'module strap_place(k) translate(STRAP_OFS[k]) rotate([STRAP_TILT[k], 0, 0]) '
+         'rotate([0, 0, STRAP_AZ[k]]) children();',
          _TIP_SRC % (HEAD_D, TAPER)]
-    for i in range(6):
+    for i in range(3):
         src = []
         for h in headlist[i]:
             if h['mode'] == 'pillar':
@@ -839,8 +891,8 @@ def write_scad(state):
                 src.append(head_call('one_prop_strut', h, '%.3f, %.3f, %.3f, ' % h['T']))
             else:
                 src.append(head_call('one_prop_branch', h, '%.3f, %.3f, %.3f, ' % h['base']))
-        L.append('module props_post_%d() { %s }' % (i, ' '.join(src)))
-        L.append('module raft_post_%d() %s' % (i, raft_src(raft_pts(headlist[i]))))
+        L.append('module props_strap_%s() { %s }' % (STRAPS[i], ' '.join(src)))
+        L.append('module raft_strap_%s() %s' % (STRAPS[i], raft_src(raft_pts(headlist[i]))))
     io.open(os.path.join(HERE, '_v4_post_props.scad'), 'w',
             encoding='utf-8').write('\n'.join(L) + '\n')
 
@@ -851,9 +903,9 @@ def rise_of(i):
     判定は検査器（_stl_preflight.steep_rise）に任せる。
     戻り: (立ち上がり mm, Z, X0, X1, Y0, Y1)。測れないときは None。
     """
-    out = os.path.join(TMP, 'post_chk_%d.stl' % i)
+    out = os.path.join(TMP, 'strap_chk_%s.stl' % STRAPS[i])
     subprocess.run([OPENSCAD, '--backend=manifold', '-o', out,
-                    '-D', 'part="print_post_%d"' % i,
+                    '-D', 'part="print_strap_%s"' % STRAPS[i],
                     os.path.join(HERE, 'case_v4.scad')], capture_output=True)
     tris = PF.read_stl(out)
     best = None
@@ -866,6 +918,36 @@ def rise_of(i):
     return best
 
 
+# 開始点のレイ間隔。刻みで拾える所が変わるので既定は 2 通りの和。速さが要るときは 1 通りに落とす
+START_PITCH = tuple(float(x) for x in os.environ.get('START_PITCH', '0.15,0.10').split(','))
+
+
+def starts_of(i):
+    """刷る向きの STL を焼いて、**宙から始まる肉（開始点）**を全部返す。
+
+    🔴 2026-09-03 ユーザー「これは急な立ち上がりというよりも、開始点ですね」
+       「差分という意味なら無限大です」。⇒ しきい値のある「立ち上がり」ではなく、
+       **0 でなければならない個数**として扱う。判定は検査器（_stl_preflight.layer_starts）に任せる。
+    """
+    out = os.path.join(TMP, 'strap_chk_%s.stl' % STRAPS[i])
+    subprocess.run([OPENSCAD, '--backend=manifold', '-o', out,
+                    '-D', 'part="print_strap_%s"' % STRAPS[i],
+                    os.path.join(HERE, 'case_v4.scad')], capture_output=True)
+    if not os.path.exists(out):
+        return []
+    tris = PF.read_stl(out)
+    got = []
+    for q in START_PITCH:
+        r = PF.layer_starts(tris, q)
+        if r:
+            got.extend(r)
+    uniq = []
+    for z, x, y, a in sorted(got):
+        if all(abs(z - u[0]) > 0.6 or (x - u[1]) ** 2 + (y - u[2]) ** 2 > 0.4 ** 2 for u in uniq):
+            uniq.append((z, x, y, a))
+    return uniq
+
+
 def weld_mm3(i):
     """支柱と部品が食い込んでいる体積 mm³。**剥がせるかの物差し**。
 
@@ -873,9 +955,9 @@ def weld_mm3(i):
     見込み値。これより大きければ、斜材か枝が部品を突き抜けて融着している
     （2026-09-01・ユーザーのスクショで発見。斜材の通り道を検査していなかった）。
     """
-    out = os.path.join(TMP, 'weld_%d.stl' % i)
+    out = os.path.join(TMP, 'weld_%s.stl' % STRAPS[i])
     subprocess.run([OPENSCAD, '--backend=manifold', '-o', out,
-                    '-D', 'part="post_weld_%d"' % i,
+                    '-D', 'part="strap_weld_%s"' % STRAPS[i],
                     os.path.join(HERE, 'case_v4.scad')], capture_output=True)
     if not os.path.exists(out):
         return 0.0
@@ -885,7 +967,12 @@ def weld_mm3(i):
     return float(abs(np.einsum('ij,ij->i', t[:, 0], np.cross(t[:, 1], t[:, 2])).sum() / 6.0))
 
 
-ORIENT_TRY = 6
+STRAPS = ['a', 'b', 'c']
+GRID_N = int(os.environ.get('GRID_N', '6'))   # 格子をずらして試す回数（GRID_N × GRID_N 通り）
+# 向きを動かしたくないとき（支柱だけ作り直す）: KEEP_ORIENT="30/315,45/135,45/225"
+KEEP_ORIENT = [tuple(int(v) for v in t.split('/'))
+               for t in os.environ['KEEP_ORIENT'].split(',')] if os.environ.get('KEEP_ORIENT') else None
+ORIENT_TRY = int(os.environ.get('ORIENT_TRY', '6'))
 # 🔴 向きは「立ち上がりの緩やかさ」だけで選ばない。**島が残らない向きを優先し、
 #    同点なら跳ねで選ぶ**。どちらもユーザーが出した基準である。
 #    ⚠ 2026-09-01 跳ねだけで選んでいたため post_5 が 30°/90 になり、0.38mm² の島が
@@ -908,57 +995,83 @@ def build_one(tris, tilt, az):
     low_ok = try_place(v, pts, float(pts[j][0]), float(pts[j][1]), float(pts[j][2]),
                        Rinv, ofs, raw_top, []) is not None
     best = None
-    for ox in np.linspace(0, PITCH, 7)[:-1]:
-        for oy in np.linspace(0, PITCH, 7)[:-1]:
+    for ox in np.linspace(0, PITCH, GRID_N + 1)[:-1]:
+        for oy in np.linspace(0, PITCH, GRID_N + 1)[:-1]:
             g = heads(v, pts, ox, oy, Rinv, ofs, raw_top)
             if best is None or len(g) > len(best):
                 best = g
     return dict(v=v, ofs=ofs, raw_top=raw_top, Rinv=Rinv, pts=pts, hs=list(best), low_ok=low_ok)
 
 
-def cut_rise(i, st, state, rounds=6):
-    """検査器に**急な立ち上がり**を出させ、その場所へ支柱を足す。最後の値（mm）を返す。
+def place_island(st, x, y, z, got):
+    """開始点に 1 本立てる。まず通常の規則で、駄目なら**隙間の規則だけ緩めて**もう一度。
 
-    🔒 2026-09-02 ユーザー「もう島だのなんだの曖昧な話は無しにしました」。
-    それまでは島の個数で回していた。いまは 1 つの mm で回す。
-    しきい値は検査器の RISE_WARN（実績の較正値）をそのまま使う。
+    🔒 2026-09-03 順序: **宙から始まる肉は必ず落ちる**。それに比べれば「柱どうしが近い」
+       「ニッパーの刃が入りにくい」は軽い（切りにくいだけで、刷れる）。⇒ 島に限って緩める。
+       ⚠ 緩めてよいのは**支柱どうしの隙間と刃の空き**だけ。触ってはいけない面（軸・E リングの溝・
+         板が載る座・ツバ）は緩めない ── あれは部品が使えなくなる。
     """
-    for _ in range(rounds):
-        write_scad(state)
-        rs = rise_of(i)
-        if rs is None or rs[0] <= RISE_WARN:
-            return rs
-        rise, z, x0, x1, y0, y1 = rs
-        grew = False
-        for fx in (0.5, 0.15, 0.85, 0.35, 0.65):
-            for fy in (0.5, 0.15, 0.85, 0.35, 0.65):
-                x = x0 + (x1 - x0) * fx; y = y0 + (y1 - y0) * fy
-                h, _ = cone_at(st['v'], st['pts'], x, y, z, st['Rinv'], st['ofs'], st['raw_top'])
+    global NIP_GAP, GAP
+    keep = (NIP_GAP, GAP)
+    try:
+        for nip, gap in ((keep[0], keep[1]), (1.0, 0.2), (0.5, 0.1)):
+            NIP_GAP, GAP = nip, gap
+            for dz in (0.0, 0.05, -0.05, 0.1, -0.1, 0.2, -0.2):
+                h, _ = cone_at(st['v'], st['pts'], x, y, z + dz,
+                               st['Rinv'], st['ofs'], st['raw_top'])
                 if h is None:
                     continue
                 if any(abs(g['A'][0] - h['A'][0]) < 0.05 and abs(g['A'][1] - h['A'][1]) < 0.05
-                       for g in st['hs']):
-                    continue
-                g, _ = stand(h, st['pts'], st['hs'])
-                if g is None:
-                    continue
-                st['hs'].append(g); grew = True
-                break
-            if grew:
-                break
+                       for g in got):
+                    return None, 'すでに同じ場所に立っている'
+                g, why = stand(h, st['pts'], got)
+                if g is not None:
+                    g['relax'] = (nip, gap) if (nip, gap) != keep else None
+                    return g, None
+            last = why if h is not None else '円錐が作れない'
+        return None, last
+    finally:
+        NIP_GAP, GAP = keep
+
+
+def cut_starts(i, st, state, rounds=10):
+    """**宙から始まる肉が無くなるまで**柱を足す。残ったものを返す。
+
+    🔴 2026-09-03 それまでは検査器の「急な立ち上がり」が RISE_WARN（4.00）を切ったら止めていた。
+       あの数字は**直下の肉ではなく平面上でいちばん近い肉**までの距離だったので、下に何も無い島でも
+       1.95mm のような有限の値が出て、そのまま通っていた（CHITUBOX のスライスでユーザーが発見）。
+       ⇒ 止める条件を「開始点 0」にした。しきい値は無い。
+    """
+    for _ in range(rounds):
+        write_scad(state)
+        isl = starts_of(i)
+        if not isl:
+            return []
+        grew = False
+        st['why'] = []
+        for z, x, y, a in sorted(isl):
+            g, why = place_island(st, x, y, z, st['hs'])
+            if g is None:
+                st['why'].append((z, x, y, a, why))
+                continue
+            st['hs'].append(g); grew = True
         if not grew:
             break
     write_scad(state)
-    return rise_of(i)
+    return starts_of(i)
 
 
 def main():
+    global BAND
     if hasattr(sys.stdout, 'reconfigure'):
         sys.stdout.reconfigure(encoding='utf-8')   # ファイルへ流すと cp932 で mm² が落ちる
-    state = dict(tilt=[0] * 6, az=[0] * 6, ofs=[np.zeros(3)] * 6, hs=[[] for _ in range(6)])
+    n = len(STRAPS)
+    state = dict(tilt=[0] * n, az=[0] * n, ofs=[np.zeros(3)] * n, hs=[[] for _ in range(n)])
     report = []
-    for i in range(6):
-        tris = bake('post_bare_%d' % i)
+    for i in range(n):
+        # ツバは帯そのものの Y の外に出ている部分（BAND の外・低い所）
+        BAND = (NUM['bands'][i][1], NUM['bands'][i][1] + NUM['bands'][i][2])
+        tris = bake('strap_bare_%s' % STRAPS[i])
         cand = []
         for tilt in range(0, 91, 5):
             for az in ([0] if tilt == 0 else [0, 45, 90, 135, 180, 225, 270, 315]):
@@ -966,9 +1079,10 @@ def main():
                 if r:
                     cand.append(r)
         cand.sort(key=lambda r: r['max_step'])
-        # 🔴 2026-09-02 先に「最下点に先を当てられるか」で全候補をふるう（安い検査）。
-        #    跳ねの小さい 6 個の中に当てられる向きが無く、7〜8 番目（post_0 60°/270・
-        #    post_2 60°/90）に当てられる向きがあった。しきい値は変えない。
+        if KEEP_ORIENT:
+            cand = [c for c in cand if c['tilt'] == KEEP_ORIENT[i][0]
+                    and c['az'] == KEEP_ORIENT[i][1]] or cand
+        # 🔴 2026-09-02 先に「最下点に先を当てられるか」で候補をふるう（安い検査）。しきい値は変えない。
         ok = []
         for r in cand:
             v, ofs = place(tris, r['tilt'], r['az'])
@@ -985,23 +1099,29 @@ def main():
             st = build_one(tris, r['tilt'], r['az'])
             state['tilt'][i] = r['tilt']; state['az'][i] = r['az']
             state['ofs'][i] = st['ofs']; state['hs'][i] = st['hs']
-            rise = cut_rise(i, st, state)
+            left = cut_starts(i, st, state)
+            rise = rise_of(i)
             rv = rise[0] if rise else float('inf')
-            # 🔴 最下点に先を当てられる向きを先に採り、その中で立ち上がりが小さい向き
-            key = (0 if st['low_ok'] else 1, rv)
+            # 🔴 2026-09-03 選ぶ順は ①最下点に先を当てられるか ②**宙から始まる肉の数**
+            #    ③つながった庇の出（mm）。②が 0 でない向きは、何本足しても刷れない。
+            key = (0 if st['low_ok'] else 1, len(left), rv)
             if picked is None or key < picked[4]:
-                picked = (r, st, rise, rv, key)
-            if st['low_ok'] and rv <= RISE_WARN:
+                picked = (r, st, (rise, left), rv, key)
+            if st['low_ok'] and not left:
                 break
-        r, st, rise, rv, _ = picked
+        r, st, (rise, left), rv, _ = picked
         state['tilt'][i] = r['tilt']; state['az'][i] = r['az']
         state['ofs'][i] = st['ofs']; state['hs'][i] = st['hs']
         write_scad(state)
-        report.append((i, r, st, rise))
+        report.append((i, r, st, rise, left))
+        print('帯 %s: %d°/%d  支柱 %d 本  宙から始まる肉 %d か所  庇の出 %s'
+              % (STRAPS[i].upper(), r['tilt'], r['az'], len(st['hs']), len(left),
+                 ('%.2fmm' % rise[0]) if rise else '測れない'), flush=True)
     write_scad(state)
 
+    print()
     print('部品   向き       真下 斜め  枝  接触面の合計   ラフト   急な立ち上がり  面の傾き   食い込み(見込み)  最下点から最寄りの先')
-    for i, r, st, rise in report:
+    for i, r, st, rise, left in report:
         hs = state['hs'][i]
         npil = sum(1 for h in hs if h['mode'] == 'pillar')
         nst = sum(1 for h in hs if h['mode'] == 'strut')
@@ -1012,17 +1132,20 @@ def main():
         flag = '' if got_w <= want * 1.6 + 0.01 else '  🔴 突き抜けている'
         rv = rise[0] if rise else float('nan')
         rmark = '' if (rise and rv <= RISE_WARN) else '  🔴 しきい値 %.2f 超' % RISE_WARN
-        # 最下点に先が当たっているか（2026-09-02・最下点が島で現れた）
+        smark = '' if not left else '  🔴 宙から始まる肉が %d か所残っている' % len(left)
         allv = st['v'].reshape(-1, 3); lowpt = allv[np.argmin(allv[:, 2])]
         dlow = min(float(np.linalg.norm(h['A'] + h['n'] * PROP_BITE - lowpt)) for h in hs) if hs else float('inf')
         lmark = '' if dlow <= PROP_TIP else '  🔴 最下点に先が無い'
-        print('post_%d %2d°/%-3d  %3d %3d %3d  %7.2fmm²  %6.1fmm²  %6.2fmm%s  %3.0f〜%2.0f°  '
-              '%.4f(%.4f)mm³%s  %.2fmm%s'
-              % (i, r['tilt'], r['az'], npil, nst, len(hs) - npil - nst, tips,
-                 raft_area(raft_pts(hs)), rv, rmark, sl[0], sl[-1], got_w, want, flag, dlow, lmark))
+        for z, x, y, a, why in st.get('why', []):
+            print('   🔴 帯 %s の開始点が残った: Z %.2f (%.2f, %.2f) %.2fmm² ── %s'
+                  % (STRAPS[i].upper(), z, x, y, a, why))
+        print('帯 %s  %2d°/%-3d  %3d %3d %3d  %7.2fmm²  %6.1fmm²  %6.2fmm%s  %3.0f〜%2.0f°  '
+              '%.4f(%.4f)mm³%s  %.2fmm%s%s'
+              % (STRAPS[i].upper(), r['tilt'], r['az'], npil, nst, len(hs) - npil - nst, tips,
+                 raft_area(raft_pts(hs)), rv, rmark, sl[0], sl[-1], got_w, want, flag, dlow, lmark, smark))
     # 支柱どうしの隙間（枝と親の繋ぎ目は除く）
     print()
-    for i in range(6):
+    for i in range(n):
         hs = state['hs'][i]
         m = 1e9
         for a in range(len(hs)):
@@ -1045,15 +1168,14 @@ def main():
                             d = seg_dist(p0, p1, q0, q1) - ra - rb
                             if d > -MERGE:
                                 mc = min(mc, d)
-        # 足の球（斜材・枝の根元 φ2.0）の底がラフトに入っていないか
         foot = [h['T'][2] if h['mode'] == 'strut' else h['base'][2]
                 for h in hs if h['mode'] != 'pillar']
         fb = (min(foot) - PROP_D / 2) if foot else float('inf')
         fmark = '' if fb >= RAFT_T else '  🔴 足の球がラフトに埋まっている'
         bt = sorted(h['beta'] for h in hs); hh = sorted(h['hl'] for h in hs)
-        print('post_%d  支柱どうし %.2fmm（要 %.2f）／**先まわり %.2fmm（要 %.2f）**'
+        print('帯 %s  支柱どうし %.2fmm（要 %.2f）／**先まわり %.2fmm（要 %.2f）**'
               '  振った角度 %.0f〜%.0f°  円錐の長さ %.1f〜%.1fmm  足の球の底 %s%s'
-              % (i, m, GAP, mc if mc < 1e8 else float('nan'), NIP_GAP,
+              % (STRAPS[i].upper(), m, GAP, mc if mc < 1e8 else float('nan'), NIP_GAP,
                  bt[0], bt[-1], hh[0], hh[-1],
                  ('z%+.2f' % fb) if foot else '足の球なし', fmark))
     print('→ hardware/_v4_post_props.scad')
