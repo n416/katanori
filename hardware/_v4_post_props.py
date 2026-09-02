@@ -143,6 +143,10 @@ RAFT_D = 5.0      # 🔒 ラフトの円の径。出典の「台は φ2〜5」�
                   #   🔴 2026-09-02 刃の空きを 2.0 にして支柱が 3〜4 本に減ったぶん、接地が
                   #      31mm² まで落ちて検査の「点で立っている（38mm² 未満）」に触れた。
                   #      支柱を増やすと刃が入らなくなるので、**ラフトの方を大きくする**。
+RAFT_MIN = 40.0   # 🔴 2026-09-02 ラフトはこの面積以上（検査の「点で立っている」38mm² の外）。
+RAFT_DMAX = 9.0   #    柱が 1 本しか立たない部品（post_0/1・幹 1 本＋枝 3 本）は φ5 の円 1 つ＝19.6
+                  #    になった。前回（31mm²）と同じ対処: 支柱を増やすと刃が入らないので**ラフトを
+                  #    広げる**。RAFT_D から 0.5 刻みで RAFT_MIN に届くまで広げる（上限 RAFT_DMAX）。
 RAFT_LINK = PITCH + 0.6   # この距離までは無条件で繋ぐ（_v4_props.py と同じ流儀）。
 #   🔴 ただし**ラフトは必ず 1 枚**にする。柱は円錐が法線へ向くぶん横へずれるので、
 #      固定の距離だけでは届かない対が出る（2026-09-01・post_4 で合計 60mm² のうち
@@ -292,6 +296,69 @@ def blocked(raw, raw_top):
     return False
 
 
+# ---- 部品の全表面（2026-09-02・胴の側面を見落としていた）----
+# 🔴 当たり検査は lowest_surface（レイごとの最下面）だけで行っていた。それは下から見える面しか
+#    持たないので、**胴の側面（壁）や上向きの面**の脇を通る斜材・枝を見落とす。
+#    実際 post_0/1 の斜材が部品から 0.08mm の所を通り、首がその隙間に埋まってニッパーが
+#    入らなかった（ユーザーのスクショ「ニッパー入りません」）。柱の頭のテーパーも部品から
+#    0.30〜0.46 で「癒着しそう」。⇒ 三角形を SURF_STEP で点にして KD 木に入れ、胴・首の
+#    検査はこちらで行う。lowest_surface は接触点を探すふるいにだけ使う。
+SURF_STEP = 0.08
+_SURF = {}      # build_one が置く: tree（3D）・xy（2D）・z
+
+
+def surface_samples(v, step=SURF_STEP):
+    out = []
+    for a, b, c in v:
+        e1, e2 = b - a, c - a
+        n = int(max(np.linalg.norm(e1), np.linalg.norm(e2)) / step) + 1
+        ii, jj = np.meshgrid(np.arange(n + 1), np.arange(n + 1), indexing='ij')
+        m = (ii + jj) <= n
+        out.append(a + np.outer(ii[m] / n, e1) + np.outer(jj[m] / n, e2))
+    return np.vstack(out)
+
+
+def set_surface(v):
+    from scipy.spatial import cKDTree
+    P = surface_samples(v)
+    _SURF['tree'] = cKDTree(P); _SURF['xy'] = cKDTree(P[:, :2]); _SURF['z'] = P[:, 2]
+
+
+def body_clear(P0, P1, r0, r1, need=None, skip=0.0):
+    """胴（半径 r0→r1 の棒）が部品から need 以上離れているか。skip は P0 側で除く長さ"""
+    need = GAP if need is None else need
+    P0 = np.asarray(P0, float); P1 = np.asarray(P1, float)
+    L = float(np.linalg.norm(P1 - P0))
+    if L < 1e-6:
+        return True
+    ts = np.arange(skip, L + 1e-9, 0.1)
+    if not len(ts):
+        return True
+    q = P0 + np.outer(ts / L, P1 - P0)
+    r = r0 + (r1 - r0) * ts / L
+    d = _SURF['tree'].query(q)[0]
+    return bool(((d - r) >= need).all())
+
+
+def neck_clear(h):
+    """首（球〜円錐）のまわりに刃の入る空きがあるか。
+
+    🔒 2026-09-02 ユーザー「ニッパー入りません」。軸から半径 NIP_GAP の筒の中、接触面の
+       0.4 上から球の上までに部品の面が無いこと。接触面そのもの（軸方向 0 付近）と、
+       凸に逃げていく面（軸方向が負）は入らない。壁の脇（凹）に当てると入って落ちる。
+    """
+    n = h['n']; A = np.asarray(h['A'], float); S = np.asarray(h['S'], float)
+    top = float((S - A) @ n) + HEAD_D / 2 + 0.5
+    for t in np.arange(0.4, top, 0.25):
+        q = A + n * t
+        for j in _SURF['tree'].query_ball_point(q, NIP_GAP):
+            p = _SURF['tree'].data[j]
+            ax = float((p - A) @ n)
+            if 0.4 <= ax <= top:
+                return False
+    return True
+
+
 def lowest_surface(v):
     """レイごとの最下面 (x, y, z, 面の傾き°)。
 
@@ -331,10 +398,10 @@ def pillar_top(h, pts):
     部品の下面まで 0.6mm しか足りないだけで「真下は部品の中」と判定し、斜材へ逃げていた。
     真下は部品の下面まで空いているのだから、**そこまで上げて残りをテーパーで繋ぐ**。
     """
-    r = PROP_D / 2 + MIN_GAP
-    near = (pts[:, 0] - h['M'][0]) ** 2 + (pts[:, 1] - h['M'][1]) ** 2 <= r ** 2
-    low = float(pts[near, 2].min()) if near.any() else np.inf
-    return min(h['S'][2] - TAPER, low - MIN_GAP)
+    # 🔴 2026-09-02 全表面で見る。逃げは癒着の実績の外 GAP（0.4）
+    idx = _SURF['xy'].query_ball_point([h['M'][0], h['M'][1]], PROP_D / 2 + GAP)
+    low = float(_SURF['z'][idx].min()) if idx else np.inf
+    return min(h['S'][2] - TAPER, low - GAP)
 
 
 def pillar_clear(h, pts):
@@ -350,8 +417,8 @@ def pillar_clear(h, pts):
     pz = pillar_top(h, pts)
     if pz < RAFT_T + 0.5:
         return False                             # 上げられる高さが無い
-    # 柱の頭から球までのテーパーが部品を突き抜けないこと
-    if not seg_clear(np.array([h['M'][0], h['M'][1], pz]), h['S'], pts, skip=0.0):
+    # 柱の頭から球までのテーパー（φ2.0 → φ1.0）が部品から GAP 以上離れていること
+    if not body_clear(np.array([h['M'][0], h['M'][1], pz]), h['S'], PROP_D / 2, HEAD_D / 2):
         return False
     h['PZ'] = float(pz)
     return True
@@ -364,19 +431,9 @@ def seg_clear(P0, P1, pts, skip=1.0):
        **剥がせない**形になる（2026-09-01・ユーザーのスクショで発見）。
        頭の近く skip までは、円錐が部品へ向かうぶん除く。
     """
-    P0 = np.asarray(P0, float); P1 = np.asarray(P1, float)
-    d = P1 - P0
-    L = float(np.linalg.norm(d))
-    if L < 1e-6:
-        return True
-    u = d / L
-    rad = PROP_D / 2 + MIN_GAP
-    for t in np.arange(skip, L + 1e-9, 0.25):
-        q = P0 + u * t
-        near = (pts[:, 0] - q[0]) ** 2 + (pts[:, 1] - q[1]) ** 2 <= rad ** 2
-        if near.any() and pts[near, 2].min() <= q[2] + MIN_GAP:
-            return False
-    return True
+    # 🔴 2026-09-02 レイの最下面ではなく全表面で。半径は球 S 側 0.5 → 足側 1.0。
+    #    skip は使わない: 頭の近くも部品から GAP 離れていなければ首が埋まる
+    return body_clear(P0, P1, HEAD_D / 2, PROP_D / 2)
 
 
 def members(h):
@@ -423,14 +480,23 @@ def too_close(h, got, parent=None):
     """他の支柱と GAP より近づいていないか（親の柱へ意図的に繋ぐ枝は除く）"""
     mine = members(h)
     for g in got:
-        if g is parent:
-            continue
         for a0, a1, ra, ka in mine:
             for b0, b1, rb, kb in members(g):
+                # 🔴 2026-09-02 親の柱は**胴だけ**除外する（枝は親の胴に繋ぐので）。
+                #    親を丸ごと除外していたため、親の先の 0.28mm 隣に枝の先が立ち、
+                #    1 本の柱の頭に首が 2 つ付いた（ユーザー「なんでここ２つ柱建ってるの？」）。
+                if g is parent and not (ka or kb):
+                    continue
                 d = seg_dist(a0, a1, b0, b1) - ra - rb
                 # 先が絡むならニッパーの刃のぶん、それ以外は癒着しないぶん
                 need = NIP_GAP if (ka or kb) else GAP
-                if -MERGE < d < need:
+                # 🔴 2026-09-02 「深く重なれば融合して 1 本」の例外（MERGE）は**柱どうしだけ**。
+                #    先にも効かせていたので、最下点の先と格子の先が 0.3〜0.65mm 隣に立ち、
+                #    ⚠ これだけでは直らなかった。本当の原因は上の「親を丸ごと除外」。
+                if (ka or kb):
+                    if d < need:
+                        return True
+                elif -MERGE < d < need:
                     return True
     return False
 
@@ -452,6 +518,8 @@ def cone_at(v, pts, x, y, z, Rinv, ofs, raw_top):
     h = head_at(v, x, y, z)
     if h['S'][2] < RAFT_T + HEAD_D / 2 + HEAD_CLR:
         return None, '球がラフトに埋まる'
+    if not neck_clear(h):
+        return None, '首のまわりに刃が入らない'
     return h, None
 
 
@@ -510,9 +578,9 @@ def stand(h, pts, got):
             tz = h['S'][2] - t                       # 斜材 45°
             if tz < FOOT_MIN:                        # 足の球がラフトに埋まる
                 break
-            near2 = (pts[:, 0] - tx) ** 2 + (pts[:, 1] - ty) ** 2 <= (PROP_D / 2 + MIN_GAP) ** 2
-            if near2.any() and pts[near2, 2].min() <= tz + 0.05:
-                continue                             # そこも部品の中
+            idx = _SURF['xy'].query_ball_point([tx, ty], PROP_D / 2 + GAP)
+            if idx and float(_SURF['z'][idx].min()) <= tz + GAP:
+                continue                             # そこも部品の中（足の球の上に部品）
             if not seg_clear(h['S'], (tx, ty, tz), pts):
                 continue                             # 斜材が部品を突き抜ける
             cands.append((t, -float(u @ n2), tx, ty, tz))
@@ -550,9 +618,15 @@ def heads(v, pts, ox, oy, Rinv, ofs, raw_top):
       ③ それでも混むときは円錐を細長くする（HEAD_L → HEAD_MAX）
     ⚠ ①は単独では球が 0.60mm しか動かない。③と組んで初めて効く（3.0mm で 1.20mm）。
     """
+    # 🔴 **最下点は必ず最初の種にする。** 格子（間隔 2.5）の網目に最下点が落ちると、
+    #    部品がいちばん低い層で何にも繋がらずに現れる。2026-09-02 ユーザーのスクショ
+    #    「最下部にも関わらず、突然出現します」。6 本中 4 本で最下点から最寄りの接触点まで
+    #    2.4〜3.2mm 離れていた。検査の急な立ち上がりは隣の柱まで XY で 2.4mm なので
+    #    しきい値 4.0 の内側と判定し、島のまま通していた。
+    j = int(np.argmin(pts[:, 2]))
+    seeds = [(float(pts[j][0]), float(pts[j][1]), float(pts[j][2]))]
     gx = np.arange(pts[:, 0].min() - PITCH + ox, pts[:, 0].max() + PITCH, PITCH)
     gy = np.arange(pts[:, 1].min() - PITCH + oy, pts[:, 1].max() + PITCH, PITCH)
-    seeds = []
     for x0 in gx:
         for y0 in gy:
             d = (pts[:, 0] - x0) ** 2 + (pts[:, 1] - y0) ** 2
@@ -568,7 +642,8 @@ def heads(v, pts, ox, oy, Rinv, ofs, raw_top):
     R = PROP_TIP + NIP_GAP
     crowd = [int((((S[:, 0] - p[0]) ** 2 + (S[:, 1] - p[1]) ** 2) <= R ** 2).sum()) - 1
              for p in S]
-    order = sorted(range(len(seeds)), key=lambda k: (-crowd[k], seeds[k][0], seeds[k][1]))
+    order = [0] + sorted(range(1, len(seeds)),
+                         key=lambda k: (-crowd[k], seeds[k][0], seeds[k][1]))
 
     got = []
     for k in order:
@@ -580,7 +655,11 @@ def heads(v, pts, ox, oy, Rinv, ofs, raw_top):
 
 
 # ①③ 振れる幅。理想（真っ直ぐ・短い）から順に試す
-BETA_STEPS = (0.0, 8.0, 16.0, BETA_MAX)
+# 🔴 2026-09-02 角度の自由度①は**止めた**（0 だけ）。平らな面（傾き 0°）で 23.6° 振った
+#    円錐が出て、ユーザー「円柱の先が法線になっていないところも見つかりました」。
+#    円錐の軸は法線、が 🔒（2026-09-01）で、①はそれと両立しない。長さ③だけ残す。
+#    戻すなら (0.0, 8.0, 16.0, BETA_MAX)。
+BETA_STEPS = (0.0,)
 PHI_STEPS = tuple(np.arange(0, 360, 30.0))
 HL_STEPS = (HEAD_L, 2.0, 2.5, HEAD_MAX)
 
@@ -595,6 +674,8 @@ def try_place(v, pts, x0, y0, z, Rinv, ofs, raw_top, got):
             for phi in phis:
                 h = head_at(v, x0, y0, z, beta, phi, hl)
                 if h['S'][2] < RAFT_T + HEAD_D / 2 + HEAD_CLR:
+                    continue
+                if not neck_clear(h):
                     continue
                 g, _ = stand(h, pts, got)
                 if g is not None:
@@ -632,13 +713,22 @@ def raft_links(P):
     return sorted(pairs)
 
 
-def raft_src(P):
+def raft_d(P):
+    """この部品のラフトの円の径。RAFT_MIN に届くまで広げる"""
+    d = RAFT_D
+    while d < RAFT_DMAX - 1e-9 and raft_area(P, d) < RAFT_MIN:
+        d += 0.5
+    return d
+
+
+def raft_src(P, d=None):
     """スケート型のラフト。底（広い）と上（狭い）の 2 枚を hull で繋いでスロープにする"""
     if not len(P):
         return ''
+    d = raft_d(P) if d is None else d
     def outline(extra):
         body = ' '.join('translate([%.2f, %.2f]) circle(d = %.2f, $fn = 32);'
-                        % (p[0], p[1], RAFT_D + 2 * extra) for p in P)
+                        % (p[0], p[1], d + 2 * extra) for p in P)
         return body if len(P) < 2 else 'hull() { %s }' % body
     # 底（狭い＝プレートに着く面）→ 上（広い＝反った縁）。ヘラはこの反りの下に入る
     lines = ['hull() {',
@@ -649,16 +739,17 @@ def raft_src(P):
     return chr(10).join(lines)
 
 
-def raft_area(P):
-    """ラフトの面積（重なりを二重に数えないよう 0.05mm の格子で塗る）"""
+def raft_area(P, d=None):
+    """ラフトの面積（重なりを二重に数えないよう 0.05mm の格子で塗る）。d 省略時は広げた後の径"""
     if not len(P):
         return 0.0
+    d = raft_d(P) if d is None else d
     c = 0.05
-    xs = np.arange(P[:, 0].min() - RAFT_D - 2, P[:, 0].max() + RAFT_D + 2, c)
-    ys = np.arange(P[:, 1].min() - RAFT_D - 2, P[:, 1].max() + RAFT_D + 2, c)
+    xs = np.arange(P[:, 0].min() - d - 2, P[:, 0].max() + d + 2, c)
+    ys = np.arange(P[:, 1].min() - d - 2, P[:, 1].max() + d + 2, c)
     XX, YY = np.meshgrid(xs, ys, indexing='ij')
     m = np.zeros(XX.shape, bool)
-    rr = RAFT_D / 2                        # 底（プレートに着く側）。反りは上なので広がらない
+    rr = d / 2                             # 底（プレートに着く側）。反りは上なので広がらない
     for p in P:
         m |= (XX - p[0]) ** 2 + (YY - p[1]) ** 2 <= rr ** 2
     for i in range(len(P)):
@@ -809,13 +900,20 @@ def build_one(tris, tilt, az):
     raw_top = float(tris.reshape(-1, 3)[:, 2].max())
     Rinv = rot_inv(tilt, az)
     pts = lowest_surface(v)
+    set_surface(v)
+    # 🔴 最下点に先を当てられるか（格子の位相とは無関係に決まる）。
+    #    当てられない向きは main() が捨てる。2026-09-02、60°/135 では最下点が D の足の角
+    #    （平らな面から 0.06）に来て、逃げの中なので当てられず、島で現れていた。
+    j = int(np.argmin(pts[:, 2]))
+    low_ok = try_place(v, pts, float(pts[j][0]), float(pts[j][1]), float(pts[j][2]),
+                       Rinv, ofs, raw_top, []) is not None
     best = None
     for ox in np.linspace(0, PITCH, 7)[:-1]:
         for oy in np.linspace(0, PITCH, 7)[:-1]:
             g = heads(v, pts, ox, oy, Rinv, ofs, raw_top)
             if best is None or len(g) > len(best):
                 best = g
-    return dict(v=v, ofs=ofs, raw_top=raw_top, Rinv=Rinv, pts=pts, hs=list(best))
+    return dict(v=v, ofs=ofs, raw_top=raw_top, Rinv=Rinv, pts=pts, hs=list(best), low_ok=low_ok)
 
 
 def cut_rise(i, st, state, rounds=6):
@@ -855,6 +953,8 @@ def cut_rise(i, st, state, rounds=6):
 
 
 def main():
+    if hasattr(sys.stdout, 'reconfigure'):
+        sys.stdout.reconfigure(encoding='utf-8')   # ファイルへ流すと cp932 で mm² が落ちる
     state = dict(tilt=[0] * 6, az=[0] * 6, ofs=[np.zeros(3)] * 6, hs=[[] for _ in range(6)])
     report = []
     for i in range(6):
@@ -866,25 +966,41 @@ def main():
                 if r:
                     cand.append(r)
         cand.sort(key=lambda r: r['max_step'])
+        # 🔴 2026-09-02 先に「最下点に先を当てられるか」で全候補をふるう（安い検査）。
+        #    跳ねの小さい 6 個の中に当てられる向きが無く、7〜8 番目（post_0 60°/270・
+        #    post_2 60°/90）に当てられる向きがあった。しきい値は変えない。
+        ok = []
+        for r in cand:
+            v, ofs = place(tris, r['tilt'], r['az'])
+            set_surface(v); pts = lowest_surface(v)
+            j = int(np.argmin(pts[:, 2]))
+            if try_place(v, pts, float(pts[j][0]), float(pts[j][1]), float(pts[j][2]),
+                         rot_inv(r['tilt'], r['az']), ofs,
+                         float(tris.reshape(-1, 3)[:, 2].max()), []) is not None:
+                ok.append(r)
+                if len(ok) >= ORIENT_TRY:
+                    break
         picked = None
-        for r in cand[:ORIENT_TRY]:
+        for r in (ok or cand[:ORIENT_TRY]):
             st = build_one(tris, r['tilt'], r['az'])
             state['tilt'][i] = r['tilt']; state['az'][i] = r['az']
             state['ofs'][i] = st['ofs']; state['hs'][i] = st['hs']
             rise = cut_rise(i, st, state)
             rv = rise[0] if rise else float('inf')
-            if picked is None or rv < picked[3]:
-                picked = (r, st, rise, rv)        # いちばん立ち上がりが小さい向き
-            if rv <= RISE_WARN:
+            # 🔴 最下点に先を当てられる向きを先に採り、その中で立ち上がりが小さい向き
+            key = (0 if st['low_ok'] else 1, rv)
+            if picked is None or key < picked[4]:
+                picked = (r, st, rise, rv, key)
+            if st['low_ok'] and rv <= RISE_WARN:
                 break
-        r, st, rise, rv = picked
+        r, st, rise, rv, _ = picked
         state['tilt'][i] = r['tilt']; state['az'][i] = r['az']
         state['ofs'][i] = st['ofs']; state['hs'][i] = st['hs']
         write_scad(state)
         report.append((i, r, st, rise))
     write_scad(state)
 
-    print('部品   向き       真下 斜め  枝  接触面の合計   ラフト   急な立ち上がり  面の傾き   食い込み(見込み)')
+    print('部品   向き       真下 斜め  枝  接触面の合計   ラフト   急な立ち上がり  面の傾き   食い込み(見込み)  最下点から最寄りの先')
     for i, r, st, rise in report:
         hs = state['hs'][i]
         npil = sum(1 for h in hs if h['mode'] == 'pillar')
@@ -896,10 +1012,14 @@ def main():
         flag = '' if got_w <= want * 1.6 + 0.01 else '  🔴 突き抜けている'
         rv = rise[0] if rise else float('nan')
         rmark = '' if (rise and rv <= RISE_WARN) else '  🔴 しきい値 %.2f 超' % RISE_WARN
+        # 最下点に先が当たっているか（2026-09-02・最下点が島で現れた）
+        allv = st['v'].reshape(-1, 3); lowpt = allv[np.argmin(allv[:, 2])]
+        dlow = min(float(np.linalg.norm(h['A'] + h['n'] * PROP_BITE - lowpt)) for h in hs) if hs else float('inf')
+        lmark = '' if dlow <= PROP_TIP else '  🔴 最下点に先が無い'
         print('post_%d %2d°/%-3d  %3d %3d %3d  %7.2fmm²  %6.1fmm²  %6.2fmm%s  %3.0f〜%2.0f°  '
-              '%.4f(%.4f)mm³%s'
+              '%.4f(%.4f)mm³%s  %.2fmm%s'
               % (i, r['tilt'], r['az'], npil, nst, len(hs) - npil - nst, tips,
-                 raft_area(raft_pts(hs)), rv, rmark, sl[0], sl[-1], got_w, want, flag))
+                 raft_area(raft_pts(hs)), rv, rmark, sl[0], sl[-1], got_w, want, flag, dlow, lmark))
     # 支柱どうしの隙間（枝と親の繋ぎ目は除く）
     print()
     for i in range(6):
