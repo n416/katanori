@@ -12,6 +12,10 @@
   POST /api/arrange  {paths}   プレート 143x89 に並べる。当たりと注意を返す
   POST /api/export   {id,placements,out}  **結合した 1 つの STL** を書く
   POST /api/event    {ev,by}   ログに 1 件足す（by="ai" は term しか書けない）
+  GET  /api/log                ログの全行（行番号つき）とバックアップの一覧
+  POST /api/log/edit    {row,ev,by}   その行を書き換える（人だけ。前に必ずバックアップ）
+  POST /api/log/delete  {row,by}      その行を消す（人だけ。前に必ずバックアップ）
+  POST /api/log/restore {name,by}     バックアップへ戻す（人だけ。戻す前の分も写す）
 
 ⚠ by の判定は**規律のための柵**であって錠前ではない。自分で "human" と名乗れば通る。
   通してはいけないのは、通せないからではなく、通すと記録が死ぬからである。
@@ -292,6 +296,8 @@ class H(BaseHTTPRequestHandler):
                     return self._send(200, f.read(), "text/html; charset=utf-8")
             if self.path == "/api/state":
                 return self._send(200, S.state())
+            if self.path == "/api/log":
+                return self._send(200, {"rows": S.rows(), "backups": S.backups()})
             if self.path == "/api/stls":
                 out = []
                 for p in sorted(glob.glob(os.path.join(_ROOT, "hardware", "stl", "**", "*.stl"),
@@ -328,6 +334,17 @@ class H(BaseHTTPRequestHandler):
                 return self._send(200, r)
             if self.path == "/api/export":
                 return self._send(200, export(req["placements"], req["out"]))
+            if self.path in ("/api/log/edit", "/api/log/delete", "/api/log/restore"):
+                try:
+                    if self.path.endswith("edit"):
+                        r = S.edit(int(req["row"]), req["ev"], req.get("by", "human"))
+                    elif self.path.endswith("delete"):
+                        r = S.delete(int(req["row"]), req.get("by", "human"))
+                    else:
+                        r = S.restore(req["name"], req.get("by", "human"))
+                    return self._send(200, dict(ok=True, **r))
+                except S.Refused as e:
+                    return self._send(403, {"error": str(e)})
             if self.path == "/api/event":
                 try:
                     ev = S.append(req["ev"], req.get("by", "human"))

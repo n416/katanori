@@ -35,13 +35,37 @@
   th{color:var(--dim);font-weight:600}
   input,select{background:#12151a;color:var(--fg);border:1px solid var(--line);border-radius:4px;padding:4px 6px;font:inherit}
   .hint{color:var(--dim);font-size:11px}
+  /* ログ ── ヘッダの「ログ」で開く全画面の一覧。行ごとに編集・削除、下にバックアップの「戻す」 */
+  #log{position:fixed;inset:46px 0 0 0;background:var(--bg);overflow:auto;padding:12px 16px;display:none;z-index:5}
+  #log.on{display:block}
+  #log table{font-size:12px} #log td{white-space:pre-wrap;word-break:break-all}
+  #log td.n{color:var(--dim);white-space:nowrap} #log tr.mine td{background:#1b2230}
+  #log textarea{width:100%;min-height:120px;background:#12151a;color:var(--fg);border:1px solid var(--line);border-radius:4px;font:12px/1.5 Consolas,monospace;padding:6px}
+  .k{display:inline-block;padding:0 5px;border-radius:3px;font-size:11px;background:#222831;color:var(--dim);white-space:nowrap}
+  .k.result{color:var(--ok)} .k.drop{color:var(--bad)} .k.term{color:var(--hi)}
 </style>
 </head>
 <body>
 <header>
   <h1>刷るぞー</h1>
   <div class="st" id="state">読み込み中…</div>
+  <button id="btnLog" style="margin-left:auto" onclick="toggleLog()">ログ</button>
 </header>
+
+<!-- ログの一覧と編集。🔒 2026-09-02 ユーザー「間違えた時に戻す方法ないぞこのあぷり」。
+     書き換える前に必ずバックアップ（hardware/print_log_bak/）を取り、「戻す」はそれを戻す。 -->
+<div id="log">
+  <div class="bar">
+    <button class="p" onclick="toggleLog()">閉じる</button>
+    <button onclick="loadLog()">読み直す</button>
+    <span class="hint">行を直しても STL は動きません。編集は JSON をそのまま書き換えます。</span>
+  </div>
+  <div id="logout"></div>
+  <div id="logrows"></div>
+  <h2 style="margin-top:18px">戻す ── バックアップ（新しい順）</h2>
+  <div class="hint">編集・削除のたびに、その直前のログが丸ごと残ります。「戻す」を押すと、いまのログも写してから戻します。</div>
+  <div id="logbak"></div>
+</div>
 
 <main>
   <section>
@@ -410,6 +434,82 @@ async function result(id, ok){
   if(detail === null) return;
   await api('/api/event',{by:'human',ev:{t:'result',term:id,ok,detail}});
   await loadState();
+}
+
+// ---- ログの一覧・編集・戻す ----
+let LOGROWS = [];
+function toggleLog(){
+  const on = !$('#log').classList.contains('on');
+  $('#log').classList.toggle('on', on);
+  if(on) loadLog();
+}
+function logMsg(t, cls){ const d=document.createElement('div'); d.className='msg '+(cls||''); d.textContent=t;
+  const box=$('#logout'); box.insertBefore(d, box.firstChild); while(box.children.length>3) box.removeChild(box.lastChild); }
+const esc = t => String(t).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+// 1 行の要約。⚠ 数字も言葉もログの中身をそのまま出す（ここで解釈しない）
+function evSummary(e){
+  const k = e.t;
+  if(k==='term')   return `${e.id}　${(e.parts||[]).map(p=>p.name.replace('.stl','')).join(' ')}`+
+                          (e.move && (e.move[0]||e.move[1]) ? `　移動 ${e.move[0]}, ${e.move[1]}` : '')+
+                          (e.note ? `\n${e.note}` : '');
+  if(k==='result') return `${e.term}　${e.ok ? '出た' : '失敗'}　${e.detail||''}`+(e.archived ? `\n→ ${e.archived}` : '');
+  if(k==='drop')   return `${e.term}　取りやめ　${e.reason||''}`;
+  if(k==='placed') return `${e.term}　置いた`;
+  if(k==='plan')   return `${e.id}　${planName(e)}`;
+  if(k==='did')    return `${e.plan}　${e.cancelled ? '取り消し' : 'やった'}`;
+  if(k==='order')  return (e.ids||[]).join(' → ');
+  return evName(e);
+}
+async function loadLog(){
+  const r = await api('/api/log');
+  if(r.error) return logMsg(r.error,'b');
+  LOGROWS = r.rows;
+  const rows = r.rows.slice().reverse().map(x => {
+    const e = x.ev;
+    return `<tr id="lr-${x.row}"><td class="n">${x.row}</td>`+
+      `<td class="n">${esc((e.at||'').replace('T',' '))}</td>`+
+      `<td><span class="k ${esc(e.t)}">${esc(e.t)}</span></td>`+
+      `<td class="n">${esc(e.by||'')}</td>`+
+      `<td>${esc(evSummary(e))}</td>`+
+      `<td class="n"><button onclick="editRow(${x.row})">編集</button> `+
+      `<button onclick="deleteRow(${x.row})">削除</button></td></tr>`+
+      `<tr id="le-${x.row}" style="display:none"><td colspan="6"><textarea id="lt-${x.row}"></textarea>`+
+      `<div class="bar"><button class="p" onclick="saveRow(${x.row})">この内容で書き換える</button>`+
+      `<button onclick="closeRow(${x.row})">やめる</button></div></td></tr>`;
+  }).join('');
+  $('#logrows').innerHTML = '<table><tr><th>行</th><th>いつ</th><th>種類</th><th>誰</th><th>中身</th><th></th></tr>'+rows+'</table>';
+  $('#logbak').innerHTML = r.backups.length
+    ? '<table>'+r.backups.map(b => `<tr><td>${esc(b)}</td><td class="n"><button onclick="restoreLog('${esc(b)}')">戻す</button></td></tr>`).join('')+'</table>'
+    : '<div class="hint">まだありません（編集・削除をすると増えます）。</div>';
+}
+function editRow(row){
+  const x = LOGROWS.find(x => x.row === row); if(!x) return;
+  $('#lt-'+row).value = JSON.stringify(x.ev, null, 1);
+  $('#le-'+row).style.display = '';
+}
+function closeRow(row){ $('#le-'+row).style.display = 'none'; }
+async function saveRow(row){
+  let ev;
+  try { ev = JSON.parse($('#lt-'+row).value); } catch(e){ return alert('JSON として読めません: '+e.message); }
+  const r = await api('/api/log/edit', {row, ev, by:'human'});
+  if(r.error) return alert(r.error);
+  logMsg(`${row} 行目を書き換えました（直前のログは ${r.backup} に残っています）`, 'o');
+  await loadLog(); await loadState();
+}
+async function deleteRow(row){
+  const x = LOGROWS.find(x => x.row === row); if(!x) return;
+  if(!confirm(`${row} 行目を消します:\n${evSummary(x.ev)}\n\n（直前のログはバックアップに残ります）`)) return;
+  const r = await api('/api/log/delete', {row, by:'human'});
+  if(r.error) return alert(r.error);
+  logMsg(`${row} 行目を消しました（直前のログは ${r.backup} に残っています）`, 'o');
+  await loadLog(); await loadState();
+}
+async function restoreLog(name){
+  if(!confirm(`ログを ${name} の時点へ戻します。いまのログも写してから戻します。`)) return;
+  const r = await api('/api/log/restore', {name, by:'human'});
+  if(r.error) return alert(r.error);
+  logMsg(`${name} へ戻しました（${r.rows} 行。戻す前のログは ${r.backup_before} に残っています）`, 'o');
+  await loadLog(); await loadState();
 }
 
 loadState(); loadStls();

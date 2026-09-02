@@ -21,6 +21,14 @@
 
 🔴 **AI が書いてよい種類は `term` だけ。**それ以外は物理の観測なので、人しか書けない。
    ここに推測が混ざると、勘を反証するために貯めている記録が最初から汚れる。
+
+🔒 2026-09-02 ユーザー「間違えた時に戻す方法ないぞこのあぷり」「ログビューアとログ編集を作ってほしい」。
+   ⇒ 追記だけ、の原則は**普段の書き方**として残し、**人が押し間違えたときの直し**を別に持つ:
+     rows()    … 全行を行番号つきで返す（ビューア）
+     edit()    … 1 行を書き換える／ delete() … 1 行を消す／ restore() … バックアップへ戻す
+   書き換える前に必ず hardware/print_log_bak/<時刻>.jsonl へ丸ごと写す。**戻す＝その写しを戻す。**
+   ⚠ 直せるのは人だけ（by="human"）。AI は term を積むだけで、直すときは人に頼む。
+   ⚠ 行を直しても STL は動かさない（result の archived・drop の削除は append のときだけ）。
 """
 import json, os, datetime
 
@@ -144,6 +152,88 @@ def append(ev, by):
     if kind == "drop":
         ev["removed"] = remove_term_stl(ev.get("term"))
     return ev
+
+
+BAK_DIR = os.path.join(os.path.dirname(_HERE), "hardware", "print_log_bak")
+
+
+def backups():
+    """バックアップの一覧（新しい順）"""
+    if not os.path.isdir(BAK_DIR):
+        return []
+    return sorted((f for f in os.listdir(BAK_DIR) if f.endswith(".jsonl")), reverse=True)
+
+
+def backup():
+    """いまのログを丸ごと写す。写した名前を返す（同じ秒に 2 回なら枝番）"""
+    os.makedirs(BAK_DIR, exist_ok=True)
+    if not os.path.exists(LOG):
+        return None
+    stamp = datetime.datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
+    name = stamp + ".jsonl"; n = 1
+    while os.path.exists(os.path.join(BAK_DIR, name)):
+        n += 1; name = "%s-%d.jsonl" % (stamp, n)
+    with open(LOG, "rb") as f, open(os.path.join(BAK_DIR, name), "wb") as g:
+        g.write(f.read())
+    return name
+
+
+def _write_all(evs):
+    with open(LOG, "w", encoding="utf-8") as f:
+        for e in evs:
+            f.write(json.dumps(e, ensure_ascii=False) + "\n")
+
+
+def rows():
+    """全行を行番号つきで（ビューア用）"""
+    return [{"row": i, "ev": e} for i, e in enumerate(read_all())]
+
+
+def _human_only(by):
+    if by != "human":
+        raise Refused("ログを直せるのは人だけ。AI は term を積むだけで、直すときは人に頼む")
+
+
+def edit(row, ev, by):
+    """row 行目を ev に書き換える。前に必ずバックアップ。"""
+    _human_only(by)
+    if not isinstance(ev, dict) or ev.get("t") not in ALL_KINDS:
+        raise Refused("知らない種類: %r" % (ev.get("t") if isinstance(ev, dict) else ev))
+    evs = read_all()
+    if not (0 <= row < len(evs)):
+        raise Refused("その行は無い: %r" % row)
+    old = evs[row]
+    ev = dict(ev)
+    ev.setdefault("at", old.get("at")); ev.setdefault("by", old.get("by", "human"))
+    name = backup()
+    evs[row] = ev
+    _write_all(evs)
+    return {"backup": name, "row": row, "old": old, "ev": ev}
+
+
+def delete(row, by):
+    """row 行目を消す。前に必ずバックアップ。"""
+    _human_only(by)
+    evs = read_all()
+    if not (0 <= row < len(evs)):
+        raise Refused("その行は無い: %r" % row)
+    name = backup()
+    old = evs.pop(row)
+    _write_all(evs)
+    return {"backup": name, "row": row, "old": old}
+
+
+def restore(name, by):
+    """バックアップへ戻す。戻す前のログも写しておく（戻したのを戻せるように）"""
+    _human_only(by)
+    if name not in backups():
+        raise Refused("そのバックアップは無い: %r" % name)
+    keep = backup()
+    with open(os.path.join(BAK_DIR, name), "rb") as f:
+        data = f.read()
+    with open(LOG, "wb") as g:
+        g.write(data)
+    return {"restored": name, "backup_before": keep, "rows": len(read_all())}
 
 
 def read_all():
