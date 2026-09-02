@@ -61,8 +61,12 @@ module hexz(af, h) rotate([0, 0, 30]) cylinder(d = af / cos(30), h = h, $fn = 6)
 module cell(w, n) difference() {
     cube([BLK, CELL_Y, T]);
     translate([BLK / 2, BLK / 2, T - A_DEPTH]) hexz(w, A_DEPTH + 1);        // A: 上が開く袋穴
-    hull() for (dx = [0, B_SWEEP])                                          // B: 上は蓋・+X が開く
-        translate([BLK / 2 + dx, BLK + BLK / 2, 1.2]) hexz(w, B_H);
+    // B: 上は蓋。口は **+Y（板の外の縁）** へ抜く
+    // 🔴 2026-09-02 実機。最初は +X へ抜いていたが、**連結棒を同じ +X の面から出していた**ので
+    //   口が棒で塞がり、横からは 1 個も入らなかった（ユーザー「つなげている箇所に６角の入口を
+    //   置くとか正気ですか」）。⇒ 前に何も無い外の縁へ向ける。
+    hull() for (dy = [0, B_SWEEP])
+        translate([BLK / 2, BLK + BLK / 2 + dy, 1.2]) hexz(w, B_H);
     for (k = [0 : n - 1])                                                   // 印（真ん中の帯）
         translate([BLK / 2 - (n - 1) * DOT_P / 2 + k * DOT_P, BLK, T - DOT_DEEP])
             cylinder(d = DOT_D, h = DOT_DEEP + 0.01, $fn = 24);
