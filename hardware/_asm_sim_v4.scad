@@ -42,7 +42,7 @@ module s_wpwr()   { w_pwr3(); w_bat_ext(); w_batout(); }
 //   **その板に挿さる自分の線**で 9.1mm³ 止まった（口の真上に線の端が居るため）
 module s_top()    { rounded4() top_v4(); top_group(); }
 module s_front()  rounded4() front_v4();
-module s_hatch()  { rounded4() hatch_v4(); tgl_v4(TAIL_ANG); tail_at(); door4(0, true); }
+module s_hatch()  { rounded4() hatch_v4(); battery_floor4(); tgl_v4(TAIL_ANG); tail_at(); door4(0, true); }   // 🆕 床の板はハッチへ接着してから付ける
 
 // ---- 手順の段（累積）------------------------------------------------------
 //  1 床にハブ / 2 ReSpeaker / 3 ハブの口 10 本＋低い車線 / 4 受けを落とす＋左右の壁＋Type-C（壁と一緒に降ろす）/ 5 ブリッジ
