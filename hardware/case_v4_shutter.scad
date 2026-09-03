@@ -213,26 +213,65 @@ SW4_BACK_CL = 0.3;   // 削るときに部品との間に残す隙間
 //   6 方向へ SW4_BACK_CL ずらした複製との和 ＝ 軸方向にその隙間だけ太らせた形
 module sw4_backing_carve(cl) for (d = [[0, 0, 0], [cl, 0, 0], [-cl, 0, 0], [0, cl, 0], [0, -cl, 0], [0, 0, cl], [0, 0, -cl]])
     translate(d) tcb_v4();
-module sw4_backing() {
-    // 🔴 2026-09-02 ここは角の立った直方体だった。彫り込み（sw4_band_cut の rrect）は角丸 SHUT_R なので、
-    //   四隅の**彫っていない所にまで肉が出ていた**。SHUT_EXT を 6.30 → 7.30 に広げたとき、
-    //   その左下の角が Type-C の基板へ 0.721mm³ 食い込んだ（chk_hatch）。
-    // 🔴 2026-09-04 その直しは**輪郭の全体を溝と同寸まで縮める**やり方だったので、床を壁につないで
-    //   いた四隅まで一緒に消え、床がロックの座だけでぶら下がる片持ちになっていた（ユーザーが CAD で発見）。
-    //   ⇒ つばを全周に戻し、当たっている所だけを部品で引く。
-    difference() {
-        union() {
-            sw4_rrect(IN_Y - SHUT_BACK, SHUT_BACK, sw4_bx0() - SW4_BACK_FL, sw4_bx1() + SW4_BACK_FL,
-                      sw4_bz0() - SW4_BACK_FL, sw4_bz1() + SW4_BACK_FL, SHUT_R + SW4_BACK_FL);
-            sw4_ext(IN_Y - SHUT_BACK, SHUT_BACK) offset(r = SHUT_CL + 1.0) sw4_lk_out_2d();   // ロックの座の裏（帯の四角から出る分）
-            sw4_lock_boss();
-            for (x = sw4_mag_xs()) translate([x, sw4_yg() - SHUT_MAG_H - 0.4, sw4_mag_z()])   // 磁石の座の増し
-                rotate([-90, 0, 0]) cylinder(d = SHUT_MAG_D + 2.0, h = SHUT_MAG_H + 0.4 + 0.01, $fn = 48);
-            // ⚠ 穴の底 0.4（0.8 だと座の前面が INA の I2C の束に入る。磁石は接着が持つ前提）
-        }
-        sw4_backing_carve(SW4_BACK_CL);   // 当たった所だけ削る（いまは Type-C 基板の角）
-    }
+// 🔒 2026-09-04 **増し肉は Y 71.0（＝溝の床）で 2 つの部品に割る。**ユーザー「部品が分かれても良い」。
+//   理由は印刷。割る前は、溝をまたぐ床の板が刷る向きの Z 3.00 で **327.8mm² 一度に**現れていて、
+//   そこへ柱が 48 本立ち、折ると滑る面に跡が残っていた（回 2026-09-03-2037・ユーザー「ガビガビ」）。
+//   割ると一度に出る面積は **ハッチ 4.6mm² / 板 15.1mm²** まで落ち、どちらも島は 0（＝柱が要らない）。
+//     ・Y 71 より外（1.0mm）＝ ハッチの縁（`sw4_hatch_rim`）。壁と一体で刷る
+//     ・Y 71 より内（1.2mm ＋ 磁石の座 ＋ ロックのナットのボス）＝ 床の板（`sw4_floor_plate`）。別に寝かせて刷る
+//   合わせ面は Y 71.0 の平面で、接着（磁石と同じ）＋ ロックの M2 を共用して締める。
+SW4_REG_H  = 1.0;    // 位置決めの爪: 板の面（Y 71）より内側へ出る高さ。板は同じ所を貫通で欠く
+SW4_REG_W  = 3.0;    // 同・幅（Z）
+SW4_REG_L  = 1.0;    // 同・長さ（X）。つばの外周から内へ
+SW4_REG_CL = 0.25;   // 同・隙間
+// 🔴 位置決めは**ハッチ側**に立てる。板側に立てると、板を溝の床の面を下にして寝かせたとき
+//   その爪だけが最下層になり、板の本体 544mm² が Z 1.0 で一度に出る（振り出しに戻る）。
+//   ハッチ側なら爪は縁（Y 71〜72）の上に生えるだけで、新しい面積が出ない。
+// ⚠ 最初は全周を囲む輪にしたが、縁の輪郭が 1.25mm 外へ広がって**信号線に 31.8mm³ 当たった**。
+//   ⇒ 線の来ない左右の端だけ、爪 2 個にした。
+// つばの 2D 輪郭。板・ハッチの縁・爪は全部これから作る（🔒 形は 1 か所）
+module sw4_rrect2d(x0, x1, z0, z1, r) hull() for (x = [x0 + r, x1 - r], z = [z0 + r, z1 - r]) translate([x, z]) circle(r = r, $fn = 48);
+module sw4_flange_2d() union() {
+    sw4_rrect2d(sw4_bx0() - SW4_BACK_FL, sw4_bx1() + SW4_BACK_FL,
+                sw4_bz0() - SW4_BACK_FL, sw4_bz1() + SW4_BACK_FL, SHUT_R + SW4_BACK_FL);
+    offset(r = SHUT_CL + 1.0) sw4_lk_out_2d();   // ロックの座の裏（帯の四角から出る分）
 }
+// 爪の 2D（g = 隙間。爪は 0、板の欠きは SW4_REG_CL）。**縁が確実に残っている所**に 2 個置く:
+//   ① 左の端の縦の帯（X 2.15〜3.15・帯の外なので全高ある）  ② 下の帯の中ほど（Z 19.25〜20.25）
+//   ⚠ 右の端に置くとロックの鼻の座（半径 5.55 の丸）に縁を食われていて、爪が宙に浮く（実測: 島 1 個・3.00mm²）。
+//   ⚠ 上の帯には置かない。電源の線が Y 70.7・Z 32.2 を走っていて、内側へ出る爪が当たる。
+SW4_REG_BX = 30.0;   // ②の X の中心
+module sw4_reg_2d(g) {
+    translate([sw4_bx0() - SW4_BACK_FL - g, sw4_mag_z() - SW4_REG_W / 2 - g])
+        square([SW4_REG_L + 2 * g, SW4_REG_W + 2 * g]);                                   // ① 左の端
+    translate([SW4_REG_BX - SW4_REG_W / 2 - g, sw4_bz0() - SW4_BACK_FL - g])
+        square([SW4_REG_W + 2 * g, SW4_REG_L + 2 * g]);                                   // ② 下の帯
+}
+// 床の板（別部品）: Y 69.8〜71.0 の 1.2mm ＋ 磁石の座 ＋ ロックのナットのボス
+// 🔴 2026-09-02 つばの輪郭は角丸（彫り込みと同じ）。角の立った直方体だと、彫っていない四隅にまで
+//   肉が出て Type-C の基板へ 0.721mm³ 食い込んだ。
+// 🔴 2026-09-04 その直しは輪郭の全体を溝と同寸まで縮めるやり方で、床を壁につないでいた縁まで消え、
+//   床がロックの座だけでぶら下がっていた。⇒ つばを全周に戻し、当たっている所だけ部品で引く。
+module sw4_floor_plate() difference() {
+    union() {
+        sw4_ext(IN_Y - SHUT_BACK, SHUT_BACK - (IN_Y - sw4_yg())) sw4_flange_2d();
+        sw4_lock_boss();
+        for (x = sw4_mag_xs()) translate([x, sw4_yg() - SHUT_MAG_H - 0.4, sw4_mag_z()])   // 磁石の座の増し
+            rotate([-90, 0, 0]) cylinder(d = SHUT_MAG_D + 2.0, h = SHUT_MAG_H + 0.4 + 0.01, $fn = 48);
+        // ⚠ 穴の底 0.4（0.8 だと座の前面が INA の I2C の束に入る。磁石は接着が持つ前提）
+    }
+    sw4_ext(IN_Y - SHUT_BACK - 1, SHUT_BACK + 2) sw4_reg_2d(SW4_REG_CL);   // 爪が入る欠き（貫通）
+    sw4_backing_carve(SW4_BACK_CL);   // 当たった所だけ削る（いまは Type-C 基板の角）
+}
+// ハッチ側の縁（Y 71〜72）＋ 位置決めの爪 2 個（Y 70.0〜71）
+module sw4_hatch_rim() difference() {
+    union() {
+        sw4_ext(sw4_yg(), IN_Y - sw4_yg()) sw4_flange_2d();
+        sw4_ext(sw4_yg() - SW4_REG_H, SW4_REG_H) sw4_reg_2d(0);
+    }
+    sw4_backing_carve(SW4_BACK_CL);
+}
+
 
 // ---- 絵にだけ出す実体 ----
 module sw4_lock_screw() color("#e8e8e8") translate([sw4_lock_x(), sw4_yl(), sw4_lock_z()]) rotate([90, 0, 0]) {

@@ -21,7 +21,7 @@ include <case_v4_shutter.scad>   // 電池の入れ替え口（後ろ抜き・v3
 W = "none";      // _v4_core の内部スイッチ（芯だけの検査 deskseat/batchk 等はあちらの W で。皮はこの part で）
 // ---- part の一覧（v3 と同じ流儀・2026-08-25 ユーザー「V3 と同じ part を」で V/P4 を廃止）----
 //   絵     : look（組んだ全体）/ inside（OPEN の板を外して中身）/ explode（分解・組む向き）
-//   板     : p_floor p_lwall p_rwall p_top p_front p_hatch p_shutter p_lock p_tail（印刷部品・角丸込み）
+//   板     : p_floor p_lwall p_rwall p_top p_front p_hatch p_shutter p_lock p_shutfloor p_tail（印刷部品・角丸込み）
 //   受け   : p_seat（充電基板の受け。🔒 2026-08-27 に床から出て独立した印刷部品になった・D-1）
 //            bridge（ブリッジ＋電池・電流計・PowerBoost・左右の壁・結束バンド。🔒 単体では見えないのでこの一式で出す）
 //   刷る向き: print_floor 〜 print_hatch print_shutter print_lock print_tail（外面を下に・底 Z0）/ print_seat（壁に当たる面を伏せる）
@@ -540,22 +540,28 @@ module hatch_chg_cut4() {
     // 基板の縁（X 0〜1.6・板 1.6 厚）が +1.2 で内面に 0.4 入る分の逃げ溝（0.7 深・±0.5。内面側なので見えない）
     translate([LW_X - 0.5, IN_Y - 0.01, -0.5]) cube([2.6, 0.71, 21.5]);
 }
+// ハッチから彫るもの一式。🔒 ハッチと床の板（別部品）の**両方**がこれを引く（形を 1 か所に持つ）
+module hatch_cuts4() {
+    translate([TGL_AT[0], IN_Y - 1, TGL_AT[1]]) rotate([-90, 0, 0]) mts102_hole(HATCH_T + 2);
+    hatch_chg_cut4();
+    translate([TGL_AT[0] - ANT_SLOT_W / 2, IN_Y - 1, TGL_AT[1] - (ANT_OFF + ANT_SLOT_W / 2)]) cube([ANT_SLOT_W, HATCH_T + 2, ANT_OFF + ANT_SLOT_W / 2]);   // アンテナ線のスリット（トグルの下・v3）
+    sw4_band_cut();        // 電池の蓋の彫り込み帯
+    sw4_lock_cut();        // ロックのネジ穴とナットの座
+    sw4_mag_window();      // 🔒 2026-08-29 磁石の芯の窓（枠 1.0 を残す・蓋で隠れる）
+    battery_port_cut4();   // 電池の口（蓋が塞ぐのでベベル無し・v3 と同じ）
+}
 module hatch_v4() {
     difference() {
         union() {
             color("#c9d0d8") translate([LW_X - WALL, IN_Y, -FLOOR_T]) cube([IN_X + 2 * WALL - LW_X, HATCH_T, IN_Z + FLOOR_T]);
             color("#c9d0d8") hatch_claws();
-            color("#c9d0d8") sw4_backing();   // 電池の蓋の彫り込みの裏の増し肉＋ロックのボス＋磁石の座（case_v4_shutter）
+            color("#c9d0d8") sw4_hatch_rim();   // 増し肉のうち Y 71〜72 だけ（残りは床の板 battery_floor4 へ・case_v4_shutter）
         }
-        translate([TGL_AT[0], IN_Y - 1, TGL_AT[1]]) rotate([-90, 0, 0]) mts102_hole(HATCH_T + 2);
-        hatch_chg_cut4();
-        translate([TGL_AT[0] - ANT_SLOT_W / 2, IN_Y - 1, TGL_AT[1] - (ANT_OFF + ANT_SLOT_W / 2)]) cube([ANT_SLOT_W, HATCH_T + 2, ANT_OFF + ANT_SLOT_W / 2]);   // アンテナ線のスリット（トグルの下・v3）
-        sw4_band_cut();        // 電池の蓋の彫り込み帯
-        sw4_lock_cut();        // ロックのネジ穴とナットの座
-        sw4_mag_window();      // 🔒 2026-08-29 磁石の芯の窓（枠 1.0 を残す・蓋で隠れる）
-        battery_port_cut4();   // 電池の口（蓋が塞ぐのでベベル無し・v3 と同じ）
+        hatch_cuts4();
     }
 }
+// 電池の蓋の床の板（🆕 2026-09-04 ハッチから切り離した別部品）。溝の床・磁石の座・ロックのナットのボス
+module battery_floor4() difference() { color("#c9d0d8") sw4_floor_plate(); hatch_cuts4(); }
 // 蓋の一式（絵と検査に出す実体。open=0 で閉）
 module door4(open = 0, fast = false) {
     color("#c8ced6") battery_shutter4(open);
@@ -608,7 +614,7 @@ module skin_all() for (k = SKINS) skin1(k);
 module skin_except(k) for (n = SKINS) if (n != k) skin1(n);
 // 🆕 2026-08-27（D-1）受けは印刷部品だが皮（SKINS）でも芯（core）でもないので、ここで箱の中身に混ぜる。
 //    こうしないと chk_floor / chk_lwall / chk_all が受けを一度も見ない
-module innards4(tgl = 0) { core(); color("#f6ad55") bat_v4(); pb_bat(); pbl_hous(); pbu_hous(); ina_bat(); tgl_v4(tgl); if (tgl != 0) tail_at(); tcb_v4(); color("#8d99a6") tc_seat4(); brg_v4(); brg_front(); straps_v4(); wires_pwr(); wires_sig(); door4(0, tgl != 0); }   // tgl: レバーの角度。絵は TAIL_ANG ＋ 尻尾＋蓋のビスの絵付き。door4 = 電池の蓋一式（閉）
+module innards4(tgl = 0) { core(); color("#f6ad55") bat_v4(); pb_bat(); pbl_hous(); pbu_hous(); ina_bat(); tgl_v4(tgl); if (tgl != 0) tail_at(); tcb_v4(); color("#8d99a6") tc_seat4(); battery_floor4(); brg_v4(); brg_front(); straps_v4(); wires_pwr(); wires_sig(); door4(0, tgl != 0); }   // tgl: レバーの角度。絵は TAIL_ANG ＋ 尻尾＋蓋のビスの絵付き。door4 = 電池の蓋一式（閉）
 
 if (part == "look") { rounded4() skin_all(); innards4(TAIL_ANG); }
 OPEN = ["floor", "lwall", "rwall", "top"];   // 🔒 2026-08-25 ユーザー「inside は本来 壁なし・床なし・天井なし（v3 から壊れてた）」。残すのはフロントとハッチ
@@ -617,7 +623,8 @@ if (part == "inside") { rounded4() for (k = SKINS) if (shown(k)) skin1(k); innar
 
 // 印刷部品（p_*）と刷る向き（print_* = 外面を下・底 Z0）
 module p_one(k) {
-    if (k == "shutter") battery_shutter4(0);
+    if (k == "shutfloor") battery_floor4();
+    else if (k == "shutter") battery_shutter4(0);
     else if (k == "lock") battery_lock4();
     else if (k == "tail") translate([0, 0, -0.2]) tail_cap();
     else rounded4() skin1(k);
@@ -670,6 +677,8 @@ if (part == "print_seat") { translate([TC4_ZT, 0, -LW_X]) rotate([0, -90, 0]) tc
                             if (!PROPS_OFF) { props_seat(); raft_seat(); } }
 if (part == "print_shutter") translate([0, 0, SW4_YOUT]) rotate([-90, 0, 0]) battery_shutter4(0);
 if (part == "print_lock")    translate([0, 0, SW4_YOUT]) rotate([-90, 0, 0]) battery_lock4();
+// 🔒 床の板は**溝の床の面を下**にして寝かせる（座とボスが上を向く）。この向きだと一度に出る面積は 15.1mm²・島 0
+if (part == "print_shutfloor") translate([0, 0, sw4_yg()]) rotate([-90, 0, 0]) battery_floor4();
 // 🔴 2026-08-31 底が z=0 に乗っていなかった（0.012 浮き）。丸い先端に穴が開いているので
 //   いちばん下は穴の縁の輪で、その高さ 0.2 を手で決めた -0.2 で落としていたが、
 //   丸みの多角形近似のぶんが残っていた。⇒ **0.3 落として z=0 より下を切り落とす。**
