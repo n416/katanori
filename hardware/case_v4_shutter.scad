@@ -33,9 +33,18 @@ function sw4_yl() = SW4_YOUT - SHUT_LIP;      // リップの裏面
 function sw4_yg() = sw4_yb() - SHUT_CL;       // 彫り込み（溝）の床
 function sw4_ye() = sw4_yl() - SHUT_CL;       // 耳の外面側
 
-// ---- 蓋（X の両端に磁石の部屋 SHUT_EXT）----
-function sw4_lx0() = SW4_X0 - SHUT_MARG - SHUT_EXT;
-function sw4_lx1() = SW4_X1 + SHUT_MARG + SHUT_EXT;
+// ---- 蓋（X の両端に磁石の部屋）----
+// 🔒 2026-09-04 **右だけ 1.8mm 広げる**（ユーザー指示）。ロックの舌（半月）が右の磁石の真上に乗っていて、
+//   蓋に彫る舌の逃げ（深さ 1.4）が磁石の穴（外面に残る肉 0.75）へ **2.96mm³ 抜けていた**。
+//   磁石は口までの肉が 0.6mm しかなく内へ動かせる量は 0.18mm、口は電池 35×6 ＋ 片側 0.5 なので詰められない。
+//   ⇒ 蓋の右端だけを外へ出し、**磁石は今の位置（口から 0.6）に置いたまま**にして半月の下から外す。
+//   左右で違ってよい（ユーザー「左右同じ位置になければ機能しないという仕組みでもない」）。
+//   ⚠ 左は口の縁まで 3.5mm しか無いので触らない。右はハッチの板（86.66 幅）にまだ余裕がある。
+//   ⚠ 帯を広げる代償だった「屋根が増えて柱が立つ」は、床の板を切り離した時点で消えている。
+SW4_EXT_L = SHUT_EXT;         // 左（v3 と同じ 6.8）
+SW4_EXT_R = SHUT_EXT + 1.8;   // 右（半月の始まりが「磁石の外端 ＋ 肉 0.5」まで下がる量）
+function sw4_lx0() = SW4_X0 - SHUT_MARG - SW4_EXT_L;
+function sw4_lx1() = SW4_X1 + SHUT_MARG + SW4_EXT_R;
 function sw4_lz0() = SW4_Z0 - SHUT_MARG;
 function sw4_lz1() = SW4_Z1 + SHUT_MARG;
 function sw4_lw()  = sw4_lx1() - sw4_lx0();
@@ -58,13 +67,22 @@ function sw4_lend() = sw4_ex0() + SHUT_EAR_H + 0.5;   // 🔒 リップの右端
 //   ⇒ 芯は**蓋の外周から数えて置く**（山分けにしない）。効くのは外周側だけで、内側は無限に肉。
 //     残りが口までの肉（＝ハッチ側の座と穴の間の壁）になる。SHUT_EXT 6.80 で 1.00 / 0.50。
 SW4_MAG_WALL = 1.00;   // 🔒 蓋の外周 ↔ 磁石の穴。ここが 0.10 で焼けなかった（実機 1525）
+SW4_MAG_IN   = 0.60;   // 🔒 磁石の穴 ↔ 電池の口の肉。**右の磁石はここを基準に置く**（蓋の端が動いても口から離れない）
 function sw4_mag_z()  = (sw4_lz0() + sw4_lz1()) / 2;
-function sw4_mag_room() = SHUT_MARG + SHUT_EXT;                       // 口の外に残っている帯の幅
-function sw4_mag_inner() = sw4_mag_room() - SW4_MAG_WALL - SHUT_MAG_D;   // 口までの肉（ハッチ側の壁）
+// 左は蓋の端から、右は電池の口から数える（右は端が 1.8 外へ出たので、端から数えると磁石まで一緒に動いてしまう）
 function sw4_mag_xs() = [sw4_lx0() + SW4_MAG_WALL + SHUT_MAG_D / 2,
-                         sw4_lx1() - SW4_MAG_WALL - SHUT_MAG_D / 2];
-assert(sw4_mag_inner() >= 0.42,
-       "磁石の座と電池の口の間の壁が 0.42 を切る（PRINT.md の最薄肉）。SHUT_EXT を増やす");
+                         SW4_X1 + SW4_MAG_IN + SHUT_MAG_D / 2];
+function sw4_mag_inner_l() = SW4_X0 - (sw4_mag_xs()[0] + SHUT_MAG_D / 2);   // 左: 磁石 ↔ 口
+function sw4_mag_inner_r() = (sw4_mag_xs()[1] - SHUT_MAG_D / 2) - SW4_X1;   // 右: 同
+function sw4_mag_outer_r() = sw4_lx1() - (sw4_mag_xs()[1] + SHUT_MAG_D / 2); // 右: 磁石 ↔ 蓋の端
+assert(sw4_mag_inner_l() >= 0.42 && sw4_mag_inner_r() >= 0.42,
+       "磁石の座と電池の口の間の壁が 0.42 を切る（PRINT.md の最薄肉）");
+assert(sw4_mag_outer_r() >= SW4_MAG_WALL,
+       "右の磁石と蓋の端の肉が SW4_MAG_WALL を切る");
+// 🔒 舌（半月）が磁石の上に乗らないこと。乗ると舌の逃げ（深さ SHUT_LK_T + SHUT_LK_CL）が
+//   磁石の穴（外面に残る肉 SW4_YOUT - sw4_yb() - SHUT_MAG_H）へ抜ける。2026-09-04 に 2.96mm³ 抜けていた
+assert(sw4_lk_xr() - SHUT_LK_DIP >= sw4_mag_xs()[1] + SHUT_MAG_D / 2 + 0.4,
+       "ロックの舌が右の磁石に掛かる。SW4_EXT_R を増やすか SHUT_LK_DIP を減らす");
 
 // ---- ロック（v3 の門形を右へ回したもの）----
 //   v3: 帯の上端に横棒・脚は下・舌は蓋の頭に乗る  →  ここ: 帯の右端に縦棒・脚は左・舌は蓋の右端に乗る
@@ -200,8 +218,13 @@ module sw4_lock_cut() {
 // ボスの下端 ＝ 六角の下の頂点 − 床の厚み。🔒 旧「− 2.5」は直書きで、床が 0.017mm しか
 //   残っていなかった（2026-09-02。case_v3_shutter.scad の SHUT_LOCK_FLR の節）
 function sw4_lock_boss_z0() = sw4_lock_z() - SHUT_LOCK_NAF / cos(30) / 2 - SHUT_LOCK_FLR;
-module sw4_lock_boss() translate([sw4_lock_x() - 4.5, sw4_yg() - SHUT_LOCK_B, sw4_lock_boss_z0()])
-    cube([9.0, SHUT_LOCK_B, sw4_lk_boss_z1() - sw4_lock_boss_z0()]);
+// 🔒 2026-09-04 幅 9.0 → 7.0。蓋の右端を 1.8 外へ出したときボスも一緒に動き、右端 63.3 が
+//   電源の線の下り（X 64 の車線）に 7.86mm³ 食い込んだ。ナットは二面幅 4.1（対角 4.73）なので
+//   7.0 でも壁が片側 1.13 残る。⚠ これ以上は狭められない
+SW4_BOSS_W = 7.0;
+module sw4_lock_boss() translate([sw4_lock_x() - SW4_BOSS_W / 2, sw4_yg() - SHUT_LOCK_B, sw4_lock_boss_z0()])
+    cube([SW4_BOSS_W, SHUT_LOCK_B, sw4_lk_boss_z1() - sw4_lock_boss_z0()]);
+assert(SW4_BOSS_W / 2 - SHUT_LOCK_NAF / cos(30) / 2 >= 0.42, "ロックのナットのボスの壁が 0.42 を切る");
 // 🔒 2026-09-04 ユーザー「当たった部分だけ削ればいい」。つば（帯の外へ出る縁）の出と、削る隙間。
 //   溝は外面から 3.0mm（蓋 2.75 ＋ 隙間 0.25）掘るのにハッチの壁は 2.0mm しかないので、
 //   足りない 1.0mm は増し肉から取っている。残る床は 1.2mm で、その外周が帯とぴったり同寸だと
@@ -209,10 +232,14 @@ module sw4_lock_boss() translate([sw4_lock_x() - 4.5, sw4_yg() - SHUT_LOCK_B, sw
 //   つばはその 1.0mm の段を跨いで壁に載せるための縁。
 SW4_BACK_FL = 1.0;   // つばの出。ロックの座の裏（offset SHUT_CL + 1.0）と同じ
 SW4_BACK_CL = 0.3;   // 削るときに部品との間に残す隙間
-// 当たる相手を**部品そのもので**引く（🔒 数字を書かない・基板が動けば削れる所も追う）。
+// 当たる相手を**部品そのもので**引く（🔒 数字を書かない・相手が動けば削れる所も追う）。
 //   6 方向へ SW4_BACK_CL ずらした複製との和 ＝ 軸方向にその隙間だけ太らせた形
+//   相手は 2 つ:
+//     ・Type-C 基板（つばの左下の角）
+//     ・🔒 2026-09-04 電源の線 3 本。蓋の右端を 1.8 外へ出したとき、ロックの鼻のまわりのつばが
+//       X 64.35 まで伸び、5V の下り（X 64・Y 70.7）へ 7.86mm³ 食い込んだ。削ると線の通り道の溝になる
 module sw4_backing_carve(cl) for (d = [[0, 0, 0], [cl, 0, 0], [-cl, 0, 0], [0, cl, 0], [0, -cl, 0], [0, 0, cl], [0, 0, -cl]])
-    translate(d) tcb_v4();
+    translate(d) { tcb_v4(); w_pwr3(); }
 // 🔒 2026-09-04 **増し肉は Y 71.0（＝溝の床）で 2 つの部品に割る。**ユーザー「部品が分かれても良い」。
 //   理由は印刷。割る前は、溝をまたぐ床の板が刷る向きの Z 3.00 で **327.8mm² 一度に**現れていて、
 //   そこへ柱が 48 本立ち、折ると滑る面に跡が残っていた（回 2026-09-03-2037・ユーザー「ガビガビ」）。
