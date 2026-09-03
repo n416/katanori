@@ -1158,6 +1158,9 @@ EZ_TOP   = 88;                                // 手順 11・12（天板＋ス�
 EZ_TOPSUB = 114;                              // 手順 10（つまみ・会話ボタン。天板から上へ抜く）
 EX_STRAP = 0;  EY_BAT = 80;  EY_OLED = -30;   // ② と、地面に置けない 2 つ
 EY_FRONT = -44; EY_HATCH = 44; EY_SHUT = 66; EY_LOCK = 78;
+// 🆕 2026-09-04 床の板（`print_shutfloor`）。ハッチの内面へ**先に接着する下ごしらえ**なので、
+//   ハッチより内側（箱寄り）に置く。磁石 2 個とロックのナットはこの板が持つ座に入るので、一緒に出す
+EY_FLOOR = 22;
 if (part == "explode") {
     rounded4() floor_v4(); hub_unit(); respeaker_at();                                  // 手順 1〜3（地面）
     translate([0, EY_OLED, 0]) oled_at();                                               // OLED は前の窓が挟む（手順 9）
@@ -1173,7 +1176,8 @@ if (part == "explode") {
     translate([0, 0, EZ_TOP]) { rounded4() top_v4(); top_spk(); }                       // 天板＋スピーカー（両面テープで天板と一体）
     translate([0, 0, EZ_TOPSUB]) { top_knob(); top_btn(); }                             // つまみ・会話ボタン（天板から上へ抜く）
     translate([0, EY_FRONT, EZ_TOP]) rounded4() front_v4();                             // フロント（前から差す）
-    translate([0, EY_HATCH, EZ_TOP]) { rounded4() hatch_v4(); tgl_v4(TAIL_ANG); sw4_magnets_wall(); sw4_lock_nut(); }
+    translate([0, EY_FLOOR, EZ_TOP]) { battery_floor4(); sw4_magnets_wall(); sw4_lock_nut(); }   // 床の板（ハッチへ接着）
+    translate([0, EY_HATCH, EZ_TOP]) { rounded4() hatch_v4(); tgl_v4(TAIL_ANG); }
     translate([0, EY_SHUT,  EZ_TOP]) { tail_at(); color("#c8ced6") battery_shutter4(0); sw4_magnets_shutter(); }
     translate([0, EY_LOCK,  EZ_TOP]) { color("#8892a0") battery_lock4(); sw4_lock_screw(); }
 }

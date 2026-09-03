@@ -996,6 +996,8 @@ PARTS = [
  ('天面', 'p_top / print_top', '外面を下'),
  ('フロント', 'p_front / print_front', '外面を下'),
  ('ハッチ', 'p_hatch / print_hatch', '外面を下'),
+ ('蓋の床の板', 'p_shutfloor / print_shutfloor', '<b>溝の床の面を下</b>（磁石の座とナットのボスが上を向く）。'
+  'ハッチの内面へ接着する下ごしらえの部品。逆向きに寝かせると磁石の座が宙で始まる'),
  ('電池の蓋', 'p_shutter / print_shutter', '外面を下'),
  ('蓋のロック', 'p_lock / print_lock', '外面を下'),
  ('尻尾', 'p_tail / print_tail', 'ボアを上'),
