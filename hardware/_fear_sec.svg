@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="820" height="500" viewBox="0 0 820 500" font-family="sans-serif">
+<rect width="820" height="500" fill="#fff"/>
+<text x="24" y="30" font-size="17" font-weight="bold" fill="#111">下の耳（試作）— ビスの芯で切った断面。左が機体の前</text>
+<text x="24" y="52" font-size="12" fill="#666">ビスも穴も増やしていません。床の裏から来ている既存のビス 2 本を、そのまま使います。</text>
+
+<!-- フロント板 -->
+<rect x="146" y="90" width="44" height="348" fill="#9aa6b4" stroke="#5a6675"/>
+<text x="90" y="86" font-size="12" fill="#333">フロント板 2.0</text>
+<!-- 床 -->
+<rect x="190" y="394" width="330" height="44" fill="#c3ccd6" stroke="#5a6675"/>
+<text x="530" y="424" font-size="12" fill="#333">床 2.0（無改造・穴もザグリも既にある）</text>
+<!-- 耳 -->
+<rect x="146" y="324" width="187" height="70" fill="#7fb069" stroke="#3f6b2d"/>
+<text x="176" y="366" font-size="13" fill="#123" font-weight="bold">下の耳 3.2</text>
+<text x="345" y="366" font-size="12" fill="#3f6b2d">← フロント板と一体。前から滑り込ませる</text>
+<!-- 柱 -->
+<rect x="212" y="130" width="121" height="194" fill="#c3ccd6" stroke="#5a6675"/>
+<text x="345" y="230" font-size="12" fill="#333">壁の柱 12.0 → 8.8（下端を耳の厚みだけ上げた）</text>
+<!-- ナット -->
+<rect x="240" y="130" width="66" height="35" fill="#8892a0" stroke="#333"/>
+<text x="345" y="152" font-size="12" fill="#333">ナット（位置は動かさない）</text>
+<!-- ビス -->
+<rect x="268" y="108" width="9" height="330" fill="#e8c05a" stroke="#8a6d1f"/>
+<rect x="262" y="416" width="21" height="22" fill="#e8c05a" stroke="#8a6d1f"/>
+<text x="120" y="470" font-size="12" fill="#8a6d1f">ビス M2×15（頭は床の裏のザグリ）</text>
+<!-- 積みの寸法 -->
+<line x1="600" y1="130" x2="600" y2="438" stroke="#c0392b" stroke-width="2"/>
+<line x1="592" y1="130" x2="608" y2="130" stroke="#c0392b" stroke-width="2"/>
+<line x1="592" y1="438" x2="608" y2="438" stroke="#c0392b" stroke-width="2"/>
+<text x="614" y="276" font-size="13" fill="#c0392b" font-weight="bold">積み 14.0</text>
+<text x="614" y="296" font-size="12" fill="#c0392b">床 2.0 ＋ 耳 3.2 ＋ 柱 8.8</text>
+<text x="614" y="316" font-size="12" fill="#c0392b">＝ いまと同じ。ビスは M2×15 のまま</text>
+<text x="24" y="486" font-size="12" fill="#666">耳の奥行きは 6.5（板の内面 → 柱の後ろの縁）。10 にすると ReSpeaker の下の前の縁に 10.74mm³ 食い込むので、柱の footprint で止めた。</text>
+</svg>

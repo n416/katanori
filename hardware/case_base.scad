@@ -314,8 +314,21 @@ SP = "";   // 側面構造体側を1つに: walls / bridge / ina / pb / lipo / b
 module hex_pocket_af(af, h) cylinder(d = af / cos(30), h = h, $fn = 6);
 function bev_pts(c, k, n = 10) = [for (i = [0 : n]) let (t = i / n, p = (1 - k) * c / 2) [2 * t * (1 - t) * p + t * t * c, (1 - t) * (1 - t) * c + 2 * t * (1 - t) * p]];
 module win_rrect(g = 0) { hull() for (x = [WIN_X0 + WIN_CR, WIN_X1 - WIN_CR], z = [WIN_Z0 + WIN_CR, WIN_Z1 - WIN_CR]) translate([x, z]) circle(r = WIN_CR + g, $fn = 40); }
-module win_bev_slab(g, y) { translate([0, y + 0.01, 0]) rotate([90, 0, 0]) linear_extrude(0.01) win_rrect(g); }
-module win_chamfer_cut() { hull() { win_bev_slab(WIN_CH, FY_OUT - 0.5); for (p = bev_pts(WIN_CH, WIN_R)) win_bev_slab(p[1], FY_OUT + p[0]); } }
+// 🔒 2026-09-03 黒枠の下辺の中央が 1.5mm 下へ張り出している（parts.scad の OLED_GLASS_BULGE ＝ ✅実測）。
+//   ユーザー「下辺を大きく下げると基板が目立つから、こういう所ちゃんとしたい」⇒ **窓の下端は下げず、張り出しの所だけ台形に逃がす。**
+//   逃げの隙間は縦と同じ WIN_CL_Z（全周に offset）。形の元は OLED 側に 1 つだけ置いてある（ここで数字を書き直さない）。
+module win_bulge() translate([OLED_X0, OLED_Z0]) offset(r = WIN_CL_Z, $fn = 24) oled_bulge_2d(1.0);
+// 窓の輪郭（g で全周に太らせる）。🔴 台形が付いて**凸ではなくなった**ので、この形を hull に通すと逃げが埋まる。
+//   ベベルは下の win_chamfer_cut のように薄い輪切りを積んで作ること。
+module win_outline(g = 0) offset(r = g, $fn = 24) union() { win_rrect(0); win_bulge(); }
+module win_bev_slab(g, y, t = 0.01) { translate([0, y + 0.01, 0]) rotate([90, 0, 0]) linear_extrude(t) win_outline(g); }
+// 窓のベベル（外面）。🔄 2026-09-03 hull → 輪切りの積み上げ（32 枚 ＝ 段差 0.031mm・層厚 0.05 より細かい）
+module win_chamfer_cut() {
+    win_bev_slab(WIN_CH, FY_OUT, 0.51);   // 外面より外へ 0.5（切り口を面で切るため）
+    p = bev_pts(WIN_CH, WIN_R, 32);
+    for (i = [0 : len(p) - 2])
+        win_bev_slab((p[i][1] + p[i + 1][1]) / 2, FY_OUT + p[i + 1][0], p[i + 1][0] - p[i][0] + 0.005);
+}
 // ---- 表（外面）の座。黒枠がここへ収まる。45° のベベルではなく**角ばった段** ----
 //   🔒 2026-09-02 ユーザー「裏掘りをやめ、表を掘りましょう」「周囲のベベルはもっと角ばっていていい」
 //     「座の話なら 3mm でいいんじゃないですか？」。WIN_SEAT = 0 なら従来どおり 45° ベベル（v1/v2/v3）。
@@ -326,12 +339,34 @@ WIN_SEAT   = 0;     // 座の深さ（外面から）。0 = 掘らない
 WIN_SEAT_M = 1.0;   // 座が窓の外へ出る量（片側）。⚠ WIN_SEAT = 0 なので効いていない
 module win_seat_cut() if (WIN_SEAT > 0)
     translate([0, FY_OUT - 0.01, 0]) rotate([-90, 0, 0]) linear_extrude(WIN_SEAT + 0.01)
-        offset(r = WIN_SEAT_M) mirror([0, 1]) win_rrect(0);
+        offset(r = WIN_SEAT_M) mirror([0, 1]) win_outline(0);
 // 🔴 彫り込みは**裏**（内面 Y=0 側）。外面は平らのまま = 外から見た顔は変わらない。
 //    深さ WIN_SUNK だけ内面を彫るので、窓まわりの壁の厚みが BEZ_T − WIN_SUNK になる
+// ⚠ hull を使っているので、WIN_SUNK を復活させると下辺の台形の逃げが埋まる（2026-09-03）
 module win_sunk_cut() if (WIN_SUNK > 0) hull() {
     win_bev_slab(WIN_SUNK_M, FY_IN - WIN_SUNK);        // 彫り込みの底（外面から BEZ_T − WIN_SUNK の所）
     win_bev_slab(WIN_SUNK_M + WIN_SUNK + 0.5, FY_IN + 0.5);   // 内面の 0.5 内側まで 45° で開く
+}
+// ---- ピンの尻の逃げ（フロントの内面を浅く彫る）----
+// 🔒 2026-09-03 ユーザー「一応ピンヘッダー尻付近の壁を薄くしておいてください」。
+//   OLED の半田面（ガラス側）へピンの尻が 1.8 出ていて、板の内面までの 1.8 とちょうど同じ＝隙間 0.0（✅実測）。
+//   尻はニッパーで落とす方針だが、落とし残しの保険としてここを 0.6 彫っておく。**外面は平ら**（外から見えない）。
+//   🔴 窓のベベルの外の縁（Z = WIN_Z1 + WIN_CH）に掛けないこと。掛けると表裏から削られて
+//     残る肉が 2.0 − 1.0 − 0.6 = 0.40mm になり、2026-09-02 に縁が焼けなかったのと同じ厚みになる。
+HDR_REL_D = 0.6;    // 彫る深さ（内面から）。残る肉 BEZ_T − 0.6 = 1.4mm
+HDR_REL_M = 1.0;    // ピンの列の外に足す余裕（片側）
+HDR_REL_R = 0.8;    // 角の丸み（角を立てると反りの割れ口になる）
+module hdr_relief_cut() {
+    h = oled_hdr();
+    cx = OLED_X0 + h[0]; cz = OLED_Z0 + h[1];
+    x0 = cx - h[2] / 2 - HDR_REL_M; x1 = cx + h[2] / 2 + HDR_REL_M;
+    z1 = cz + h[3] / 2 + HDR_REL_M;
+    z0 = max(cz - h[3] / 2 - HDR_REL_M, WIN_Z1 + WIN_CH + 0.45);   // ベベルの外の縁から 0.45 離す
+    translate([0, FY_IN + 0.4, 0]) rotate([90, 0, 0]) linear_extrude(HDR_REL_D + 0.4)
+        hull() for (x = [x0 + HDR_REL_R, x1 - HDR_REL_R], z = [z0 + HDR_REL_R, z1 - HDR_REL_R])
+            translate([x, z]) circle(r = HDR_REL_R, $fn = 24);
+    echo(str("ピンの尻の逃げ: X ", x0, "〜", x1, " / Z ", z0, "〜", z1, " / 深さ ", HDR_REL_D,
+             " ⇒ 残る肉 ", BEZ_T - HDR_REL_D, "mm。ベベルの外の縁 Z ", WIN_Z1 + WIN_CH, " との隙間 ", z0 - (WIN_Z1 + WIN_CH)));
 }
 module whisker_plate(l, w, y) { translate([-l / 2, y, -w / 2]) rotate([90, 0, 0]) spk_obround(l, w, 0.01); }
 // 🔴 2026-08-23 v2 から写すとき 2 つ目の hull（内面まで貫くスリット）が落ちていて、外面を 0.5 彫っただけのベベルになっていた
@@ -371,10 +406,12 @@ module outer_envelope() { if (EDGE_ROUND) round_box([LW_X - WALL, FY_OUT, -FLOOR
 //    5.5 に M2.5 のナット（5.3）は入らない → これが「ハブ以外 M2」の決め手
 BOSS_B_DY_F = 5.5;
 M2_CLEAR = SCR_D; M2_NAF = NUT_AF; M2_NT = NUT_T; M2_CB = SCR_CB; M2_CBT = SCR_CBT;   // 名前の互換（今は全部 M2）
-module bottom_boss(b) {
+// z0: 柱の下端。🔒 2026-09-03 フロントの下の耳（front_ears_low）を床との間に挟むため、前の 2 本だけ 3.2 持ち上げる。
+//   **上端（BOSS_B_H）とナットの位置は動かさない** ⇒ 床 2.0 ＋ 耳 3.2 ＋ 柱 8.8 = 14.0 で、ビスは M2×15 のまま
+module bottom_boss(b, z0 = 0) {
     dy = (b[1] < IN_Y / 2) ? BOSS_B_DY_F : BOSS;
     difference() {
-        translate([b[0], b[1], 0]) cube([BOSS, dy, BOSS_B_H]);
+        translate([b[0], b[1], z0]) cube([BOSS, dy, BOSS_B_H - z0]);
         translate([b[0] + BOSS / 2, b[1] + dy / 2, BOSS_B_H - NUT_T]) hex_pocket(NUT_T + 1);
         translate([b[0] + BOSS / 2, b[1] + dy / 2, -1]) cylinder(d = SCR_D, h = BOSS_B_H + 2, $fn = 24);
     }
@@ -618,10 +655,11 @@ module front_plate_raw() {
             color("#c9d0d8") translate([LW_X - WALL, FY_OUT, -FLOOR_T]) cube([IN_X + 2 * WALL - LW_X, BEZ_T, Z_TOP + FLOOR_T]);   // 上は天面の厚みの分まで（45° で切られる）・下は床の裏まで（下前の丸みはフロントが持つ）
             color("#c9d0d8") translate([LW_X - WALL, FY_OUT, IN_Z - EAR_T]) cube([IN_X + 2 * WALL - LW_X, BEZ_T + 0.01, EAR_T]);   // （耳はここに付く）
         }
-        translate([0, FY_OUT - 1, 0]) rotate([-90, 0, 0]) linear_extrude(BEZ_T + 2) mirror([0, 1]) win_rrect(0);   // 窓（ガラス＋0.3）
+        translate([0, FY_OUT - 1, 0]) rotate([-90, 0, 0]) linear_extrude(BEZ_T + 2) mirror([0, 1]) win_outline(0);   // 窓（黒枠 ＋ 隙間。下辺中央は張り出しに合わせた台形）
         win_sunk_cut();                                                                                          // OLED の所だけ壁を薄くする彫り込み（**裏**）
         win_chamfer_cut();                                                                                       // 窓のベベル（外面）
         win_seat_cut();                                                                                          // 窓の座（外面・WIN_SEAT > 0 のときだけ）
+        hdr_relief_cut();                                                                                        // OLED のピンの尻の逃げ（内面・浅い彫り）
         whiskers_cut();                                                                                          // マイクのヒゲ
     }
     } }

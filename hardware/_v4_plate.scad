@@ -13,15 +13,15 @@ module plate_label(x, y, name, sub) color("#8a8a8a") translate([x, y, 0]) {
 // 並べた全体は 253.4 x 340.6 mm（19 部品）
 module plate_all() {
     color(PLATE_COLOR) translate([73.160, 224.040, 0]) import("stl/v4/v4_brgfront.stl");
-    plate_label(90.660, 183.640, "brgfront", "23.0 x 29.4 x 8.0  09-02 13:49");
+    plate_label(90.660, 183.640, "brgfront", "23.0 x 29.4 x 8.0  09-03 14:12");
     color(PLATE_COLOR) translate([-1.694, 181.740, 0]) import("stl/v4/v4_bridge.stl");
-    plate_label(0.000, 183.640, "bridge", "82.7 x 50.0 x 6.0  09-02 13:49");
+    plate_label(0.000, 183.640, "bridge", "82.7 x 50.0 x 6.0  09-03 14:12");
     color(PLATE_COLOR) translate([94.966, 10.000, 0]) import("stl/v4/v4_floor.stl");
     plate_label(94.660, 0.000, "floor", "86.7 x 71.0 x 8.5  09-02 13:49");
     color(PLATE_COLOR) translate([56.760, 154.735, 0]) import("stl/v4/v4_front.stl");
-    plate_label(56.454, 93.640, "front", "86.7 x 52.1 x 11.0  09-03 01:37");
+    plate_label(56.454, 93.640, "front", "86.7 x 52.1 x 11.0  09-03 14:55");
     color(PLATE_COLOR) translate([151.420, 106.640, 0]) import("stl/v4/v4_hatch.stl");
-    plate_label(151.114, 93.640, "hatch", "86.7 x 50.5 x 6.6  09-02 13:49");
+    plate_label(151.114, 93.640, "hatch", "86.7 x 50.5 x 6.6  09-03 18:16");
     color(PLATE_COLOR) translate([160.520, 208.140, 0]) import("stl/v4/v4_knob.stl");
     plate_label(147.020, 183.640, "knob", "27.0 x 27.0 x 21.4  09-02 13:49");
     color(PLATE_COLOR) translate([215.992, 205.640, 0]) import("stl/v4/v4_knobwall.stl");
@@ -29,11 +29,11 @@ module plate_all() {
     color(PLATE_COLOR) translate([24.360, 278.190, 0]) import("stl/v4/v4_lock.stl");
     plate_label(56.360, 287.690, "lock", "29.3 x 11.8 x 3.0  09-02 13:49");
     color(PLATE_COLOR) translate([237.774, 10.000, 0]) import("stl/v4/v4_lwall.stl");
-    plate_label(189.320, 0.000, "lwall", "48.5 x 71.0 x 9.0  09-02 13:49");
+    plate_label(189.320, 0.000, "lwall", "48.5 x 71.0 x 9.0  09-03 14:55");
     color(PLATE_COLOR) translate([9.900, 304.690, 0]) import("stl/v4/v4_piston.stl");
     plate_label(0.000, 287.690, "piston", "19.8 x 12.0 x 8.3  09-02 13:49");
     color(PLATE_COLOR) translate([0.000, 103.640, 0]) import("stl/v4/v4_rwall.stl");
-    plate_label(0.000, 93.640, "rwall", "48.5 x 71.0 x 9.0  09-02 13:49");
+    plate_label(0.000, 93.640, "rwall", "48.5 x 71.0 x 9.0  09-03 17:45");
     color(PLATE_COLOR) translate([0.870, 207.690, 0]) import("stl/v4/v4_seat.stl");
     plate_label(0.000, 252.640, "seat", "21.6 x 16.0 x 4.2  09-02 13:49");
     color(PLATE_COLOR) translate([109.320, 278.190, 0]) import("stl/v4/v4_shutter.stl");
@@ -47,7 +47,7 @@ module plate_all() {
     color(PLATE_COLOR) translate([177.178, 270.127, 0]) import("stl/v4/v4_tail.stl");
     plate_label(170.692, 252.640, "tail", "13.0 x 13.0 x 33.7  09-02 13:49");
     color(PLATE_COLOR) translate([0.306, 85.000, 0]) import("stl/v4/v4_top.stl");
-    plate_label(0.000, 0.000, "top", "86.7 x 74.6 x 20.9  09-02 13:49");
+    plate_label(0.000, 0.000, "top", "86.7 x 74.6 x 20.9  09-03 14:12");
     color(PLATE_COLOR) translate([129.682, 269.540, 0]) import("stl/v4/v4_tub.stl");
     plate_label(114.332, 252.640, "tub", "30.7 x 13.5 x 9.3  09-03 01:37");
 }

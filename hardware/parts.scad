@@ -902,6 +902,12 @@ OLED_MOUNT_D  = 3.0;                                     // ✅ 2026-08-24 ユ�
 OLED_MOUNT_DX = OLED_L - 2 * (OLED_HOLE_EDGE + OLED_MOUNT_D / 2);   // 板幅 − 4.0（⬜ OLED_L の確定待ち）
 OLED_MOUNT_DY = OLED_W - 2 * (OLED_HOLE_EDGE + OLED_MOUNT_D / 2);   // 44.1 ✅
 OLED_PCB_Y    = 3.0;   // 正面 → 穴の開いている板の面（基板 1.6 なら裏面は 4.6）
+                       // ✅ 2026-09-03 ユーザー実測「黒枠が 2.8mm 出てる」＝ ここは実物では **2.8**（模型は 0.2 厚い）。
+                       //   ⬜ 値をまだ 3.0 のままにしてあるのは、2.8 にすると oled_back() が 4.6 → 4.4 になり、
+                       //   天面から下りる L の腕（oled_brackets）が 0.2 前へ動く＝刷り済みの天面と食い違うため。
+                       //   差は 0.2 だが小さくはない: **この 0.2 がピンの尻とフロント板の当たりを隠していた**
+                       //   （模型 3.0 − FRONT_DY 1.0 ＝ 内面まで 2.0 で、尻 1.8 に 0.2 の空きが出る。実物 2.8 では 1.8 対 1.8 で接触）。
+                       //   ⬜ 動かすかどうかは天面を刷り直す時にまとめて決める。
 // ✅ 表示部の黒い枠 **61 × 38.5**（2026-08-17 ユーザー実測）。
 //    🔴 最初に AI が写真から 63.5×37.5 と読んで穴と矛盾させた。**外形の数字は測ってもらう。**
 //    ⚠ 寄りは実測が横計だけなので、左右 (70.1−61)/2 = 4.55 ずつ（写真で対称）、
@@ -910,6 +916,11 @@ OLED_PCB_Y    = 3.0;   // 正面 → 穴の開いている板の面（基板 1.6
 OLED_GLASS   = [61.0, 38.5];
 OLED_GLASS_X = 4.5;    // ✅ 左マージン（2026-08-19 ユーザー実測。右は 3.5）
 OLED_GLASS_Y = 5.5;    // 下の寄り（上は 4.1）
+// ✅ 2026-09-03 ユーザー実測: **黒枠の下辺の中央が下へ張り出している**（正面写真で確認）。
+//    黒枠の左右の端から 12mm の所で斜めが始まり、14mm の所で 1.5mm 下がりきる。中央の平らな所は 61.0 − 14×2 = 33mm。
+//    位置はフィルムが裏へ回る切り欠き（幅 23）の真上。🔴 これが窓に入らず、フロント板を前へ 1.0 押して反らせていた。
+//    [斜めの始まり, 斜めの終わり, 下がる量]（どれも黒枠の端からの距離）
+OLED_GLASS_BULGE = [12.0, 14.0, 1.5];
 function oled_mount() = [for (sx = [-1, 1], sy = [-1, 1])
     [OLED_L / 2 + sx * OLED_MOUNT_DX / 2, OLED_W / 2 + sy * OLED_MOUNT_DY / 2]];
 function oled_mount_d() = OLED_MOUNT_D;
@@ -921,6 +932,16 @@ function oled_back()    = OLED_PCB_Y + 1.6;
 function oled_glass()   = OLED_GLASS;
 function oled_glass_x() = OLED_GLASS_X;
 function oled_glass_y() = OLED_GLASS_Y;
+function oled_glass_bulge() = OLED_GLASS_BULGE;   // 下辺の張り出し [斜め始まり, 斜め終わり, 下がる量]
+// I2C ヘッダの列 [中心x, 中心y（板の局所）, 列の幅, ピンの太さ, 正面側へ出る尻の長さ]。筐体側の逃げはここから作る
+function oled_hdr() = [OLED_HDR_C[0], OLED_HDR_C[1], 3 * 2.54 + 0.64, 0.64, OLED_HDR_TAIL];
+// 黒枠の張り出しの 2D 輪郭（板の局所 XY。ext だけ上へ伸ばして黒枠の本体と重ねる）
+module oled_bulge_2d(ext = 0.01) {
+    b = OLED_GLASS_BULGE; w = OLED_GLASS[0];
+    dx = (b[1] - b[0]) / b[2] * ext;   // 斜めの傾きのまま上へ伸ばす
+    polygon([[OLED_GLASS_X + b[0] - dx, OLED_GLASS_Y + ext], [OLED_GLASS_X + b[1], OLED_GLASS_Y - b[2]],
+             [OLED_GLASS_X + w - b[1], OLED_GLASS_Y - b[2]], [OLED_GLASS_X + w - b[0] + dx, OLED_GLASS_Y + ext]]);
+}
 
 // ✅ 裏のフィルム（2026-08-24 ユーザー写真＋説明で置き直し）
 //    ・フィルムは幅 12.5。下辺の切り欠き（幅 23）から裏へ回り、裏の中央の白い FPC コネクタへ上がる
@@ -954,11 +975,15 @@ module oled_film() {
 //    ✅ ヘッダ単体の写真（定規付き・2026-08-24）: 白い樹脂のストレート品。露出は長い側 約6〜7（OLED_HDR_PIN）。⚠ 上辺からの距離（約 1.6）は写真読みのまま
 OLED_HDR_C   = [OLED_L / 2, 46.5];   // 列の中心 [x, y]（板の局所。x は ✅ 定規写真・y は ⚠ 写真読み）
 OLED_HDR_PIN = 6.5;                  // ✅寄り（2026-08-24 ヘッダ単体を定規に当てた写真。長い側 約6〜7・短い側 約3〜4・樹脂 約2.5・⚠読み±1）。当たりはどのみち DuPont（樹脂の上に 10）が決めるので検査結果には効かない
+OLED_HDR_TAIL = 1.8;                 // ✅ 2026-09-03 ユーザー実測。**半田面（＝ガラスと同じ正面側）へ出ているピンの尻**。
+                                     //   🔄 0.5 → 1.8。0.5 は根拠の無い置き値で、フロント板の内面との当たりを隠していた。
+                                     //   位置は上辺の裏の中央（OLED_HDR_C）＝窓の上端の 2.2mm 上・板の上の帯（幅 5.8）の中。
+                                     //   黒枠 2.8（実測）− FRONT_DY 1.0 ＝ フロント板の内面まで 1.8 ⇒ **尻は内面にちょうど届く**。
 OLED_ZB      = OLED_T - OLED_PCB_Y - 1.6;   // 3.9 板の裏面の局所 z（oled_film の zb と同じ）
 module oled_i2c_header() {   // 樹脂＋ピン 4 本（恒久・半田済み）
     color("#222") translate([OLED_HDR_C[0] - 2 * 2.54, OLED_HDR_C[1] - 1.27, OLED_ZB - 2.5]) cube([4 * 2.54, 2.54, 2.5]);
     color("#c8ccd0") for (k = [0 : 3]) translate([OLED_HDR_C[0] + (k - 1.5) * 2.54 - 0.32, OLED_HDR_C[1] - 0.32, OLED_ZB - 2.5 - OLED_HDR_PIN])
-        cube([0.64, 0.64, 2.5 + OLED_HDR_PIN + 1.6 + 0.5]);   // 先は半田面（板の前面）へ 0.5 出しておく
+        cube([0.64, 0.64, 2.5 + OLED_HDR_PIN + 1.6 + OLED_HDR_TAIL]);   // 先は半田面（板の前面＝ガラス側）へ OLED_HDR_TAIL 出る
 }
 module oled_i2c_housing(bend = true) color("#63b3ed", 0.85) {   // 線の DuPont（4 連・挿した状態）
     translate([OLED_HDR_C[0] - 2 * 2.54, OLED_HDR_C[1] - 1.27, OLED_ZB - 2.5 - 10.0]) cube([4 * 2.54, 2.54, 10.0]);
@@ -996,6 +1021,8 @@ module oled_242() {
         translate([(OLED_L - OLED_NOTCH_W) / 2, -1, -1]) cube([OLED_NOTCH_W, OLED_NOTCH_D + 1, 3.6]);   // 下辺の切り欠き（フィルムの通り道）
     }
     // 表示部の黒い枠（✅ 61×38.5）。正面の面はここ。穴（ほぼ角）は黒に触れない
-    color("#101018") translate([OLED_GLASS_X, OLED_GLASS_Y, OLED_T - OLED_PCB_Y])
-        cube([OLED_GLASS[0], OLED_GLASS[1], OLED_PCB_Y]);
+    color("#101018") translate([0, 0, OLED_T - OLED_PCB_Y]) linear_extrude(OLED_PCB_Y) union() {
+        translate([OLED_GLASS_X, OLED_GLASS_Y]) square([OLED_GLASS[0], OLED_GLASS[1]]);
+        oled_bulge_2d();   // ✅ 下辺中央の張り出し（2026-09-03 実測）。🔴 これを持っていなかったので当たり検査が 0 と出ていた
+    }
 }

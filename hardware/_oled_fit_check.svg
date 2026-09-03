@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1060" height="800" viewBox="0 0 1060 800" font-family="sans-serif">
+<rect width="1060" height="800" fill="#ffffff"/>
+<text x="30" y="34" font-size="19" font-weight="bold" fill="#111">認識の確認 — OLED とフロントの窓（2026-09-03）</text>
+<text x="30" y="56" font-size="13" fill="#666">この図は「私がこう理解した」というだけの絵です。寸法はまだ何も作っていません。</text>
+
+<!-- ============ A: 正面図 ============ -->
+<text x="30" y="88" font-size="15" font-weight="bold" fill="#111">A. 正面から（OLED を前から見た向き）</text>
+
+<!-- PCB -->
+<path d="M60,340 L60,51.4 L480.6,51.4 L480.6,340 L339.3,340 L339.3,298 L201.3,298 L201.3,340 Z" fill="#1b4f8a" stroke="#0d2c50" stroke-width="1.5"/>
+<!-- 取付穴 -->
+<circle cx="72" cy="328" r="9" fill="#e8edf3" stroke="#0d2c50"/><circle cx="468.6" cy="328" r="9" fill="#e8edf3" stroke="#0d2c50"/>
+<circle cx="72" cy="63.4" r="9" fill="#e8edf3" stroke="#0d2c50"/><circle cx="468.6" cy="63.4" r="9" fill="#e8edf3" stroke="#0d2c50"/>
+<!-- 黒枠（下辺に張り出し） -->
+<path d="M87,76 L453,76 L453,307 L381,307 L369,316 L171,316 L159,307 L87,307 Z" fill="#15161a" stroke="#000"/>
+<rect x="97" y="86" width="346" height="211" fill="#1a1a3a"/>
+<!-- ピンの尻 4 本 -->
+<circle cx="247.44" cy="61" r="3.4" fill="#d8dde3" stroke="#555"/><circle cx="262.68" cy="61" r="3.4" fill="#d8dde3" stroke="#555"/>
+<circle cx="277.92" cy="61" r="3.4" fill="#d8dde3" stroke="#555"/><circle cx="293.16" cy="61" r="3.4" fill="#d8dde3" stroke="#555"/>
+<!-- 窓（刷った現物 62.0 x 39.1） -->
+<rect x="84" y="74.2" width="372" height="234.6" fill="none" stroke="#d94a3d" stroke-width="2.2" stroke-dasharray="7 5"/>
+<!-- 張り出しが窓の外に出ている所を強調 -->
+<path d="M159,308.8 L171,316 L369,316 L381,308.8" fill="none" stroke="#d94a3d" stroke-width="3.5"/>
+
+<!-- 寸法・注記 -->
+<line x1="87" y1="345" x2="453" y2="345" stroke="#333"/><text x="234" y="360" font-size="12" fill="#333">黒枠 61.0</text>
+<line x1="60" y1="372" x2="480.6" y2="372" stroke="#333"/><text x="240" y="387" font-size="12" fill="#333">基板 70.1</text>
+<text x="500" y="90" font-size="13" fill="#d94a3d" font-weight="bold">— — 窓（刷った現物 62.0 × 39.1）</text>
+<text x="500" y="112" font-size="13" fill="#111">■ 黒枠 61.0 × 38.5（模型の値）</text>
+<text x="500" y="134" font-size="13" fill="#555">● ピンの尻 4 本（正面側へ 1.8 出ている）</text>
+
+<text x="500" y="176" font-size="13" font-weight="bold" fill="#111">下辺の張り出し（あなたの実測）</text>
+<text x="500" y="198" font-size="13" fill="#333">黒枠の左右の端から 12mm で斜めが始まり、</text>
+<text x="500" y="218" font-size="13" fill="#333">14mm で 1.5mm 下がりきる。</text>
+<text x="500" y="238" font-size="13" fill="#333">中央の平らな所は 61.0 − 14×2 = <tspan font-weight="bold">33mm</tspan>。</text>
+<text x="500" y="266" font-size="13" fill="#d94a3d">⇒ その 1.5mm ぶんが窓の下端より下にはみ出す。</text>
+<text x="500" y="286" font-size="13" fill="#d94a3d">　 赤い太線の所が、窓に入れない部分です。</text>
+<text x="500" y="322" font-size="13" fill="#111">縦の隙間はいま上下 0.3 ずつ（窓 39.1 − 黒枠 38.5）。</text>
+<text x="500" y="342" font-size="13" fill="#111">あなたの「縦は 0.5 くらい大きすぎ」はここの話、</text>
+<text x="500" y="362" font-size="13" fill="#111">と読みました。⇒ <tspan font-weight="bold">縦は詰める。下げない。</tspan></text>
+<text x="500" y="384" font-size="13" fill="#111">足りないのは張り出しの所だけ ⇒ <tspan font-weight="bold">そこだけ台形に逃がす。</tspan></text>
+
+<!-- ============ B: 断面 ============ -->
+<line x1="30" y1="410" x2="1030" y2="410" stroke="#ddd"/>
+<text x="30" y="440" font-size="15" font-weight="bold" fill="#111">B. 横から見た断面（左が機体の前。高さの違う 3 か所を並べたもの）</text>
+
+<!-- B1 -->
+<text x="60" y="472" font-size="13" font-weight="bold" fill="#111">① 窓のある高さ</text>
+<rect x="60" y="490" width="44" height="40" fill="#e3e8ee" stroke="#999" stroke-dasharray="4 3"/>
+<text x="46" y="546" font-size="11" fill="#999">板は無い（穴）</text>
+<rect x="82" y="560" width="61.6" height="52" fill="#15161a"/>
+<rect x="143.6" y="548" width="35.2" height="76" fill="#1b4f8a"/>
+<text x="60" y="646" font-size="12" fill="#111">黒枠は窓の中へ 1.0 入る（設計どおり）</text>
+<line x1="60" y1="672" x2="104" y2="672" stroke="#333"/><text x="52" y="688" font-size="11" fill="#333">板 2.0</text>
+<line x1="82" y1="700" x2="143.6" y2="700" stroke="#333"/><text x="88" y="716" font-size="11" fill="#333">黒枠 2.8</text>
+
+<!-- B2 -->
+<text x="390" y="472" font-size="13" font-weight="bold" fill="#111">② 張り出しの高さ（窓の下端より下）</text>
+<rect x="390" y="490" width="44" height="150" fill="#c8d0d8" stroke="#666"/>
+<text x="376" y="662" font-size="11" fill="#666">板がある（穴の外）</text>
+<rect x="412" y="530" width="61.6" height="52" fill="#15161a" opacity="0.35"/>
+<rect x="434" y="530" width="39.6" height="52" fill="#15161a"/>
+<rect x="473.6" y="518" width="35.2" height="76" fill="#1b4f8a"/>
+<path d="M412,600 L434,600" stroke="#d94a3d" stroke-width="4"/>
+<text x="366" y="618" font-size="12" fill="#d94a3d" font-weight="bold">1.0 入れない</text>
+<text x="390" y="700" font-size="12" fill="#d94a3d">張り出しの前面が板の内面に当たる</text>
+<text x="390" y="720" font-size="12" fill="#d94a3d">⇒ 板がこの 1.0 ぶん前へ押されて反る</text>
+
+<!-- B3 -->
+<text x="740" y="472" font-size="13" font-weight="bold" fill="#111">③ ピンの尻の高さ（窓の上端より上）</text>
+<rect x="740" y="490" width="44" height="150" fill="#c8d0d8" stroke="#666"/>
+<text x="726" y="662" font-size="11" fill="#666">板がある（穴の外）</text>
+<rect x="784" y="548" width="39.6" height="10" fill="#8a9099"/>
+<rect x="823.6" y="518" width="35.2" height="76" fill="#1b4f8a"/>
+<circle cx="784" cy="553" r="5" fill="none" stroke="#d94a3d" stroke-width="2.5"/>
+<text x="740" y="700" font-size="12" fill="#111">尻 1.8 ＝ 板の内面までの 1.8 と同じ</text>
+<text x="740" y="720" font-size="12" fill="#d94a3d">⇒ ちょうど届いて当たる（隙間 0.0）</text>
+
+<text x="30" y="768" font-size="12" fill="#666">板の内面から基板の前面までが 1.8 なのは、黒枠 2.8 のうち 1.0 を窓に入れる設計（FRONT_DY = 1.0）だからです。</text>
+<text x="30" y="788" font-size="12" fill="#666">✅ あなたの実測: 黒枠 2.8 ／ ピンの尻 1.8 ／ 張り出し 12→14 で 1.5 ・ ■ 模型の値: 黒枠 61.0 × 38.5</text>
+</svg>

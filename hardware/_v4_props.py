@@ -11,7 +11,8 @@
    使い方: python hardware/_v4_props.py   （素の形は -D PROPS_OFF=true で焼く）
 """
 import bisect, io, math, os, subprocess, sys
-from scipy.ndimage import label as ndimage_label, maximum_filter as ndimage_maxfilt
+from scipy.ndimage import label as ndimage_label, maximum_filter as ndimage_maxfilt, minimum_filter as ndimage_minfilt
+from scipy.ndimage import distance_transform_edt as ndimage_edt
 import numpy as np
 
 OPENSCAD = os.environ.get('OPENSCAD', r'C:\Program Files\OpenSCAD (Nightly)\openscad.exe')
@@ -58,6 +59,20 @@ RAFT_LINK = PITCH + 0.6   # ラフトで繋ぐ柱どうしの上限距離
 #   ラフト側に分類されると、**その 2 点を結ぶ棒**になり、部品の footprint を引いた残りが
 #   会話ボタンの首の口を横切る膜として残った（ユーザー「なんか変な事になってませんか」）。
 #   ⇒ 各柱の下に円を置き、**RAFT_LINK より近い柱どうしだけ**を繋ぐ。輪ならラフトも輪になる。
+# 🔒 2026-09-03 ユーザー案「柱を口の内側へ寄せ、円錐で保持する」「内側の何もない所にラフトを置いて、
+#    そこから伸ばすしかない」。⇒ この部品では**接触点と柱の足を切り離す**。
+#    接触点は天井のふちのまま、柱は肉から MIN_GAP 逃げてプレートまで降りる所にだけ立て、
+#    間を 球（継ぎ手）＋円錐（先 φPROP_TIP）＋枝（斜材）で渡す。作りは
+#    archive/floating_supports/_v4_post_props.py から借りた（浮かせも傾けもしない）。
+CONE_PARTS = {'hatch'}
+HEAD_D = 1.0        # 球（継ぎ手）＝円錐の太い端
+HEAD_L = 0.6        # 円錐の長さ。天井は水平＝法線は真下なので、球が接触面より上へ出ない最短でよい
+BRANCH_SLOPE = 1.0  # 枝の傾き（1.0 ＝ 45°）。横へ 1 行くのに縦へ 1 落ちる
+POST_MIN_TOP = 0.5  # 枝の付け根がこれより低くなるなら、その接触点はあきらめる（天井は持たれずに残る）
+GAP2 = 0.4          # 🔒 支えどうしの最小の隙間（癒着の実績 0.36 の外。PITCH 2.4 の根拠と同じ値）
+POST_MIN_D2 = (PROP_D + GAP2) ** 2   # 柱の足どうしの最小の間隔の 2 乗
+n_branch = {}       # 枝で振った柱の数
+d_branch = {}       # 振った横の距離の最大
 DBG = os.environ.get('PROPDBG') == '1'
 # 🔒 2026-09-03 帯 A/B/C は**この道具（立てる柱）に戻した**。ユーザー「帯については浮かすのも
 #    傾けるのもやめましょう。この帯については柱を立てる方のパイプラインで作りましょう」。
@@ -177,6 +192,17 @@ out = ['// 🔴 自動生成。手で直さない。作り直しは `python hard
        '    cylinder(d = PROP_D2, h = max(0.01, h - base - PROP_NECK2), $fn = 16);',
        '    translate([0, 0, max(0, h - base - PROP_NECK2)])',
        '        cylinder(d = PROP_TIP2, h = min(PROP_NECK2, h - base) + PROP_BITE2, $fn = 12);',
+       '}',
+       'HEAD_D2 = %.2f; HEAD_L2 = %.2f;' % (HEAD_D, HEAD_L),
+       '// 柱（垂直）― 球（継ぎ手）― 枝（斜材）― 円錐（先 PROP_TIP2）。柱の足 (px,py) と接触点 (cx,cy) は別',
+       'module one_cone(cx, cy, h, px, py, ptop) {',
+       '    translate([px, py, 0]) cylinder(d = PROP_D2, h = max(0.01, ptop), $fn = 16);',
+       '    hull() {',
+       '        translate([px, py, ptop]) sphere(d = HEAD_D2, $fn = 16);',
+       '        translate([cx, cy, h - HEAD_L2]) sphere(d = HEAD_D2, $fn = 16);',
+       '    }',
+       '    translate([cx, cy, h - HEAD_L2]) cylinder(d1 = HEAD_D2, d2 = PROP_TIP2, h = HEAD_L2, $fn = 16);',
+       '    translate([cx, cy, h]) cylinder(d = PROP_TIP2, h = PROP_BITE2, $fn = 12);',
        '}', '']
 rep = []
 def sq_dilate(a, r):
@@ -191,6 +217,8 @@ def sq_dilate(a, r):
 
 n_dropped = {}
 n_narrow = {}   # 天井が狭すぎて柱が縁からはみ出すので置かなかった数
+n_brush = {}    # 足元が段差をまたぎ、胴が段差の側面をかすめる柱の数
+d_brush = {}    # そのかすめる深さの最大
 THIN_ABOVE = 0.8   # 🔒 2026-08-29 ユーザー「柱には弱さ、強さがある。特定の柱の強さが上の構造物を
                    #   破壊するようなものなら立てちゃいけない」。柱の先は φPROP_TIP で 0.1 食い込む。
                    #   その上の肉がこれより薄いと、剥離の力と折るときの力で皮が抜ける（2026-08-28 に
@@ -267,6 +295,58 @@ for part in PARTS:
         _yy, _xx = np.ogrid[-_rr:_rr + 1, -_rr:_rr + 1]
         _disc = (_yy ** 2 + _xx ** 2) <= _rr ** 2
         basemax = ndimage_maxfilt(basegrid, footprint=_disc, mode='nearest')
+        # 🔴 2026-09-03 上の basemax だけでは**空中から生える柱**が出る。ハッチで 20 本出た
+        #   （ユーザー ChituBox「柱が地面に置かれていない」「柱そのものが印刷不能」）。
+        #   胴 φ2.0 の円の**端**を高さ 0.70 の段差がかすめただけで円全体が 0.70 まで持ち上がり、
+        #   円の中心の真下は空のまま底面が宙に浮いていた（例: 柱 (11.55, 22.11)・肉は 0.70 から）。
+        #   ⇒ 足元は「**胴の底面全部の下にある肉**」（basemin）で取る。段差をまたぐ升には立てない。
+        #   段差をまたぐ升に**立てない**ようにすると、ハッチは天井 252.1mm2 のうち 114.9mm2 が
+        #   持たれないまま残った（柱 49 → 32 本）。段差の縁の帯 2mm がまるごと禁止になるため。
+        #   ⇒ 立てないのではなく**下（プレート側）まで下ろす**。胴が段差の側面をかすめて癒着するが、
+        #     宙に浮いた底面や無支持の天井より軽い（かすめる深さは下の brush で数える）。
+        basemin = ndimage_minfilt(basegrid, footprint=_disc, mode='nearest')
+        brush = basemax - basemin                # 胴が段差の側面をかすめる深さ
+        # 🔴 2026-09-03 足元を下ろしただけでは**胴が部品の肉に食い込む**。ハッチで 20 本、
+        #   足 φ2.0 の 18〜50% が蓋の鞘の床（Z 0〜0.70）に埋まっていた（ユーザー ChituBox「重なってる」）。
+        #   折れば跡が蓋の入口に残る。⇒ 胴の半径に逃げ MIN_GAP を足した円の中に、
+        #   足元より高い肉が 1 つでもあれば**そこには立てない**（＝肉から 0.3 離れた所にしか立たない）。
+        _rr3 = int(np.ceil((PROP_D / 2 + MIN_GAP) / P))
+        _yy3, _xx3 = np.ogrid[-_rr3:_rr3 + 1, -_rr3:_rr3 + 1]
+        _disc3 = (_yy3 ** 2 + _xx3 ** 2) <= _rr3 ** 2
+        side_hit = ndimage_maxfilt(basegrid, footprint=_disc3, mode='nearest') > basemin + 0.05
+        # 🔒 2026-09-03 柱を降ろせる升 ＝ 肉から MIN_GAP 逃げていて、足がプレートに着く所（＝ラフトを敷く所）
+        CONE = part in CONE_PARTS
+        stand = (~side_hit) & (basemin < 0.01)
+        _dstand = _istand = None
+        if CONE and stand.any():
+            _dstand, _istand = ndimage_edt(~stand, sampling=P, return_indices=True)
+
+        _sx = _sy = None
+        if CONE and stand.any():
+            _si = np.argwhere(stand); _sx = us[_si[:, 0]]; _sy = vs[_si[:, 1]]
+        post_pts = []          # この層で出した柱の足（間隔を守るための帳簿）
+        _reach = (h - HEAD_L - POST_MIN_TOP) * BRANCH_SLOPE    # 枝で振れる横の量
+
+        def choose_post(i, j, cx, cy, reserve=False):
+            """接触点 (cx, cy) を持つ柱の足を選ぶ。(x, y, 枝の付け根の高さ)／降ろせないなら None。
+               🔴 足どうしは PROP_D + GAP2 だけ離す（離さないと柱が互いに食い込む・2026-09-03 に実測 -0.845mm）"""
+            if not CONE:
+                return None if side_hit[i, j] else (cx, cy, 0.0)
+            def far(x, y):
+                return all((x - a) ** 2 + (y - b) ** 2 >= POST_MIN_D2 - 1e-9 for a, b in post_pts)
+            r = None
+            if stand[i, j] and far(cx, cy):
+                r = (cx, cy, h - HEAD_L)
+            elif _sx is not None:
+                d = np.hypot(_sx - cx, _sy - cy)
+                for k in np.argsort(d):
+                    if d[k] > _reach: break
+                    if far(float(_sx[k]), float(_sy[k])):
+                        r = (float(_sx[k]), float(_sy[k]), h - HEAD_L - float(d[k]) / BRANCH_SLOPE)
+                        break
+            if r is None: return None
+            if reserve: post_pts.append((r[0], r[1]))
+            return r
         # 天井の上に乗っている肉の厚み（その升で z から上へ続く塊の高さ）
         tmp2 = np.zeros(nu * nv)
         sel2 = (zs <= z) & (ze > z)
@@ -303,8 +383,9 @@ for part in PARTS:
             if not needD[i, j]: return False                    # この辺りの天井は縁が持っている
             if clr[i, j] < CLEAR: return False                  # 縁からはみ出す ＝ 置けない
             if above[i, j] < THIN_ABOVE: return False           # 🔒 上が薄い＝柱が破る。立てない
-            if h - basemax[i, j] < 0.4: return False            # 下の肉がほぼ届いている
-            if blocked(i, j, basemax[i, j], h): return False     # ネジ・ナット・軸・回る物
+            if choose_post(i, j, us[i], vs[j]) is None: return False   # 🔴 柱を降ろせない（肉に食い込む／枝が届かない／足の間隔）
+            if h - basemin[i, j] < 0.4: return False            # 下の肉がほぼ届いている
+            if blocked(i, j, basemin[i, j], h): return False     # ネジ・ナット・軸・回る物
             if any((i - a) ** 2 + (j - b) ** 2 < ps2 for a, b in placed): return False
             return True
 
@@ -499,8 +580,20 @@ for part in PARTS:
                         #   🔴 距離の値（dist <= CLEAR + P）で見ていたので、同じ輪の上でも歩きで 1.80mm まで
                         #     振れた 2 本がラフト側に落ちていた。**輪の番号**で決める。0 番＝外周。
                         is_outer = (ring_idx == 0)
-                        on_raft = (not is_outer) and basemax[i2, j2] < 0.01
-                        picks.append((us[0] + fx * P, vs[0] + fy * P, basemax[i2, j2], h, on_raft))
+                        on_raft = (not is_outer) and basemin[i2, j2] < 0.01
+                        _cx, _cy = us[0] + fx * P, vs[0] + fy * P
+                        _po = choose_post(i2, j2, _cx, _cy, reserve=True)
+                        if _po is not None:                          # 帳簿は柱の足の升で取る
+                            i2 = int(np.clip(np.searchsorted(us, _po[0]) - 1, 0, nu - 1))
+                            j2 = int(np.clip(np.searchsorted(vs, _po[1]) - 1, 0, nv - 1))
+                        if not CONE: _po = None
+                        n_brush[part] = n_brush.get(part, 0) + (1 if brush[i2, j2] > 0.05 else 0)
+                        d_brush[part] = max(d_brush.get(part, 0.0), float(brush[i2, j2]))
+                        if _po is not None and (_po[0] != _cx or _po[1] != _cy):
+                            n_branch[part] = n_branch.get(part, 0) + 1
+                            d_branch[part] = max(d_branch.get(part, 0.0),
+                                                 ((_po[0] - _cx) ** 2 + (_po[1] - _cy) ** 2) ** 0.5)
+                        picks.append((_cx, _cy, basemin[i2, j2], h, on_raft, _po))
                         # 🔴 2026-08-29 間隔の判定に**丸めたマスの番号**を入れていた。柱は補間した
                         #   実座標で出すので、最大 0.35mm ぶん詰まって出ていた（2.4 の狙いに対し 1.97）。
                         #   判定にも実座標（小数のマス番号）を入れる。
@@ -518,15 +611,30 @@ for part in PARTS:
             if clr[i, j] < CLEAR:                                   # 🔒 同上。埋めにも同じ門を付ける
                 n_narrow[part] = n_narrow.get(part, 0) + 1; continue
             if above[i, j] < THIN_ABOVE: continue                   # 🔒 上が薄い＝柱が破る
-            if h - basemax[i, j] < 0.4: continue
-            if blocked(i, j, basemax[i, j], h):                     # 持たれないまま残す（残りの面積に出る）
+            if choose_post(i, j, us[i], vs[j]) is None: continue     # 🔴 柱を降ろせない（同上）
+            if h - basemin[i, j] < 0.4: continue
+            if blocked(i, j, basemin[i, j], h):                     # 持たれないまま残す（残りの面積に出る）
                 n_dropped[part] = n_dropped.get(part, 0) + 1; continue
             if any((i - a) ** 2 + (j - b) ** 2 < fs2 for a, b in placed): continue
             # 🔒 2026-08-29 埋めの柱にも同じ規則。外周の輪の帯に居る柱にはラフトを付けない
             #   （ユーザー「この外周の柱には絶対ラフトをつけてはいけない」）
             #   2 本目の輪が入らない幅（＝外周の輪しか無い天井）なら、その柱は全部「外周」扱い。
             _outer = dist[i, j] < CLEAR + P + PITCH / 2
-            picks.append((us[i], vs[j], basemax[i, j], h, (not _outer) and basemax[i, j] < 0.01)); placed.append((i, j))
+            _cx, _cy = us[i], vs[j]
+            _po = choose_post(i, j, _cx, _cy, reserve=True)
+            _bi, _bj = (i, j)
+            if _po is not None:                                          # 帳簿は**柱の足**の升で取る
+                _bi = int(np.clip(np.searchsorted(us, _po[0]) - 1, 0, nu - 1))
+                _bj = int(np.clip(np.searchsorted(vs, _po[1]) - 1, 0, nv - 1))
+            if not CONE: _po = None
+            n_brush[part] = n_brush.get(part, 0) + (1 if brush[_bi, _bj] > 0.05 else 0)
+            d_brush[part] = max(d_brush.get(part, 0.0), float(brush[_bi, _bj]))
+            if _po is not None and (_po[0] != _cx or _po[1] != _cy):
+                n_branch[part] = n_branch.get(part, 0) + 1
+                d_branch[part] = max(d_branch.get(part, 0.0),
+                                     ((_po[0] - _cx) ** 2 + (_po[1] - _cy) ** 2) ** 0.5)
+            picks.append((_cx, _cy, basemin[i, j], h,
+                          (not _outer) and basemin[i, j] < 0.01, _po)); placed.append((i, j))
             rem[max(0, i - nr):min(nu, i + nr + 1), max(0, j - nr):min(nv, j + nr + 1)] = False
             n_fill += 1
         thin_rem = rem & (above < THIN_ABOVE)
@@ -546,11 +654,19 @@ for part in PARTS:
         if key in seen_xy: continue
         seen_xy.add(key); uniq.append(pk)
     picks = uniq
-    out.append('module props_%s() { %s }' % (part, ' '.join(
-        'one_prop(%.2f, %.2f, %.2f, %.2f);' % p[:4] for p in picks)))
+    def _emit(p):
+        po = p[5] if len(p) > 5 else None
+        if po is None: return 'one_prop(%.2f, %.2f, %.2f, %.2f);' % p[:4]
+        return 'one_cone(%.2f, %.2f, %.2f, %.2f, %.2f, %.2f);' % (p[0], p[1], p[3], po[0], po[1], po[2])
+    out.append('module props_%s() { %s }' % (part, ' '.join(_emit(p) for p in picks)))
     layers = {}
-    for x, y, b, h, on_raft in picks:
-        if on_raft: layers.setdefault(h, []).append((x, y))
+    for p in picks:
+        x, y, b, h, on_raft = p[:5]
+        po = p[5] if len(p) > 5 else None
+        if po is not None:
+            layers.setdefault(h, []).append((po[0], po[1]))   # ラフトは**柱の足**の下に敷く
+        elif on_raft:
+            layers.setdefault(h, []).append((x, y))
     if layers:
         _c = lambda x, y: 'translate([%.2f, %.2f]) circle(d = PROP_D2, $fn = 16);' % (x, y)
         shapes = []
@@ -582,3 +698,9 @@ print('天井が狭くて置けなかった柱:',
       ' '.join('%s %d' % kv for kv in sorted(n_narrow.items())) or 'なし')
 print('keepout（ネジ・ナット・軸・回る物）で落とした柱:',
       ' '.join('%s %d' % kv for kv in sorted(n_dropped.items())) or 'なし')
+print('枝で口の内側へ振った柱（本数 / 振った横の距離の最大）:',
+      ' '.join('%s %d本 %.2fmm' % (k, v, d_branch.get(k, 0.0))
+               for k, v in sorted(n_branch.items()) if v) or 'なし')
+print('段差の縁に立ち、胴が側面をかすめる柱（本数 / 最大の深さ）:',
+      ' '.join('%s %d本 %.2fmm' % (k, v, d_brush.get(k, 0.0))
+               for k, v in sorted(n_brush.items()) if v) or 'なし')
