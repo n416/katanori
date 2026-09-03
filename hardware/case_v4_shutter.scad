@@ -160,8 +160,19 @@ module battery_port_cut4() {
         cube([SW4_X1 - SW4_X0, SHUT_BACK + SHUT_T + 2, SW4_Z1 - SW4_Z0]);
 }
 // 彫り込み
+// 🔒 2026-09-04 ユーザー「端までレールである必要がない。実際手元でそのレールを 6mm 以外
+//   塞いでも動作してる」（実機で確認済み）。理由は印刷で、レールの下に柱が立って滑る面がガビガビになる。
+//   耳は蓋の X 中央にしか無く、閉（sw4_ex0）から逃がし口へ 5.5 動くだけなので、
+//   **耳が届かない左側の縁は溝を掘らない**（＝壁が Y 71〜74 まで通しの肉になる）。
+//   ロックの形は変えない（ユーザー指示）。逃がし口から右は今までどおりロックの外形が彫る。
+// ⚠ 角丸 SHUT_R のぶん、レールの左端は口が細っている（掃引で耳と 0.07mm³ 当たった）。
+//   耳の閉位置で断面が丸まっていないよう、角丸 + 隙間ぶん左へ出す
+SW4_RAIL_LEAD = SHUT_R + SHUT_CL;   // レールを耳の閉位置より左へ伸ばす分
+function sw4_rail_x0() = sw4_ex0() - SW4_RAIL_LEAD;   // レール（縁まで高い溝）の左端
 module sw4_band_cut() {
-    sw4_rrect(sw4_yg(), sw4_yl() - sw4_yg(), sw4_bx0(), sw4_bx1(), sw4_bz0(), sw4_bz1(), SHUT_R);   // 耳が走る溝（リップの裏・全面）
+    sw4_rrect(sw4_yg(), sw4_yl() - sw4_yg(), sw4_bx0(), sw4_bx1(),
+              sw4_lz0() - SHUT_CL, sw4_lz1() + SHUT_CL, SHUT_R);                                    // 蓋の本体が走る溝（全長・蓋の高さ）
+    sw4_rrect(sw4_yg(), sw4_yl() - sw4_yg(), sw4_rail_x0(), sw4_bx1(), sw4_bz0(), sw4_bz1(), SHUT_R);   // 耳が走るレール（耳が届く所だけ・上下の縁まで）
     sw4_rrect(sw4_yl() - 0.01, SHUT_LIP + 0.02, sw4_bx0(), sw4_bx1(),
               sw4_lz0() - SHUT_CL, sw4_lz1() + SHUT_CL, SHUT_R);                                    // 蓋の本体が出る窓（全ストローク分）
     // 🔒 ロックが座る所（＝耳の逃がし口も兼ねる）。**ロックの外形から作る**ので、ロックの形を変えても彫り込みが必ず追従する
@@ -191,17 +202,36 @@ module sw4_lock_cut() {
 function sw4_lock_boss_z0() = sw4_lock_z() - SHUT_LOCK_NAF / cos(30) / 2 - SHUT_LOCK_FLR;
 module sw4_lock_boss() translate([sw4_lock_x() - 4.5, sw4_yg() - SHUT_LOCK_B, sw4_lock_boss_z0()])
     cube([9.0, SHUT_LOCK_B, sw4_lk_boss_z1() - sw4_lock_boss_z0()]);
+// 🔒 2026-09-04 ユーザー「当たった部分だけ削ればいい」。つば（帯の外へ出る縁）の出と、削る隙間。
+//   溝は外面から 3.0mm（蓋 2.75 ＋ 隙間 0.25）掘るのにハッチの壁は 2.0mm しかないので、
+//   足りない 1.0mm は増し肉から取っている。残る床は 1.2mm で、その外周が帯とぴったり同寸だと
+//   **床の縁の先には何も無く**（壁の内面は Y+1.0 の所から始まる）、床は壁につながらない。
+//   つばはその 1.0mm の段を跨いで壁に載せるための縁。
+SW4_BACK_FL = 1.0;   // つばの出。ロックの座の裏（offset SHUT_CL + 1.0）と同じ
+SW4_BACK_CL = 0.3;   // 削るときに部品との間に残す隙間
+// 当たる相手を**部品そのもので**引く（🔒 数字を書かない・基板が動けば削れる所も追う）。
+//   6 方向へ SW4_BACK_CL ずらした複製との和 ＝ 軸方向にその隙間だけ太らせた形
+module sw4_backing_carve(cl) for (d = [[0, 0, 0], [cl, 0, 0], [-cl, 0, 0], [0, cl, 0], [0, -cl, 0], [0, 0, cl], [0, 0, -cl]])
+    translate(d) tcb_v4();
 module sw4_backing() {
     // 🔴 2026-09-02 ここは角の立った直方体だった。彫り込み（sw4_band_cut の rrect）は角丸 SHUT_R なので、
     //   四隅の**彫っていない所にまで肉が出ていた**。SHUT_EXT を 6.30 → 7.30 に広げたとき、
     //   その左下の角が Type-C の基板へ 0.721mm³ 食い込んだ（chk_hatch）。
-    //   ⇒ 彫り込みと同じ角丸にする。彫った所は必ず backing が受け、彫っていない所には出ない。
-    sw4_rrect(IN_Y - SHUT_BACK, SHUT_BACK, sw4_bx0(), sw4_bx1(), sw4_bz0(), sw4_bz1(), SHUT_R);
-    sw4_ext(IN_Y - SHUT_BACK, SHUT_BACK) offset(r = SHUT_CL + 1.0) sw4_lk_out_2d();   // ロックの座の裏（帯の四角から出る分）
-    sw4_lock_boss();
-    for (x = sw4_mag_xs()) translate([x, sw4_yg() - SHUT_MAG_H - 0.4, sw4_mag_z()])   // 磁石の座の増し
-        rotate([-90, 0, 0]) cylinder(d = SHUT_MAG_D + 2.0, h = SHUT_MAG_H + 0.4 + 0.01, $fn = 48);
-    // ⚠ 穴の底 0.4（0.8 だと座の前面が INA の I2C の束に入る。磁石は接着が持つ前提）
+    // 🔴 2026-09-04 その直しは**輪郭の全体を溝と同寸まで縮める**やり方だったので、床を壁につないで
+    //   いた四隅まで一緒に消え、床がロックの座だけでぶら下がる片持ちになっていた（ユーザーが CAD で発見）。
+    //   ⇒ つばを全周に戻し、当たっている所だけを部品で引く。
+    difference() {
+        union() {
+            sw4_rrect(IN_Y - SHUT_BACK, SHUT_BACK, sw4_bx0() - SW4_BACK_FL, sw4_bx1() + SW4_BACK_FL,
+                      sw4_bz0() - SW4_BACK_FL, sw4_bz1() + SW4_BACK_FL, SHUT_R + SW4_BACK_FL);
+            sw4_ext(IN_Y - SHUT_BACK, SHUT_BACK) offset(r = SHUT_CL + 1.0) sw4_lk_out_2d();   // ロックの座の裏（帯の四角から出る分）
+            sw4_lock_boss();
+            for (x = sw4_mag_xs()) translate([x, sw4_yg() - SHUT_MAG_H - 0.4, sw4_mag_z()])   // 磁石の座の増し
+                rotate([-90, 0, 0]) cylinder(d = SHUT_MAG_D + 2.0, h = SHUT_MAG_H + 0.4 + 0.01, $fn = 48);
+            // ⚠ 穴の底 0.4（0.8 だと座の前面が INA の I2C の束に入る。磁石は接着が持つ前提）
+        }
+        sw4_backing_carve(SW4_BACK_CL);   // 当たった所だけ削る（いまは Type-C 基板の角）
+    }
 }
 
 // ---- 絵にだけ出す実体 ----
