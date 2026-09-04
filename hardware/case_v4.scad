@@ -377,7 +377,7 @@ module rwall_port_cut4() {
     //    殻が実際に居るのは Z 15.03 から上だけ（実測）。0.53 の余裕を付けて 14.5。⇒ 88mm³ の肉が戻る。
     // 殻の逃げ: 口の下を内面から殻の通り道（殻の面 ＋ 0.15 ＝ 85.704）まで。外に皮 0.65 残る
     translate([IN_X - 0.01, c[0] - USBC_PORT[0] / 2, 14.5]) cube([85.704 - IN_X + 0.01, USBC_PORT[0], c[1] - 14.5]);
-    if (ICONS_ON) wall_icon_x([c[0] + USBC_PORT[0] / 2 + PORT_BEV + ICON_GAP + ICON_H / 2, c[1]]) icon_svg();   // 印（口の右）
+    if (ICONS_ON) wall_icon_x([c[0] + USBC_PORT[0] / 2 + PORT_BEV + ICON_GAP + ICON_WR_H / 2, c[1]]) icon_svg();   // 印（口の右）
 }
 module rwall_v4(rib = true) difference() {   // 溝をリブごと抜く（上の lwall_v4 の節）
     rwall_v4_raw(rib);
@@ -561,8 +561,8 @@ module hatch_chg_cut4() {
             translate([0, 0, IN_Y + HATCH_T + 1.0]) linear_extrude(0.01) port_rrect_xz(TC_PORT_V4, USBC_PORT_R, PORT_BEV + 1.0);
         }
     }
-    translate([c[0] + TC_PORT_V4[0] / 2 + PORT_BEV + ICON_GAP + TC_ICON_H * 2.6 / 6 / 2, IN_Y + HATCH_T - ICON_D, c[1]])
-        rotate([90, 0, 0]) mirror([0, 0, 1]) linear_extrude(ICON_D + 1.0) icon_bolt(TC_ICON_H);
+    translate([c[0] + TC_PORT_V4[0] / 2 + PORT_BEV + ICON_GAP + tc_icon_w() / 2, IN_Y + HATCH_T - ICON_D, c[1]])
+        rotate([90, 0, 0]) mirror([0, 0, 1]) linear_extrude(ICON_D + 1.0) icon_bolt_big();   // 角を丸めて ICON_K 倍（case_base の ICON_R / ICON_K）
     // 基板の縁（X 0〜1.6・板 1.6 厚）が +1.2 で内面に 0.4 入る分の逃げ溝（0.7 深・±0.5。内面側なので見えない）
     translate([LW_X - 0.5, IN_Y - 0.01, -0.5]) cube([2.6, 0.71, 21.5]);
 }

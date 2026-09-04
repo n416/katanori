@@ -15,7 +15,7 @@ use <parts.scad>
 use <respeaker_lite.scad>
 use <hub_board.scad>
 use <knob_v5.scad>
-use <icon_gear_wrench.scad>   // メンテナンスの印（ユーザーの SVG から gen_icon_svg.py が起こした）
+include <icon_gear_wrench.scad>   // メンテナンスの印（ユーザーの SVG から gen_icon_svg.py が起こした）
 use <usb_l_adapter.scad>          // 充電口の L 字アダプタ（B0CTMHK3BY・2026-08-24）。🔴 同日、規格違反（C メス → micro-B）と分かり不採用
 use <typec_115426.scad>           // 充電口の Type-C 基板（秋月 115426・2026-08-24。⚠ 未注文）
 use <wires.scad>              // 線を実体で描く（v2 と同じ道具）
@@ -502,9 +502,37 @@ module xiao_pad() {
 //   Z 方向にずれる・50〜500µm」の範囲に 0.4 が入っていた。最悪値 0.5 の 2 倍を取る。
 //   壁 WALL 2.0 / ハッチ HATCH_T 2.0 に対して残り 1.0mm（薄壁の実績下限 0.3 の 3 倍）。
 ICONS_ON = true;  ICON_D = 1.0;  ICON_GAP = 1.5;  ICON_H = 0.7 * USBC_PORT[1];  SVC_MIN_W = 0.5;
-function icon_col_y() = XIAO_PORT_C[0] + xiao_pocket_sz()[0] / 2 + (SLOT_D + SLOT_BEV) + ICON_GAP + ICON_H / 2;
+// 🔴 2026-09-04 実機の症状（ユーザー）: 稲妻は「**表面は埋まり、奥の方に小さな傷のような稲妻が残った**」。
+//   つまり溝の**口が塞がる**。⇒ **深さは効かない**（ICON_D を 0.4 → 1.0 に上げた後の話）。効くのは溝の幅だけ。
+//   実測（`_stl_preflight` と同じ EDT で 2D を測った）:
+//     歯車＋スパナ 6.72 角 / 線の幅 0.5〜0.6mm / 0.42 を割るのは絵の 0.2%（角の破片 284 個）
+//     稲妻       2.89 x 6.68 / いちばん太い所 1.16mm / **0.42 を割るのが絵の 11.8%**・0.80 未満が 42.8%
+//   🔒 直し方はユーザー指示（2026-09-04）: 「**r0.20 にしてから大きくしたらいい**」
+//     ① 角を r で丸めて最細を底上げする（開き→閉じ。尖った先と切れ込みを両方鈍らせる）
+//     ② そのまま拡大する。丸めた半径ごと拡大されるので、最細は ICON_R * ICON_K で決まる
+//   🔒 「丈＝口の長辺の 7 割」の決まりは**崩してよい**（2026-09-04 ユーザー「崩してください」）。
+//   🔒 「歯車のほうも複雑すぎたので、**スパナだけに**」（同）。歯車の 2 本の経路は描かない。
+ICON_R = 0.20;   // 角の丸め（原寸で。拡大後は ICON_R * ICON_K になる）
+ICON_K = 2.0;    // ⬜ **未確定・クーポン待ち**。1.5 / 2.0 / 2.5 / 2.9 を焼いて、口が塞がらない最小を選ぶ
+//   置ける上限（第 1 層をラスタ化して、穴・縁から 1.5mm 空けて入る最大を探した）:
+//     ハッチの稲妻 2.90 倍（8.39 x 19.37mm・最細 1.16）／右の壁のスパナ 4.00 倍（19.48 角）
+module icon_round(r) offset(r = -r) offset(r = r) offset(r = r) offset(r = -r) children();
+// ---- スパナ単独 ----
+// 生成ファイルの 3 本目の経路がスパナ 1 本ぶん（[0] と [1] は歯車の輪）。原寸 4.87 角
+function icon_wr_pts()  = ICON_GEAR_WRENCH_PATHS[2];
+function icon_wr_cx()   = (max([for (q = icon_wr_pts()) q[0]]) + min([for (q = icon_wr_pts()) q[0]])) / 2;
+function icon_wr_cy()   = (max([for (q = icon_wr_pts()) q[1]]) + min([for (q = icon_wr_pts()) q[1]])) / 2;
+function icon_wr_span() = max(max([for (q = icon_wr_pts()) q[0]]) - min([for (q = icon_wr_pts()) q[0]]),
+                              max([for (q = icon_wr_pts()) q[1]]) - min([for (q = icon_wr_pts()) q[1]]))
+                          + icon_gear_wrench_sw();
+ICON_WR_H = 4.87 * ICON_K;   // スパナ単独の丈
+module icon_wrench_raw(sw) { p = icon_wr_pts();
+    translate([-icon_wr_cx(), -icon_wr_cy()]) for (i = [0 : len(p) - 2])
+        hull() { translate(p[i]) circle(d = sw, $fn = 16); translate(p[i + 1]) circle(d = sw, $fn = 16); } }
+function icon_col_y() = XIAO_PORT_C[0] + xiao_pocket_sz()[0] / 2 + (SLOT_D + SLOT_BEV) + ICON_GAP + ICON_WR_H / 2;
 module wall_icon_x(c) { translate([0, c[0], c[1]]) rotate([90, 0, 90]) translate([0, 0, IN_X + WALL - ICON_D]) linear_extrude(ICON_D + 1.0) children(); }
-module icon_svg() { sc = ICON_H / icon_gear_wrench_size()[1]; sw = max(icon_gear_wrench_sw(), SVC_MIN_W / sc); scale(sc) icon_gear_wrench(sw); }
+module icon_svg() { sc = ICON_WR_H / icon_wr_span(); sw = max(icon_gear_wrench_sw(), SVC_MIN_W / sc);
+    icon_round(ICON_R * ICON_K) scale(sc) icon_wrench_raw(sw); }
 module right_wall_ports_cut() {
     wall_pocket_x(XIAO_PORT_C, xiao_pocket_sz(), USBC_PORT_R + SLOT_M, XIAO_SEAT_X, SLOT_D, SLOT_BEV);   // オーバーモールドが座る深い彫り込み
     wall_port_x(XIAO_PORT_C, USBC_PORT, USBC_PORT_R, 0, XIAO_PAD_X0);                                   // 口（増し壁ごと貫く）
@@ -712,9 +740,11 @@ module port_rrect_xz(sz, r, g = 0) { hull() for (a = [-1, 1], b = [-1, 1]) trans
 module icon_bolt(h) { s = h / 6; polygon([[0.9, 3], [-1.3, -0.4], [-0.1, -0.4], [-0.9, -3], [1.3, 0.4], [0.1, 0.4]] * s); }   // v2 の稲妻（丈 6 単位）
 TC_PORT_SZ = [USBC_PORT[1], USBC_PORT[0]];   // [X 9.54, Z 3.86]
 TC_ICON_H  = 0.7 * TC_PORT_SZ[0];
+function tc_icon_w() = TC_ICON_H * ICON_K * 2.6 / 6;   // 拡大した稲妻の幅（置き場所の計算に使う）
+module icon_bolt_big() icon_round(ICON_R * ICON_K) icon_bolt(TC_ICON_H * ICON_K);
 TC_PORT_SZ_L = USBC_PORT;                    // 左の壁は縦置き [Y 3.86, Z 9.54]
-TC_ICON_Y = CHG_C_LW[0] - (TC_PORT_SZ_L[0] / 2 + PORT_BEV + ICON_GAP + TC_ICON_H * 2.6 / 6 / 2);   // 外（−X）から見て口の右（−Y）            // 6.68（口の長辺の 7 割・右の壁の印と同じ丈）
-TC_ICON_X  = CHG_C_B[0] - (TC_PORT_SZ[0] / 2 + PORT_BEV + ICON_GAP + TC_ICON_H * 2.6 / 6 / 2);   // 後ろから見て口の右（−X）
+TC_ICON_Y = CHG_C_LW[0] - (TC_PORT_SZ_L[0] / 2 + PORT_BEV + ICON_GAP + tc_icon_w() / 2);   // 外（−X）から見て口の右（−Y）            // 6.68（口の長辺の 7 割・右の壁の印と同じ丈）
+TC_ICON_X  = CHG_C_B[0] - (TC_PORT_SZ[0] / 2 + PORT_BEV + ICON_GAP + tc_icon_w() / 2);   // 後ろから見て口の右（−X）
 ANT_SLOT_W = 2.2;
 // ⑬ ハッチ（トグル付き）
    // トグルはハッチに外のナットで付く（⑬ で一緒に入る）
