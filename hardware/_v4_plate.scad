@@ -21,13 +21,13 @@ module plate_all() {
     color(PLATE_COLOR) translate([56.760, 155.561, 0]) import("stl/v4/v4_front.stl");
     plate_label(56.454, 94.054, "front", "86.7 x 52.5 x 11.8  09-04 12:42");
     color(PLATE_COLOR) translate([151.420, 107.054, 0]) import("stl/v4/v4_hatch.stl");
-    plate_label(151.114, 94.054, "hatch", "86.7 x 50.5 x 5.8  09-04 12:42");
+    plate_label(151.114, 94.054, "hatch", "86.7 x 50.5 x 5.8  09-04 13:01");
     color(PLATE_COLOR) translate([160.520, 208.554, 0]) import("stl/v4/v4_knob.stl");
     plate_label(147.020, 184.054, "knob", "27.0 x 27.0 x 21.4  09-04 12:42");
     color(PLATE_COLOR) translate([215.992, 206.054, 0]) import("stl/v4/v4_knobwall.stl");
     plate_label(204.992, 184.054, "knobwall", "22.0 x 24.0 x 3.9  09-04 12:42");
     color(PLATE_COLOR) translate([81.432, 278.604, 0]) import("stl/v4/v4_lock.stl");
-    plate_label(114.332, 288.104, "lock", "30.2 x 11.8 x 3.0  09-04 12:42");
+    plate_label(114.332, 288.104, "lock", "30.2 x 11.8 x 3.0  09-04 13:01");
     color(PLATE_COLOR) translate([237.774, 10.000, 0]) import("stl/v4/v4_lwall.stl");
     plate_label(189.320, 0.000, "lwall", "48.5 x 71.0 x 9.0  09-04 12:42");
     color(PLATE_COLOR) translate([67.872, 305.104, 0]) import("stl/v4/v4_piston.stl");
@@ -37,9 +37,9 @@ module plate_all() {
     color(PLATE_COLOR) translate([0.870, 208.104, 0]) import("stl/v4/v4_seat.stl");
     plate_label(0.000, 253.054, "seat", "21.6 x 16.0 x 4.2  09-04 12:42");
     color(PLATE_COLOR) translate([112.182, 244.804, 0]) import("stl/v4/v4_shutfloor.stl");
-    plate_label(114.332, 253.054, "shutfloor", "61.1 x 14.5 x 3.6  09-04 12:42");
+    plate_label(114.332, 253.054, "shutfloor", "61.1 x 14.5 x 3.6  09-04 13:01");
     color(PLATE_COLOR) translate([167.292, 278.604, 0]) import("stl/v4/v4_shutter.stl");
-    plate_label(170.692, 288.104, "shutter", "53.0 x 11.8 x 2.8  09-04 12:42");
+    plate_label(170.692, 288.104, "shutter", "53.0 x 11.8 x 2.8  09-04 13:01");
     color(PLATE_COLOR) translate([-9.000, 315.626, 0]) import("stl/v4/v4_strap_a.stl");
     plate_label(0.000, 320.076, "strap_a", "40.0 x 11.0 x 11.9  09-04 12:42");
     color(PLATE_COLOR) translate([47.360, 232.854, 0]) import("stl/v4/v4_strap_b.stl");
