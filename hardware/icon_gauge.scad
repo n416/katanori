@@ -63,7 +63,8 @@ difference() {
     }
     // 印を彫る（下面から ICON_D）
     for (r = [0 : 2], c = [0 : len(KS) - 1])
-        translate([col_x(c), row_y(r), -0.01]) linear_extrude(ICON_D + 0.01) g_icon(r, KS[c]);
+        translate([col_x(c), row_y(r), -0.01]) linear_extrude(ICON_D + 0.01)
+            rotate([0, 0, 180]) g_icon(r, KS[c]);   // 🔒 2026-09-04 ユーザー「回転です。180度回転させなさい」
 }
 
 echo(str("クーポン: 升 ", [for (c = [0 : len(KS) - 1]) cell_w(c)], " x ", [for (r = [0 : 2]) cell_h(r)],
