@@ -17,24 +17,24 @@
 include <case_v4.scad>
 
 KS   = [1.5, 2.0, 2.5];   // 倍率。ICON_K の候補（置ける上限はハッチ 2.90 / 右の壁 4.00）
-MARG = 1.5;               // 印のまわりに残す肉
+MARG = 1.2;               // 印のまわりに残す肉
 GAP  = 2.5;               // 升と升のあいだ
 RIB  = 3.0;               // 升をつなぐ帯の幅
 T    = 2.0;               // 板の厚み（壁と同じ）
 LBL  = 0.6;               // 上面に浮かせる数字の高さ
 
 // ---- 印を倍率 k で描く（case_base / case_v4 の中身と同じ式。ICON_K には依らせない）----
-module g_bolt(k) icon_round(ICON_R * k) icon_bolt(TC_ICON_H * k);
+module g_bolt(k) icon_round(ICON_R * k * ICON_BOLT_K) icon_bolt(TC_ICON_H * k * ICON_BOLT_K);
 module g_wrench(k) let(sc = 4.87 * k / icon_wr_span())
     icon_round(ICON_R * k) scale(sc) icon_wrench_raw(max(icon_gear_wrench_sw(), SVC_MIN_W / sc));
 module g_phone(k) let(h  = 0.7 * LJACK_D * k,
                       sc = h / icon_headphone_size()[1],
-                      sw = max(icon_headphone_sw(), SVC_MIN_W / sc))
+                      sw = max(icon_headphone_sw() * ICON_HP_SW, SVC_MIN_W / sc))
     icon_round(icon_r_cap(sw * sc)) scale(sc) icon_headphone(sw);   // 線画なので丸めは頭打ち
 module g_icon(r, k) { if (r == 0) g_bolt(k); else if (r == 1) g_wrench(k); else g_phone(k); }
 
 // ---- 升の大きさ（印の外形 ＋ MARG）----
-function bolt_wh(k)   = [TC_ICON_H * k * 2.6 / 6, TC_ICON_H * k];
+function bolt_wh(k)   = [TC_ICON_H * k * ICON_BOLT_K * 2.6 / 6, TC_ICON_H * k * ICON_BOLT_K];
 function wrench_wh(k) = [4.87 * k, 4.87 * k];
 function phone_wh(k)  = let(h = 0.7 * LJACK_D * k) [h * icon_headphone_size()[0] / icon_headphone_size()[1], h];
 function icon_wh(r, k) = r == 0 ? bolt_wh(k) : r == 1 ? wrench_wh(k) : phone_wh(k);

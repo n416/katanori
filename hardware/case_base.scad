@@ -528,15 +528,37 @@ function icon_wr_span() = max(max([for (q = icon_wr_pts()) q[0]]) - min([for (q 
 ICON_WR_H = 4.87 * ICON_K;   // スパナ単独の丈
 // 🔒 2026-09-04 ユーザー「スパナは全部塗っていいよ」。経路 [2] は始点と終点が同じ閉路なので
 //   polygon() で中を塗れる。線だけだと 0.46mm の細い溝になり、口が塞がって傷に見えていた。
+// 🔴 2026-09-04 最初 polygon(p) で塗ったら**顎の切り欠きまで塗り込んだ**（ユーザー「スパナは
+//   四角の部分が小さすぎてつぶれる」）。経路は顎を U 字に回り込んで描いてあるが、線を union すると
+//   その回り込みが線の太さぶん潰れて、口が 1mm ほどの三日月になっていた。
+//   ⇒ **fill()**（囲まれた穴だけ埋める）にする。柄と頭の輪の中は塗られ、外へ開いた顎は開いたまま残る。
+// 顎の口は経路の 4 点で決まっている（P0 口の左 → P1 奥の左 → P2 奥の右 → P3 口の右）。
+//   塗ると線の太さ 5.0 が両側から食って、残る口は 14.0 − 5.0 = 9.0 単位 ＝ 0.83 x 倍率 mm しか無い。
+//   🔴 ユーザー「スパナは四角の部分が小さすぎてつぶれる」。⇒ この 4 点から作った楔で彫り直して広げる。
+//   絵は差し替えていない（口の幅だけを ICON_WR_JAW で開ける）。
+ICON_WR_JAW = 3.0;   // 顎の口を広げる量（SVG 単位・片側）。0 で今までどおり
+ICON_WR_P = [[4.43, 14.33], [-2.83, 7.07], [7.07, -2.83], [14.33, 4.43]];
+module icon_wr_jaw_cut() {                       // 口から外へ抜ける楔（offset で広げる）
+    d = [0.7071, 0.7071];                        // 口の向き（頭の中心から外へ）
+    offset(r = ICON_WR_JAW, $fn = 24) polygon([
+        ICON_WR_P[0] + d * 30, ICON_WR_P[1], ICON_WR_P[2], ICON_WR_P[3] + d * 30]);
+}
 module icon_wrench_raw(sw) { p = icon_wr_pts();
-    translate([-icon_wr_cx(), -icon_wr_cy()]) union() {
-        polygon(p);                                     // 中の塗り
-        for (i = [0 : len(p) - 2])                      // 線の太さぶんの縁（元の丸い角と端）
-            hull() { translate(p[i]) circle(d = sw, $fn = 16); translate(p[i + 1]) circle(d = sw, $fn = 16); } } }
+    translate([-icon_wr_cx(), -icon_wr_cy()]) difference() {
+        fill() for (i = [0 : len(p) - 2])
+            hull() { translate(p[i]) circle(d = sw, $fn = 16); translate(p[i + 1]) circle(d = sw, $fn = 16); }
+        if (ICON_WR_JAW > 0) icon_wr_jaw_cut();
+    } }
 // 🔴 丸めは線画には拡大できない。icon_round(r) の開きの段で**線幅 2r 未満が消える**ので、
 //   線で描いた印（ヘッドホン）に r = ICON_R * ICON_K を掛けると絵ごと落ちる。
 //   塗りの印（稲妻・塗ったスパナ）は body が太いので平気。⇒ 線画は線幅の 4 割で頭打ちにする。
 function icon_r_cap(w) = min(ICON_R * ICON_K, 0.4 * w);
+// 🔒 2026-09-04 ユーザー「ヘッドホンは頭の部分が細すぎるし、稲妻は一回り小さいよね？」
+//   ・ヘッドホン: 耳当ては塗りなのに頭の帯だけが線で、そこだけ細く残る ⇒ 線を太らせる
+//   ・稲妻: 丸めが針の先を落とすぶん縮む（丈 13.36 の予定が 8.84 で出る）。彫られる面積が
+//     倍率 2.0 で スパナ 44.9 / ヘッドホン 26.1 に対し 17.7mm2 しかない ⇒ 稲妻だけ増し倍率を掛ける
+ICON_HP_SW = 2.0;    // ヘッドホンの線の太さの倍率（元絵の stroke に掛ける）
+ICON_BOLT_K = 1.3;   // 稲妻だけの増し倍率（丸めで縮むぶんの埋め合わせ）
 function icon_col_y() = XIAO_PORT_C[0] + xiao_pocket_sz()[0] / 2 + (SLOT_D + SLOT_BEV) + ICON_GAP + ICON_WR_H / 2;
 module wall_icon_x(c) { translate([0, c[0], c[1]]) rotate([90, 0, 90]) translate([0, 0, IN_X + WALL - ICON_D]) linear_extrude(ICON_D + 1.0) children(); }
 module icon_svg() { sc = ICON_WR_H / icon_wr_span(); sw = max(icon_gear_wrench_sw(), SVC_MIN_W / sc);
@@ -748,8 +770,8 @@ module port_rrect_xz(sz, r, g = 0) { hull() for (a = [-1, 1], b = [-1, 1]) trans
 module icon_bolt(h) { s = h / 6; polygon([[0.9, 3], [-1.3, -0.4], [-0.1, -0.4], [-0.9, -3], [1.3, 0.4], [0.1, 0.4]] * s); }   // v2 の稲妻（丈 6 単位）
 TC_PORT_SZ = [USBC_PORT[1], USBC_PORT[0]];   // [X 9.54, Z 3.86]
 TC_ICON_H  = 0.7 * TC_PORT_SZ[0];
-function tc_icon_w() = TC_ICON_H * ICON_K * 2.6 / 6;   // 拡大した稲妻の幅（置き場所の計算に使う）
-module icon_bolt_big() icon_round(ICON_R * ICON_K) icon_bolt(TC_ICON_H * ICON_K);
+function tc_icon_w() = TC_ICON_H * ICON_K * ICON_BOLT_K * 2.6 / 6;   // 拡大した稲妻の幅（置き場所の計算に使う）
+module icon_bolt_big() icon_round(ICON_R * ICON_K * ICON_BOLT_K) icon_bolt(TC_ICON_H * ICON_K * ICON_BOLT_K);
 TC_PORT_SZ_L = USBC_PORT;                    // 左の壁は縦置き [Y 3.86, Z 9.54]
 TC_ICON_Y = CHG_C_LW[0] - (TC_PORT_SZ_L[0] / 2 + PORT_BEV + ICON_GAP + tc_icon_w() / 2);   // 外（−X）から見て口の右（−Y）            // 6.68（口の長辺の 7 割・右の壁の印と同じ丈）
 TC_ICON_X  = CHG_C_B[0] - (TC_PORT_SZ[0] / 2 + PORT_BEV + ICON_GAP + tc_icon_w() / 2);   // 後ろから見て口の右（−X）

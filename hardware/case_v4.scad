@@ -293,7 +293,7 @@ JACK_ICON_W = JACK_ICON_SC * icon_headphone_size()[0];                          
 JACK_ICON_Y = LJACK_C[0] + (LJACK_D / 2 + PORT_BEV + ICON_GAP + JACK_ICON_W / 2);   // 20.16（外から見て口の左 ＝ +Y ＝ 後ろ寄り）
 module jack_icon2d() {
     if (ICON_JACK == "box") square([JACK_ICON_W, JACK_ICON_H], center = true);
-    else let(sw = max(icon_headphone_sw(), SVC_MIN_W / JACK_ICON_SC))   // 細い線は彫れる太さ（0.5mm）まで太らせる
+    else let(sw = max(icon_headphone_sw() * ICON_HP_SW, SVC_MIN_W / JACK_ICON_SC))   // 頭の帯が細いので線を ICON_HP_SW 倍（塗りの耳当てと釣り合わせる）
         icon_round(icon_r_cap(sw * JACK_ICON_SC)) scale(JACK_ICON_SC) icon_headphone(sw);   // 線画なので丸めは頭打ち（case_base の icon_r_cap）
 }
 module lwall_icon_cut4() {
