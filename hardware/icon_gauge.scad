@@ -15,6 +15,8 @@
 // 使い方:
 //   openscad --backend=manifold -o stl/icon_gauge.stl hardware/icon_gauge.scad
 include <case_v4.scad>
+part = "none";   // 🔴 include は case_v4 の既定 part="explode" を連れてくる。
+                 //    これが無いと STL に筐体が丸ごと（28 個の物体・26MB）混ざる。
 
 KS   = [1.5, 2.0, 2.5];   // 倍率。ICON_K の候補（置ける上限はハッチ 2.90 / 右の壁 4.00）
 MARG = 1.2;               // 印のまわりに残す肉
@@ -64,7 +66,7 @@ difference() {
     // 印を彫る（下面から ICON_D）
     for (r = [0 : 2], c = [0 : len(KS) - 1])
         translate([col_x(c), row_y(r), -0.01]) linear_extrude(ICON_D + 0.01)
-            rotate([0, 0, 180]) g_icon(r, KS[c]);   // 🔒 2026-09-04 ユーザー「回転です。180度回転させなさい」
+            rotate([0, 0, r == 2 ? 180 : 0]) g_icon(r, KS[c]);
 }
 
 echo(str("クーポン: 升 ", [for (c = [0 : len(KS) - 1]) cell_w(c)], " x ", [for (r = [0 : 2]) cell_h(r)],
