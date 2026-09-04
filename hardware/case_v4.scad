@@ -287,13 +287,14 @@ LJACK_D = 5.45 + 0.6;      // 口の径（筒 ＋ 0.6）
 //   （右壁の印の「口の右」に倣って前寄りに置いたが、絵を見てユーザーが左を選んだ）
 //   左の壁は外から見る向きが右の壁と逆（外＝−X から見ると +Y は画面の左）なので mirror([1, 0]) を掛ける（v3 の充電の稲妻と同じ）。
 ICON_JACK   = "svg";                 // "svg" ＝ 元絵／"box" ＝ 大きさと位置だけ見る当て物
-JACK_ICON_H = 0.7 * LJACK_D;         // 4.235（口の径の 7 割）
+JACK_ICON_H = 0.7 * LJACK_D * ICON_K;   // 口の径の 7 割 x ICON_K（🔒 2026-09-04「丈 7 割」の決まりは崩してよい）
 JACK_ICON_SC = JACK_ICON_H / icon_headphone_size()[1];                          // 元絵（SVG 単位）→ mm
 JACK_ICON_W = JACK_ICON_SC * icon_headphone_size()[0];                          // 5.68（元絵が 41.06 × 30.61 の横長）
 JACK_ICON_Y = LJACK_C[0] + (LJACK_D / 2 + PORT_BEV + ICON_GAP + JACK_ICON_W / 2);   // 20.16（外から見て口の左 ＝ +Y ＝ 後ろ寄り）
 module jack_icon2d() {
     if (ICON_JACK == "box") square([JACK_ICON_W, JACK_ICON_H], center = true);
-    else scale(JACK_ICON_SC) icon_headphone(max(icon_headphone_sw(), SVC_MIN_W / JACK_ICON_SC));   // 細い線は彫れる太さ（0.5mm）まで太らせる
+    else let(sw = max(icon_headphone_sw(), SVC_MIN_W / JACK_ICON_SC))   // 細い線は彫れる太さ（0.5mm）まで太らせる
+        icon_round(icon_r_cap(sw * JACK_ICON_SC)) scale(JACK_ICON_SC) icon_headphone(sw);   // 線画なので丸めは頭打ち（case_base の icon_r_cap）
 }
 module lwall_icon_cut4() {
     translate([LW_X - WALL - 1.0, JACK_ICON_Y, LJACK_C[1]]) rotate([90, 0, 90]) linear_extrude(ICON_D + 1.0) mirror([1, 0]) jack_icon2d();

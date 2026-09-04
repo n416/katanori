@@ -526,9 +526,17 @@ function icon_wr_span() = max(max([for (q = icon_wr_pts()) q[0]]) - min([for (q 
                               max([for (q = icon_wr_pts()) q[1]]) - min([for (q = icon_wr_pts()) q[1]]))
                           + icon_gear_wrench_sw();
 ICON_WR_H = 4.87 * ICON_K;   // スパナ単独の丈
+// 🔒 2026-09-04 ユーザー「スパナは全部塗っていいよ」。経路 [2] は始点と終点が同じ閉路なので
+//   polygon() で中を塗れる。線だけだと 0.46mm の細い溝になり、口が塞がって傷に見えていた。
 module icon_wrench_raw(sw) { p = icon_wr_pts();
-    translate([-icon_wr_cx(), -icon_wr_cy()]) for (i = [0 : len(p) - 2])
-        hull() { translate(p[i]) circle(d = sw, $fn = 16); translate(p[i + 1]) circle(d = sw, $fn = 16); } }
+    translate([-icon_wr_cx(), -icon_wr_cy()]) union() {
+        polygon(p);                                     // 中の塗り
+        for (i = [0 : len(p) - 2])                      // 線の太さぶんの縁（元の丸い角と端）
+            hull() { translate(p[i]) circle(d = sw, $fn = 16); translate(p[i + 1]) circle(d = sw, $fn = 16); } } }
+// 🔴 丸めは線画には拡大できない。icon_round(r) の開きの段で**線幅 2r 未満が消える**ので、
+//   線で描いた印（ヘッドホン）に r = ICON_R * ICON_K を掛けると絵ごと落ちる。
+//   塗りの印（稲妻・塗ったスパナ）は body が太いので平気。⇒ 線画は線幅の 4 割で頭打ちにする。
+function icon_r_cap(w) = min(ICON_R * ICON_K, 0.4 * w);
 function icon_col_y() = XIAO_PORT_C[0] + xiao_pocket_sz()[0] / 2 + (SLOT_D + SLOT_BEV) + ICON_GAP + ICON_WR_H / 2;
 module wall_icon_x(c) { translate([0, c[0], c[1]]) rotate([90, 0, 90]) translate([0, 0, IN_X + WALL - ICON_D]) linear_extrude(ICON_D + 1.0) children(); }
 module icon_svg() { sc = ICON_WR_H / icon_wr_span(); sw = max(icon_gear_wrench_sw(), SVC_MIN_W / sc);
