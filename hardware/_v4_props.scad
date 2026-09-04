@@ -46,5 +46,5 @@ module raft_strap_c() difference() {
     // 部品がプレートに着く足の周り 0.5 を空ける（手本のラフト ↔ ピンの隙間 0.4 と同等）
     translate([0, 0, -0.1]) linear_extrude(0.6) offset(r = 0.5) projection(cut = true) translate([0, 0, -0.15]) strap_print(2);
 }
-module props_seat() { one_prop(0.13, 63.56, 0.00, 1.85); one_prop(2.63, 63.56, 0.00, 1.85); one_prop(5.13, 63.56, 0.00, 1.85); one_prop(7.63, 63.56, 0.00, 1.85); one_prop(10.13, 63.56, 0.00, 1.85); one_prop(12.63, 63.56, 0.00, 1.85); one_prop(15.13, 63.56, 0.00, 1.85); one_prop(17.63, 63.56, 0.00, 1.85); }
+module props_seat() { one_prop(0.13, 65.56, 0.00, 1.85); one_prop(2.63, 65.56, 0.00, 1.85); one_prop(5.13, 65.56, 0.00, 1.85); one_prop(7.63, 65.56, 0.00, 1.85); one_prop(10.13, 65.56, 0.00, 1.85); one_prop(12.63, 65.56, 0.00, 1.85); one_prop(15.13, 65.56, 0.00, 1.85); one_prop(17.63, 65.56, 0.00, 1.85); }
 module raft_seat() {}
