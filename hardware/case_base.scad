@@ -510,27 +510,56 @@ module right_wall_ports_cut() {
     wall_port_x(XIAO_PORT_C, USBC_PORT, USBC_PORT_R, 0, XIAO_PAD_X0);                                   // 口（増し壁ごと貫く）
     if (ICONS_ON) wall_icon_x([icon_col_y(), XIAO_PORT_C[1]]) icon_svg();                               // メンテナンスの印
 }
+// ---- 天板を留める 4 か所のナットの溝（2026-09-04）----
+// 🔴 ユーザー「横板の左右両方の天板を留める部分の 6 角ポケットが、Z 方向の抜けに対応できていません」。
+//    それまでは柱の頭に**上向きのポケット**で、その蓋が「留めたい相手」そのもの（後ろは天板・前はフロントの耳）だった。
+//    締めても 頭 ─ 相手 ─ ナット を挟むだけで**柱が挟まれず**、天板を上へ引くとビスとナットごと抜けた。
+//    2026-08-26 にブリッジの棚で直したのと同じ形（_v4_core の BRG_LDG_SKIN の節）が、ここにだけ残っていた。
+// ⇒ 柱の頭に NUT_SKIN の肉を残し、その下に六角の溝を開けて、**箱の内側を向いた X の面**へ通路を出す。
+//    ナットは上下の肉に閉じ込められ、締める力は残した肉が受ける（曲げではなく、板とナットに押されるだけ）。
+//    🔴 通路を X の面に出すのは、壁を**寝かせた姿勢**（＝刷る姿勢。外面が下）で溝が**真上を向く**から。
+//      ナットは横から差すのではなく上から落として入る（実測できているのは落とし込みの 4.10 の方・上の NUT_AF の節）。
+//      壁を立てれば溝は横を向き、下の肉が床になって落ちない。組むのは手順 4（棚のナット 3 個と同じ場面）。
+//    ⚠ 前の 2 本はこれで積みが 天板 0.9 ＋ 耳 3.2 ＋ この肉 1.6 ＝ 5.7 になる。**ビスは M2×8**
+//      （🔒 2026-09-04 ユーザー「8mm のにするので大丈夫です」。M2×6 は直す前から実機で届いていない）。
+//      後ろの 2 本は積み 0.9 ＋ 1.6 ＝ 2.5 なので M2×6 のまま。
+NUT_SKIN = 1.6;   // 柱の頭 ↔ ナットの上面（締める力を受ける肉。4 層。_v4_core の BRG_LDG_SKIN / BLU_SKIN と同じ値・同じ理由）
+module top_nut_slot(cx, cy, ztop, xface) {   // ztop = 柱の頭 / xface = 通路を出す面（箱の内側）
+    z0 = ztop - NUT_SKIN - NUT_T;
+    s  = xface > cx ? 1 : -1;
+    translate([cx, cy, z0]) hex_pocket(NUT_T);                                    // 二面幅を Y に（通路の壁が回り止め）
+    translate([s > 0 ? cx : xface - 0.01, cy - NUT_AF / 2, z0])
+        cube([s > 0 ? xface + 0.01 - cx : cx - xface + 0.01, NUT_AF, NUT_T]);     // 差し込む通路
+}
 // 🔒 前の 2 本は耳と兼用（2026-08-23 ユーザー「それなら4本でもいいね」）。フロントの耳の真下に立てる柱で、
-//    ビスは 天面（ザグリ）→ 耳（素通し）→ この柱のナット と 1 本で 3 枚を通す。上面に六角ポケット（ナットは上から落とし、耳が蓋）＋通し穴。
+//    ビスは 天面（ザグリ）→ 耳（素通し）→ この柱のナット と 1 本で 3 枚を通す。頭に肉を残した溝（上）＋通し穴。
 //    耳の真下は中身・線・他の板と当たり 0（12mm 下ろして 0mm³・45mm でも 1.16mm³。`_ear_col_chk.scad`）
 EAR_COL_H = 9.0;
+function ear_col_w(x0, x1) = (x1 == undef ? EAR_W : x1 - x0);
+module ear_col_nut(x0, x1 = undef) {   // 🔴 リブは difference の外で足されるので、壁の側からもこれを呼ぶ
+    w = ear_col_w(x0, x1);
+    top_nut_slot(x0 + w / 2, (EAR_Y0 + EAR_Y1) / 2, IN_Z - EAR_T, x0 < IN_X / 2 ? x0 + w : x0);
+}
 module ear_col(x0, x1 = undef) {   // 2026-08-25 幅を耳の実スパンから取る（右の耳は壁の移動で EAR_W より痩せるため）
-    w = (x1 == undef ? EAR_W : x1 - x0);
+    w = ear_col_w(x0, x1);
     difference() {
         color("#b6c0cc") translate([x0, max(EAR_Y0, FY_IN), IN_Z - EAR_T - EAR_COL_H]) cube([w, EAR_Y1 - max(EAR_Y0, FY_IN), EAR_COL_H]);   // 前端はフロント板の内面まで（板を後ろへ寄せた分だけ詰める）
-        translate([x0 + w / 2, (EAR_Y0 + EAR_Y1) / 2, IN_Z - EAR_T - NUT_T]) rotate([0, 0, 30]) hex_pocket(NUT_T + 1);   // 二面幅を X に
+        ear_col_nut(x0, x1);
         translate([x0 + w / 2, (EAR_Y0 + EAR_Y1) / 2, IN_Z - EAR_T - EAR_COL_H - 1]) cylinder(d = SCR_D, h = EAR_COL_H + 2, $fn = 24);
         // 🔒 耳を +2（EAR_Y1 = 10）にしたら柱の裾が ReSpeaker の板の上端（Z 36.5）を 0.25 かすめる
-        //    → 板の帯（Y 7.885〜10.335・±0.3）だけ、板の頭 +0.3 まで欠く。ナット（Z 43.45〜）と縦のビス穴（中心 Y 6）には掛からない
+        //    → 板の帯（Y 7.885〜10.335・±0.3）だけ、板の頭 +0.3 まで欠く。ナットの溝（Z 41.854〜43.654）と縦のビス穴（中心 Y 6）には掛からない
         translate([x0 - 1, RSP_BD_Y0 - 0.3, IN_Z - EAR_T - EAR_COL_H - 1]) cube([w + 2, respeaker_T() + 0.6, RSP_TOP + 0.3 - (IN_Z - EAR_T - EAR_COL_H) + 1]);
     }
 }
 // 🔴 2026-08-23 ビスを全部実体で置いて検査したら、天面のビス 4 本が入るこの柱に**穴もナットのポケットも無かった**（1 本あたり 33mm³ 残る）。
-//    耳・床の柱と同じ作り: 上面に六角ポケット（ナットは上から落とし、天面が蓋）＋ 通し穴
+//    🔴 2026-09-04 上向きポケット（天面が蓋）から、頭に肉を残した溝（上の top_nut_slot）へ替えた
+module top_boss_nut(b) {   // 🔴 リブは difference の外で足されるので、壁の側からもこれを呼ぶ
+    top_nut_slot(b[0] + BOSS / 2, b[1] + BOSS / 2, IN_Z, b[0] < IN_X / 2 ? b[0] + BOSS : b[0]);
+}
 module top_boss(b, h) {
     difference() {
         color("#b6c0cc") translate([b[0], b[1], IN_Z - h]) cube([BOSS, BOSS, h]);
-        translate([b[0] + BOSS / 2, b[1] + BOSS / 2, IN_Z - NUT_T]) hex_pocket(NUT_T + 1);
+        top_boss_nut(b);
         translate([b[0] + BOSS / 2, b[1] + BOSS / 2, IN_Z - h - 1]) cylinder(d = SCR_D, h = h + 2, $fn = 24);
     }
 }

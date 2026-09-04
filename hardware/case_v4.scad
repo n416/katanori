@@ -312,7 +312,16 @@ module lwall_port_cut4() {
     translate([0.99, 9.97, -0.5]) cube([LW_X - 0.99 + 0.01, 13.73 - 9.97, 35.03 + 0.5]);
     if (ICONS_ON) lwall_icon_cut4();   // 印（外から見て口の左）
 }
-module lwall_v4(rib = true) {
+// 🔴 2026-09-04 天板を留める柱のナットの溝を、**リブごと**もう一度抜く。
+//    リブは difference の外で union されるので、格子の線が溝の上を通ると溝が塞がる
+//    （実際 lwall の Y 5.0・Z 3.75〜44.75 の線が、耳柱の溝の奥（X 1.831〜3.694）に入っていた）。
+//    リブの線は「中身の空き」からの自動生成で、同じ皮の中に立つ柱は見ていないので、ここで抜くしかない。
+module lwall_v4(rib = true) difference() {
+    lwall_v4_raw(rib);
+    for (b = BOSSES) if (b[0] < IN_X / 2) top_boss_nut(b);
+    ear_col_nut(EAR_X[0][0], EAR_X[0][1]);
+}
+module lwall_v4_raw(rib = true) {
     if (rib) panel_ribs("lwall");
     difference() {
         union() {
@@ -361,7 +370,12 @@ module rwall_port_cut4() {
     translate([IN_X - 0.01, c[0] - USBC_PORT[0] / 2, -0.5]) cube([85.704 - IN_X + 0.01, USBC_PORT[0], c[1] + 0.5]);
     if (ICONS_ON) wall_icon_x([c[0] + USBC_PORT[0] / 2 + PORT_BEV + ICON_GAP + ICON_H / 2, c[1]]) icon_svg();   // 印（口の右）
 }
-module rwall_v4(rib = true) {
+module rwall_v4(rib = true) difference() {   // 溝をリブごと抜く（上の lwall_v4 の節）
+    rwall_v4_raw(rib);
+    for (b = BOSSES) if (b[0] > IN_X / 2) top_boss_nut(b);
+    ear_col_nut(EAR_X[1][0], EAR_X[1][1]);
+}
+module rwall_v4_raw(rib = true) {
     if (rib) panel_ribs("rwall");
     difference() {
         union() {
