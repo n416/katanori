@@ -19,6 +19,11 @@ RIB_CLR   = 0.5;    // 中身との深さの逃げ（帯はリブ丈 ＋ これ�
 RIB_OPEN  = 1.5;    // 空きの「開き」半径。これより細い空きは消す ＝ 切れ端が出ない
 RIB_THIN  = 0.4;    // 空きの縁をこれだけ削る。格子の線が縁をかすって出る薄片（0.1mm 等）を落とす
 RIB_BIG   = 400;
+// 🔴 2026-09-04 組む動きの掃引。壁は上から降ろすので、リブは**降りてくる途中も**中身を避ける必要がある。
+//    静止の当たり（chk_all）だけ見て出したリブは close_lwall 60.3 / close_rwall 267.6 を出した。
+//    障害物は case_v4 の stage_walls（手順 4 の時点で箱に入っている物）と同じ物を使う。
+RIB_DROP  = 30;     // 壁を持ち上げる高さ（case_v4 の close_lwall / close_rwall と同じ）
+RIB_DSTEP = 0.5;    // 掃引の刻み
 
 function rib_h(k)    = k == "front" ? RIB_H_FR : RIB_H;
 function rib_band(k) = rib_h(k) + RIB_CLR;
@@ -50,7 +55,18 @@ module rib_fat() {
     for (a = [0, 1, 2], s = [-1, 1])
         translate([a == 0 ? s*RIB_MARG : 0, a == 1 ? s*RIB_MARG : 0, a == 2 ? s*RIB_MARG : 0]) innards4();
 }
-module rib_free(k) difference() { rib_zone(k); rib_fat(); skin_except(k, false); }
+// 🔴 通す必要のある「道」は全部ここへ入れる。case_v4 の検査で **0 が正** と書いてある物と対にする。
+//    ここに書き漏らすと、静止では 0 なのに組めないリブが出来る（実際 close_lwall 60.3 を出した）。
+module rib_path(k) {
+    // ① 壁を上から降ろす道（close_lwall / close_rwall）。ハッチは −Y から差すので対象外
+    if (k == "lwall" || k == "rwall")
+        for (t = [0 : RIB_DSTEP : RIB_DROP]) translate([0, 0, -t]) stage_walls();
+    // ② ドライバの道（chk_t1・3 点目のビス。φ3.2 × 24 の軸）
+    t1_driver();
+    // ③ 充電基板を左の壁のポケットへ後ろから滑り込ませる道（chk_tc_pocket）
+    if (k == "lwall") for (t = [0 : RIB_DSTEP : 18]) translate([0, t, 0]) tcb_v4_bare();
+}
+module rib_free(k) difference() { rib_zone(k); rib_fat(); skin_except(k, false); rib_path(k); }
 
 // ---- リブ本体 ----
 // 🔴 線は自動生成（`python hardware/_v4_ribs.py`）。_v4_props.scad と同じ型。
