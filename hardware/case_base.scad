@@ -570,7 +570,7 @@ module wall_icon_x(c) { translate([0, c[0], c[1]]) rotate([90, 0, 90]) translate
 //   向き: 素の輪郭は口が右下を向いている。90 度回すと**口が右上**（🔒 icon-orientation-truth の基準）。
 //   0 / 90 / 180 / 270 を描いて目で選んだ（数値比較ではなく絵で確かめる）。
 module icon_svg() { sc = ICON_WR_H / icon_wrench_u_span();
-    icon_round(ICON_R * ICON_K) rotate([0, 0, 90]) scale(sc) icon_wrench_u(); }
+    icon_round(ICON_R * ICON_K) scale(sc) icon_wrench_u(); }   // 🔴 回すのは原本の側（icon_wrench_u.scad）
 module right_wall_ports_cut() {
     wall_pocket_x(XIAO_PORT_C, xiao_pocket_sz(), USBC_PORT_R + SLOT_M, XIAO_SEAT_X, SLOT_D, SLOT_BEV);   // オーバーモールドが座る深い彫り込み
     wall_port_x(XIAO_PORT_C, USBC_PORT, USBC_PORT_R, 0, XIAO_PAD_X0);                                   // 口（増し壁ごと貫く）
