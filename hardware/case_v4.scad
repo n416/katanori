@@ -145,7 +145,8 @@ FSCR_R = V4_FLOOR_SCREWS[1];   // 右の前の床ビス [X, Y]（刃を消す箱
 //   逃げの実績: ③ の表 4.25 ↔ ハウジング 4.524 = 0.274 / ③ の後端 58.35 ↔ ピン列 58.67 = 0.32 /
 //               ④ の後端 65.5 ↔ コネクタ胴 65.85 = 0.35 / ⑤ の右 5.9 ↔ ハブの左端 6.002 = 0.102
 TC4_XF  = LW_X + 1.6;         // 板の表（3.294）
-TC4_Y0  = 57.4; TC4_Y1 = 72.4;   // 板の前縁・後縁（後縁はハッチの内面 IN_Y に 0.4 入る）
+TC4_Y1  = IN_Y + 0.4;         // 板の後縁（ハッチの内面 IN_Y に 0.4 入る）。🔴 2026-09-05 まで 72.4 の直書きで、奥行きを広げたら基板（IN_Y 追従）だけ動いて受けが置いていかれた
+TC4_Y0  = TC4_Y1 - 15.0;      // 板の前縁（板の長さ 15.0。旧 57.4）
 TC4_ZT  = TCB_ZTOP;           // 板の上端（20.75）。🔴 2026-08-27 まで 20.5 の直書きで、口の中心 CHG_C_LW と別々に動けた
 TC4_ZB  = TC4_ZT - tc_size()[0];   // 板の下端（0.75）＝ ① 底の座の高さ
 TC4_CL  = 0.25;               // 板と受けの隙間
@@ -170,9 +171,9 @@ module tc_seat4_raw() {
     // ② 前の当て（−Y を止める壁・全高）
     translate([LW_X, TC4_FY0, 0]) cube([TC4_GX1 - LW_X, 1.2, TC4_ZT]);
     // ③ 前の返し（L の腕・板の表を全高で押さえる）
-    translate([TC4_GX0, TC4_FY1, 0]) cube([TC4_GX1 - TC4_GX0, 58.35 - TC4_FY1, TC4_ZT]);
+    translate([TC4_GX0, TC4_FY1, 0]) cube([TC4_GX1 - TC4_GX0, (TC4_Y1 - 14.05) - TC4_FY1, TC4_ZT]);   // 腕の後端 = 後縁 − 14.05（旧 58.35）
     // ④ 後ろの控え（ピン列とコネクタ胴の間・全高）
-    translate([TC4_GX0, 62.0, 0]) cube([TC4_BX1 - TC4_GX0, 65.5 - 62.0, TC4_ZT]);
+    translate([TC4_GX0, TC4_Y1 - 10.4, 0]) cube([TC4_BX1 - TC4_GX0, 3.5, TC4_ZT]);   // 後縁 − 10.4 〜 − 6.9（旧 62.0〜65.5）
     // ⑤ 補強の三角（④ は右へ。Z の途中で消える）
     //   🔒 2026-08-27 ユーザー了解（D-1）: **前の三角は落とした。**② の前面を床の枠（seat_frame4）が
     //   Z 0〜8.5 で直接受けるようになったので、② を前へ突っ張る役目は枠へ移った。
@@ -181,7 +182,7 @@ module tc_seat4_raw() {
     //   ケーブルの力（口の中心 Z 10.5）に対して腕が 10.5mm 残る。三角を落とすと ② の前面が
     //   Z 0 から平らに出るので、枠が Z 8.5 まで面で受けられる（腕 2.0mm）。
     //   ⚠ 代わりに、受けが単体（箱に入る前）のときは ② が 2.556 × 1.2 × 20.5 の柱になって折れやすい。
-    translate([0, 65.5, 0]) rotate([90, 0, 0]) linear_extrude(65.5 - 62.0)
+    translate([0, TC4_Y1 - 6.9, 0]) rotate([90, 0, 0]) linear_extrude(3.5)
         polygon([[TC4_BX1, 0], [5.9, 0], [TC4_BX1, 10.0]]);
 }
 // ---- 受けを落とす枠（床の側・🔒 2026-08-27 ユーザー「①で落とし終わったらストッパーをねじ止め」の後継）----
@@ -553,10 +554,10 @@ module knob_station_add4() difference() {
 //   位置はプローブの bbox（_v4_skin_probe.scad）→ 中心 [3.23, 10.5]・縦の口。印（稲妻）は口の左（+X。右は板の縁）。
 //   🔴 経緯: 初版は「内面に鼻先・外から局所薄肉 0.8 のポケット」で、輪郭 3 重＋角の丸みに食い込む顔だった（ユーザー「変」）
 CHG4_C = [3.23 + LW_X, CHG_C_LW[1]]; TC_PORT_V4 = [3.86, 9.54];   // 基板は左壁ベタ付け（LW_X に追従）。🔴 2026-08-27 まで Z が 10.5 の直書きで、板の Z（CHG_C_LW）と別々に動けた。口と板がずれると挿さらないので式にした
-module hatch_chg_cut4() {
+module hatch_chg_cut4(y0 = IN_Y - 1) {   // y0 = 口の彫り始め（内側）。hatch_cuts4 が縁の底より下から彫るために渡す
     c = CHG4_C;
     translate([c[0], 0, c[1]]) rotate([-90, 0, 0]) {
-        translate([0, 0, IN_Y - 1]) linear_extrude(HATCH_T + 2) port_rrect_xz(TC_PORT_V4, USBC_PORT_R);   // 口（殻の大きさ・貫通。殻 3.26×8.94 が中へ入る）
+        translate([0, 0, y0]) linear_extrude(IN_Y + HATCH_T + 1 - y0) port_rrect_xz(TC_PORT_V4, USBC_PORT_R);   // 口（殻の大きさ・貫通。殻 3.26×8.94 が中へ入る）
         hull() {                                                                                          // 外面のベベル
             translate([0, 0, IN_Y + HATCH_T - PORT_BEV]) linear_extrude(0.01) port_rrect_xz(TC_PORT_V4, USBC_PORT_R);
             translate([0, 0, IN_Y + HATCH_T + 1.0]) linear_extrude(0.01) port_rrect_xz(TC_PORT_V4, USBC_PORT_R, PORT_BEV + 1.0);
@@ -568,11 +569,14 @@ module hatch_chg_cut4() {
     translate([LW_X - 0.5, IN_Y - 0.01, -0.5]) cube([2.6, 0.71, 21.5]);
 }
 // ハッチから彫るもの一式。🔒 ハッチと床の板（別部品）の**両方**がこれを引く（形を 1 か所に持つ）
-module hatch_cuts4() {
-    translate([TGL_AT[0], IN_Y - 1, TGL_AT[1]]) rotate([-90, 0, 0]) mts102_hole(HATCH_T + 2);
-    hatch_chg_cut4();
-    translate([TGL_AT[0] - ANT_SLOT_W / 2, IN_Y - 1, TGL_AT[1] - (ANT_OFF + ANT_SLOT_W / 2)]) cube([ANT_SLOT_W, HATCH_T + 2, ANT_OFF + ANT_SLOT_W / 2]);   // アンテナ線のスリット（トグルの下・v3）
-    sw4_band_cut();        // 電池の蓋の彫り込み帯
+//   u = 溝の床（Y 71.0 ＝ ハッチの縁の底 ＝ 床の板の上面）より内側へ彫りを伸ばす量（case_v4_shutter の sw4_band_cut と同じ）。
+//   🔴 2026-09-05 旧 `IN_Y - 1` は 71.0 ちょうどで、縁の底面・板の上面と同一平面 → プレビューで窓の中がチラついた
+module hatch_cuts4(u = 1.0) {
+    y0 = sw4_yg() - u; yl = SW4_YOUT + 1 - y0;
+    translate([TGL_AT[0], y0, TGL_AT[1]]) rotate([-90, 0, 0]) mts102_hole(yl);
+    hatch_chg_cut4(y0);
+    translate([TGL_AT[0] - ANT_SLOT_W / 2, y0, TGL_AT[1] - (ANT_OFF + ANT_SLOT_W / 2)]) cube([ANT_SLOT_W, yl, ANT_OFF + ANT_SLOT_W / 2]);   // アンテナ線のスリット（トグルの下・v3）
+    sw4_band_cut(u);       // 電池の蓋の彫り込み帯
     sw4_lock_cut();        // ロックのネジ穴とナットの座
     sw4_mag_window();      // 🔒 2026-08-29 磁石の芯の窓（枠 1.0 を残す・蓋で隠れる）
     battery_port_cut4();   // 電池の口（蓋が塞ぐのでベベル無し・v3 と同じ）
@@ -585,11 +589,12 @@ module hatch_v4(rib = true) {
             color("#c9d0d8") hatch_claws();
             color("#c9d0d8") sw4_hatch_rim();   // 増し肉のうち Y 71〜72 だけ（残りは床の板 battery_floor4 へ・case_v4_shutter）
         }
-        hatch_cuts4();
+        hatch_cuts4(1.0);   // 縁（Y 71〜72）の下は空なので 1.0 貫く
     }
 }
 // 電池の蓋の床の板（🆕 2026-09-04 ハッチから切り離した別部品）。溝の床・磁石の座・ロックのナットのボス
-module battery_floor4() difference() { color("#c9d0d8") sw4_floor_plate(); hatch_cuts4(); }
+//   彫りは板の上面（Y 71.0）の 0.01 上から（板の上面が溝の床そのもの。面ちょうどで始めるとチラつく）
+module battery_floor4() difference() { color("#c9d0d8") sw4_floor_plate(); hatch_cuts4(-0.01); }
 // 蓋の一式（絵と検査に出す実体。open=0 で閉）
 module door4(open = 0, fast = false) {
     color("#c8ced6") battery_shutter4(open);

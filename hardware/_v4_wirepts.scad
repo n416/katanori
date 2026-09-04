@@ -11,7 +11,7 @@ if (P == "oled")   oled_hous();
 if (P == "asc")    translate([3, 5, 0]) as_conn();
 if (P == "inai2c") inai2c_probe();
 if (P == "pbusb")  pbusb_probe();
-if (P == "tcbh")   translate([-64.47, IN_Y - 1.70, 0]) rotate([0, 0, -90]) tcb_hous();
+if (P == "tcbh")   translate([-TCB_YB, IN_Y - 1.70, 0]) rotate([0, 0, -90]) tcb_hous();
 if (P == "tgl")    tgl_v4();
 if (P == "j2")     rsp_j2_space();
 for (id = ["XIAO", "OLED", "AS5600", "BTN2", "REED", "INA", "TOGGLE", "PHIN", "PHOUT", "PWR"])

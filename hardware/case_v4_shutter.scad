@@ -187,14 +187,18 @@ module battery_port_cut4() {
 //   耳の閉位置で断面が丸まっていないよう、角丸 + 隙間ぶん左へ出す
 SW4_RAIL_LEAD = SHUT_R + SHUT_CL;   // レールを耳の閉位置より左へ伸ばす分
 function sw4_rail_x0() = sw4_ex0() - SW4_RAIL_LEAD;   // レール（縁まで高い溝）の左端
-module sw4_band_cut() {
-    sw4_rrect(sw4_yg(), sw4_yl() - sw4_yg(), sw4_bx0(), sw4_bx1(),
+// u = 溝の床（Y 71.0）より内側へ彫りを伸ばす量。🔴 2026-09-05 床の面ちょうど（u = 0）で始めると、彫りの底面が
+//   ハッチの縁の底面（Y 71.0）と床の板の上面（Y 71.0）に同一平面で乗り、プレビューで蓋の窓の中がチラつく。
+//   ハッチは縁の下が空なので 1.0 貫く。床の板は上面が溝の床そのものなので、溝の彫りは板に触れない（u = −0.01 ＝ 71.01 から）
+module sw4_band_cut(u = 1.0) {
+    y0 = sw4_yg() - u;
+    sw4_rrect(y0, sw4_yl() - y0, sw4_bx0(), sw4_bx1(),
               sw4_lz0() - SHUT_CL, sw4_lz1() + SHUT_CL, SHUT_R);                                    // 蓋の本体が走る溝（全長・蓋の高さ）
-    sw4_rrect(sw4_yg(), sw4_yl() - sw4_yg(), sw4_rail_x0(), sw4_bx1(), sw4_bz0(), sw4_bz1(), SHUT_R);   // 耳が走るレール（耳が届く所だけ・上下の縁まで）
+    sw4_rrect(y0, sw4_yl() - y0, sw4_rail_x0(), sw4_bx1(), sw4_bz0(), sw4_bz1(), SHUT_R);          // 耳が走るレール（耳が届く所だけ・上下の縁まで）
     sw4_rrect(sw4_yl() - 0.01, SHUT_LIP + 0.02, sw4_bx0(), sw4_bx1(),
               sw4_lz0() - SHUT_CL, sw4_lz1() + SHUT_CL, SHUT_R);                                    // 蓋の本体が出る窓（全ストローク分）
     // 🔒 ロックが座る所（＝耳の逃がし口も兼ねる）。**ロックの外形から作る**ので、ロックの形を変えても彫り込みが必ず追従する
-    sw4_ext(sw4_yg(), SW4_YOUT - sw4_yg() + 0.01) offset(r = SHUT_CL) sw4_lk_out_2d();
+    sw4_ext(y0, SW4_YOUT - y0 + 0.01) offset(r = SHUT_CL) sw4_lk_out_2d();
     sw4_magnets(sw4_yg() - SHUT_MAG_H, SHUT_MAG_H + 0.01);                                          // 相手側の磁石の座
 }
 // ロックのネジ穴とナットの座
@@ -209,10 +213,11 @@ module sw4_mag_window() for (x = sw4_mag_xs())
         cylinder(d = SW4_MAG_WIN_D, h = 6.0, $fn = 48);
 module sw4_lock_cut() {
     sw4_lock_bore(sw4_yg() - SHUT_LOCK_B - 2, SHUT_LOCK_B + SHUT_T + 4, SHUT_LOCK_D);
-    translate([sw4_lock_x(), sw4_yg() - SHUT_LOCK_B, sw4_lock_z()]) rotate([-90, 0, 0]) rotate([0, 0, 30])
-        cylinder(d = SHUT_LOCK_NAF / cos(30), h = SHUT_LOCK_NT + 0.01, $fn = 6);                    // ナットの六角ポケット
-    translate([sw4_lock_x() - SHUT_LOCK_NAF / 2, sw4_yg() - SHUT_LOCK_B, sw4_lock_z()])
-        cube([SHUT_LOCK_NAF, SHUT_LOCK_NT + 0.01, sw4_lk_boss_z1() - sw4_lock_z() + 0.01]);         // 落とす溝（ボスの頭まで）
+    // ポケットと溝はボスの裏面（Y 71 − B）に開く口なので、裏面より 0.01 手前から彫る（面ちょうどだとプレビューがチラつく）
+    translate([sw4_lock_x(), sw4_yg() - SHUT_LOCK_B - 0.01, sw4_lock_z()]) rotate([-90, 0, 0]) rotate([0, 0, 30])
+        cylinder(d = SHUT_LOCK_NAF / cos(30), h = SHUT_LOCK_NT + 0.02, $fn = 6);                    // ナットの六角ポケット
+    translate([sw4_lock_x() - SHUT_LOCK_NAF / 2, sw4_yg() - SHUT_LOCK_B - 0.01, sw4_lock_z()])
+        cube([SHUT_LOCK_NAF, SHUT_LOCK_NT + 0.02, sw4_lk_boss_z1() - sw4_lock_z() + 0.01]);         // 落とす溝（ボスの頭まで）
 }
 // 彫ったぶんハッチの裏へ足す肉＋ロックのボス＋磁石のパッド
 // ボスの下端 ＝ 六角の下の頂点 − 床の厚み。🔒 旧「− 2.5」は直書きで、床が 0.017mm しか
@@ -246,7 +251,7 @@ module sw4_dilate(cl) for (d = [[0, 0, 0], [cl, 0, 0], [-cl, 0, 0], [0, cl, 0], 
 //   刷る向きでは最上層に 0.25 x 7.75mm のひれ（preflight の 🔴「平たい肉 0.15mm」）。
 //   ⇒ 線は Y へ掃いて引く。増し肉の中で線が掛かる所は、板厚を貫く**溝**になる（＝線の通り道）。
 //   Type-C 基板は板の面に平らに当たっているだけなので掃かない（掃くと座がまるごと消える）。
-SW4_CARVE_Y = 2.5;    // Y へ掃く量（板 1.2 ＋ 縁 1.0 = 2.2 を確実に越える）
+SW4_CARVE_Y = 0;      // Y へ掃く量。🔒 2026-09-05 奥行きを 2.0 広げて線（Y 70.7）が板の手前 0.35 に外れたので掃かない（旧 2.5。掃いたままだと線の無い Y 73〜74 の縁と上ののりしろまで削れ、幅 0.06 のひれが出た）。線を板の厚みに通す経路へ戻すなら 2.5（板 1.2 ＋ 縁 1.0 = 2.2 を確実に越える量）
 SW4_CARVE_S = 0.5;    // 掃きの刻み。線の直径 1.5 より細かいので継ぎ目は空かない
 module sw4_backing_carve(cl) {
     sw4_dilate(cl) tcb_v4();
@@ -274,7 +279,33 @@ module sw4_flange_2d() union() {
     sw4_rrect2d(sw4_bx0() - SW4_BACK_FL, sw4_bx1() + SW4_BACK_FL,
                 sw4_bz0() - SW4_BACK_FL, sw4_bz1() + SW4_BACK_FL, SHUT_R + SW4_BACK_FL);
     offset(r = SHUT_CL + 1.0) sw4_lk_out_2d();   // ロックの座の裏（帯の四角から出る分）
+    sw4_tabs_2d();                                // のりしろ
 }
+// のりしろ（2026-09-05 ユーザー「接着用ののりしろをいくつか付けられると良い」）。
+//   合わせ面（溝の床 ＝ IN_Y − 1.0）は、溝の輪郭がハッチを貫いているので、両部品に肉があるのは幅 1.0 の枠だけだった。
+//   つばの下の帯の外（Z 16.25〜19.25）に、ハッチのリブの間へ 4 個。つばの一部なので、縁（ハッチ側）と
+//   床の板（板側）の両方に同じ形で付き、接着面がそのぶん増える。
+//   置けない所（_hatch_tabs_probe.scad で升ごとに測った）: 上の帯は電源線（Y 70.7）が全長を走る。
+//   左端（Type-C 側）は X 1.694 まで左壁。右端は 5V の下り（X 64）。下の帯はリブ（X 13.694 から 8 ピッチ・幅 1.6）
+//   の間の 6.4mm だけが空き。位置決めの爪②（X 30）の欠きが 0.25 下へ出るので、その升は避けた。
+SW4_TAB_XS = [8.1, 25.694, 41.694, 57.694];   // 下の帯: 中心 X。リブの間の中央（リブ X 13.694 ＋ 8k ＋ 4）。左端だけ広い空き（3.3〜12.9）の中央
+SW4_TAB_W  = 5.6;                             // 同 幅。リブとの隙間は片側 0.4
+SW4_TAB_H  = 3.0;                             // 同 つばの縁から外へ出る量（Z）
+//   🔒 2026-09-05 ユーザー「筐体の Y を広げてもよい」→ BACK_CL 8.1 → 10.1（case_base）。電源線（Y 70.7 直書き）が
+//   ハッチ側の肉（IN_Y − 2.2 = 71.8 から）の手前に外れ、上の帯も空いた。上にも下と同じ X で 4 個。
+//   ただしトグルの胴（φ13・軸 Z 43.5 → 下端 37.0）が X 33.5〜46.5 に居るので、上の丈は 2.5（Z 36.2 まで・胴まで 0.8）
+SW4_TAB_H_TOP = 2.5;
+function sw4_tab_rects() = concat(              // [x0, x1, z0, z1]。0.5 はつばに食い込ませる分
+    [for (x = SW4_TAB_XS) [x - SW4_TAB_W / 2, x + SW4_TAB_W / 2, sw4_bz0() - SW4_BACK_FL - SW4_TAB_H, sw4_bz0() - SW4_BACK_FL + 0.5]],
+    [for (x = SW4_TAB_XS) [x - SW4_TAB_W / 2, x + SW4_TAB_W / 2, sw4_bz1() + SW4_BACK_FL - 0.5, sw4_bz1() + SW4_BACK_FL + SW4_TAB_H_TOP]]);
+//   ⚠ 奥行きを広げる前に置いた左上の角の小さいのりしろ（X 2.15〜5.0・Z 33.7〜37.7）は、上の帯の 1 個目と隣り合うので外した（ユーザー 2026-09-05）
+module sw4_tabs_2d() for (r = sw4_tab_rects()) translate([r[0], r[2]]) square([r[1] - r[0], r[3] - r[2]]);
+// リブと干渉しないことを、リブの表（_v4_ribs_gen.scad の RIB_SEGS）から確かめる。リブを焼き直したらここで止まる
+//   縦リブ（s[1]==1）: X = s[2]・Z s[3]〜s[4]。横リブ（s[1]==0）: Z = s[2]・X s[3]〜s[4]。幅 RIB_W・隙間 0.3
+function sw4_rib_rect(s) = s[1] == 1 ? [s[2] - RIB_W / 2, s[2] + RIB_W / 2, s[3], s[4]] : [s[3], s[4], s[2] - RIB_W / 2, s[2] + RIB_W / 2];
+function sw4_rects_clear(a, b, g) = a[1] + g <= b[0] || b[1] + g <= a[0] || a[3] + g <= b[2] || b[3] + g <= a[2];
+for (s = RIB_SEGS) if (s[0] == "hatch") for (r = sw4_tab_rects())
+    assert(sw4_rects_clear(r, sw4_rib_rect(s), 0.3), str("のりしろ ", r, " がハッチのリブ ", s, " に当たる"));
 // 爪の 2D（g = 隙間。爪は 0、板の欠きは SW4_REG_CL）。**縁が確実に残っている所**に 2 個置く:
 //   ① 左の端の縦の帯（X 2.15〜3.15・帯の外なので全高ある）  ② 下の帯の中ほど（Z 19.25〜20.25）
 //   ⚠ 右の端に置くとロックの鼻の座（半径 5.55 の丸）に縁を食われていて、爪が宙に浮く（実測: 島 1 個・3.00mm²）。
@@ -296,7 +327,8 @@ module sw4_floor_plate() difference() {
         sw4_ext(IN_Y - SHUT_BACK, SHUT_BACK - (IN_Y - sw4_yg())) sw4_flange_2d();
         sw4_lock_boss();
         for (x = sw4_mag_xs()) translate([x, sw4_yg() - SHUT_MAG_H - 0.4, sw4_mag_z()])   // 磁石の座の増し
-            rotate([-90, 0, 0]) cylinder(d = SHUT_MAG_D + 2.0, h = SHUT_MAG_H + 0.4 + 0.01, $fn = 48);
+            rotate([-90, 0, 0]) cylinder(d = SHUT_MAG_D + 2.0, h = SHUT_MAG_H + 0.4 - 0.01, $fn = 48);
+        // ⚠ 座の頭は板の上面（Y 71.0）の 0.01 手前で止める。旧「+ 0.01」は溝の床から 0.01 飛び出す輪になっていた（2026-09-05）
         // ⚠ 穴の底 0.4（0.8 だと座の前面が INA の I2C の束に入る。磁石は接着が持つ前提）
         // 🔴 2026-09-04 この 0.4 は preflight を 0.45 で回すと 🔴 に出る（実績の下限 0.42 を 0.02 割る）。
         //    形は φ6.1 の穴の底に残る**幅 1.0 の枠**（芯は sw4_mag_window の φ4.1 で抜けている）で、

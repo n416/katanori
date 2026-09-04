@@ -102,7 +102,7 @@ if (ST == "topsub") s_top();
 //   島のナットは天面の裏の**下向き**ポケット（置いておけない）なので、下から押さえる手の道がここで要る。
 if (ST == "topnut") { rounded4() top_v4(); translate([KNOB_DX, KNOB_DY, 0]) translate(KNOB_AT) knob_group("wall"); }
 if (ST == "straponly") straps_v4();
-if (ST == "tchous") translate([-64.47 + LW_X, IN_Y - 0.50, 0]) rotate([0, 0, -90]) tcb_hous();   // 🆕 2026-08-27 充電の口 2 つ（上下）。頭の Z を手で写さないための出口   // 🆕 2026-08-27 手順 6 の手の道を撃つ用（_asm_access.py が連結成分に割って 3 本の bbox を取る）
+if (ST == "tchous") translate([-TCB_YB + LW_X, IN_Y - 0.50, 0]) rotate([0, 0, -90]) tcb_hous();   // 🆕 2026-08-27 充電の口 2 つ（上下）。頭の Z を手で写さないための出口   // 🆕 2026-08-27 手順 6 の手の道を撃つ用（_asm_access.py が連結成分に割って 3 本の bbox を取る）
 if (ST == "wires") { core(); s_bat(); s_boards(); s_tcb(); brg_v4(); straps_v4(); tgl_v4(); wires_pwr(); wires_sig(); }
 
 // ---- 入れる軌跡の検査（0 が正。相手は「その手順の直前まで」）------------------
