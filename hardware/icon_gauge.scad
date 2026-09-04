@@ -27,8 +27,11 @@ LBL  = 0.6;               // 上面に浮かせる数字の高さ
 
 // ---- 印を倍率 k で描く（case_base / case_v4 の中身と同じ式。ICON_K には依らせない）----
 module g_bolt(k) icon_round(ICON_R * k * ICON_BOLT_K) icon_bolt(TC_ICON_H * k * ICON_BOLT_K);
+// 🔴 2026-09-04 原本（icon_wrench_u）に 90 度を焼き込んだので、ここで 90 度を取る。
+//    クーポンは彫った面を**下**にして刷り、その面を見る。壁は外面を見る。見る側が逆なので、
+//    原本 1 つの向きでは両方に合わない。壁が素のまま合うようにしたぶん、こちらで戻す。
 module g_wrench(k) let(sc = 4.87 * k / icon_wrench_u_span())
-    icon_round(ICON_R * k) scale(sc) icon_wrench_u();   // ユーザーの絵（uuu.png → icon_wrench_u.scad）
+    icon_round(ICON_R * k) rotate([0, 0, -90]) scale(sc) icon_wrench_u();
 module g_phone(k) let(h  = 0.7 * LJACK_D * k,
                       sc = h / icon_headphone_size()[1],
                       sw = max(icon_headphone_sw() * ICON_HP_SW, SVC_MIN_W / sc))
