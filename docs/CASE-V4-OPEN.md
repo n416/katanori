@@ -1,6 +1,6 @@
 # 筐体 v4 — OPEN
 
-いまの姿は [CASE-V4.md](CASE-V4.md)、経緯は [CASE-V4-LOG.md](CASE-V4-LOG.md)、組む手順は [assembly_v4.html](../hardware/assembly_v4.html)。
+いまの姿は [CASE-V4.md](CASE-V4.md)、経緯は [CASE-V4-LOG.md](CASE-V4-LOG.md)、組む手順は [assembly_v4.html](../docs/manual/assembly_v4.html)。
 
 🔒 **OPEN しているものだけを書く。** 済んだ話・経緯・AI の反省は書かない。**済んだらその場で消す**（経緯が要るなら
 [CASE-V4-LOG.md](CASE-V4-LOG.md) へ）。書く前に「これは本当にまだ決まっていないか」を現物と `.scad` に当てる。
@@ -143,7 +143,7 @@
 **②で決めた。**①では 2.68 が上限で、反らなかった床（焼き上がり 2.8）に届かないため。
 ⇒ **違うなら丈を 1.0 に落とすだけで済む**（線の場所は変わらない）。
 
-### 入れたもの（`python hardware/_v4_ribs.py` が生成）
+### 入れたもの（`python hardware/frozen/v1-v4/_v4_ribs.py` が生成）
 
 🔒 **格子・ピッチ 8mm・幅 1.6mm・0/90。丈 2.0（front だけ 1.0）。**
 ✅ ユーザー「鞍型ですね」で横だけの平行リブは消えた（鞍型は 2 方向に曲がる）。
@@ -178,7 +178,7 @@
 
 ### 作り方（🔴 手で座標を置いていない）
 
-[_v4_ribs.py](../hardware/_v4_ribs.py) が [_v4_ribs_gen.scad](../hardware/_v4_ribs_gen.scad) を書く。
+[_v4_ribs.py](../hardware/frozen/v1-v4/_v4_ribs.py) が [_v4_ribs_gen.scad](../hardware/frozen/v1-v4/_v4_ribs_gen.scad) を書く。
 `_v4_props.py` → `_v4_props.scad` と同じ型。⚠ **中身（`innards4`）を動かしたら生成し直すこと。**
 
 1. OpenSCAD に「内面の空き」を焼かせる（`_v4_ribspace.scad` の `ribfree_<k>`）。

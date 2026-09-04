@@ -5,7 +5,7 @@
 | 文書 | 担当 |
 |---|---|
 | **POWER.md（ここ）** | 回路・定数・その根拠・部品の向き・データシート・却下した案 |
-| **[relay_board.html](../hardware/relay_board.html)** | 🔒 **どの穴に挿すか・配線の経路・組む順番。穴の割り当てはこちらが唯一の正** |
+| **[relay_board.html](../hardware/parts/relay_board.html)** | 🔒 **どの穴に挿すか・配線の経路・組む順番。穴の割り当てはこちらが唯一の正** |
 | **[TODO.md](TODO.md)** | 何が残っているか |
 
 ⚠ **穴番号をこの文書に書かないこと。** 両方に書くと必ず片方が古くなる（2026-08-07 に実際に起きた）。
@@ -570,7 +570,7 @@ Internal Connections でコイルの長方形が左から2列目の上下2本に
 ⬜ **残るのはスピーカー線を IN/OUT に通すことだけで、それは PH2.0 のポート待ち。**
 
 ⚠ **挿す前の3点確認**: ① 1N4148 の帯が +5V 側 ② 2SC1815 のエミッタの足が GND の穴に載っている
-③ 10kΩ の足が GND に入っている。（穴番号での確認は [relay_board.html](../hardware/relay_board.html) の
+③ 10kΩ の足が GND に入っている。（穴番号での確認は [relay_board.html](../hardware/parts/relay_board.html) の
 「半田付け前の確認」）
 
 ⚠ **スピーカーは最後まで繋がない。音が出る段に入る前に必ず声をかけること。**
@@ -580,7 +580,7 @@ Internal Connections でコイルの長方形が左から2列目の上下2本に
 ## 4. ハブ基板
 
 **板は 両面スルーホール C基板 DAISEN PU52X74（外形 52 × 74mm・27列×19行）。**
-▶ **穴の割り当て・配線の経路・組む順番は [relay_board.html](../hardware/relay_board.html)。**
+▶ **穴の割り当て・配線の経路・組む順番は [relay_board.html](../hardware/parts/relay_board.html)。**
 
 ### 板の外に出る口（境界）
 
@@ -593,10 +593,10 @@ Internal Connections でコイルの長方形が左から2列目の上下2本に
 
 いきさつはこうである。v1 では exit が relay_board.html の**平面図の画面方向**のまま書かれて
 いて、板を立てた回転に追従せず、**10口すべてが線の逃げ 25mm を箱の外に要求していた**
-（`hardware/case_v1.scad` の 🔴・17,844mm3）。当初はこれを「向きを行き先から決め直す」
+（`hardware/frozen/v1-v4/case_v1.scad` の 🔴・17,844mm3）。当初はこれを「向きを行き先から決め直す」
 問題だと考えていた。
 
-**しかし v2 で板を床に寝かせたことで、問題ごと消えた**（[case_v2.scad](../hardware/case_v2.scad) ／ [CASE-V2.md](CASE-V2.md)）。
+**しかし v2 で板を床に寝かせたことで、問題ごと消えた**（[case_v2.scad](../hardware/frozen/v1-v4/case_v2.scad) ／ [CASE-V2.md](CASE-V2.md)）。
 ヘッダは真上を向いて立ち、線の逃げは**箱の高さ**から取れる。板の縁がどちらを向いていようと
 関係がない。⇒ 🔒 **穴の位置もネットの割り当ても exit も、いまのままでよい。**
 実測でも、線が箱の外へ出た量は **0mm3**（v1 は 17,844mm3）。
@@ -731,7 +731,7 @@ OLED を行E へ、AS5600 を列25 へ動かして幹線を引き直したこと
 
 ### 部品の高さ — 正は別文書
 
-🔒 **部品寸法の正は [parts.scad](../hardware/parts.scad) と [CASE-V4-LOG.md](CASE-V4-LOG.md) §5 の台帳**
+🔒 **部品寸法の正は [parts.scad](../hardware/parts/parts.scad) と [CASE-V4-LOG.md](CASE-V4-LOG.md) §5 の台帳**
 （2026-08-24 に実物で総ざらい済み）。⚠ **この文書に部品寸法を書き戻さないこと。**
 2026-08-15 時点の表は 2026-09-01 に削除した（`git log -p docs/POWER.md` で読める）。
 

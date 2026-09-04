@@ -13,11 +13,11 @@
 
 ---
 
-正は [../hardware/case_v2.scad](../hardware/case_v2.scad) 一本。線もこの中にある
+正は [../hardware/frozen/v1-v4/case_v2.scad](../hardware/frozen/v1-v4/case_v2.scad) 一本。線もこの中にある
 （`case_v2_pack.scad` は削除済み）。検査は **OpenSCAD Nightly の manifold** で回す:
 
 ```
-"C:\Program Files\OpenSCAD (Nightly)\openscad.exe" --backend=manifold -o out.stl -D 'part="chk_wire"' hardware/case_v2.scad
+"C:\Program Files\OpenSCAD (Nightly)\openscad.exe" --backend=manifold -o out.stl -D 'part="chk_wire"' hardware/frozen/v1-v4/case_v2.scad
 ```
 
 **いまの状態**（2026-08-21 更新。数字は STL の体積。0 は当たり無し）
@@ -69,7 +69,7 @@
 
 > ふと上面をあけると、共通基盤からケーブルが取れるのでは（ユーザー）
 
-道具は [_open_top_look.scad](../hardware/_open_top_look.scad)、絵は [_open_top_look.png](../hardware/_open_top_look.png)。
+道具は [_open_top_look.scad](../hardware/frozen/v1-v4/_open_top_look.scad)、絵は [_open_top_look.png](../hardware/frozen/v1-v4/_open_top_look.png)。
 ⚠ ここで言う「上面をあける」は**上シェル（天板＋左右の壁＋ブリッジ）を横のねじ4本で外すこと**として確かめた。
 天板だけに蓋を切る形は見ていない。
 
@@ -87,7 +87,7 @@
 
 ### 🔴 いまの形は真っ直ぐには閉じられない（2026-08-22・ユーザー「組み立てられないよな」を実体で確かめた → **同日夜、下の案A で解消**）
 
-道具は [_assemble_chk.scad](../hardware/_assemble_chk.scad)、絵は [_assemble_chk.png](../hardware/_assemble_chk.png)。
+道具は [_assemble_chk.scad](../hardware/frozen/v1-v4/_assemble_chk.scad)、絵は [_assemble_chk.png](../hardware/frozen/v1-v4/_assemble_chk.png)。
 上シェル側（上シェル・OLED・つまみ・スピーカー・PowerBoost・INA226・タクト）と下シェル側（下シェル・ハブ・トグル・尻尾）に分け、
 下シェル側を Z で 40mm 手前から真っ直ぐ近づけた通り道を上シェル側と当てた（電池は最後に左の口から入れるので除く）。
 シェルどうし・ハブ・OLED・尻尾は **0**。引っ掛かるのは次の3か所。
@@ -112,9 +112,9 @@ AI が続けて出した「天板だけが蓋」の案もユーザー却下。**
 
 
 
-入れる前の検証は [_split_chk.scad](../hardware/_split_chk.scad)（`case_v2.scad` から形を借りて組み替えた道具。
+入れる前の検証は [_split_chk.scad](../hardware/frozen/v1-v4/_split_chk.scad)（`case_v2.scad` から形を借りて組み替えた道具。
 入れた後は `shell_lower()` に背板が無いので、この道具の `back_region` は空になる＝もう使わない）。
-絵は [_split_chk.png](../hardware/_split_chk.png)（入れた後の `part="explode"`）。
+絵は [_split_chk.png](../hardware/frozen/v1-v4/_split_chk.png)（入れた後の `part="explode"`）。
 
 **分割**: 上シェル ＝ 天板＋左右の壁＋正面の枠＋ブリッジ＋**背板（レール・トグルごと）**。
 下シェル ＝ **床の皿だけ**（ハブの柱・ReSpeaker の溝・OLED の棚・PowerBoost の床の柱・窓の下枠はそのまま）。
@@ -154,7 +154,7 @@ AI が続けて出した「天板だけが蓋」の案もユーザー却下。**
 |---|---|
 | ReSpeaker を 0.9 左に寄せて上シェルへ降ろす | 左の壁 **0** ／ 増し壁 **0** ／ 中 **8.704**（押し代 7.8 ＋ ソケットの頭とブリッジ前面の接触 0.317・厚み 0.03） |
 | そのあと右へ 0.9 滑らせて殻を口へ | **8.351**（押し代 ＋ 口の角） |
-| 床の皿（ハブ付き）を真っ直ぐ閉じる（[_assemble_chk.scad](../hardware/_assemble_chk.scad) `close` RSP_UP=true） | **0.000** |
+| 床の皿（ハブ付き）を真っ直ぐ閉じる（[_assemble_chk.scad](../hardware/frozen/v1-v4/_assemble_chk.scad) `close` RSP_UP=true） | **0.000** |
 | `chk_parts` / `chk_wire` / `chk_wout` / `chk_usb` / `chk_button` / `chk_shut` | 0 |
 | `chk_upper` / `chk_shell` / `chk_lower` / `chk_wshell` | 8.518 / 0.000 / 186.391 / 0.583（**全部、入れる前と同じ**） |
 
@@ -180,8 +180,8 @@ AI が続けて出した「天板だけが蓋」の案もユーザー却下。**
 - 皿（Tray） ＝ 床
 - ヒンジの軸 ＝ 正面の外の面（Y −2）と床の外の面（Z −2）が交わる X 軸
 
-道具は [_hinge_chk.scad](../hardware/_hinge_chk.scad)、絵は
-[_hinge_chk2.png](../hardware/_hinge_chk2.png)（75 度開いた姿を後ろ下から見たもの）。
+道具は [_hinge_chk.scad](../hardware/frozen/v1-v4/_hinge_chk.scad)、絵は
+[_hinge_chk2.png](../hardware/frozen/v1-v4/_hinge_chk2.png)（75 度開いた姿を後ろ下から見たもの）。
 0〜90 度まで 2 度刻みで皿を振り、その通り道を本体側と当てた。電池は含めない。
 
 **結果**
@@ -315,7 +315,7 @@ ReSpeaker の土手と振れ止め（Y 6.2〜10.2 / Z 〜8.5）は、いずれ�
 
 **⬜ 口をどの壁へ動かせるか（2026-08-22・ユーザー「後ろでも天板でもいい」で計算した。決まっていない）**
 
-道具は [_port_area.scad](../hardware/_port_area.scad)、絵は [_port_area.png](../hardware/_port_area.png)。
+道具は [_port_area.scad](../hardware/frozen/v1-v4/_port_area.scad)、絵は [_port_area.png](../hardware/frozen/v1-v4/_port_area.png)。
 壁の内面から 3mm おきに断面を取り、**どの断面でも空いている所**だけを残し、受け口の外形の半分だけ
 縮めてある。出るのは **12mm 角の受け口の「中心を置ける範囲」**である。
 
@@ -341,7 +341,7 @@ ReSpeaker の土手と振れ止め（Y 6.2〜10.2 / Z 〜8.5）は、いずれ�
 
 **⬜ 推した場所（背面 X 70.5 / Z 37.5）を実体で測った（2026-08-22・⚠ 筐体はまだ変えていない）**
 
-道具は [_chg_route.scad](../hardware/_chg_route.scad)、絵は [_chg_route.png](../hardware/_chg_route.png)。
+道具は [_chg_route.scad](../hardware/frozen/v1-v4/_chg_route.scad)、絵は [_chg_route.png](../hardware/frozen/v1-v4/_chg_route.png)。
 
 - ✅ **受け口そのものは完全に空いている。**胴を 12（X）× 8（Z）× 10（奥行）とし、背面の壁の
   内面 Y 72 から手前へ置いて当てたところ、**シェル 0.000 / 部品は11個すべて 0.000 /
@@ -494,15 +494,15 @@ ReSpeaker の土手と振れ止め（Y 6.2〜10.2 / Z 〜8.5）は、いずれ�
 - 🔴 **間隔は彫り込みの床の縁からでは近すぎた**（ベベルの外縁まで 0.3mm しか空かない）。
   ⇒ 見た目の縁＝ベベルの外側から 1.5mm を取る式に直した
 
-**サービス記号の絵はユーザーが SVG で作った**（[icon_gear_wrench.svg](../hardware/icon_gear_wrench.svg)）。
+**サービス記号の絵はユーザーが SVG で作った**（[icon_gear_wrench.svg](../hardware/icons/icon_gear_wrench.svg)）。
 🔴 AI が引いた案（スパナ／歯車／ネジ頭／丈32mmの線画）は**全部却下**されている
 （「スパナの形が変じゃない…？」「凄い潰れ方」「想像よりダサかった」）。⇒ **こちらが決めるのは
 位置と大きさだけ**にして、描いた案はコードから消した。
 
 - ⚠ **この SVG は線だけで塗りが無い。**OpenSCAD の `import()` は塗りしか読まないので
-  そのままでは取り込めない。⇒ [gen_icon_svg.py](../hardware/gen_icon_svg.py) が点列を読み、
-  線を実体（hull の連なり・端と角は丸）に起こして [icon_gear_wrench.scad](../hardware/icon_gear_wrench.scad) を作る。
-  **SVG を描き直したら掛け直すこと**: `python hardware/gen_icon_svg.py hardware/icon_gear_wrench.svg`
+  そのままでは取り込めない。⇒ [gen_icon_svg.py](../hardware/icons/gen_icon_svg.py) が点列を読み、
+  線を実体（hull の連なり・端と角は丸）に起こして [icon_gear_wrench.scad](../hardware/icons/icon_gear_wrench.scad) を作る。
+  **SVG を描き直したら掛け直すこと**: `python hardware/icons/gen_icon_svg.py hardware/icons/icon_gear_wrench.svg`
 - 元の線の太さは 5/72.5 単位で、6.678mm に縮めると **0.461mm** になる。ノズル 0.4 で確実に出るよう
   `SVC_MIN_W = 0.5` で 0.5mm に太らせている（見た目はほぼ変わらない）
 
@@ -601,7 +601,7 @@ v1 から引き継いだ **45° × 2mm の面取り**を、同じ 2mm の**丸�
 ## ✅ 電池の蓋（2026-08-21 ユーザー案・引き直し済み）
 
 **左の壁を彫り込んで、その中に蓋が収まる。外へは何も出ない。**正は
-[case_v2.scad](../hardware/case_v2.scad) の 2.8 節。`part="shutter"` と `part="lock"`。
+[case_v2.scad](../hardware/frozen/v1-v4/case_v2.scad) の 2.8 節。`part="shutter"` と `part="lock"`。
 
 **開け方は3手**: ① ロックパーツを外す（ネジ1本。付けていれば）② 上へ **5.5mm** ずらす
 ③ まっすぐ手前へ引く。⚠ **蓋は本体から外れる。**
@@ -653,7 +653,7 @@ v1 から引き継いだ **45° × 2mm の面取り**を、同じ 2mm の**丸�
 - 磁石は**開口の下**（Z 22.4〜28.5）。ブリッジの肉が壁の裏に回っている。**電池は届かない**
 - そのために蓋を下へ **6.3mm** 伸ばした。φ6 の磁石は Z に 6mm 要る
 - 蓋を 2.75mm 厚にして、**手持ちの φ6 × 2.0** をそのまま使う（外面側の肉 0.75mm）
-- ⚠ `MAG_H = 2.15` は使わない。[parts.scad](../hardware/parts.scad) 自身が「疑わしい・
+- ⚠ `MAG_H = 2.15` は使わない。[parts.scad](../hardware/parts/parts.scad) 自身が「疑わしい・
   設計に使うな」と書いている。カタログは **φ6 × 2.0**
 
 ### 🔒 ロックネジ
@@ -780,7 +780,7 @@ v1 から引き継いだ **45° × 2mm の面取り**を、同じ 2mm の**丸�
 座も X −2.0〜−0.8 に置いてあって、板（X −2.0〜0）の内側に収まっており肉を足していない。
 
 **② 開けても入らなかった。**板 `WALL` 2.0 に対して磁石は 2.0（⚠ `MAG_H = 2.15` は誤り。
-[parts.scad](../hardware/parts.scad) 自身が「幅 2.02 の圧入溝に入ったので疑わしい。
+[parts.scad](../hardware/parts/parts.scad) 自身が「幅 2.02 の圧入溝に入ったので疑わしい。
 **設計に使わない**」と書いている。カタログは φ6 × 2.0）。相手側も、ポケットを引いた
 X 2.0〜4.15 は電池トンネルの空洞で、抜く材料が無かった。
 
@@ -1199,7 +1199,7 @@ BTN2・PWR・BAT・AS5600 は、**ブリッジの背（Y 59.8）とレールの�
 | `_probe_bb2.scad` | 部品を薄くスライスして本当の形を見る（外形の箱ではなく） |
 | `part="wires"` | 線だけ。`-D CUT_AXIS=0 -D CUT_AT=45 -D CUT_TH=2` で薄く切れる（真上や斜めからでは束の並びが読めない） |
 | `part="rail"` | 背面のレールと線と部品だけ（ブリッジは半透明） |
-| `../hardware/pb_bridge.scad` | **PowerBoost とブリッジだけ**の単体ファイル。`-D VIEW=2` で当たりだけ出る。⚠ `include <case_v2.scad>` の**後ろ**に `part = "none";` を書くこと。前だと case_v2.scad の 57 行に負けて筐体が丸ごと描かれる |
+| `../hardware/frozen/v1-v4/pb_bridge.scad` | **PowerBoost とブリッジだけ**の単体ファイル。`-D VIEW=2` で当たりだけ出る。⚠ `include <case_v2.scad>` の**後ろ**に `part = "none";` を書くこと。前だと case_v2.scad の 57 行に負けて筐体が丸ごと描かれる |
 
 ⚠ **STL の体積は Python で出している**（OpenSCAD は出さない）。当たりが空のとき
 OpenSCAD は**ファイルを書かない**ので、測る前に必ず `rm` すること。前の結果を読んで

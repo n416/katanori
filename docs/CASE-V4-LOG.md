@@ -34,7 +34,7 @@
   落下前提 2.0・**電池の口は OLED から見て左**・向きの基準は OLED 正面・丸みの持ち主はフロント＝天面 ＞ 側面 ＞ 背面 ＞ 底面。
 - 部品の模型は版に依らない（parts.scad・hub_board.scad・knob_v5.scad・respeaker_lite.scad・typec_115426.scad）。v3 までの精緻化がそのまま土台。
 
-## 2. スタディ①: PowerBoost の置き場（2026-08-24・[_v4_pb.scad](../hardware/_v4_pb.scad)）
+## 2. スタディ①: PowerBoost の置き場（2026-08-24・[_v4_pb.scad](../hardware/frozen/v1-v4/_v4_pb.scad)）
 
 **障害物は固定と決まっている物だけ**: 外皮（素の板）・ハブ＋挿した線 10 本・ReSpeaker（XIAO 込み）・OLED・
 天板の部品群（つまみ込み）・フロント・トグル（ハッチ・v3 の位置）。v3 の機構（ブリッジ・トンネル・棚・柱・フック）は入れない。
@@ -47,7 +47,7 @@
   **XIAO は ReSpeaker に直接はんだ付け（ソケット無し・浮き無し）。その XIAO の上にストレートのピンヘッダが立ち、線の DuPont はそこに挿さる。**
   鎖: はんだ ⚠0.2 ＋ XIAO の板 ⚠1.2 ＋ 樹脂 2.5 ＋ ピン 6 ＝ **先端 9.9 ≈ ✅実測 10**（標準部品で閉じる）。線の頭は面から 13.9 ＝ 世界の Y 23.9・線の逃げで 27.5。
   🔴 AI の誤り遍歴（再発防止のため残す）: ①「塊 高さ 10」＝挿す物が無い ②「ソケットで XIAO が 6.7 浮き USB の殻が頭」＝作り話で、線の頭を 5.3 深読みし、口の位置を道連れにした。
-  模型は [respeaker_lite.scad](../hardware/respeaker_lite.scad) の `respeaker_xiao_stack()`（恒久）と `respeaker_xiao_housings()`。
+  模型は [respeaker_lite.scad](../hardware/parts/respeaker_lite.scad) の `respeaker_xiao_stack()`（恒久）と `respeaker_xiao_housings()`。
   🔒 **挿すのは使う 7 本だけ**（[POWER.md](POWER.md) 4章: 電源側 5V・GND・3V3 ＝ USB 端から 1〜3 番、信号側 D2・D3・SDA・SCL ＝ 3〜6 番。残り 7 ピンは裸）。
   ⚠ どちらの列（下/上）が電源側かは未確認だが、入れ替わっても X の帯が入れ替わるだけで筐体の当たりには効かない。
   検査: 線 7 個 ↔ 他の固定物 **0**（`xh`）・抜き挿し（`xpull`・+Y へ 12）**0**。
@@ -90,7 +90,7 @@
 
 ### 🔴 案 A: 平置き・左・電池の下 —— **精緻化で不成立になった**（2026-08-24）
 
-絵は [_v4_pb_A.png](../hardware/_v4_pb_A.png)。板 **[4, 25, 28.5]**（X 4〜40.2・Y 25〜47.9・板の下面 Z 28.5）・部品面が上。
+絵は [_v4_pb_A.png](../hardware/frozen/v1-v4/_v4_pb_A.png)。板 **[4, 25, 28.5]**（X 4〜40.2・Y 25〜47.9・板の下面 Z 28.5）・部品面が上。
 
 - ハウジングは 4 つとも真上に立つ（頭 Z 42.6）。スピーカーの裏（Z 44.25）まで **1.65**。
 - **電池は PowerBoost の真下** [2, **25.4**, 18.4]（Z 18.4〜25.4）。下はハブの線の頭 17.7 まで 0.7、
@@ -109,7 +109,7 @@
 
 ### 案 C: 背面（ハッチの内側）に立てる（検査は全部 0）
 
-絵は [_v4_pb_C.png](../hardware/_v4_pb_C.png)。板の裏をハッチへ向けて右の壁の際に立てる。**[右端 X 84.3, 裏の面 Y 70.3, 上縁 Z 34.5]**
+絵は [_v4_pb_C.png](../hardware/frozen/v1-v4/_v4_pb_C.png)。板の裏をハッチへ向けて右の壁の際に立てる。**[右端 X 84.3, 裏の面 Y 70.3, 上縁 Z 34.5]**
 （板 X 48.1〜84.3・Y 68.7〜70.3・Z 11.6〜34.5）。部品面はハブ側（−Y）・8 ピン列の縁が上・JST の縁が下。
 
 - **ヘッダは v3 の 🔒 決定のまま**（GND/EN は L 型・USB は真っ直ぐ 1 ピン）。L 型は縁の外＝真上を向き、ハウジングは上から挿す
@@ -157,11 +157,11 @@ PB の席を「残り物」から探していた。v4 の看板（面倒なピ�
 - ~~⬜ ReSpeaker を 1.5 後ろへ送る件（OLED のフィルム・[TODO.md](TODO.md) の「筐体 — 残作業」）。C は無関係（板は Y 68.7〜）。~~
   → ✅ **2026-08-26 に消えた。**当たりの数字はフィルムが裏一面に 3.9 膨らむと置いていた頃のもの。模型は 2026-08-24 に直っており、測り直すと 0mm³（[CASE-V4-OPEN.md](CASE-V4-OPEN.md) の済んだもの）。
 
-## 3. スタディ②: 魚の開きを立体に畳む（2026-08-24・[_v4_asm.scad](../hardware/_v4_asm.scad)）
+## 3. スタディ②: 魚の開きを立体に畳む（2026-08-24・[_v4_asm.scad](../hardware/frozen/v1-v4/_v4_asm.scad)）
 
-魚の開き（[_v4_sakana.scad](../hardware/_v4_sakana.scad)）は**口の役割の正**（実配線・入れ替え済み）。それを v3 の外径に立体で畳んだ。
+魚の開き（[_v4_sakana.scad](../hardware/frozen/v1-v4/_v4_sakana.scad)）は**口の役割の正**（実配線・入れ替え済み）。それを v3 の外径に立体で畳んだ。
 座標の正は v3 の固定値（ハブ・ReSpeaker・OLED・天板の部品群・トグル・電池）＋ スタディ①の **C 案**（⬜ 裁可待ちのまま、生き残りを前提に通した）。
-絵: [_v4_asm_iso.png](../hardware/_v4_asm_iso.png)（前右上）/ [_v4_asm_back.png](../hardware/_v4_asm_back.png)（後左上）/ [_v4_asm_top.png](../hardware/_v4_asm_top.png)（真上）。
+絵: [_v4_asm_iso.png](../hardware/frozen/v1-v4/_v4_asm_iso.png)（前右上）/ [_v4_asm_back.png](../hardware/frozen/v1-v4/_v4_asm_back.png)（後左上）/ [_v4_asm_top.png](../hardware/frozen/v1-v4/_v4_asm_top.png)（真上）。
 
 新しく当てた 2 つ（検査は全部 `--backend=manifold`。相手＝自分以外の全部）:
 
@@ -209,17 +209,17 @@ C（PowerBoost 背面立て）で変わる箇所だけ **[変]** を付ける。
 
 **v3 → v4 の形の差分**: ①右壁: XIAO USB-C の口を Y −5.3 直す ②天面: 前リブの X を OLED の線の外へ ③右壁まわり: PB のダボ・L・フック・KNOB_TRIM を撤去し、9' の支えを付ける ④ハブの口の柱・座を頭 20.2 で再検査 ⑤INA226 と Type-C の座を 2 モデル/実測で当て直す ⑥線 13 本を引き直す ⑦ビスと工具の道・組む動きの検査。
 🔴 この番号の順で消化しない（それが v2 の再演・§6）。**①〜⑬の組む順を歩きながら、そのステップに属する差分をその場で**。
-- ✅ **差分④は消化した**（2026-08-24・[_v4_asm.scad](../hardware/_v4_asm.scad) `mana`/`mana2`/`manain`）: まな板の①〜③を現行模型で当て直し、
+- ✅ **差分④は消化した**（2026-08-24・[_v4_asm.scad](../hardware/frozen/v1-v4/_v4_asm.scad) `mana`/`mana2`/`manain`）: まな板の①〜③を現行模型で当て直し、
   床の形（柱・土手・リブ）↔ 挿した線 17 本（ハブの頭 20.2・XIAO の頭 23.9）・ハブの線 ↔ ReSpeaker・上から挿す軌跡（+30）**すべて 0**。
   ⚠ 探針に親基板は入れない（樹脂は挿さる相手と重なるのが正。検査するのは他人との当たりだけ）。
-- **差分②の材料が出た**（2026-08-24・[_v4_asm.scad](../hardware/_v4_asm.scad) `rib*`・絵 [_v4_rib_band.png](../hardware/_v4_rib_band.png)）:
+- **差分②の材料が出た**（2026-08-24・[_v4_asm.scad](../hardware/frozen/v1-v4/_v4_asm.scad) `rib*`・絵 [_v4_rib_band.png](../hardware/frozen/v1-v4/_v4_rib_band.png)）:
   前リブ（幅 6・Y 7.7〜10.5・Z 36.2〜天井）を全幅 X 2〜84 に伸ばして相手ごとに当てた。塞がりは
   **OLED の線 X 37.9〜48.1**（v3 のリブ 39.1〜45.1 はこの中）と**フロントの耳 X 〜6.25 / 79.75〜** だけ。
   スピーカー・つまみの島・タクトは 0。ReSpeaker 自身とは押し代 0.3 の分だけ重なる（正）。
   ⇒ **空きは X 6.25〜37.9 と X 48.1〜79.75**（右の腕 69.5〜74.2 は従来どおり別部品で残る）。
   ⚠ **仮決め: 前リブは X 31.4〜37.4**（v3 から −7.7）。物差しは「押さえは板の中央に近いほど良い」＋「線から 0.5 逃がす」の 2 つで、
   両方を満たす最良はここ 1 か所。2026-08-24 ユーザー「どう判断していいか分からない」→ AI の推薦を仮採用（変数 1 個なのでいつでも動かせる）。
-- **④⑤の駅: AS5600 のコネクタ × INA226 の連立**（2026-08-24・[_v4_asm.scad](../hardware/_v4_asm.scad) `asc`/`ascw`/`inam`）:
+- **④⑤の駅: AS5600 のコネクタ × INA226 の連立**（2026-08-24・[_v4_asm.scad](../hardware/frozen/v1-v4/_v4_asm.scad) `asc`/`ascw`/`inam`）:
   コネクタ探針（ピン単位・knob_v5 の位置・裏面 Z 31.25）を **4 回転 × 2 形**で箱の全部に当てた内訳（mm³）:
 
   | 取付回転 R | 直立て | L 字横出し |
@@ -245,7 +245,7 @@ C（PowerBoost 背面立て）で変わる箇所だけ **[変]** を付ける。
 
 | 界面 | 模型 | 状態 |
 |---|---|---|
-| PowerBoost（SMD・L/直ヘッダ・4 ピン・JST・ハウジング・軌跡） | parts.scad ＋ [_v4_pb.scad](../hardware/_v4_pb.scad) | ✅ .brd ＋ 実測（v3 で精緻化済み） |
+| PowerBoost（SMD・L/直ヘッダ・4 ピン・JST・ハウジング・軌跡） | parts.scad ＋ [_v4_pb.scad](../hardware/frozen/v1-v4/_v4_pb.scad) | ✅ .brd ＋ 実測（v3 で精緻化済み） |
 | ハブの口 10 個（ヘッダ樹脂＋ハウジング＋曲がり込み） | case_v3 `housing(id)` | ✅ 2026-08-24 に +2.5 を直した。⚠ 樹脂 2.5 は規格値・ハブの最高点の実測は ⬜（[POWER.md](POWER.md) も未取得） |
 | ReSpeaker J2 ＋ PH2.0 プラグ | 包絡「面から 15」 | ✅ 実測系の値。⬜ プラグの尻の実測で詰められる |
 | ReSpeaker XIAO の積み重ね（直付け XIAO・シールド缶・ヘッダ・ピン 14 本） | `respeaker_xiao_stack()` | ✅ 2026-08-24 構成確定（ユーザー写真）。ピンの先端 9.9 ≈ ✅実測 10。⚠ はんだ 0.2・板厚 1.2 は規格読み |
@@ -288,8 +288,8 @@ C（PowerBoost 背面立て）で変わる箇所だけ **[変]** を付ける。
 - **他は位置もサイズも全部フリー**（＝ §1 の外径 🔒 を解除。v3 の 90 × 76 × 52.95 は比較対象）。
 - **まず固定群だけの機体（芯）を作る。組み立て順も、これらを置いてから**（自由な部品は芯に一つずつ足し、足すたびに当てる。外皮は最後に部品へ合わせて描く従属変数）。
 
-芯: [_v4_core.scad](../hardware/_v4_core.scad)（2026-08-24 作成。座標は 🔒 の v3 値・挿さる物はピン/ハウジング/逃げ込みの模型のまま）。
-絵は [_v4_core_iso.png](../hardware/_v4_core_iso.png)（前右上）/ [_v4_core_back.png](../hardware/_v4_core_back.png)（後左上・v3 外皮の影付き）。
+芯: [_v4_core.scad](../hardware/frozen/v1-v4/_v4_core.scad)（2026-08-24 作成。座標は 🔒 の v3 値・挿さる物はピン/ハウジング/逃げ込みの模型のまま）。
+絵は [_v4_core_iso.png](../hardware/frozen/v1-v4/_v4_core_iso.png)（前右上）/ [_v4_core_back.png](../hardware/frozen/v1-v4/_v4_core_back.png)（後左上・v3 外皮の影付き）。
 
 **芯の bbox（manifold・当たり 0 で export）: X 0.4〜85.6・Y 0〜63.9・Z 0〜56.5**（Z はつまみの頭込み。天面の内側までは 48.454）。
 v3 内寸（86 × 72 × 48.454）と比べると、**空いているのは主に後ろの帯 Y 63.9〜72（奥行 8.1）**。
@@ -310,7 +310,7 @@ X はほぼ満席（0.4〜85.6）。自由な部品（PowerBoost・電池・INA2
 
 - ⚠ 画像読みの補足: 青い枠は**ハブ基板の上・つまみと反対側の端**（板の X 低い側の縁・背面 view では右に見える）。
   細長い縦帯＝薄い面（厚み 6）が縁を向く立て方。縦（長辺 50 を上）は天井 48.454 を超えるので、高さは幅 35 の側。
-- `bat_v4()`（[_v4_core.scad](../hardware/_v4_core.scad)）は 2026-08-25 にこの位置へ直した
+- `bat_v4()`（[_v4_core.scad](../hardware/frozen/v1-v4/_v4_core.scad)）は 2026-08-25 にこの位置へ直した
   （X 10.024〜16.024・Y は板の中央 12.9〜62.9・Z 4.1〜39.1）。⚠ Y と「縁との詰め」は AI の仮置き・ユーザー検収待ち。
 - 🔴 経緯: 担当 AI 3 代がこの指示を取り違えた（1 代目: 基板の外に縦置き。2 代目: 原文を見ずに「横倒し」と復唱。
   3 代目: 位置を「右端・右壁」と**ユーザーが言っていない言葉で記録し、つまみ側の端＝逆の端に置いた**。
@@ -325,10 +325,10 @@ X はほぼ満席（0.4〜85.6）。自由な部品（PowerBoost・電池・INA2
 
 ## 9. 配線（2026-08-25〜）
 
-ネットの正は [_v4_sakana.scad](../hardware/_v4_sakana.scad)（開き・口の役割の入れ替え済み）と [relay_board.html](../hardware/relay_board.html)。
-**接点の世界座標は手で写さない**: `openscad --backend=manifold -o /tmp/x.stl -D "W=\"pts\"" hardware/_v4_core.scad` が
+ネットの正は [_v4_sakana.scad](../hardware/frozen/v1-v4/_v4_sakana.scad)（開き・口の役割の入れ替え済み）と [relay_board.html](../hardware/parts/relay_board.html)。
+**接点の世界座標は手で写さない**: `openscad --backend=manifold -o /tmp/x.stl -D "W=\"pts\"" hardware/frozen/v1-v4/_v4_core.scad` が
 echo で吐く（PB の L ピン・JST プラグ・INA の口・ハブ PWR・電池タブ・通り道。2026-08-25 ユーザー「接点の座標を残しておけば」）。
-模型は [_v4_core.scad](../hardware/_v4_core.scad) の `wires_pwr()`（1.5 角の箱・直角のみ）。通り道は 4 本:
+模型は [_v4_core.scad](../hardware/frozen/v1-v4/_v4_core.scad) の `wires_pwr()`（1.5 角の箱・直角のみ）。通り道は 4 本:
 **左の溝**（X 5.4〜13）・**右の溝**（X 53〜80）・**後ろの縦穴**（Y 62.9〜72）・**帯の上の棚**（Z 31.4〜43）。
 
 ### ✅ 引いた（電源系 7 本・当たり 0）
@@ -341,8 +341,8 @@ echo で吐く（PB の L ピン・JST プラグ・INA の口・ハブ PWR・電
 
 ### ✅ 引いた（残り 10 束・2026-08-25。当たり検査は下の「検査」）
 
-模型は `wires_sig()`（束ごとに `w_*()`）。絵は [_v4_wires_iso.png](../hardware/_v4_wires_iso.png)（前右上）/
-[_v4_wires_back.png](../hardware/_v4_wires_back.png)（後左上）。経路の数字は .scad のコメントが正（ここに写さない）。
+模型は `wires_sig()`（束ごとに `w_*()`）。絵は [_v4_wires_iso.png](../hardware/frozen/v1-v4/_v4_wires_iso.png)（前右上）/
+[_v4_wires_back.png](../hardware/frozen/v1-v4/_v4_wires_back.png)（後左上）。経路の数字は .scad のコメントが正（ここに写さない）。
 
 | 束 | 本数 | 通した道（計画からの変更は 🔴） |
 |---|---|---|
@@ -371,7 +371,7 @@ echo で吐く（PB の L ピン・JST プラグ・INA の口・ハブ PWR・電
 　　 頭は 49.72 → ≈37.6（天井まで約 11mm）。§10 の天面の裏のポケットは**廃止**し、天面は 2.5mm に戻りました。
 ③I2C の通路 X 51.6 はトグルの線と 0.45・ヘッダの逃げと 0.27 ④XIAO 下段の回り込み X 73.0 は曲がり箱まで 0.11。
 
-## 10. 外皮とボス（2026-08-25・[case_v4.scad](../hardware/case_v4.scad)）
+## 10. 外皮とボス（2026-08-25・[case_v4.scad](../hardware/frozen/v1-v4/case_v4.scad)）
 
 > 🔒 スイッチは v3 と同じ **`part=` 一本**（2026-08-25 ユーザー「V3 と同じ part を。無駄な学習は嫌」で V/P4/W の混在を廃止）。
 > 値の一覧は case_v4.scad の冒頭のコメントが正（絵 look/inside/explode・板 p_*・刷る向き print_*・静止 chk_*・
@@ -380,13 +380,13 @@ echo で吐く（PB の L ピン・JST プラグ・INA の口・ハブ PWR・電
 芯＋自由な部品＋線 17 束に合わせて、皮 6 枚（床・左の壁・右の壁・天面・フロント・ハッチ）と
 締結（ボス）を描いた。板の構造・丸みの持ち主・開口のベベル・継ぎ目 45°・貫通＋ナットは
 [CASE-V3.md](CASE-V3.md) §4 の規則をそのまま引き継ぐ。フロントは OLED・ReSpeaker が 🔒 固定なので **v3 と同一**。
-絵: [_v4_look_iso.png](../hardware/_v4_look_iso.png)（前右上）/ [_v4_look_back.png](../hardware/_v4_look_back.png)（後左上）/
-[_v4_open_iso.png](../hardware/_v4_open_iso.png)（天面・フロント・右壁を外した中身）/ [_v4_explode.png](../hardware/_v4_explode.png)（分解・`V="explode"`）。
+絵: [_v4_look_iso.png](../hardware/frozen/v1-v4/_v4_look_iso.png)（前右上）/ [_v4_look_back.png](../hardware/frozen/v1-v4/_v4_look_back.png)（後左上）/
+[_v4_open_iso.png](../hardware/frozen/v1-v4/_v4_open_iso.png)（天面・フロント・右壁を外した中身）/ [_v4_explode.png](../hardware/frozen/v1-v4/_v4_explode.png)（分解・`V="explode"`）。
 
 > 🔒 2026-08-25 ユーザー「v3 は不要になったのでは」→ **土台を分離**: v4 が使う寸法・座標・関数・共通モジュールだけを
-> [case_base.scad](../hardware/case_base.scad) に写し（生成は [_make_base.py](../hardware/_make_base.py)・機構と part= の描画は除去）、
-> [_v4_core.scad](../hardware/_v4_core.scad) の include を case_v3 → case_base に付け替えた。`part="none"` の細工は消えた。
-> [case_v3.scad](../hardware/case_v3.scad) は履歴（単体では今も開ける）。**分離の前後で STL 8 個（板 6＋look＋core）の md5 が全一致**、検査一式も同値。
+> [case_base.scad](../hardware/frozen/v1-v4/case_base.scad) に写し（生成は [_make_base.py](../hardware/frozen/v1-v4/_make_base.py)・機構と part= の描画は除去）、
+> [_v4_core.scad](../hardware/frozen/v1-v4/_v4_core.scad) の include を case_v3 → case_base に付け替えた。`part="none"` の細工は消えた。
+> [case_v3.scad](../hardware/frozen/v1-v4/case_v3.scad) は履歴（単体では今も開ける）。**分離の前後で STL 8 個（板 6＋look＋core）の md5 が全一致**、検査一式も同値。
 > ⚠ 内寸（IN_X/IN_Y/IN_Z）は v3 の機構の変数から導く式のまま base に残っている（値を変えるときは式ごと v4 の言葉に書き直す）。
 
 ### 締結（v3 の型のまま）
@@ -404,7 +404,7 @@ echo で吐く（PB の L ピン・JST プラグ・INA の口・ハブ PWR・電
 - ✅ ① 右壁の XIAO USB-C の口（2026-08-25 描き直し済み）: 🔒 要件＝**口（殻の面 85.554）が彫り込みの床に顔を出す**。
   **式の付け替えとセットで解いた**（ユーザー「壁を動かして連鎖するなら、使ってる場所の計算がおかしい」）:
   - 部品の X を壁（IN_X）から測っていた誤用 6 式を、全検査済みの世界座標へ**凍結**（つまみ 65.704・ハブ 6.002・
-    OLED 8.002・v3 遺産の PB 面・右の耳の内側の縁 79.352・knob_seat）。[_make_base.py](../hardware/_make_base.py) の FREEZE 表が正
+    OLED 8.002・v3 遺産の PB 面・右の耳の内側の縁 79.352・knob_seat）。[_make_base.py](../hardware/frozen/v1-v4/_make_base.py) の FREEZE 表が正
   - **壁は殻から導く**: 内面 ＝ 殻の面 85.554 ＋ 0.15（`RIGHT_CL`）＝ 85.704。皮の板・ボス・耳の幅だけが壁に追従して動く
   - 彫りは v2/v3 の形そのまま（`right_wall_ports_cut` ＋ `xiao_pad` を土台へ復活）: 殻の鼻先は口の開口の中・
     モールドの座（床 86.504・🔒 v3「3 でいきましょう」の 0.95）・口は殻の大きさ・縁ベベル・印は口の右
@@ -456,7 +456,7 @@ echo で吐く（PB の L ピン・JST プラグ・INA の口・ハブ PWR・電
   プラグが面まで届くのでポケットは不要になり、**口（殻の大きさ）＋ベベルだけ**——右壁の XIAO の口と同じ顔。
   基板の縁（板 1.6）が内面に 0.4 入る分は内面側の逃げ溝 0.7（見えない）。充電線の始点と床の振れ止めリブは +1.2 追従。
   🔴 経緯: 初版（内面に鼻先＋局所薄肉のポケット）は輪郭 3 重で角の丸みに食い込む顔だった（ユーザー「変」→ 3 案比較
-  [_v4_chg_now](../hardware/_v4_chg_now.png) / [_v4_chg_scoop](../hardware/_v4_chg_scoop.png) / [_v4_chg_flush](../hardware/_v4_chg_flush.png) → ③）。
+  [_v4_chg_now](../hardware/frozen/v1-v4/_v4_chg_now.png) / [_v4_chg_scoop](../hardware/frozen/v1-v4/_v4_chg_scoop.png) / [_v4_chg_flush](../hardware/frozen/v1-v4/_v4_chg_flush.png) → ③）。
   端のベベルの規則として記録: **縁から明確に離すか、縁まで開き切るか。中途半端に接するのが一番醜い。彫りで化粧する前に「口を顔出しさせて彫り自体を消せないか」を先に問う。**
   印（稲妻）は口の左（+X。右は板の縁）。⚠ 鼻の出 0.8 は図面値・着荷実測待ち。
 - **天面の裏の局所ポケット**（X 17.9〜22.9・Y 56.4〜61.4・深さ 1.27・残り 1.23 ⚠）: PB の USB 線の DuPont の逃げ（頭 49.2）用。
@@ -517,21 +517,21 @@ echo で吐く（PB の L ピン・JST プラグ・INA の口・ハブ PWR・電
   **電池の上の傾いた板**に電流計と並べて載り、座のネジ 6 本と留め帯 3 本で押さえる形になっている（`pb_bat()`・§10 の ✅③・§12・§13）。
   床から浮かせる話も、壁のダボ・唇・フックも、向きごと消えた。
   🔴 **2026-08-25 ここに一度「§2 の案 C（背面立て）で決着した」と書いたのは誤り。** 案 C は 8/24 のスタディで、いまの模型は使っていない。
-  `pose_c` / `pb_c` / `pb_unit`（[_v4_core.scad](../hardware/_v4_core.scad)）は案 C の残骸で、`W="pbchk"` / `"lookpb"` / `"pbseat"` だけがそれを見ていた。
+  `pose_c` / `pb_c` / `pb_unit`（[_v4_core.scad](../hardware/frozen/v1-v4/_v4_core.scad)）は案 C の残骸で、`W="pbchk"` / `"lookpb"` / `"pbseat"` だけがそれを見ていた。
   ⚠ **`pbchk` の 63.73mm³ は、いま存在しない置き方の PowerBoost とハブ基板の重なり**で、現行機の当たりではなかった。
   🔒 2026-08-25 ユーザー「pbchk と lookpb はもはや不要では？」→ **残骸ごと消した**（`C_AT` / `pose_c` / `pb_c` / `hous_c` / `pb_unit` と、
-  それを見ていた 3 つのスイッチ）。当たりの検査は [case_v4.scad](../hardware/case_v4.scad) の `chk_*` / `close_*` / `seat*` / `strap*` が持っていて、
+  それを見ていた 3 つのスイッチ）。当たりの検査は [case_v4.scad](../hardware/frozen/v1-v4/case_v4.scad) の `chk_*` / `close_*` / `seat*` / `strap*` が持っていて、
   そちらは最初から現物の `pb_bat()` を相手にしている。
 
 
-## 11. 電池の入れ替え口（後ろ抜き・2026-08-25・[case_v4_shutter.scad](../hardware/case_v4_shutter.scad)）
+## 11. 電池の入れ替え口（後ろ抜き・2026-08-25・[case_v4_shutter.scad](../hardware/frozen/v1-v4/case_v4_shutter.scad)）
 
 > 🔴 **この節のスライドの向き（下）は 2026-08-26 に §16 で横（右）へ差し替わりました。**口の位置・型・磁石・ロックの考え方は生きています。
 
 🔒 ユーザー GO。**後ろ（ハッチ）だけが、🔒 を一つも崩さず口を作れる向き**だった: レール＋留め帯は最初から +Y にだけ開いた鞘で、
 タブ（JST）も 🔒 後ろ向き。抜き道（電池の断面 ±0.5・X 15〜51.5・Z 22.9〜29.9）に当てると**部品は 0**、居たのは仮の線だけ。
 
-- **型は v3 の蓋そのまま**（[case_v3_shutter.scad](../hardware/case_v3_shutter.scad) の定数を共有。磁石 φ6.1 は ✅ゲージ確定値）:
+- **型は v3 の蓋そのまま**（[case_v3_shutter.scad](../hardware/frozen/v1-v4/case_v3_shutter.scad) の定数を共有。磁石 φ6.1 は ✅ゲージ確定値）:
   蓋（板 2.75＋耳＋磁石 2）＋外面の彫り込み帯＋門形ロック（M2×1＋ナット・中央の半円）。ハッチの裏に増し肉 2.2。
   🔴 **v3 と違うのはスライドの向きだけ＝下（−Z）**。上だと ①増し肉の上端 36.45 が PB の L ピンの線の通り道（Z 35.8）を塞ぐ
   ②ロックのボスが 5V の DuPont（Z 34.5〜37.1）に刺さる。下なら増し肉の上端 30.95 で線の下が空き、ボスは口の下
@@ -618,7 +618,7 @@ CSG の正規化が 20 万要素を超えて**空の木**になり、ユーザ�
 ### 12.5 🔴 PHIN / PHOUT は DuPont ではなく JST PH2.0 だった
 
 ハブの 10 個の口を**全部同じ DuPont**（樹脂 2.5 ＋ 胴 10 ＋ 曲がりの予約 3.6）で描いていました。
-しかし PHIN / PHOUT は ReSpeaker の J2 とスピーカーへ行く線で、[relay_board.html](../hardware/relay_board.html) の `PHCONN` に
+しかし PHIN / PHOUT は ReSpeaker の J2 とスピーカーへ行く線で、[relay_board.html](../hardware/parts/relay_board.html) の `PHCONN` に
 **PH2.0 の 2P（胴 5.9×4.5）**と書いてあります。DuPont は物理的に挿さりません。模型を PH ソケット（高さ 6.0 ⚠ 標準値）に直しました。
 
 この間違いは検査結果まで汚していました。「つまみ +2 で電流計のコネクタが PHIN のハウジングに 0.27mm 当たる」と報告していましたが、
@@ -654,12 +654,12 @@ v4 の part 一覧にブリッジが 1 つも無く、刷る部品なのに単�
 - ⬜ **つまみの島の欠きと線の経路が世界座標の生の数字**で書かれているため、つまみを動かすたびに手で追従させる必要があります。
   `KNOB4` からの式に直せば「次の移動は 1 変数」になりますが、検証済み座標を凍結する流儀との兼ね合いで保留しています。
 
-## 13. 組み立ての手順（2026-08-25 夜・[assembly_v4.html](../hardware/assembly_v4.html)）
+## 13. 組み立ての手順（2026-08-25 夜・[assembly_v4.html](../docs/manual/assembly_v4.html)）
 
 ユーザーの依頼は「v3 のときに作った組み立てマニュアルを、v4 の分も作ってほしい」でした。
 出来たものは v3 と同じ形式の 1 枚の HTML で、挿絵つきの 12 手順・線と留め具の表・検査の裏取り・
-電池の交換・まだ埋まっていないものの一覧を持っています。作り直しは `python hardware/_asm_manual_v4.py`、
-段の中身と軌跡の検査は [_asm_sim_v4.scad](../hardware/_asm_sim_v4.scad) の `upto()` と `CHK=` が持ちます。
+電池の交換・まだ埋まっていないものの一覧を持っています。作り直しは `python hardware/frozen/v1-v4/_asm_manual_v4.py`、
+段の中身と軌跡の検査は [_asm_sim_v4.scad](../hardware/frozen/v1-v4/_asm_sim_v4.scad) の `upto()` と `CHK=` が持ちます。
 
 ⚠ **手順の番号は CAD の軌跡検査から起こしたもので、①〜⑬の原文をユーザーが書いたものではありません。**
 §4 の ⬜（新しい①〜⑬の原文はユーザー）はまだ空いています。ここに書いたのは「この形なら物理的にこの順にしか入らない」
@@ -721,13 +721,13 @@ v4 の part 一覧にブリッジが 1 つも無く、刷る部品なのに単�
 
 ### 13.4 マニュアルに載せた数字の出どころ
 
-線の長さは [_v4_core.scad](../hardware/_v4_core.scad) の `w_*()` の点列を、`wire()` を echo に差し替えて折れ線長として取りました
+線の長さは [_v4_core.scad](../hardware/frozen/v1-v4/_v4_core.scad) の `w_*()` の点列を、`wire()` を echo に差し替えて折れ線長として取りました
 （束の中で一番長い 1 本・mm）。⬜ **天面を箱の左に裏返して置いた姿勢で足りるかは v4 では測っていません**。
 v3 では実測で最大 +57mm 要った束があったので、作る長さは実長 ＋ 40mm を目安として書き、この項を未計測として残しました。
 
 ### 13.5 直した 2 件（2026-08-25 夜・ユーザー「修正できますか？」）
 
-**① 前の床ボスを L 形に。**（[case_v4.scad](../hardware/case_v4.scad) の `lwall_v4` / `rwall_v4`）
+**① 前の床ボスを L 形に。**（[case_v4.scad](../hardware/frozen/v1-v4/case_v4.scad) の `lwall_v4` / `rwall_v4`）
 直す前の欠きは「部品の高さの帯だけ」でした。しかし**ボスは壁と一緒に上から降りる**ので、
 部品より**下**にある肉も、降りてくる途中でその部品を通ります。つまり欠きは帯ではなく**全高**でなければなりません
 （部品より上の肉だけは通りません）。左右とも、部品の XY の影を ±0.3 で全高に抜きました。
@@ -739,11 +739,11 @@ v3 では実測で最大 +57mm 要った束があったので、作る長さは�
 
 ナットは残った前半分（`Y 2.6〜5.3`）の壁が捕まえたままです。+Y へ出ようとすると右の角（`X 84.28`）が
 残り肉（`X 83.09〜85.3`）に掛かり、−X へは前半分の壁で逃げ場がありません（開口 3.77 < 二面幅 4.3）。
-締める力を受ける座も前半分が残ります。絵は [_boss_fix_r.png](../hardware/_boss_fix_r.png)（右・左が直す前）と
-[_boss_fix_l.png](../hardware/_boss_fix_l.png)。当てた道具は [_boss_probe.scad](../hardware/_boss_probe.scad)
+締める力を受ける座も前半分が残ります。絵は [_boss_fix_r.png](../hardware/frozen/v1-v4/_boss_fix_r.png)（右・左が直す前）と
+[_boss_fix_l.png](../hardware/frozen/v1-v4/_boss_fix_l.png)。当てた道具は [_boss_probe.scad](../hardware/frozen/v1-v4/_boss_probe.scad)
 （ボスの XY の影を上まで伸ばした角柱 ↔ ReSpeaker）です。
 
-**② 座のナットのポケットの天井を上げた。**（[_v4_core.scad](../hardware/_v4_core.scad) の `seat_nut_d`）
+**② 座のナットのポケットの天井を上げた。**（[_v4_core.scad](../hardware/frozen/v1-v4/_v4_core.scad) の `seat_nut_d`）
 ナットは締めるとポケットの**天井**まで登り、そこで止まります。つまり掛かりを決めているのは深さです。
 深さ 1.8 のままだと前寄りの 3 穴は天井が低く、`M2×6` の先が届かずに 0.67 / 1.02 / 1.10mm しか掛かりませんでした。
 座は板の裏まで詰まっているので天井は上げられます。**深さ ＝ seat_d − 0.6（天井の上に肉 0.6 を残す）で頭打ち 2.8** としました。
@@ -758,7 +758,7 @@ v3 では実測で最大 +57mm 要った束があったので、作る長さは�
 | PB・前（もう 1 本） | 7.13 | M2×6 | 2.80 | **1.6** | 1.13 |
 
 ⚠ 電流計の後穴だけ `M2×4` の先が 0.01mm 出ます（上限 3.99 に対して 4.00）。電池の面に触れるだけで、`seathw` に
-0.03mm³ として出るのはこれです。数字は [_seat_probe.scad](../hardware/_seat_probe.scad) が出し直します。
+0.03mm³ として出るのはこれです。数字は [_seat_probe.scad](../hardware/frozen/v1-v4/_seat_probe.scad) が出し直します。
 `seat_bolt` も**現物の長さ**（4 / 6）と**締めた位置のナット**で描くようにしました（旧版は「入る上限の長さ」の
 実在しないネジを描いていて、`seathw` が 0 に見えていました）。
 
@@ -788,8 +788,8 @@ v3 では実測で最大 +57mm 要った束があったので、作る長さは�
 | PB（hy 20.32） | 39.62 | ✅ 横穴 | 後ろへ 2.58 | 1.03 / 2.80 | 1.37 |
 
 ナットの居場所が板の裏の近くまで上がったので、**ネジは 6 本とも `M2×4` の 1 種類**になりました（前は 4 と 6 の 2 種類）。
-絵は [_slot_plan.png](../hardware/_slot_plan.png)（帯 B を溝の高さで水平に切った図。六角の穴から帯の面へ通路が抜けている）と
-[_strap_look.png](../hardware/_strap_look.png)（3 本を斜め下から）。数字は [_seat_probe.scad](../hardware/_seat_probe.scad) が出し直します。
+絵は [_slot_plan.png](../hardware/frozen/v1-v4/_slot_plan.png)（帯 B を溝の高さで水平に切った図。六角の穴から帯の面へ通路が抜けている）と
+[_strap_look.png](../hardware/frozen/v1-v4/_strap_look.png)（3 本を斜め下から）。数字は [_seat_probe.scad](../hardware/frozen/v1-v4/_seat_probe.scad) が出し直します。
 
 ⬜ **残る 2 個**（電流計の後穴・PB の後穴）は下向きのままです。板の裏から電池の頭まで **2.39 / 2.44mm** しか無く、
 横穴に要る **2.84**（天井 0.4 ＋ ナット 1.7 ＋ 傾きの逃げ 0.44 ＋ 床 0.3）が入りません。逃げ道を 3 つとも当たってみて、いずれも塞がりました:
@@ -846,11 +846,11 @@ v3 では実測で最大 +57mm 要った束があったので、作る長さは�
 
 #### 肉厚の確かめ直し（ユーザー「0.30 は厳しいなぁ・・・印刷できるかなぁ」）
 
-**この 0.30 は道具の下限値でした。** [_thin.py](../hardware/_thin.py) は 0.15mm の格子でボクセル化して距離場の稜線を拾うので、
+**この 0.30 は道具の下限値でした。** [_thin.py](../hardware/frozen/v1-v4/_thin.py) は 0.15mm の格子でボクセル化して距離場の稜線を拾うので、
 **0.30（＝ 0.15 × 2）より薄いものは全部 0.30 と出ます**。面取りや斜面の先（厚み 0 まで痩せる「刃」）と、
 本物の 0.3mm の壁が、同じ数字で並んでしまいます。
 
-切り出して格子 0.05 で測り直すと（[_thin_crop.scad](../hardware/_thin_crop.scad) ＋ [_thin2.py](../hardware/_thin2.py)）、
+切り出して格子 0.05 で測り直すと（[_thin_crop.scad](../hardware/frozen/v1-v4/_thin_crop.scad) ＋ [_thin2.py](../hardware/frozen/v1-v4/_thin2.py)）、
 どの場所も **0.10（＝新しい下限）** まで下がりました。つまり全部**刃**です。3 か所の正体は:
 
 | 出た場所 | 正体 |
@@ -879,7 +879,7 @@ AI が厚みを一番上の行から、数を一番下の行から拾って 1 �
 「か所」はしきい値を超えた稜線の**連結成分の数**なので、面取りの縁が細切れに数えられます。1.60mm 未満に 195 個並ぶのは、
 「部品の縁がほぼ全部入る」という意味で、欠陥の数ではありません。
 
-仕分けは [_thin3.py](../hardware/_thin3.py) が出します（格子 0.09・下限 0.18）。**厚み 0.60 未満の塊 81 個のうち 22 個が刃**
+仕分けは [_thin3.py](../hardware/frozen/v1-v4/_thin3.py) が出します（格子 0.09・下限 0.18）。**厚み 0.60 未満の塊 81 個のうち 22 個が刃**
 （下限に張り付く）で、残りは 1〜8 点の粒です。粒の正体は溝の口で、帯の面の面取り 0.5 が床や天井の**入口の縁**を
 0.25〜0.36 まで削っている所です。ナットが座る奥は設計どおり（床 0.35 / 0.41・天井 0.68〜1.06）で、
 入口の縁が少し欠けてもナットは 4.3 の口から出られません。
@@ -892,7 +892,7 @@ AI が厚みを一番上の行から、数を一番下の行から拾って 1 �
 
 ---
 
-## 14. 充電基板の受け（2026-08-25 夜・[case_v4.scad](../hardware/case_v4.scad) の `tc_seat4`）
+## 14. 充電基板の受け（2026-08-25 夜・[case_v4.scad](../hardware/frozen/v1-v4/case_v4.scad) の `tc_seat4`）
 
 ユーザーが [CASE-V4-OPEN.md](CASE-V4-OPEN.md) の A-6「Type-C 基板の保持は床の振れ止めリブ 1 本だけ」を読んで、
 「マジで？」と聞いたのが発端です。確かめたら、**そのリブは何にも触っていませんでした**。
@@ -933,12 +933,12 @@ A-6 の本文はそのコメントを引き写していたので、二重に間�
 静止では板の上端 20.5 と線の下端 27.75 が 7.25 離れているので当たりませんが、線を通すときはここを避けて回します。
 
 🔒 2026-08-25 ユーザー「この絵で良いと思いますよ」で**形は検収済み**。⚠ 検収されたのは形で、現物（B-2）が未注文のため
-②③④ の Y は板が届いたら取り直しです。絵は [_tc_iso.png](../hardware/_tc_iso.png) / [_tc_seat.png](../hardware/_tc_seat.png)、
-出し方は [_tc_look.scad](../hardware/_tc_look.scad)。
+②③④ の Y は板が届いたら取り直しです。絵は [_tc_iso.png](../hardware/frozen/v1-v4/_tc_iso.png) / [_tc_seat.png](../hardware/frozen/v1-v4/_tc_seat.png)、
+出し方は [_tc_look.scad](../hardware/frozen/v1-v4/_tc_look.scad)。
 
 ⚠ このとき、組み立てマニュアルの生成が **OpenSCAD Nightly では回らなくなっている**のも見つけました。
 `--render` は値が要る仕様に変わっていて、値なしで渡すと**次の引数（`--camera=...`）を食べてしまいます**。
-[_asm_manual_v4.py](../hardware/_asm_manual_v4.py) の 2 か所を `--render=full` に直しました。
+[_asm_manual_v4.py](../hardware/frozen/v1-v4/_asm_manual_v4.py) の 2 か所を `--render=full` に直しました。
 
 ## 15. T-2 の直しと、それが呼んだ追従（2026-08-26・つまみとスピーカーを内側へ 4）
 
@@ -959,7 +959,7 @@ T-2 は「OLED の右のナットが入らない」。L の裏の面（`Y 6.6`�
 正体は**スピーカーの右前の丸み**（前端 `Y 6.8` ＝ L の裏の面 `6.6` の 0.2 奥）でした。
 全部入りの STL で 1 か所測って「1.3 で止まる」まで分かった時点で、**切り分けずに犯人を名前で呼んだ**のが
 誤りの原因です。止まった相手を名指しする前に、容疑者を 1 つずつ抜いて撃ち直すこと。
-絵は [_t2_blocker.png](../hardware/_t2_blocker.png)。
+絵は [_t2_blocker.png](../hardware/frozen/v1-v4/_t2_blocker.png)。
 
 同じ理由で「島は天面と一体だから順番では解けない」も誤りでした。スピーカーは後から入れる部品です。
 
@@ -1000,7 +1000,7 @@ T-2 は「OLED の右のナットが入らない」。L の裏の面（`Y 6.6`�
   抜けて、**天面の表に穴が開きました**。ユーザーが CAD（`part="explode"`）で見つけたものです。
   当たり検査は全部 0 のままでした ── **皮に穴が開いても「当たり」は増えないので、`chk_*` では見つかりません。**
   外から見る絵（`part="p_top"` / `look`）を必ず 1 枚見ること。溝は `IN_Z` で止めて直しました。
-  溝を見る絵は `part="btnslot"`（[_v4_btnslot.png](../hardware/_v4_btnslot.png)）。
+  溝を見る絵は `part="btnslot"`（[_v4_btnslot.png](../hardware/frozen/v1-v4/_v4_btnslot.png)）。
   ⚠ 受けの**首**（`Z 46.5`）は 5.7mm² のまま無傷。受けの**板**は 375.0 → 355.8mm²（−5.1%・左端の角）。
 - **`PB_DX` / `pb_wx()` / `ina_wx()` を新設。**板に付く物（DuPont・線の端点・天板の USB 逃げポケット）は
   旧 `BAT_X0 = 15.5` のときの絶対値で書いてあったので、帯ごと動かしたぶんを足して追従させました。
@@ -1020,14 +1020,14 @@ T-2 は「OLED の右のナットが入らない」。L の裏の面（`Y 6.6`�
 `close_lwall` / `close_top` / `close_tc` / `chk_shut_slide` / `chk_shut_out` / `chk_swap` は **すべて 0**。
 `close_rwall` 0.01・`close_front` 0.13・`close_hatch` 0.02 は 0 厚の膜で既存値のまま。`chk_press` 4.66 が正。
 
-**工具と手の道は 33 本すべて通ります（`python hardware/_asm_access.py`）。**
+**工具と手の道は 33 本すべて通ります（`python hardware/frozen/v1-v4/_asm_access.py`）。**
 OLED の右のナットの空きは **1.3 → 15.7mm**。判定の「要る mm」は初版の 8.0（根拠の無い仮値）を
 **ナットの厚み 1.6** に直しました。
 
 ### 15.5 電流計の座の 0.1mm（同日・`INA_LIFT`）
 
 水平にしたぶん電流計の座は `2.5`（帯の天板 2.0 ＋ 板の浮き 0.5）しか無く、**M2×4 の先と帯の天板の裏
-＝電池の上面が 0.1mm** でした。断面を見る絵を `part="seatgap"` で足して（[_v4_seatgap_zoom.png](../hardware/_v4_seatgap_zoom.png)）、
+＝電池の上面が 0.1mm** でした。断面を見る絵を `part="seatgap"` で足して（[_v4_seatgap_zoom.png](../hardware/frozen/v1-v4/_v4_seatgap_zoom.png)）、
 🔒 ユーザー「0.1 はきついですね」。
 
 ユーザーの問い「**浮きをふやしたらネジの長さは長くすべきなのでは**」への答えは **いいえ** です。
@@ -1049,7 +1049,7 @@ OLED の右のナットの空きは **1.3 → 15.7mm**。判定の「要る mm�
 0.05 超えました（`chk_all` 0.88mm³）。座標の一括置換は、当たった行を必ず目で確かめること。
 
 
-## 16. 蓋のスライドを下から横へ（2026-08-26・[case_v4_shutter.scad](../hardware/case_v4_shutter.scad)）
+## 16. 蓋のスライドを下から横へ（2026-08-26・[case_v4_shutter.scad](../hardware/frozen/v1-v4/case_v4_shutter.scad)）
 
 出発点はユーザーの指摘です。「v4 のバッテリーのロック機構は v3 のものを 180 度回転させてしまっている。
 こんな事をするとロックが無いと蓋が空いてしまうので 1 から考え直さないといけない」。
@@ -1119,9 +1119,9 @@ M2 を 1 本外す → ロックを後ろへ外す → 蓋を**右へ** 5.5 ず�
 
 ⬜ ユーザー: 蓋の裏 ↔ 電池の尻の遊びの詰め物。ロックを常時締める運用にするか。
 
-## 17. 組む順の掃引で出たブリッジ ↔ J2（2026-08-26・[_v4_core.scad](../hardware/_v4_core.scad)）
+## 17. 組む順の掃引で出たブリッジ ↔ J2（2026-08-26・[_v4_core.scad](../hardware/frozen/v1-v4/_v4_core.scad)）
 
-**組み立てマニュアル（[assembly_v4.html](../hardware/assembly_v4.html)）の検算で見つかりました。**
+**組み立てマニュアル（[assembly_v4.html](../docs/manual/assembly_v4.html)）の検算で見つかりました。**
 静止の検査（`chk_all` ほか §15.4 の一覧）は全部 0 のままなのに、**手順 5「ブリッジを上から降ろす」が成立していませんでした。**
 
 ### 何が当たっていたか
@@ -1166,13 +1166,13 @@ M2 を 1 本外す → ロックを後ろへ外す → 蓋を**右へ** 5.5 ず�
 反例は `"rsp_after"` 444・`"brg_bad"` 1037・`"strap_top"` 81・`"strap_bad"` 201・`close_desk` 156 で、**順番の縛りは効いています**。
 
 
-## 18. 4 度目の机上の通し（2026-08-27・[assembly_v4.html](../hardware/assembly_v4.html)）
+## 18. 4 度目の机上の通し（2026-08-27・[assembly_v4.html](../docs/manual/assembly_v4.html)）
 
 3 度目までの検査は、**部品が通るか**（当たり体積）と**ビス・ナット・指の道**（円筒の探針）でした。
 4 度目は残っていた最後の動き——**コネクタを口に挿す動き**——を初めて当てました。
-口の座標は手で写さず、[_asm_plugs.scad](../hardware/_asm_plugs.scad) が口だけを STL に出して bbox から取ります。
+口の座標は手で写さず、[_asm_plugs.scad](../hardware/frozen/v1-v4/_asm_plugs.scad) が口だけを STL に出して bbox から取ります。
 線は口と一緒に動くので障害物に数えられません。線を抜いた段（`ST="st9r"` / `"st10r"`）を
-[_asm_sim_v4.scad](../hardware/_asm_sim_v4.scad) に足しました。
+[_asm_sim_v4.scad](../hardware/frozen/v1-v4/_asm_sim_v4.scad) に足しました。
 
 ### 🔴 T-4 充電とスピーカー IN の口を挿す手順が、どこにも書かれていなかった
 
@@ -1187,14 +1187,14 @@ M2 を 1 本外す → ロックを後ろへ外す → 蓋を**右へ** 5.5 ず�
 
 ### 🔴 手順 3 の車線の分け方が 1 つずれていた
 
-「上へ登る 5 束」に**充電**が入っていて **PWR** が抜けていました。ハブの口は `PLUGGED_9`（[case_base.scad](../hardware/case_base.scad)）の
+「上へ登る 5 束」に**充電**が入っていて **PWR** が抜けていました。ハブの口は `PLUGGED_9`（[case_base.scad](../hardware/frozen/v1-v4/case_base.scad)）の
 `XIAO/PHIN/OLED/AS5600/BTN2/REED/PHOUT/PWR/INA/TOGGLE` の 10 本で、**充電の口はハブにありません**
 （充電は Type-C 基板と PowerBoost をつなぐ線で、板は手順 4 に来ます）。手順 3 の行を直しました。
 
 ### ✅ 手順 12（ハッチの姿勢）の線の長さを測った
 
 トグルはハッチに付くので、`TOGGLE` の 2 本は**ハッチを箱から離したまま**繋ぐしかありません（天面もフロントも閉じている）。
-[_asm_wirepose.py](../hardware/_asm_wirepose.py) に `hatch()` を足して測りました。固定点は線が後ろの縦穴の頭で前へ折れる角
+[_asm_wirepose.py](../hardware/frozen/v1-v4/_asm_wirepose.py) に `hatch()` を足して測りました。固定点は線が後ろの縦穴の頭で前へ折れる角
 （`[55.2, 64.76, 46.8]`・そこまで 30.8mm）で、そこから先を後ろの口へ引き出します。
 
 | ハッチの置き方（外の面を下・箱の後ろ・すきま 10） | 要る長さ | 組んだ姿勢との差 |
@@ -1216,7 +1216,7 @@ M2 を 1 本外す → ロックを後ろへ外す → 蓋を**右へ** 5.5 ず�
 
 工具と手の道は **52 本すべて通ります**（うち 3 本は反例＝止まるのが正）。静止と軌跡の検査は 3 度目から変わっていません。
 
-## 19. 5 度目の机上の通し（2026-08-26 深夜・[_asm_access.py](../hardware/_asm_access.py)）
+## 19. 5 度目の机上の通し（2026-08-26 深夜・[_asm_access.py](../hardware/frozen/v1-v4/_asm_access.py)）
 
 日付は `Get-Date` の実測です（§18 は 2026-08-27 と書いてありますが、こちらが実際の日付。ずれは直していません）。
 
@@ -1229,7 +1229,7 @@ M2 を 1 本外す → ロックを後ろへ外す → 蓋を**右へ** 5.5 ず�
 φ3.6 が通っても道具が通るとは限りません（2026-08-26 に OLED の L のナットで同じ間違いをしています。
 φ2.0 で撃って通し、実際は二面幅 4.3 のナットが 0.19mm で止まっていた）。
 
-- 手順 3 のハブの口 **10 本**（座標は手で写さず [_asm_plugs.scad](../hardware/_asm_plugs.scad) の `P="hub"` の echo から取る）:
+- 手順 3 のハブの口 **10 本**（座標は手で写さず [_asm_plugs.scad](../hardware/frozen/v1-v4/_asm_plugs.scad) の `P="hub"` の echo から取る）:
   ピンセット φ5 も指 φ12 も**外まで**通る。この時点では壁もブリッジも無い。
 - 手順 9 の **9 か所**: ⑧ と同じ軌道を φ5 で撃ち直して全部通る（電流計の I2C だけ 35.0mm でその先が閉じるが、要る 6.0 は満たす）。
 
@@ -1246,7 +1246,7 @@ M2 を 1 本外す → ロックを後ろへ外す → 蓋を**右へ** 5.5 ず�
 | 後ろ右 `[77.0, 64.9]` | 通る | **φ10.12** |
 | **後ろ左 `[9.0, 64.9]`** | 通る（対角 6.7 に対して 7.19 ＝ 片側 0.25） | **φ7.19** |
 
-塞いでいるのは **Type-C 基板の受けの ⑤ 補強の三角**（[case_v4.scad](../hardware/case_v4.scad) `tc_seat4()` の
+塞いでいるのは **Type-C 基板の受けの ⑤ 補強の三角**（[case_v4.scad](../hardware/frozen/v1-v4/case_v4.scad) `tc_seat4()` の
 `polygon([[4.70, 0], [5.9, 0], [4.70, 10.0]])`・`Y 62.0〜65.5`）です。`Z 0` で `X 5.9`、`Z 10` で `X 4.70` まで
 斜めに引っ込むので、ナットの座 `Z 4.1` の高さでは `X 5.408`。穴の中心 `X 9.002` からの距離が **3.594** ＝ 直径 **7.19** で、
 測定値とぴったり合います。三角の右端 `X 5.9` はハブ基板の左端 `6.002` の 0.102 手前（`tc_seat4` のコメントに既出）。
@@ -1277,7 +1277,7 @@ M2 を 1 本外す → ロックを後ろへ外す → 蓋を**右へ** 5.5 ず�
 
 ### 検査（99 本・止まりは T-6 の 1 本）
 
-`python hardware/_asm_access.py` を 52 → **99 本**にしました（⑨ 口を持つ道 19 本・⑩ 手順 1 の M3 まわり 18 本）。
+`python hardware/frozen/v1-v4/_asm_access.py` を 52 → **99 本**にしました（⑨ 口を持つ道 19 本・⑩ 手順 1 の M3 まわり 18 本）。
 止まるのは「後ろ左のナットを回す工具」（T-6）だけです（要る 9.0 は 📄 HOZAN D-840-5.5 のボックス外径）。掃引の当たり（`CHK=...`）と静止の検査は 4 度目から動いていません。
 
 ### 🔒 T-6 のユーザー決定（2026-08-26）
@@ -1292,7 +1292,7 @@ M2 を 1 本外す → ロックを後ろへ外す → 蓋を**右へ** 5.5 ず�
 
 ---
 
-## 20. D-1 充電基板の受けを床から出した（2026-08-27・[case_v4.scad](../hardware/case_v4.scad)）
+## 20. D-1 充電基板の受けを床から出した（2026-08-27・[case_v4.scad](../hardware/frozen/v1-v4/case_v4.scad)）
 
 床は `Z 10` から上、この受けしか無く、断面 8.4mm² のまま `Z 20.5` まで続いていました。床の背が **8.5 → 22.5mm**、
 層数 **170 → 450**、CHITUBOX の見積りが約 25 分 → **1h04m50s** です。分けて刷れば床は 25 分に戻り、
@@ -1360,23 +1360,23 @@ M2 の通し穴 φ2.5 ＋ 肉に要る 4.1mm が入りません。前の上（`Z
 ### 使った道具（作り直せます）
 
 - `hardware/_pf/_split.scad` ── 床を「受け」と「受け以外」に割って測る。空きを探す probe も全部ここ。
-- `hardware/_d1_fig.scad` ＋ `hardware/_d1_fig.py` ── 4 枚の絵（`_d1_floor` / `_d1_near` / `_d1_wall` / `_d1_side`）。
-- `hardware/_stl_v4.py` ── v4 の印刷部品 16 点を `hardware/stl/v4/` へ書き出す（それまで手順が文書に無かった）。
+- `hardware/frozen/v1-v4/_d1_fig.scad` ＋ `hardware/frozen/v1-v4/_d1_fig.py` ── 4 枚の絵（`_d1_floor` / `_d1_near` / `_d1_wall` / `_d1_side`）。
+- `hardware/frozen/v1-v4/_stl_v4.py` ── v4 の印刷部品 16 点を `hardware/stl/v4/` へ書き出す（それまで手順が文書に無かった）。
 
-## 21. 刷る物を全部並べて見る `part="plate"`（2026-08-27・[_v4_plate.py](../hardware/_v4_plate.py)）
+## 21. 刷る物を全部並べて見る `part="plate"`（2026-08-27・[_v4_plate.py](../hardware/frozen/v1-v4/_v4_plate.py)）
 
 刷る部品が 16 点に増えて、「何を焼いたか」「どれが焼き直し前か」が一目で分からなくなっていたので、
 **焼いた STL をそのまま 1 面に並べて見る絵**を CAD 側に足しました。OpenSCAD で
-[case_v4.scad](../hardware/case_v4.scad) を開き `part = "plate"` にすると出ます。
+[case_v4.scad](../hardware/frozen/v1-v4/case_v4.scad) を開き `part = "plate"` にすると出ます。
 
 並べているのはモデルではなく `hardware/stl/v4/*.stl` そのものです。STL は `PROPS_OFF=false` で焼いてあるので、
 **支柱もラフトも犠牲タブも付いた状態**で並びます。つまりここに見えている物が、そのままスライサへ持って行く物です。
 支柱とラフトは部品の下に付くため真上からは見えません。回して斜め下から見てください
-（[_v4_plate_low.png](../hardware/_v4_plate_low.png)）。
+（[_v4_plate_low.png](../hardware/frozen/v1-v4/_v4_plate_low.png)）。
 
-置き方は [_v4_plate.py](../hardware/_v4_plate.py) が STL の外形から決めて
-[_v4_plate.scad](../hardware/_v4_plate.scad) に書き出します（`_v4_props.py` と同じ流儀で、🔴 手で直しません）。
-[_stl_v4.py](../hardware/_stl_v4.py) の最後から呼んでいるので、焼き直せば絵も一緒に付いてきます。
+置き方は [_v4_plate.py](../hardware/frozen/v1-v4/_v4_plate.py) が STL の外形から決めて
+[_v4_plate.scad](../hardware/frozen/v1-v4/_v4_plate.scad) に書き出します（`_v4_props.py` と同じ流儀で、🔴 手で直しません）。
+[_stl_v4.py](../hardware/frozen/v1-v4/_stl_v4.py) の最後から呼んでいるので、焼き直せば絵も一緒に付いてきます。
 
 - **動かすのは X と Y だけで、Z は 1mm も動かしません。** 底が Z=0 に無い部品は浮いたまま並びます
   （`[FLOAT]` の名札も出ます。しきい値 0.05 は `_stl_preflight.py` と同じ）。
@@ -1388,11 +1388,11 @@ M2 の通し穴 φ2.5 ＋ 肉に要る 4.1mm が入りません。前の上（`Z
 
 ⚠ 足した時点で 16 点のうち 9 点（top / front / hatch / lwall / rwall / shutter / lock / btn / tail）が
 06:03 の焼きで、残り 7 点が 11:55 の焼きでした。前の 9 点は §20 の受けの独立と押さえの移設より前の STL なので、
-刷る前に `python hardware/_stl_v4.py` を通してください。
+刷る前に `python hardware/frozen/v1-v4/_stl_v4.py` を通してください。
 
 ---
 
-## 22. 9 度目の机上の通し（2026-08-27・[assembly_v4.html](../hardware/assembly_v4.html)）
+## 22. 9 度目の机上の通し（2026-08-27・[assembly_v4.html](../docs/manual/assembly_v4.html)）
 
 マニュアルに載っている検査を 1 本ずつ回し直して、数字が**いまのモデルでも出るか**を確かめました。
 17 本とも同じ値でした（`wall_l` 0 / `wall_r` 0.012 / `brgf` 0 / `brgf_bad` 1450.3 / `brg` 46.4 /
@@ -1411,7 +1411,7 @@ M2 の通し穴 φ2.5 ＋ 肉に要る 4.1mm が入りません。前の上（`Z
 | ④ 左の壁が **Type-C 基板を抱いて**降りる | **1.169mm³** | 下記 ② |
 
 `CHK="rsp"` / `"wall_l_seat"` / `"wall_r_seat"` / `"tcwall"` / `"tcwall_bare"` として
-[_asm_sim_v4.scad](../hardware/_asm_sim_v4.scad) に足しました。
+[_asm_sim_v4.scad](../hardware/frozen/v1-v4/_asm_sim_v4.scad) に足しました。
 
 ### ② 🔴 充電の口（下）のハウジングが、ハブ基板に 0.11mm 乗っています
 
@@ -1431,7 +1431,7 @@ M2 の通し穴 φ2.5 ＋ 肉に要る 4.1mm が入りません。前の上（`Z
 
 ②が 8 度素通りしたのは、静止の検査が **皮 ↔ 中身**（`chk_all` ほか）と **名指しの 1 対 1**（`chk_tc` など）
 しか無いからです。中身どうしは、名前を挙げた組しか見ていませんでした。
-[_asm_pairs.py](../hardware/_asm_pairs.py) を書いて 20 部品を総当たりしました（`PAIR_A` / `PAIR_B`）。出たのは 10 組で、
+[_asm_pairs.py](../hardware/frozen/v1-v4/_asm_pairs.py) を書いて 20 部品を総当たりしました（`PAIR_A` / `PAIR_B`）。出たのは 10 組で、
 設計どおりの食い込み（ハブ ↔ 挿した口 1231.4／ReSpeaker ↔ 天面の押さえ 4.662）と、既に文書にある小片を除くと
 **新しいのは②の 1 件だけ**でした。
 
@@ -1446,7 +1446,7 @@ M2 の通し穴 φ2.5 ＋ 肉に要る 4.1mm が入りません。前の上（`Z
 
 ### ④ 🔴 工具と手の道の表が、6 時間前の形を測っていました
 
-[_asm_access.py](../hardware/_asm_access.py) の `stage()` は `_access_tmp/*.stl` を
+[_asm_access.py](../hardware/frozen/v1-v4/_asm_access.py) の `stage()` は `_access_tmp/*.stl` を
 **在れば作り直さない**キャッシュでした。この日は 06:14 に焼いた STL が残っていて、
 §20（受けを床から出す）より前の姿のまま測り続けます。実際、手順 1 の「後ろ左のナットを回す工具」は
 `φ10.1 通る` が **`φ7.19` で止まる**に化けていました（＝受けが床に在った頃の値）。
@@ -1469,7 +1469,7 @@ M2 の通し穴 φ2.5 ＋ 肉に要る 4.1mm が入りません。前の上（`Z
 （`git archive 2c504f7^` の木で `tcb_v4()` ∩ `hub_at()` を取ると同じ値・同じ bbox）。`tcb_v4` も `hub_at` も
 `_v4_core.scad` の中にあり、D-1 の分割はそのファイルを触っていないので、**分割が作った当たりではありません**。
 
-出どころは [case_base.scad](../hardware/case_base.scad) の `CHG_C_LW` に付いていた
+出どころは [case_base.scad](../hardware/frozen/v1-v4/case_base.scad) の `CHG_C_LW` に付いていた
 「胴の下はハブの基板の上面（4.1）から 0.4」というコメントです。逃げ 0.4 を見ていたのは**胴の下（4.5）だけ**で、
 その下に伸びる**ピン列のハウジング**（下の口の底 `Z 3.99`）を見ていませんでした。
 
@@ -1502,11 +1502,11 @@ D-1 で独立した瞬間に相手から消えました。文書に載ってい�
 （`ST="tchous"` で下の口・上の口を STL に出し、連結成分の bbox から Z を読む）。いまは `19.5` と出ます。
 
 ⚠ **STL は焼き直しが要ります。** 形が変わったのは **左の壁**（押さえ）・**受け**（① 底の座 0.5 → 0.75）・
-**ハッチ**（充電の口の Z）の 3 点です。`python hardware/_stl_v4.py`。
+**ハッチ**（充電の口の Z）の 3 点です。`python hardware/frozen/v1-v4/_stl_v4.py`。
 
 ---
 
-## 23. 11 度目の机上の通し — 電池のコネクタ対（2026-08-27・[_v4_core.scad](../hardware/_v4_core.scad)）
+## 23. 11 度目の机上の通し — 電池のコネクタ対（2026-08-27・[_v4_core.scad](../hardware/frozen/v1-v4/_v4_core.scad)）
 
 ### ① 検査が穴を隠していました
 
@@ -1572,7 +1572,7 @@ D-1 で独立した瞬間に相手から消えました。文書に載ってい�
 ⚠ **外形 `14.0 × 5.0 × 6.0` は仮です。** 逃げは Y に 1.2・Z に上下 0.5 ずつしかありません。
 現物（電池の PHR ＋ 自作の PH2.0 延長）が来たら真っ先に測ります（[CASE-V4-OPEN.md](CASE-V4-OPEN.md) B-7）。
 
-## 24. 12 度目の机上の通し — つまみが手順に無かった（2026-08-27・[assembly_v4.html](../hardware/assembly_v4.html)）
+## 24. 12 度目の机上の通し — つまみが手順に無かった（2026-08-27・[assembly_v4.html](../docs/manual/assembly_v4.html)）
 
 ### ① 今回当てたのは「部品表と手順の突き合わせ」です
 
@@ -1587,7 +1587,7 @@ D-1 で独立した瞬間に相手から消えました。文書に載ってい�
 ### ② 1 行だけあって、それが最後の 1 つでした
 
 手順 10 のつまみまわりは「天面を裏返して置き、AS5600 の基板を島の 4 本の柱へ M2×6 ×4」の 1 行だけでした。
-[knob_v5.scad](../hardware/knob_v5.scad) の冒頭の「組む順」では、その基板は **⑤＝いちばん最後**です。
+[knob_v5.scad](../hardware/frozen/v1-v4/knob_v5.scad) の冒頭の「組む順」では、その基板は **⑤＝いちばん最後**です。
 
 | | knob_v5 の組む順 | 天面の向き |
 |---|---|---|
@@ -1643,12 +1643,12 @@ D-1 で独立した瞬間に相手から消えました。文書に載ってい�
 
 ### ⑥ ついでに見つかった書き間違い
 
-[knob_v5.scad](../hardware/knob_v5.scad) の `NUT_POCK_AF` と `NUT_POCK_T` のコメントが、
+[knob_v5.scad](../hardware/frozen/v1-v4/knob_v5.scad) の `NUT_POCK_AF` と `NUT_POCK_T` のコメントが、
 **M2.5 のときの数字（5.3 / 2.2）のまま**でした。2026-08-23 に M2.5 → M2 へ変えたときの直し忘れで、
 式は正しく **4.3 / 1.8** を出しています。掃引の実測（口の AF 4.3・深さ 1.8）と合ったので気づきました。
 コメントを直しました。
 
-## 25. 13 度目の机上の通し — 天面が降りなくなっていた（2026-08-27・[assembly_v4.html](../hardware/assembly_v4.html)）
+## 25. 13 度目の机上の通し — 天面が降りなくなっていた（2026-08-27・[assembly_v4.html](../docs/manual/assembly_v4.html)）
 
 ### ① 今回当てたのは「表の数字を、いまの図面で取り直す」ことです
 
@@ -1664,7 +1664,7 @@ D-1 で独立した瞬間に相手から消えました。文書に載ってい�
 ### ② 止めているのは、AS5600 に挿したデュポンの腹でした
 
 動く側・相手・束を 1 つずつ当てて切り分けました（道具は
-[_asm_blame_v4.scad](../hardware/_asm_blame_v4.scad) の `P="ct_*"` に置いてあります）。
+[_asm_blame_v4.scad](../hardware/frozen/v1-v4/_asm_blame_v4.scad) の `P="ct_*"` に置いてあります）。
 
 | 当てたもの | 結果 |
 |---|---|
@@ -1736,7 +1736,7 @@ XIAO の上段の車線に、`Y` の逃げ場がどれだけあるかを測り�
 ### ⑥ 引き直しました（同日）
 
 **XIAO の上段**は車線を `Y 29.9 → 29.03`（3.00mm の隙間の真ん中）へ寄せました。
-[_v4_core.scad](../hardware/_v4_core.scad) に `XIAO_UP_Y` という名前を付けて、同じ数字を 3 か所に書かないようにしています。
+[_v4_core.scad](../hardware/frozen/v1-v4/_v4_core.scad) に `XIAO_UP_Y` という名前を付けて、同じ数字を 3 か所に書かないようにしています。
 
 **つまみの 5 本**は、口の位置を**数字で写さず** `as_conn()` と同じ変換から出す `as_plug()` を足して、
 そこから引き直しました（幹は 2 列のあいだ `Y 36.8` に残し、南へ 2 本・北へ 3 本の枝）。
@@ -1778,7 +1778,7 @@ XIAO の上段の車線に、`Y` の逃げ場がどれだけあるかを測り�
 出そうとしたら、静かに**空のリスト**になり、枝が 1 本も出ないまま線が箱の外まで伸びていました
 （`wall_l` が 0 → 38.7 で気づきました）。⇒ parts.scad に関数（`as5600_used_l()` など）を足して渡し、
 `_v4_core.scad` 側に `assert(len(AS_PLUGS_L) == 2 && len(AS_PLUGS_R) == 3, ...)` を置きました。
-同じ落とし方は [case_base.scad](../hardware/case_base.scad) 460 行にも書いてあります。
+同じ落とし方は [case_base.scad](../hardware/frozen/v1-v4/case_base.scad) 460 行にも書いてあります。
 
 **トグルとリードの 2 束が、後ろの縦穴で 44.15mm³ 重なっています**（`X 54.60〜55.95`・
 `Y 64.01〜65.51`・`Z 21.55〜43.35` の 1 本の柱）。これは**今回の引き直しより前からで**、
@@ -1803,14 +1803,14 @@ XIAO の上段の車線に、`Y` の逃げ場がどれだけあるかを測り�
 
 ---
 
-## 26. 14 度目の机上の通し — 幻を避けるために寄せた車線を戻した（2026-08-28・[assembly_v4.html](../hardware/assembly_v4.html)）
+## 26. 14 度目の机上の通し — 幻を避けるために寄せた車線を戻した（2026-08-28・[assembly_v4.html](../docs/manual/assembly_v4.html)）
 
 マニュアルを頭から読み直し、**当たり 61 本・工具と手の道 117 本・中身どうしの総当たり 20 部品**を通しで回しました。
 止まったものと新しい当たりは **ゼロ**です。食い違ったのは**記録の方で 2 か所**でした。
 
 ### ① `close_top` は 11.45mm³ ではなく **0** だった
 
-マニュアル（`hardware/assembly_v4.html`）は 2026-08-28 02:49 に作られていますが、`_v4_core.scad` が
+マニュアル（`docs/manual/assembly_v4.html`）は 2026-08-28 02:49 に作られていますが、`_v4_core.scad` が
 最後に変わったのは **02:53** です。あいだに入った 🔒 ユーザー指示「そんな変数は削除してほしい」（`20c378b`）で
 `ASC_DY = -2` が消え、**AS5600 のコネクタが基板の上へ戻っていました**。その 2mm ぶん、
 13 度目に「消せない」と書いた当たりが消えています。
@@ -1845,9 +1845,9 @@ BTN2 の束がハブの OLED の口のハウジング（`X 12.812〜12.850`・`Y
 
 ### ④ 直した記録
 
-- `hardware/_v4_core.scad` … `XIAO_UP_Y` と、その上の経緯。
-- `hardware/case_v4.scad` … `close_top` の脇に置いてあった「いまの正は 11.45」の注記。
-- `hardware/_asm_manual_v4.py` … 検査表の `close_top` の行／手順 11 の注意（「束を寄せる」の理由と数字）／
+- `hardware/frozen/v1-v4/_v4_core.scad` … `XIAO_UP_Y` と、その上の経緯。
+- `hardware/frozen/v1-v4/case_v4.scad` … `close_top` の脇に置いてあった「いまの正は 11.45」の注記。
+- `hardware/frozen/v1-v4/_asm_manual_v4.py` … 検査表の `close_top` の行／手順 11 の注意（「束を寄せる」の理由と数字）／
   線の表の上段の車線／「まだ埋まっていない」⑩（⚠ 要観察 → ✅ 済んだ）。
 - `docs/CASE-V4-OPEN.md` … 「数字は分かっているが、直していないもの」の 2 行と、A-14 の後日談。
 
@@ -1858,7 +1858,7 @@ BTN2 の束がハブの OLED の口のハウジング（`X 12.812〜12.850`・`Y
 
 ---
 
-## 27. 15 度目の机上の通し — 「0」が本物かを確かめた（2026-08-28・[assembly_v4.html](../hardware/assembly_v4.html)）
+## 27. 15 度目の机上の通し — 「0」が本物かを確かめた（2026-08-28・[assembly_v4.html](../docs/manual/assembly_v4.html)）
 
 マニュアルを頭から読み直し、**当たり 48 本**（`_asm_sim_v4.scad` の CHK 27 本・`case_v4.scad` の part 14 本・`W=` 3 本・
 `knob_v5.scad` の part 4 本）と、**工具と手の道 117 本**を今のジオメトリで回し直しました。
@@ -1919,7 +1919,7 @@ STL 18 点を書き出し直し（形は 18 点とも**体積が完全一致**�
 
 ### ④ 直した記録
 
-- `hardware/knob_v5.scad` … `ering_obstacles()` の負の円柱 → `stop_screws()`。
+- `hardware/frozen/v1-v4/knob_v5.scad` … `ering_obstacles()` の負の円柱 → `stop_screws()`。
   ①の echo の「±X は不可」の理由も、いまの寸法から出る文に直した。
 - `docs/KNOB-ENCODER.md` … `eringpathx` の行と、その下の 🔒。
 - `docs/CASE-V4.md` … ブリッジの刷る向きの接地（2304 → 2263）と、掘り込みの天井の節。
@@ -1932,7 +1932,7 @@ STL 18 点を書き出し直し（形は 18 点とも**体積が完全一致**�
 
 ---
 
-## 28. 16 度目の机上の通し — つまみの STL が 5 つに割れていた（2026-08-28・[assembly_v4.html](../hardware/assembly_v4.html)）
+## 28. 16 度目の机上の通し — つまみの STL が 5 つに割れていた（2026-08-28・[assembly_v4.html](../docs/manual/assembly_v4.html)）
 
 15 度目は「当たり検査の 0 が本物か（相手が空でないか）」を潰しました。今回は**同じ疑いを、工具と手の道の側**へ
 向けました。円筒を撃つ検査も、相手に居ない物には当たりません。あわせて、刷る側も見直しました。
@@ -1958,7 +1958,7 @@ translate([0, 0, z - 0.01]) difference() {
 `z` は部品の**下の面**なので、下のはみ出しはその面を跨ぐ物（軸とツメ）を切り、
 上のはみ出しは持ち手そのものを切っていました。
 
-- **直し**: はみ出しをやめて、筒も円錐も `z 〜 z+c` にそろえました（[knob_v5.scad](../hardware/knob_v5.scad)）。
+- **直し**: はみ出しをやめて、筒も円錐も `z 〜 z+c` にそろえました（[knob_v5.scad](../hardware/frozen/v1-v4/knob_v5.scad)）。
   面取りの寸法は変えていません（持ち手 半径 13.5 → 13.2 ／ 軸 3.5 → 3.2・どちらも 0.3mm のまま）。
 - **結果**: 連結成分 **5 → 1**（manifold・CGAL とも）。体積 4941.72 → **4947.98mm³**（＋6.26 ＝ 誤って抜けていた 2 枚の 0.01mm の円板）。
   preflight は **中身 1 個・支えの無い天井なし・島 0・薄肉なし・接地 496mm²（無事の実績 513 の側）** で全部合格になりました。
@@ -2014,7 +2014,7 @@ translate([0, 0, z - 0.01]) difference() {
 🔒 ユーザー「だんだんゴミがたまってきて下の方を見るのが人間ではキツくなってきました」。
 本文 31,045 字のうち、**組む人向けは 26%（手順）だけ**で、残りは機械の検算と申し送りでした。
 
-- **検査 2 表を別ページへ出した** —— [assembly_v4_check.html](../hardware/assembly_v4_check.html)
+- **検査 2 表を別ページへ出した** —— [assembly_v4_check.html](../docs/manual/assembly_v4_check.html)
   （部品の当たり 31 行・工具と手の道 118 行）。`_asm_manual_v4.py` が 2 枚とも書き出し、
   **数字は同じ 1 回の測定から出す**ので、2 枚がずれることはありません。
   マニュアル側にはリンク 1 行と、止まったものがあるかどうかの 1 文だけを残しました。
@@ -2037,7 +2037,7 @@ translate([0, 0, z - 0.01]) difference() {
 
 ---
 
-## 29. 会話ボタンの線は直はんだで確定（2026-08-29・[assembly_v4.html](../hardware/assembly_v4.html)）
+## 29. 会話ボタンの線は直はんだで確定（2026-08-29・[assembly_v4.html](../docs/manual/assembly_v4.html)）
 
 🔒 ユーザー「B-8は直ハンダで確定です」。会話ボタンの 2 本は、デュポンのハウジングを作らずに
 **タクトの足へ直接はんだ付けします**。これで [CASE-V4-OPEN.md](CASE-V4-OPEN.md) の B-8 は閉じました。
@@ -2120,7 +2120,7 @@ scad には「下は電池が蓋」と書いてあったが、電池は柔らか
 - **支柱の穴が帯の縁を破っている。** PowerBoost の穴は 14° で回した座標になるので、`_v4_core.scad` 713 行の
   「PB の 4 穴は中に居る」（θ=0 の値）は成り立っていない。post 5（Y 41.85）は帯 B の後端 42.2 まで 0.35 しか無く、
   通し穴 φ2.1 が縁を 0.70、ザグリ φ4.4 が 1.85、D の窪み r3.05 が 2.70 破る。post 2 はザグリ 0.77・D 1.62、
-  post 4 はザグリ 0.20・D 1.05、post 3 はザグリの残り 0.09・D 0.76。絵は [hardware/_onepiece_strapB_top.png](../hardware/_onepiece_strapB_top.png)
+  post 4 はザグリ 0.20・D 1.05、post 3 はザグリの残り 0.09・D 0.76。絵は [hardware/frozen/v1-v4/_onepiece_strapB_top.png](../hardware/frozen/v1-v4/_onepiece_strapB_top.png)
   （いまの帯 B を上から。左上の穴が後端に切れている）。
 - 帯 A/B/C は**まだ一度も刷っていない**（print_log.jsonl に strap の回は無い）。「伏せで接地 316mm²・無支持 0」は
   検算の数字で、印刷の実績ではない。
@@ -2194,7 +2194,7 @@ scad には「下は電池が蓋」と書いてあったが、電池は柔らか
 - **案 D（真鍮 M2 スタンドオフ ＋ 裏から皿ネジ）**: 最短 3.0 が胴 1.00〜1.75 に入らない。上面が平らで PowerBoost の
   14° を受けられない（対辺 3 で高低差 0.75）。長さ 3.0 の中で上下のネジの先が当たる。買い物が 3 種類増える。**不成立。**
 
-### 31.6 一体にした帯の印刷性（[hardware/_onepiece_study.scad](../hardware/_onepiece_study.scad) を `_stl_preflight.py` に掛けた値）
+### 31.6 一体にした帯の印刷性（[hardware/frozen/v1-v4/_onepiece_study.scad](../hardware/frozen/v1-v4/_onepiece_study.scad) を `_stl_preflight.py` に掛けた値）
 
 較正 ✅: 「急な立ち上がり」は無事に刷れた部品で最大 4.00mm（floor）、失敗は 6.83mm（tub）。点立ちは接地 38mm² 未満。
 帯 A には post 1、帯 B には post 0/3/5、帯 C には post 2/4 が載る。
@@ -2246,8 +2246,8 @@ scad には「下は電池が蓋」と書いてあったが、電池は柔らか
 
 「寝かせればいける」は帯 A だけ当たっている（§31.6）。向きは 3 本とも**足を下にして傾け、ラフトと支えで浮かせる**にする。
 これは 🔒 2026-08-26 にユーザーが描いた向き（足とツバを下・ツバの上面 45°）で、天板の裏は坂になり支えが要らず、
-支えの痕は足の裏に付く。絵は [hardware/_onepiece_look.png](../hardware/_onepiece_look.png)（帯 B を組んだ姿勢）と
-[hardware/_onepiece_tilt.png](../hardware/_onepiece_tilt.png)（足を下に 30° 傾けて 5mm 浮かせた向き。支えとラフトは描いていない）。
+支えの痕は足の裏に付く。絵は [hardware/frozen/v1-v4/_onepiece_look.png](../hardware/frozen/v1-v4/_onepiece_look.png)（帯 B を組んだ姿勢）と
+[hardware/frozen/v1-v4/_onepiece_tilt.png](../hardware/frozen/v1-v4/_onepiece_tilt.png)（足を下に 30° 傾けて 5mm 浮かせた向き。支えとラフトは描いていない）。
 
 採用するなら要る直し（計算だけで、当たりの検査は回していない）:
 1. 帯 B・C を後ろへ広げる。胴 φ5.8 のはみ出しは post 5 で 2.55、post 2 で 1.47、post 4 で 0.90、post 3 で 0.61。
@@ -2409,9 +2409,9 @@ PowerBoost の 4 本の軸を板に直角（14°）に倒すこと、帯その�
 
 ⇒ **帯は直置き**（組んだ姿勢・足の裏とツバの裏が z=0）で刷り、天板の裏のアーチ（足と足の間 36mm）は
 `_v4_props.py` が立てる柱で受ける。`_v4_post_props.py` / `_spot_props.py` とその .scad は
-[hardware/archive/floating_supports/](../hardware/archive/floating_supports/README.md) へ移し、include も外した。
+[hardware/frozen/v1-v4/archive/floating_supports/](../hardware/frozen/v1-v4/archive/floating_supports/README.md) へ移し、include も外した。
 
-直置きの結果（`python hardware/_v4_props.py` → 焼き直し → `_stl_preflight.py`）:
+直置きの結果（`python hardware/frozen/v1-v4/_v4_props.py` → 焼き直し → `_stl_preflight.py`）:
 
 | 帯 | 柱 | 接地 | 宙から始まる肉 | 急な立ち上がり | 高さ（層数） |
 |---|---|---|---|---|---|
@@ -2484,7 +2484,7 @@ PowerBoost の 4 本の軸を板に直角（14°）に倒すこと、帯その�
 柱の先は天井（Z 3.00）に食い込んでいるので塊としては 1 個に繋がっており、
 刷る前の検算は「中身 1 個・宙から始まる肉 0 か所」と通してしまう。**塊単位でしか浮きを見ていない検査の穴**である。
 
-原因は `hardware/_v4_props.py` の `basemax` だった。柱の足元を「胴 φ2.0 の footprint の中でいちばん高い肉の上」に
+原因は `hardware/frozen/v1-v4/_v4_props.py` の `basemax` だった。柱の足元を「胴 φ2.0 の footprint の中でいちばん高い肉の上」に
 置く規則で、これは 2026-08-29 に「胴が部品に食い込まないように」入れた物である。ところが**円の端を段差が
 かすめただけでも円全体がその高さまで持ち上がる**。ハッチでは電池の口（プレートまで空）の縁に高さ 0.70 の段差が
 あり、そこを 0.25mm 踏み外した所に柱が並んでいた。例として柱 (11.55, 22.11) の真下の肉は 0.70〜4.20 だけである。
@@ -2493,9 +2493,9 @@ PowerBoost の 4 本の軸を板に直角（14°）に倒すこと、帯その�
 なお「段差をまたぐ升には立てない」という案も試したが、段差の縁の帯 2mm がまるごと禁止になり、
 **ハッチの天井 252.1mm² のうち 114.9mm² が持たれないまま残った**（柱 49 → 32 本）ので採らなかった。
 
-**結果**（`python hardware/_v4_props.py` → `python hardware/_stl_v4.py hatch`）:
+**結果**（`python hardware/frozen/v1-v4/_v4_props.py` → `python hardware/frozen/v1-v4/_stl_v4.py hatch`）:
 柱は 49 本のまま・持たれずに残る天井も 3.4mm² のままで、**0.70 から始まる柱は 0 本**になった。
-プレートに着く面積は 3311 → **3467mm²** に増えた。断面の絵は [_hatch_props_sec.svg](../hardware/_hatch_props_sec.svg)。
+プレートに着く面積は 3311 → **3467mm²** に増えた。断面の絵は [_hatch_props_sec.svg](../hardware/frozen/v1-v4/_hatch_props_sec.svg)。
 
 **⚠ 代わりに、20 本の柱が部品の肉と重なった。**ユーザー ChituBox「重なってる」。
 素のハッチ（`-D PROPS_OFF=true` で焼いた物）に対して足 φ2.0 を重ねて数えると、
@@ -2518,10 +2518,10 @@ PowerBoost の 4 本の軸を板に直角（14°）に倒すこと、帯その�
 `_v4_props.py` は層ごとに「その層で新しく現れた肉」＝下に何も無い下向きの面（`Ng = O & ~S`）を天井として拾い、
 天井の縁から `REACH` 2.0mm で持てない所にだけ立てている。
 
-そのうえで張り出しを測った（`python hardware/_hatch_roof_span.py`・素の部品を読む）。
+そのうえで張り出しを測った（`python hardware/frozen/v1-v4/_hatch_roof_span.py`・素の部品を読む）。
 Z 3.00 の天井は **394.9mm²**、下から続く肉（壁）は 84.0mm² しかなく、
 **壁からの張り出しは中央 2.92mm・最大 28.19mm**。2.0mm より遠い天井が 251.7mm² ある。
-絵は [_hatch_roof_span.png](../hardware/_hatch_roof_span.png)（灰＝壁・青＝壁に近い・赤＝遠い）で、
+絵は [_hatch_roof_span.png](../hardware/frozen/v1-v4/_hatch_roof_span.png)（灰＝壁・青＝壁に近い・赤＝遠い）で、
 鞘の屋根の**左 6 割は下に何も無いまま 28mm 伸びている**。⇒ **柱は要る。**
 
 ⬜ **未解決**: 柱は要るが、鞘の床のふちと重ねてはいけない。
@@ -2529,11 +2529,11 @@ Z 3.00 の天井は **394.9mm²**、下から続く肉（壁）は 84.0mm² し�
 （`archive/floating_supports/_v4_post_props.py` の 柱＋球＋円錐＋枝）を使う」「内側の何もない所に**ラフト**を
 置いて、そこから伸ばすしかない」。凍結した道具だが仕組みは借りる（浮かせも傾けもしない）。
 
-**場所があるかを先に測った**（`python hardware/_hatch_post_room.py`・素の部品）:
+**場所があるかを先に測った**（`python hardware/frozen/v1-v4/_hatch_post_room.py`・素の部品）:
 Z 0〜3.00 を貫いて空いている所が 694.2mm²、そのうち **φ2.0 の柱が肉から 0.3 逃げて立てられる所が 466.4mm²**
 （かたまり 2 個・大きい方が 454.5mm²）。**天井の各点からその足場までの横の距離は中央 0.50mm・最大 3.32mm**で、
 3.0mm より遠い天井は 0.2mm² しかない。⇒ 球＋円錐＋枝で渡す量は 3.3mm 以下。**ユーザー案は成立する。**
-絵は [_hatch_post_room.png](../hardware/_hatch_post_room.png)（緑＝柱を降ろせる所＝ラフトを置く所）。
+絵は [_hatch_post_room.png](../hardware/frozen/v1-v4/_hatch_post_room.png)（緑＝柱を降ろせる所＝ラフトを置く所）。
 
 ⚠ **term `2026-09-03-1725` は古いハッチで焼いた物なので刷らない。** 刷るぞーで新しい id を取り直すこと。
 ⬜ `_stl_preflight.py` は今回の浮きを検出できなかった。柱の足元を列（レイ）ごとに見る検査は入っていない。
@@ -2561,8 +2561,8 @@ Z 0〜3.00 を貫いて空いている所が 694.2mm²、そのうち **φ2.0 �
 | 刷る前の検算 | 底 Z=0・接地 3593mm²・宙から始まる肉 0 か所・0.30 未満の面なし |
 | 急な立ち上がり | 2.85 → **3.75mm**（Z 3.03）。実績で無事な範囲 ≤4.00 の内側だが、余裕は 0.25mm しかない |
 
-絵: [_hatch_cone_sec.svg](../hardware/_hatch_cone_sec.svg)（X 一定の縦断面・柱＋枝＋円錐の並び）／
-[_hatch_cone_look.png](../hardware/_hatch_cone_look.png)（口の中を斜めから）。
+絵: [_hatch_cone_sec.svg](../hardware/frozen/v1-v4/_hatch_cone_sec.svg)（X 一定の縦断面・柱＋枝＋円錐の並び）／
+[_hatch_cone_look.png](../hardware/frozen/v1-v4/_hatch_cone_look.png)（口の中を斜めから）。
 
 ⚠ `PITCH` 2.4 は、アーカイブの道具が要求していた「先の径 0.5 ＋ ニッパーの刃 2.0 ＝ 2.5」を満たさない。
 これは**柱を立てる側のパイプラインに元からある性質**で、今回の変更で持ち込んだものではない。⬜ 触るかは未決。
@@ -2599,7 +2599,7 @@ Z 0〜3.00 を貫いて空いている所が 694.2mm²、そのうち **φ2.0 �
 
 ### ② 反りは剥離力（断面積）では説明できない
 
-`python hardware/_layer_area.py <STL> 0.05` で 1 層ずつの断面積を出して比べた。
+`python hardware/frozen/v1-v4/_layer_area.py <STL> 0.05` で 1 層ずつの断面積を出して比べた。
 
 | 部品 | 1 層目の断面 | 板の区間 | 結果 |
 | --- | --- | --- | --- |
@@ -2629,7 +2629,7 @@ Z 0〜3.00 を貫いて空いている所が 694.2mm²、そのうち **φ2.0 �
 ⇒ **原因は 1 つ。①が②を生んだ。**刃の入らない 2.3mm の隙間に 48 本立てたので、削るしかなくなり、
 その力で部品が長手に曲がった。
 
-**なぜ長手に曲がるのか（測った・`python hardware/_hatch_stiff.py`）**。X を 0.5mm おきに切った
+**なぜ長手に曲がるのか（測った・`python hardware/frozen/v1-v4/_hatch_stiff.py`）**。X を 0.5mm おきに切った
 Y-Z 断面の断面二次モーメント I（水平軸まわり）を、無事だった部品と比べる。I が小さいほど曲げに弱い。
 
 | 部品 | 長手の長さ | I の中央 | 断面積の中央 | 結果 |
@@ -2649,7 +2649,7 @@ Y-Z 断面の断面二次モーメント I（水平軸まわり）を、無事�
 
 ユーザー「そもそも形状だっておかしい。スライドする部分はそんなにいらなかったし」
 「なんで縁まで全部穴あいてるのこれ」「レールが滑る長さは 1cm もない。でも隙間は端まである」。
-測ると全部そのとおりだった（`python hardware/_hatch_openings.py`・素の部品）。
+測ると全部そのとおりだった（`python hardware/frozen/v1-v4/_hatch_openings.py`・素の部品）。
 
 | 測ったもの | 値 |
 | --- | --- |
@@ -2788,7 +2788,7 @@ Y-Z 断面の断面二次モーメント I（水平軸まわり）を、無事�
 ## 2026-09-04 刻印の印が反転していた ── 投影図には見た側を書く
 
 印（スパナ・ヘッドホン・稲妻・クーポン）に反射が入った。**命令の綴りが `mirror` かどうかは関係なく、
-幾何として入った**ので、`hardware/_kinshi_check.py` も grep も素通りしている。
+幾何として入った**ので、`hardware/frozen/v1-v4/_kinshi_check.py` も grep も素通りしている。
 
 作った側の言い分は「CAD を 180度 回して裏へまわしてスクショを撮り、それをトレースした。
 だから反転のコマンドは使っていない」。これは弁明ではなく経路の説明になっている。

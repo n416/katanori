@@ -152,7 +152,7 @@ R75 の 680Ω である。**「何も繋がない状態でテスター(10MΩ)を
 ## 5.5 🔒 実測マップ（2026-08-04・この機体 V1.1）
 
 **座標は「左から／下から」。基準の向きは2章。**
-モック [../hardware/respeaker_lite.scad](../hardware/respeaker_lite.scad) はこの表そのもので、
+モック [../hardware/parts/respeaker_lite.scad](../hardware/parts/respeaker_lite.scad) はこの表そのもので、
 ⚠ **片方だけ直さない。**
 
 | 部品 | 面 | 左から | 下から | 立ち上がり | 備考 |
@@ -262,7 +262,7 @@ STEP で Z<0 側（マイク面）に置かれている部品を全部並べる�
 
 ## 8. 🔒 CADのモック — **刷る前にここで当てる**
 
-**[../hardware/respeaker_lite.scad](../hardware/respeaker_lite.scad)**
+**[../hardware/parts/respeaker_lite.scad](../hardware/parts/respeaker_lite.scad)**
 
 ```
 use <respeaker_lite.scad>
@@ -274,14 +274,14 @@ respeaker_envelope();   // 侵入禁止の体積。筐体から difference() し
 見つからなかったもので、モックがあれば刷る前に全部出ていた（受け以外の場所で下端が当たる／
 マイク面のスイッチが座に当たる／中央領域の部品を 1.5mm の座に入れようとしていた）。
 
-チェックのやり方は [../hardware/stand_seat_test.scad](../hardware/stand_seat_test.scad) の
+チェックのやり方は [../hardware/frozen/v1-v4/stand_seat_test.scad](../hardware/frozen/v1-v4/stand_seat_test.scad) の
 `show="check"`（**何も表示されなければ干渉なし**）。
 
 ⚠ **モックの多くの寸法はまだ ⚠（仮値）。** 測ったら `.scad` の該当行を ✅ に書き換える。
 **⚠ のままの箱に筐体を密着させない。**
 
-他の部品のモックは [../hardware/parts.scad](../hardware/parts.scad)。
-この形を使っているもの: [../hardware/stand_seat_test.scad](../hardware/stand_seat_test.scad)。
+他の部品のモックは [../hardware/parts/parts.scad](../hardware/parts/parts.scad)。
+この形を使っているもの: [../hardware/frozen/v1-v4/stand_seat_test.scad](../hardware/frozen/v1-v4/stand_seat_test.scad)。
 
 ## 9. 公開されているもの／いないもの
 

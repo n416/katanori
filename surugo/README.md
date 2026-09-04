@@ -79,7 +79,7 @@ python surugo/server.py        →  http://127.0.0.1:8731/
 
 ## 数字を二重に持たない
 
-接地面積・島・持たれていない天井は [_stl_preflight.py](../hardware/_stl_preflight.py) を
+接地面積・島・持たれていない天井は [_stl_preflight.py](../hardware/tools/_stl_preflight.py) を
 そのまま呼んで出している（`measure.py`）。同じ数字が 2 か所にあると、片方だけ動く。
 
 ## 浮かせて刷る部品

@@ -41,9 +41,9 @@ Gemini Live API（音声in / 音声out）
 
 | | 状態 |
 |---|---|
-| **ハブ基板** | ✅ **2026-08-18 実装完了**（図は赤0・黄0、全数テスターで導通確認）。⚠ **通電はまだ**（[docs/POWER.md](docs/POWER.md) 4章 ／ [hardware/relay_board.html](hardware/relay_board.html)） |
+| **ハブ基板** | ✅ **2026-08-18 実装完了**（図は赤0・黄0、全数テスターで導通確認）。⚠ **通電はまだ**（[docs/POWER.md](docs/POWER.md) 4章 ／ [hardware/parts/relay_board.html](hardware/parts/relay_board.html)） |
 | **電池・電源** | 🔴 **いまの実機は電池で動いていない**（モバイルバッテリー給電）。PowerBoost とリポは未接続 |
-| **リードスイッチ（電源断）** | 🔴 部品は手元。座は [hardware/knob_v5.scad](hardware/knob_v5.scad) に入っている（**未印刷**） |
+| **リードスイッチ（電源断）** | 🔴 部品は手元。座は [hardware/frozen/v1-v4/knob_v5.scad](hardware/frozen/v1-v4/knob_v5.scad) に入っている（**未印刷**） |
 | **つまみ** | ✅ v5 で設計完了（2026-08-19）。**未印刷**（v4 は実機で回らず捨てた） |
 | **筐体** | 🔴 v2 を設計中。部品どうし・線ともに当たり 0（[docs/CASE-V2.md](docs/CASE-V2.md)） |
 
@@ -71,6 +71,15 @@ simulator/         Windows用シミュレーター（Win32 GDI、外部lib不要
 ├── wrapper.py     PC上でマイク・スピーカー・DO接続を担うPythonラッパー
 └── tuner.html     ロボットボイスの調整UI
 
+hardware/          筐体・つまみ・基板モックの CAD（OpenSCAD）  ★直下は v5 の作業場
+├── parts/         部品ライブラリ（parts.scad / respeaker_lite.scad / hub_board*.scad / relay_board.html）
+├── icons/         刻印の元絵（SVG）と生成スクリプト
+├── tools/         刷る前の検算（_stl_preflight.py / _stl_clean.py）
+├── stl/           印刷した STL（刷るぞーが読む）／ print_log.jsonl 印刷の記録
+├── ref/           実物の写真・ピン配置
+└── frozen/v1-v4/  🔒 凍結した v1〜v4 の .scad・検算・レンダー。読まない・触らない
+
+docs/manual/       組み立てマニュアル（assembly_v4.html と画像）
 docs/SIMULATOR.md  シミュレーターのビルドと使い方
 SPEC.md            シミュレーターの仕様
 SPEC_SIM.md        同上（詳細）

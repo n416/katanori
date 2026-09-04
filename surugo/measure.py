@@ -13,7 +13,7 @@
 import json, math, os, sys
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-_HW = os.path.join(os.path.dirname(_HERE), "hardware")
+_HW = os.path.join(os.path.dirname(_HERE), "hardware", "tools")
 
 _saved = sys.argv
 # argv[1] = 当たらない glob（本体のループを 0 回で終わらせる）／argv[2] = 薄肉のしきい値

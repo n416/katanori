@@ -44,7 +44,7 @@
 
 ### ✅ 切り分けの結果（2026-08-30・flat_area_test を焼いた）
 
-大小 2 枚の板（2.5mm）を **1 ジョブで同時に**焼いた。[hardware/flat_area_test.scad](../hardware/flat_area_test.scad)。
+大小 2 枚の板（2.5mm）を **1 ジョブで同時に**焼いた。[hardware/frozen/v1-v4/flat_area_test.scad](../hardware/frozen/v1-v4/flat_area_test.scad)。
 
 | 測った所 | 設計 | 実物 | 差 |
 |---|---|---|---|
@@ -190,7 +190,7 @@ cross-sections (let's say more than 30 % of the LCD surface)" ＝ 合計側）�
 このとき小さい板は単独 9% なら 2.5 で出るのに、2.8〜3.4 になった。）
 
 育つ量は断面積で決まるので、**部品ごと・プレートごとに違う。**刷ったらゲージ
-（[thick_gauge](../hardware/thick_gauge.scad)）を当てて、この表を埋めること。
+（[thick_gauge](../hardware/frozen/v1-v4/thick_gauge.scad)）を当てて、この表を埋めること。
 **測るための印刷は要らない。どのみち刷る物を測るだけ。**
 
 | | 部品 | 接地mm² | LCD 比 | 実測の育ち |
@@ -367,7 +367,7 @@ SK本舗の露光（2.500s / 初期層 30.000s）のまま ELEGOO で焼いた�
 ### ✅ ELEGOO の縮みは **ほぼ 0**（2026-08-31 に実物で確定済み）
 
 🔴 **この節を一度「⬜ 未解決。ゲージを焼いて取り直す」と書いたのは誤りだった。**
-答えは同じ日に出ていて、[knob_v5.scad](../hardware/knob_v5.scad) の 257〜282 行に残っている。
+答えは同じ日に出ていて、[knob_v5.scad](../hardware/frozen/v1-v4/knob_v5.scad) の 257〜282 行に残っている。
 
 | レジン | 設計 | 焼き上がり | 締め代（磁石の厚み 2.02 に対して） | 出どころ |
 |---|---|---|---|---|
@@ -380,7 +380,7 @@ SK本舗の露光（2.500s / 初期層 30.000s）のまま ELEGOO で焼いた�
 
 ### 適用（2026-09-02）
 
-同じ理屈を電池の蓋の磁石ポケットへ移した（[case_v3_shutter.scad](../hardware/case_v3_shutter.scad) `SHUT_MAG_D`）。
+同じ理屈を電池の蓋の磁石ポケットへ移した（[case_v3_shutter.scad](../hardware/frozen/v1-v4/case_v3_shutter.scad) `SHUT_MAG_D`）。
 
 | | 設計 | 焼き上がり | 結果 |
 |---|---|---|---|
@@ -434,7 +434,7 @@ ELEGOO ではその見込みが乗らない。⬜ ナットのポケットや圧
 
 ### 版ごとの「一番背の高い部品」
 
-どれも **刷る向きで焼いた STL の Z** を `python hardware/_bbox.py` で測った値（2026-08-27）。
+どれも **刷る向きで焼いた STL の Z** を `python hardware/frozen/v1-v4/_bbox.py` で測った値（2026-08-27）。
 
 | 版 | 一番背の高い部品 | 背 | 層数 | 露光だけの下限 |
 |---|---|---|---|---|
@@ -553,7 +553,7 @@ v4 の留め帯・受け・蓋・ロック・前板も、全部この余りに�
 
 ### ✅ CHITUBOX は STL の座標を捨てる ── 配置を渡すなら 1 ファイルに結合する（2026-08-31・実機で確認）
 
-**確かめ方**: [chitubox_coord_test.scad](../hardware/chitubox_coord_test.scad) で、10mm 角の板 2 枚を
+**確かめ方**: [chitubox_coord_test.scad](../hardware/frozen/v1-v4/chitubox_coord_test.scad) で、10mm 角の板 2 枚を
 A =(-40, -25)、B =(+40, +25) に置いて書き出し、CHITUBOX Basic V2.3 に読み込んだ。
 
 | 読み込み方 | 出た位置 |
@@ -589,7 +589,7 @@ A =(-40, -25)、B =(+40, +25) に置いて書き出し、CHITUBOX Basic V2.3 に
 ### 🔴 モデルに支柱を入れた部品は、その支柱が届く置き方でしか刷れない（2026-08-17）
 
 つまみの天板（`deck_props`）は、へこみの天井を掴む支柱を**モデルに入れてある**
-（v4 で 8本。いまの正は [knob_v5.scad](../hardware/knob_v5.scad) で、本数は座の形に合わせて変わる）。この支柱は**見える面をプレートに直置き**したときにだけ足がプレートに届く。
+（v4 で 8本。いまの正は [knob_v5.scad](../hardware/frozen/v1-v4/knob_v5.scad) で、本数は座の形に合わせて変わる）。この支柱は**見える面をプレートに直置き**したときにだけ足がプレートに届く。
 傾けたり浮かせたりすると、支柱の足は**宙に浮いた φ1.4 の島**になり、まず刷れない。
 
 実際 2026-08-17 の印刷では支柱がほとんど脱落し、へこみの底（回転の溝が乗る面）が荒れて、
@@ -601,7 +601,7 @@ A =(-40, -25)、B =(+40, +25) に置いて書き出し、CHITUBOX Basic V2.3 に
 
 ### 🔴 支柱は「空いていなければならない体積」を避ける（2026-08-27）
 
-筐体 v4 の支柱を作る [_v4_props.py](../hardware/_v4_props.py) は、**持たれていない天井の輪郭**
+筐体 v4 の支柱を作る [_v4_props.py](../hardware/frozen/v1-v4/_v4_props.py) は、**持たれていない天井の輪郭**
 だけを見て柱を立てていた。そのため、ネジの通し穴・ナットのポケット・つまみの軸の穴・
 充電の口・トグルの穴・前板のフランジの溝の中にも柱が立っていた。ユーザーが STL を見て
 「ネジ穴や回転部分にサポートが立っている。これはまずい」と指摘した。
@@ -645,7 +645,7 @@ A =(-40, -25)、B =(+40, +25) に置いて書き出し、CHITUBOX Basic V2.3 に
 
 > 🔴 2026-09-03 **この仕組みは凍結した。**（この節の下の一般論は生きている。凍結したのは道具の方）
 > ユーザー「浮かすパイプラインは凍結。使われないようにしてアーカイブしておきましょう」。
-> 道具は [hardware/archive/floating_supports/](../hardware/archive/floating_supports/README.md) にある。
+> 道具は [hardware/frozen/v1-v4/archive/floating_supports/](../hardware/frozen/v1-v4/archive/floating_supports/README.md) にある。
 > 作った相手（支柱 6 本）は留め帯と一体になって消え、残った帯では ①開始点を 0 にできない
 > ②角度を出せていない（145 点の網）③遅い、の 3 つが同時に出た。⇒ 帯は**直置き＋立てる柱**
 > （`_v4_props.py`）にした。詳しくは [CASE-V4-LOG.md](CASE-V4-LOG.md) §32.7。
@@ -729,7 +729,7 @@ A =(-40, -25)、B =(+40, +25) に置いて書き出し、CHITUBOX Basic V2.3 に
     実測ではない。それを軸と溝へ当てはめたのが上の文だった。
   ⇒ **傾ける側の代償は、まだ誰も見ていない。**
 
-### ✅ 立ち上がりの緩やかさは計算できる（2026-09-01・[_tilt_sweep.py](../hardware/_tilt_sweep.py)）
+### ✅ 立ち上がりの緩やかさは計算できる（2026-09-01・[_tilt_sweep.py](../hardware/frozen/v1-v4/_tilt_sweep.py)）
 
 物差しは **1 層あたりの断面積の増分の最大値**（mm²/層）である。層ごとの断面積は
 `surugo/measure.py` の `profile` が既に出しているので、足したのは「三角形を回してから
@@ -1028,8 +1028,8 @@ A =(-40, -25)、B =(+40, +25) に置いて書き出し、CHITUBOX Basic V2.3 に
 
 ### 🔴 接地面積が剥がれなさを決める
 
-🔒 **この節は散文で置かない。**下の実績値は [_stl_preflight.py](../hardware/_stl_preflight.py) に入れてあり、
-STL を出したら必ず通す（`python hardware/_stl_preflight.py "hardware/stl/v4/*.stl"`）。
+🔒 **この節は散文で置かない。**下の実績値は [_stl_preflight.py](../hardware/tools/_stl_preflight.py) に入れてあり、
+STL を出したら必ず通す（`python hardware/tools/_stl_preflight.py "hardware/stl/v4/*.stl"`）。
 2026-08-27、筐体 v4 の STL 15 点をこの節を開かずに出して、接地 5770mm² の床をそのまま渡しかけた。
 機械が見るのは ①底の Z ②欠片と密閉空洞 ③薄肉 ④**接地面積**（1709 / 585 / 513 と比較）⑤島 ⑥塔。
 
@@ -1059,7 +1059,7 @@ STL を出したら必ず通す（`python hardware/_stl_preflight.py "hardware/s
 
 **直置きを選んだら、接地面積を設計で減らす。** 底に横溝を切れば、向きも精度も変えずに面積だけ
 落とせる。✅ 半円溝で接地を約4割落とした frame・lock・bridge は**3つとも無傷で剥がせた**
-（前回は同じ3部品が全損）。実装は [as5600_holder.scad](../hardware/as5600_holder.scad) の
+（前回は同じ3部品が全損）。実装は [as5600_holder.scad](../hardware/parts/as5600_holder.scad) の
 `relief_x/relief_y`。**溝は半円（角を作らない）・外へ抜く**（閉じた凹みにすると吸盤になり、
 洗浄液も溜まる）・**剥がすとき曲げる軸と直交する向き**に走らせる。
 
@@ -1396,7 +1396,7 @@ n＝1 の勘が、機械の出す指示の顔になる。**（🔴 2026-08-31、
 
 ### 🔴 ゲージの答えは「どの入れ方で測ったか」とセットでしか使えない（2026-08-17）
 
-リード用磁石（φ6×2）の圧入ゲージ（[fit_gauge.scad](../hardware/fit_gauge.scad)）は
+リード用磁石（φ6×2）の圧入ゲージ（[fit_gauge.scad](../hardware/frozen/v1-v4/fit_gauge.scad)）は
 2列を別々に測っていた。
 
 | 列 | 入れ方 | 出た答え | それは何の値か |
@@ -1420,7 +1420,7 @@ n＝1 の勘が、機械の出す指示の顔になる。**（🔴 2026-08-31、
 
 ### 🔴 蓋のツメのゲージ ❌ 2回作り直した（2026-08-20）
 
-[cover_tab_gauge.scad](../hardware/cover_tab_gauge.scad) は rev.C。rev.A と rev.B は
+[cover_tab_gauge.scad](../hardware/frozen/v1-v4/cover_tab_gauge.scad) は rev.C。rev.A と rev.B は
 **このページに既に書いてあるルールを、書いた本人が読まずに破って**失敗した。
 
 | 版 | 何をした | どのルールに反したか |
@@ -1478,7 +1478,7 @@ OK の下限3つ（0.8×24・0.6×18・0.4×12）は厚みも長さもバラバ�
 にもかかわらず、ピンヘッダーが設計の構成要素として入っていなかった。**
 
 証拠は `.scad` に残っている。スタンドオフ6mmを「**ピンの逃げ**」と書いていた
-（[knob_jig.scad](../hardware/knob_jig.scad) の `STANDOFF_H`）。**基板から生えている物を、
+（[knob_jig.scad](../hardware/frozen/v1-v4/knob_jig.scad) の `STANDOFF_H`）。**基板から生えている物を、
 空間を占める部品ではなく、下に空ける高さの数字として扱っている。** だからコネクタのハウジングが
 入る体積も、線が曲がる余地も、最初から設計に存在しなかった。
 

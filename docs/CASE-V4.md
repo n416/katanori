@@ -7,7 +7,7 @@
 | いまどういう箱で、何が決まっているか | **この文書** |
 | 何を決めればいいか・何が仮のままか | [CASE-V4-OPEN.md](CASE-V4-OPEN.md) |
 | どうやってそこへ辿り着いたか・落ちた案・訂正 | [CASE-V4-LOG.md](CASE-V4-LOG.md) |
-| 手を動かして組む手順 | [assembly_v4.html](../hardware/assembly_v4.html) |
+| 手を動かして組む手順 | [assembly_v4.html](../docs/manual/assembly_v4.html) |
 
 > 2026-08-25 に 1 本 876 行だった CASE-V4.md を 3 つに分けました。**元の本文は 1 行も消さずに
 > [CASE-V4-LOG.md](CASE-V4-LOG.md) にそのまま入っています**（章番号 §1〜§13 も分ける前のまま）。
@@ -55,15 +55,15 @@
 - **ハブ基板は X 中央**（`HUB_DX = 0`）。
 - **電池はハブの上に平置き**で、タブは後ろ向き。**交換は後ろから**。
 - **樹脂にネジは切らない。** 全部が貫通＋ナットです（[DIMENSIONS.md](DIMENSIONS.md) の方針）。
-- **スイッチは `part=` 一本**（v3 と同じ）。値の一覧は [case_v4.scad](../hardware/case_v4.scad) 冒頭のコメントが正です。
+- **スイッチは `part=` 一本**（v3 と同じ）。値の一覧は [case_v4.scad](../hardware/frozen/v1-v4/case_v4.scad) 冒頭のコメントが正です。
 - **開口はベベル、穴は殻の大きさ**（スカスカにしない）。継ぎ目は 45°。丸みの持ち主はフロント＝天面 ＞ 側面 ＞ 背面 ＞ 底面。
 - **刷るのは光造形**（🔒 ELEGOO Mars 3・層 0.05）。薄壁は 0.3mm が形になる実績（[PRINT.md](PRINT.md)）。
 
 ## 4. 印刷部品
 
-全部で **19 点**です。うち 2 点（つまみ・つまみの島）は形を [knob_v5.scad](../hardware/knob_v5.scad) が持ちますが、
+全部で **19 点**です。うち 2 点（つまみ・つまみの島）は形を [knob_v5.scad](../hardware/frozen/v1-v4/knob_v5.scad) が持ちますが、
 🔒 2026-08-27 ユーザー「v4 ディレクトリにまとまるのが筋」で、**刷る物の STL は `stl/v4/` の 1 か所に集めます**
-（`python hardware/_stl_v4.py` が両方の .scad から焼きます）。卓上テストの天板（`deck`）は
+（`python hardware/frozen/v1-v4/_stl_v4.py` が両方の .scad から焼きます）。卓上テストの天板（`deck`）は
 道具なので、この 19 点には入りません。
 🔴 2026-08-30 に **19 → 25 点**へ増えました（増えたのは支柱 6 本と、会話ボタン v3 のバスタブ 1 点。
 減ったのは会話ボタンの留め板 1 点）。🔒 2026-09-03 に**支柱 6 本が留め帯の一部になった**ので **25 → 19 点**です
@@ -80,7 +80,7 @@
 | 会話ボタンの押し子 | `print_piston`（`print_btn` は旧名の別名） | 頭を下（皿の面をベッド）に置く。首とツバは上に開くので支柱が要らない |
 | 🆕 会話ボタンのバスタブ | `print_tub` | 🔒 2026-08-30 の v3 で刷る物になった 2 点目（背 9.34mm） |
 | 🆕 充電基板の受け | `p_seat` / `print_seat` | **壁に当たる面（−X）を伏せて寝かせる**。部品の背は 4.21mm・体積 257mm³。立てると 4.21 × 19.8 の足で 20.5 の塔になる。接地 100mm² なので **ラフトを敷く**（`props_seat` / `raft_seat` はモデルに入っている＝この向きでしか刷れない） |
-| 🆕 つまみ / つまみの島（2 点） | `knob_v5.scad` の `part="knob"` / `part="wall"` | つまみは天面を伏せる（軸が上・背 21.40）、島はへこみの底を下（背 3.90）。書き出しは `python hardware/_stl_v4.py knob knobwall` で `stl/v4/v4_knob.stl` ／ `v4_knobwall.stl` |
+| 🆕 つまみ / つまみの島（2 点） | `knob_v5.scad` の `part="knob"` / `part="wall"` | つまみは天面を伏せる（軸が上・背 21.40）、島はへこみの底を下（背 3.90）。書き出しは `python hardware/frozen/v1-v4/_stl_v4.py knob knobwall` で `stl/v4/v4_knob.stl` ／ `v4_knobwall.stl` |
 
 🔒 2026-09-03 **支柱は留め帯と一体**です。帯の天板から胴 φ5.8 と軸 φ2.0 が生えていて、帯の裏（電池に触る面）には何も出ません。板は**上の E リング（呼び 1.5）6 個だけ**で押さえます。2026-09-02 の「下側の抜け止めが成立していない」（別部品だった版）はこれで終わりです（経緯は [CASE-V4-LOG.md](CASE-V4-LOG.md) §31〜32）。刷る向きと支柱の付け方は [PRINT.md](PRINT.md) §3.9。
 
@@ -92,7 +92,7 @@
 **前へ倒れようとするとフランジの背が掘り込みの天井（Z 22.4）に当たり、後ろへ倒れようとすると
 首の背が抜きの奥（Y 15.1）に当たります**。どちらも面で受けます（首の背は 23 × 2.0）。
 組む順は**前板を先に床の溝へ差してから、ブリッジを真上から降ろす**
-（[_brgf_sec.png](../hardware/_brgf_sec.png) ／ 抜いた姿は [_brgf_fit.png](../hardware/_brgf_fit.png)）。
+（[_brgf_sec.png](../hardware/frozen/v1-v4/_brgf_sec.png) ／ 抜いた姿は [_brgf_fit.png](../hardware/frozen/v1-v4/_brgf_fit.png)）。
 
 **⚠ ブリッジの掘り込みの天井（2026-08-28・15 度目の机上の通し）**。
 その掘り込みは皿の裏のへこみなので、皿を伏せて刷ると**へこみの天井が下を向きます**。
@@ -113,7 +113,7 @@ keepout に入れているからで、**こちらが書いたルール**です�
 左右と奥の 3 辺で繋がり、自由なのは手前の 1 辺だけです。**一番遠い点でも奥の壁から 6.0mm**。
 preflight の「支えから 2.0mm 超」は部品を選ばない一般のしきい値なので、ここは
 **このまま刷って前板が入るかを見る**のが安いと考えます。⬜ 刷ってから
-（絵: [_brg_pocket_zoom.png](../hardware/_brg_pocket_zoom.png)）。
+（絵: [_brg_pocket_zoom.png](../hardware/frozen/v1-v4/_brg_pocket_zoom.png)）。
 🔴 [CASE-V4-OPEN.md](CASE-V4-OPEN.md) の T-6 には「支えの無い天井 **なし**・接地 2304mm²」と書いてありますが、
 それは 2026-08-27 に押さえを壁へ移した時点の値です。いまの STL は 65mm² / 2263mm² です。
 
@@ -164,7 +164,7 @@ preflight の「支えから 2.0mm 超」は部品を選ばない一般のしき
 | 上の車線（ブリッジより後） | OLED 4・電流計の I2C 4・トグル 2・リード 2・充電 2 |
 | 電源系（基板が入ってから） | PWR 3・電池線 2 ＋ 2 |
 
-模型は [_v4_core.scad](../hardware/_v4_core.scad) の `w_*()`（1.5 角の箱・直角のみ）。
+模型は [_v4_core.scad](../hardware/frozen/v1-v4/_v4_core.scad) の `w_*()`（1.5 角の箱・直角のみ）。
 接点の世界座標は `W="pts"` が echo で吐きます（手で写さない）。
 
 **たるみの行き場**（2026-08-26 に測った。組み立てマニュアルの「まだ埋まっていない」から移した）。
@@ -178,8 +178,8 @@ preflight の「支えから 2.0mm 超」は部品を選ばない一般のしき
 
 ## 7. 組み立て
 
-**手順は [assembly_v4.html](../hardware/assembly_v4.html)**（挿絵つきの 12 手順）にあります。作り直しは
-`python hardware/_asm_manual_v4.py`、段の中身と軌跡の検査は [_asm_sim_v4.scad](../hardware/_asm_sim_v4.scad) が持ちます。
+**手順は [assembly_v4.html](../docs/manual/assembly_v4.html)**（挿絵つきの 12 手順）にあります。作り直しは
+`python hardware/frozen/v1-v4/_asm_manual_v4.py`、段の中身と軌跡の検査は [_asm_sim_v4.scad](../hardware/frozen/v1-v4/_asm_sim_v4.scad) が持ちます。
 
 順番の骨は 2 つの制約です。**ハブの口 10 本はブリッジより先**（皿と帯が上に載って届かなくなる）、
 **上の車線はブリッジより後**（先に上げるとブリッジが降りない）。
@@ -214,7 +214,7 @@ preflight の「支えから 2.0mm 超」は部品を選ばない一般のしき
 | `seatchk` / `strappb` / `inachk` | ⚠ **0.37mm³**（電流計の板の縁 ↔ 留め帯 A の座。既知） |
 | `seathw`（ネジとナットの現物 ↔ 周り） | **0** |
 | `seatbolt` | 1.71（ネジの頭が 10° の板に片当たりする分・設計どおり。電流計は水平になったので片当たりしません） |
-| 工具と手の道（`python hardware/_asm_access.py`） | **止まったもの 0 / 33**。OLED の右のナットの空きは 1.3 → **15.7** |
+| 工具と手の道（`python hardware/frozen/v1-v4/_asm_access.py`） | **止まったもの 0 / 33**。OLED の右のナットの空きは 1.3 → **15.7** |
 
 ## 9. 判断待ち
 
@@ -240,7 +240,7 @@ preflight の「支えから 2.0mm 超」は部品を選ばない一般のしき
 | §10 外皮とボス | 板 6 枚と締結 | この文書の §1・§5 |
 | §11 電池の入れ替え口 | 後ろ抜きの蓋 | この文書の §2 |
 | §12 意匠の追い込み | ベベルを浅く・傾斜の座とネジ | この文書の §2・§5 |
-| §13 組み立ての手順 | 12 手順と、そこで見つかった直し | [assembly_v4.html](../hardware/assembly_v4.html) |
+| §13 組み立ての手順 | 12 手順と、そこで見つかった直し | [assembly_v4.html](../docs/manual/assembly_v4.html) |
 
 部品の寸法は [DIMENSIONS.md](DIMENSIONS.md)、ReSpeaker の実測は [RESPEAKER-LITE.md](RESPEAKER-LITE.md)、
 電源系は [POWER.md](POWER.md)、印刷は [PRINT.md](PRINT.md)、v3 までの経緯は [CASE-V3.md](CASE-V3.md) です。

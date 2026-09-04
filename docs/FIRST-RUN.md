@@ -2,7 +2,7 @@
 
 > **目的: 電池 → PowerBoost → ハブ基板 → ReSpeaker が立ち上がり、会話が 1 回できるのを見る。**
 > この 1 枚だけで足りるように書いてある。[POWER.md](POWER.md) を開く必要はない。
-> 穴番号の正は [relay_board.html](../hardware/relay_board.html)。この紙には書かない（口の名前だけで書く）。
+> 穴番号の正は [relay_board.html](../hardware/parts/relay_board.html)。この紙には書かない（口の名前だけで書く）。
 > 半田付けは無い。挿すだけ・全部あとから抜ける。
 
 ## 今日は繋がない物

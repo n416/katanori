@@ -200,7 +200,7 @@ DAOKAI「20PCSマイクロリミットスイッチ NO+NC ヒンジストレー�
 ⚠ これを載せるため駆動回路を左へ寄せた。**空けてある列が3本ある**（いずれも「空き」ではなく設計の一部）:
 **列2**＝+5Vレールとの緩衝／**列6**＝コレクタ配線の通り道／**列8**＝GNDレール(列7)と
 スイッチのピン列(列9)の緩衝。
-穴割りは [hardware/relay_board.html](../../hardware/relay_board.html) が正。
+穴割りは [hardware/parts/relay_board.html](../../hardware/parts/relay_board.html) が正。
 
 ⚠ **ファーム側はこの件と無関係**（ピン定義＋`anyButtonPressed()`）。硬さが未解決でも
 **配線とファームは先に通せる**。
