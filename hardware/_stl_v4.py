@@ -21,7 +21,7 @@ OUT = os.path.join(HERE, 'stl', 'v4')
 CASE = 'case_v4.scad'
 KNOB = 'knob_v5.scad'
 PARTS = [(k, CASE, 'print_%s' % k) for k in
-         ['floor', 'lwall', 'rwall', 'top', 'front', 'hatch', 'shutter', 'lock', 'tail',
+         ['floor', 'lwall', 'rwall', 'top', 'front', 'hatch', 'shutter', 'lock', 'shutfloor', 'tail',
           'bridge', 'brgfront', 'strap_a', 'strap_b', 'strap_c', 'piston', 'tub',
           'seat',
           # 🔒 2026-09-03 支柱 6 本（post_0〜5）は**留め帯の一部**になったので、単独の出口は無い。
