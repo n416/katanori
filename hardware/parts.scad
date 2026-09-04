@@ -55,7 +55,12 @@ $fn = 64;
 //      ・2 列は**左右の対の縁**・どちらも列は穴と穴の間（間 17 − 穴に掛からない範囲）
 //      ・左列 3 本（VCC/OUT/GND）・右列 4 本（DIR/SCL/SDA/PGO）・2.54 ピッチ・先頭が角パッド
 //      ・⚠ 縁からピン列の中心まで 2.3（画像読み ±0.5）・⚠ 列の中心＝板の中央（画像読み。±2.5 の余地）
-//   ⚠ 高さの鎖は標準部品で数える: 樹脂 2.5 ＋ ハウジング 10（✅実測）＋ 線の逃げ 3.6 ＝ 裏面から 16.1
+//   高さの鎖は標準部品で数える: 樹脂 2.5 ＋ ハウジング DUPONT_H（14）＋ 線の逃げ 3.6 ＝ 裏面から 20.1
+// 🔴 2026-09-05 ここには「ハウジング 10（✅実測）」と書いてあった。ユーザー「ピンヘッダは 10、ハウジングは 14」。10 はヘッダ（樹脂 2.5＋ピン）の
+//   値をハウジングの欄に書いたもので、✅ の印が付いたまま OLED・INA226・ハブの口の全部に使われていた。実機では OLED の線のハウジングが会話ボタンの腕に約 2mm 当たった（10 なら 0.8 空くはずの所）。
+//   ⇒ 直書きの 10 を 1 つの名前に集め、14 で置く。OLED・INA226・ハブの口の全部がこの 1 つを読む。
+DUPONT_H = 14.0;   // DuPont（2.54 メス・1 列）のハウジングの長さ。✅ ユーザー 2026-09-05「ピンヘッダは 10、ハウジングは 14」
+function dupont_h() = DUPONT_H;   // use<> 先（case_base の HOUS_H・respeaker_lite）はこれを読む。数字を 2 か所に書かない
 //      （治具時代の包絡「約 14」はこの鎖の逃げ無しの値と整合）
 //   ⚠ 取付回転（どの縁が箱のどちらを向くか）は未記録。天面を描くとき選んで 🔒 にする
 //   🔒 個体は 2 つあり、1 つは未はんだ（2026-08-24 ユーザー）⇒ **ヘッダの形は置き場の従属変数**
@@ -160,7 +165,7 @@ module as5600(show_connector = true, ra = false) {   // ra: false = 直立て（
     // ra = false（直立て・はんだ済みの個体の姿）: 樹脂は裏面に座り、ピンは下へ 6・板を貫いてはんだ側に 2.5 出る（⚠ 標準値）。
     //   挿した DuPont は樹脂の上に座る（頭 12.5）＋線の逃げ 3.6 ＝ 裏面から 16.1
     // ra = true（L 字横出し・⚠ 外向き＝板の外へ水平と仮定）: 深さは樹脂まわりの約 4 で済む代わりに、
-    //   縁の外へ ピン 6 ＋ DuPont 10 ＋ 逃げ 3.6 が出る（ina_hdr_ra() と同じ数え方）
+    //   縁の外へ ピン 6 ＋ DuPont DUPONT_H（14）＋ 逃げ 3.6 が出る（ina_hdr_ra() と同じ数え方）
     // 🔴 2026-08-27 実物の写真（hardware/ref/as5600_top.jpg）を基板の座標へ起こして読み直した
     //    （`python hardware/_as5600_rect.py`・4 つの穴で当てはめ・残差 0.136mm・1mm = 120 画素まで拡大）。
     //    ⚠ 読んだ値: 上の列（3 本）の外形 X −4.3〜+4.0・Y −8.7〜−5.9／
@@ -198,7 +203,7 @@ module as5600_headers(ra = false) {
         if (!ra) {
             color("#c8ccd0") for (y = row) translate([x - 0.32, y - 0.32, -2.5 - 6.0]) cube([0.64, 0.64, 6.0 + 2.5 + AS5600_T + 2.5]);   // ピン
             color("#63b3ed", 0.85) for (i = used) { y = row[i];
-                translate([x - 1.27, y - 1.27, -12.5]) cube([2.54, 2.54, 10.0]);                           // DuPont（✅10）
+                translate([x - 1.27, y - 1.27, -2.5 - DUPONT_H]) cube([2.54, 2.54, DUPONT_H]);                           // DuPont
                 translate([x - 1.8, y - 1.8, -12.5 - 3.6]) cube([3.6, 3.6, 3.6]); }                        // 線の逃げ（⚠既定 3.6）
         } else {
             color("#c8ccd0") for (y = row) {
@@ -206,7 +211,7 @@ module as5600_headers(ra = false) {
                 translate([(s > 0) ? x - 0.32 : x - 6.63, y - 0.32, -2.5]) cube([6.95, 0.64, 0.64]);                 // 横のピン（板の外へ 6.95）
             }
             color("#63b3ed", 0.85) for (i = used) { y = row[i];
-                translate([(s > 0) ? x + 1.27 : x - 1.27 - 10.0, y - 1.27, -2.5 - 1.27 + 0.32]) cube([10.0, 2.54, 2.54]);          // DuPont（✅10）
+                translate([(s > 0) ? x + 1.27 : x - 1.27 - DUPONT_H, y - 1.27, -2.5 - 1.27 + 0.32]) cube([DUPONT_H, 2.54, 2.54]);          // DuPont
                 translate([(s > 0) ? x + 1.27 + 10.0 : x - 1.27 - 10.0 - 3.6, y - 1.8, -2.5 - 1.8 + 0.32]) cube([3.6, 3.6, 3.6]);  // 線の逃げ（⚠既定 3.6）
             }
         }
@@ -772,7 +777,7 @@ function ina_size() = [INA_L, INA_W, INA_T];
 INA_HDR_X = 3.3; INA_HDR_Y0 = 4.0 - 1.27; INA_HDR_LEN = 5 * 2.54;   // ヘッダ（短辺側・y 方向に 5 本）
 // 🔒 2 モデル（2026-08-24 ユーザー「設置したらどっちかに当てはまるように 2 モデル作って置く」）:
 //    直立て ina_hdr_straight() と L 字横出し ina_hdr_ra()。どちらもピン単位（樹脂 2.5・ピン 6・
-//    線の DuPont 10・線の逃げ 3.6）。挿すのは **VCC/GND/SDA/SCL の 4 本**（POWER.md: ハブへ行くのは 4 本）・ALER は裸。
+//    線の DuPont DUPONT_H（14）・線の逃げ 3.6）。挿すのは **VCC/GND/SDA/SCL の 4 本**（POWER.md: ハブへ行くのは 4 本）・ALER は裸。
 //    🔴 それまでの L 字の包絡（幅 8.5 の箱）は**ハウジングの長さ 10 を含んでいなかった**。横へ出る分が 10 以上不足していた
 INA_PIN_Y = [for (k = [0 : 4]) 4.0 + k * 2.54];   // VCC → ALER
 INA_USED_N = 4;                                    // 線を挿すのは先頭 4 本
@@ -831,10 +836,10 @@ module ina226_module(ra = INA_HDR_RA, pwr_ra = true) {   // pwr_ra=false ＝ 電
         if (pwr_ra) {
             color("#c8ccd0") translate([26.0 - 0.32, y - 0.32, -1.2]) cube([0.64, 0.64, 1.2 + INA_T + 2.5 + 1.59]);   // 足〜曲がり
             color("#c8ccd0") translate([26.0 - 0.32, y - 0.32, INA_T + 2.5 + 1.27 - 0.32]) cube([6.32, 0.64, 0.64]);  // 板に沿うピン（+x＝縁の外へ）
-            color("#4a5568", 0.85) translate([26.0 + 0.5, y - 1.27, INA_T + 2.5]) cube([10, 2.54, 2.54]);             // DuPont（水平）
+            color("#4a5568", 0.85) translate([26.0 + 0.5, y - 1.27, INA_T + 2.5]) cube([DUPONT_H, 2.54, 2.54]);             // DuPont（水平）
         } else {
             color("#c8ccd0") translate([26.0 - 0.32, y - 0.32, -1.2]) cube([0.64, 0.64, 1.2 + INA_T + 2.5 + 6.0]);    // 足（まっすぐ上・頭は樹脂の 6.0 上）
-            color("#4a5568", 0.85) translate([26.0 - 1.27, y - 1.27, INA_T + 2.5]) cube([2.54, 2.54, 10]);            // DuPont（縦）
+            color("#4a5568", 0.85) translate([26.0 - 1.27, y - 1.27, INA_T + 2.5]) cube([2.54, 2.54, DUPONT_H]);            // DuPont（縦）
         }
     }
     // 5 ピンヘッダ（短辺 x ≈ 3.3・y 方向）。🔒 2 モデルをピン単位で持つ（INA_HDR_RA で選ぶ）
@@ -929,6 +934,12 @@ function oled_w()       = OLED_W;
 function oled_pcb_y()   = OLED_PCB_Y;
 // 正面から板の**裏面**までの距離（3.0 + 1.6 = 4.6）。🔒 口はこの面から生える
 function oled_back()    = OLED_PCB_Y + 1.6;
+// 🔴 2026-09-05 実機: OLED の線の DuPont が会話ボタンの +X の腕（羊羹）に約 2mm 当たって天板が組めなかった。
+//   模型の DuPont（樹脂の上に 10）はハブの線の実測を借りた値で、**OLED の線のものは未実測**。体積の検査は
+//   模型の DuPont が奥行きで腕の 0.8 手前で止まるため 0 と出て、これを捕まえられなかった。
+//   ⇒ 検査（_btn_v3_fit.scad）が X の重なりを直接数字で出せるように公開する。
+function oled_hdr_x()      = [OLED_HDR_C[0] - 2 * 2.54, OLED_HDR_C[0] + 2 * 2.54];   // DuPont（4 連）の X の範囲（板の局所）
+function oled_hous_z_top() = OLED_ZB - 2.5 - DUPONT_H;                                 // DuPont の頭（板の局所 z。世界の Y は OLED_Y1 − これ）
 function oled_glass()   = OLED_GLASS;
 function oled_glass_x() = OLED_GLASS_X;
 function oled_glass_y() = OLED_GLASS_Y;
@@ -986,8 +997,8 @@ module oled_i2c_header() {   // 樹脂＋ピン 4 本（恒久・半田済み）
         cube([0.64, 0.64, 2.5 + OLED_HDR_PIN + 1.6 + OLED_HDR_TAIL]);   // 先は半田面（板の前面＝ガラス側）へ OLED_HDR_TAIL 出る
 }
 module oled_i2c_housing(bend = true) color("#63b3ed", 0.85) {   // 線の DuPont（4 連・挿した状態）
-    translate([OLED_HDR_C[0] - 2 * 2.54, OLED_HDR_C[1] - 1.27, OLED_ZB - 2.5 - 10.0]) cube([4 * 2.54, 2.54, 10.0]);
-    if (bend) translate([OLED_HDR_C[0] - 1.8, OLED_HDR_C[1] - 1.8, OLED_ZB - 2.5 - 10.0 - 3.6]) cube([3.6, 3.6, 3.6]);   // 線の曲がり込み（⚠既定 3.6）
+    translate([OLED_HDR_C[0] - 2 * 2.54, OLED_HDR_C[1] - 1.27, OLED_ZB - 2.5 - DUPONT_H]) cube([4 * 2.54, 2.54, DUPONT_H]);
+    if (bend) translate([OLED_HDR_C[0] - 1.8, OLED_HDR_C[1] - 1.8, OLED_ZB - 2.5 - DUPONT_H - 3.6]) cube([3.6, 3.6, 3.6]);   // 線の曲がり込み（⚠既定 3.6）
 }
 module oled_242() {
     oled_film();

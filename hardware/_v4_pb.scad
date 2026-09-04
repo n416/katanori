@@ -23,7 +23,7 @@ WHO  = "hub";
 //    スタディ②の置き物は帯（X 64〜83・Y 14〜28・Z 10〜29）を空けておく。抜き挿しは xpull。
 module at_rsp() translate([RSP_X + respeaker_L(), RSP_BD_Y1, RSP_Z]) rotate([0, 0, 180]) children();
 module rsp_j2_space() at_rsp() { j = respeaker_spk_j2(); translate([j[0], -15, j[2]]) cube([j[1] - j[0], 15, j[3] - j[2]]); }
-module xiao_hous() at_rsp() respeaker_xiao_housings();   // XIAO の線 7 個（挿した状態・曲がり込み付き）
+module xiao_hous() at_rsp() respeaker_xiao_housings(hous_h = HOUS_H);   // XIAO の線 7 個（挿した状態・曲がり込み付き）
 module at_oled() translate([OLED_X0, OLED_Y1, OLED_Z0]) rotate([90, 0, 0]) children();   // oled_at() と同じ変換
 module oled_hdr()  at_oled() oled_i2c_header();      // OLED の I2C ヘッダ（✅ 2026-08-24 写真・上辺の裏の直 4 ピン）
 module oled_hous() at_oled() oled_i2c_housing();     // OLED の線（4 連 DuPont・挿した状態）

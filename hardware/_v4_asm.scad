@@ -19,7 +19,7 @@ INA_RA = true;   // INA226 のヘッダの 2 モデル（true = L 字横出し /
 // ---- ReSpeaker / OLED の挿さる物（_v4_pb.scad と同じ）--------------------
 module at_rsp() translate([RSP_X + respeaker_L(), RSP_BD_Y1, RSP_Z]) rotate([0, 0, 180]) children();
 module rsp_j2_space() at_rsp() { j = respeaker_spk_j2(); translate([j[0], -15, j[2]]) cube([j[1] - j[0], 15, j[3] - j[2]]); }
-module xiao_hous() at_rsp() respeaker_xiao_housings();
+module xiao_hous() at_rsp() respeaker_xiao_housings(hous_h = HOUS_H);
 module at_oled() translate([OLED_X0, OLED_Y1, OLED_Z0]) rotate([90, 0, 0]) children();
 module oled_hous() at_oled() oled_i2c_housing();
 

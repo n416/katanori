@@ -176,9 +176,11 @@ module respeaker_xiao_stack() {   // 恒久の積み重ね（XIAO 直付け・�
 //    信号側の列は D0〜D6 で、使うのは D2・D3・D4(SDA)・D5(SCL)（スロット 2〜5）。残り 7 ピンは裸のまま。
 //    ⚠ どちらの列（下 9.397 ／ 上 24.627）が電源側かは未確認。入れ替わっても X の帯が入れ替わるだけで、筐体の当たりには効かない
 XIAO_USED = [[0, 1, 2], [2, 3, 4, 5]];   // [電源側のスロット, 信号側のスロット]（USB 端＝局所 x の小さい側から数える）
-module respeaker_xiao_housings(bend = true) color("#63b3ed", 0.85)
+// 🔴 2026-09-05 ハウジングの長さは直書きの 10.0 だった（ヘッダの値をハウジングに書いた誤り。ユーザー「ハウジングは 14」）。
+//   この file は parts.scad を読めない（parts.scad がこちらを読む）ので、呼ぶ側が HOUS_H（＝parts.scad の DUPONT_H）を渡す。既定値は置かない。
+module respeaker_xiao_housings(bend = true, hous_h) color("#63b3ed", 0.85)
     for (r = [0, 1], k = XIAO_USED[r]) { x = PAD_X[k]; z = PAD_Z[r];
-        translate([x - 1.27, -respeaker_xiao_head(), z - 1.27]) cube([2.54, 10.0, 2.54]);
+        translate([x - 1.27, -respeaker_xiao_head(), z - 1.27]) cube([2.54, hous_h, 2.54]);
         if (bend) translate([x - 1.8, -respeaker_xiao_head() - 3.6, z - 1.8]) cube([3.6, 3.6, 3.6]);   // 線の逃げ（曲がりの余白 ⚠既定 3.6）
     }
 

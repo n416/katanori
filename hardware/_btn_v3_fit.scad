@@ -15,11 +15,20 @@ W = "all";
 echo(str("FIT 生存確認: BTN4=", BTN4, " Z_TOP=", Z_TOP, " 相手=", W,
          " BLK_DY=", B3_BLK_DY, " 座 ", B3_PAD_L, " x ", B3_PAD_W, " DX=", DX, " DY=", DY));
 
+// 🔴 2026-09-05 実機: OLED の線の DuPont が +X の腕に約 2mm 当たった（ユーザー「OLED の GND のピンヘッダが腕に 2mm」）。
+//   上の体積の検査は、模型の DuPont が奥行きで腕の 0.8 手前で止まるため 0 と出て、これを捕まえられなかった。
+//   同日ユーザー「ハウジングは 14」で 10 を 14 に直した。**X の重なりも直接数字で出す**。負＝腕が DuPont の下に入っている。
+echo(str("OLED DuPont ↔ +X の腕: X の隙間 ", (OLED_X0 + oled_hdr_x()[0]) - (BTN4[0] + DX + B3_BLK_XO),
+         "（負＝重なり。実機 2026-09-05 は約 -2） / 奥行きの隙間 ",
+         (BTN4[1] + DY + B3_TUB_CY - B3_BLK_W / 2 + B3_BLK_DY[0]) - (OLED_Y1 - oled_hous_z_top()),
+         "（DuPont は DUPONT_H 14）"));
+
 // v3 のボタン一式が world で占める体積（天板側の肉 ＋ バスタブ ＋ 押し子の軌跡）
 STEP = 0.25;
 DX = 0;   // BTN4 を X へ動かしてみる量（case 側の判断材料）
 DY = 0;   // 同 Y
-module btn3_v3_volume() translate([BTN4[0] + DX, BTN4[1] + DY, Z_TOP]) {
+DZ = 0;   // 天板を上げてみる量（2026-09-05 ユーザー案「INA226 を避けるのに天板を 5 上げる」。中身は据え置きでボタン一式だけ上げる）
+module btn3_v3_volume() translate([BTN4[0] + DX, BTN4[1] + DY, Z_TOP + DZ]) {
     difference() { btn3_station_add(); btn3_station_cut(); }
     btn3_tub();
     for (i = [-B3_TRAVEL : STEP : 0]) translate([0, 0, i]) btn3_piston();

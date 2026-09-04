@@ -135,7 +135,7 @@ RA = false;      // 直立て（はんだ済みの個体の姿）
 // ---- 挿さる物（_v4_asm.scad と同じ模型。塊ではなくピン・ハウジング・逃げ込み）----
 module at_rsp() translate([RSP_X + respeaker_L(), RSP_BD_Y1, RSP_Z]) rotate([0, 0, 180]) children();
 module rsp_j2_space() color("#16a085", 0.4) at_rsp() { j = respeaker_spk_j2(); translate([j[0], -15, j[2]]) cube([j[1] - j[0], 15, j[3] - j[2]]); }   // J2 に挿さる PH2.0 プラグ＋線の空間（部品ではなく確保領域）
-module xiao_hous() at_rsp() respeaker_xiao_housings();
+module xiao_hous() at_rsp() respeaker_xiao_housings(hous_h = HOUS_H);
 module at_oled() translate([OLED_X0, OLED_Y1, OLED_Z0]) rotate([90, 0, 0]) children();
 module oled_hous() at_oled() oled_i2c_housing();
 // 🔴 2026-08-28 **ASC_DY を削除した**（ユーザー「そんな変数は削除してほしい」）。
@@ -295,10 +295,10 @@ module pb_bat()  pb_frame() { powerboost_1000c(ra_dir = -1); pb_jst_plug(); }
 //    付いてこられず **実際のピンから 6.00mm ずれていた**（ハウジングと自分のピンの重なりが 1mm³）。
 //    直書き 32.2/24.58/22.04 ＋ pb_wx の補正 −4.0 ＝ 28.20/20.58/18.04、ピンは 34.20/26.58/24.04。
 function pb_pin_x(i) = PB_DX + BAT_X0 + (lipo_size()[1] - PB_L) / 2 + PB_L - (pb_jp2_x0() + i * 2.54);
-// PB の L ピンに挿さる DuPont（ハウジング 10 ✅実測。軸 Z 35.8・後端 Y 69.7＝ハッチまで 2.3）。
+// PB の L ピンに挿さる DuPont（ハウジング HOUS_H。🔴 2026-09-05 まで「10 ✅実測」の直書き。軸 Z 35.8・後端 Y 69.7 は 10 のときの値）。
 //   Y と Z は据え置き（ずれていたのは X だけ）。X はピンから引くので、板を動かせば付いてくる。
 module pb_dup(pins) color("#4a5568", 0.85) for (i = pins)
-    translate([pb_pin_x(i) - 1.27, 59.7, 35.8 + BOARD_LIFT - 1.27]) cube([2.54, 10, 2.54]);
+    translate([pb_pin_x(i) - 1.27, 59.7, 35.8 + BOARD_LIFT - 1.27]) cube([2.54, HOUS_H, 2.54]);
 module pbl_hous() pb_dup(pb_ra_pwr());   // 5Vo・GND・EN
 
 // ---- 自由な部品 その6: Type-C 基板（⚠ 2026-08-25 ユーザー「v3 で Type-C のハウジングがあった場所へ。一旦の仮置き」）----
