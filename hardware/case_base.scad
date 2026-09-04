@@ -15,7 +15,8 @@ use <parts.scad>
 use <respeaker_lite.scad>
 use <hub_board.scad>
 use <knob_v5.scad>
-include <icon_gear_wrench.scad>   // メンテナンスの印（ユーザーの SVG から gen_icon_svg.py が起こした）
+include <icon_gear_wrench.scad>   // メンテナンスの印
+include <icon_wrench_u.scad>   // 🔒 2026-09-04 ユーザーの絵から起こしたスパナ（uuu.png → uuu.svg）。これを使う（ユーザーの SVG から gen_icon_svg.py が起こした）
 use <usb_l_adapter.scad>          // 充電口の L 字アダプタ（B0CTMHK3BY・2026-08-24）。🔴 同日、規格違反（C メス → micro-B）と分かり不採用
 use <typec_115426.scad>           // 充電口の Type-C 基板（秋月 115426・2026-08-24。⚠ 未注文）
 use <wires.scad>              // 線を実体で描く（v2 と同じ道具）
@@ -561,8 +562,10 @@ ICON_HP_SW = 2.0;    // ヘッドホンの線の太さの倍率（元絵の stro
 ICON_BOLT_K = 1.3;   // 稲妻だけの増し倍率（丸めで縮むぶんの埋め合わせ）
 function icon_col_y() = XIAO_PORT_C[0] + xiao_pocket_sz()[0] / 2 + (SLOT_D + SLOT_BEV) + ICON_GAP + ICON_WR_H / 2;
 module wall_icon_x(c) { translate([0, c[0], c[1]]) rotate([90, 0, 90]) translate([0, 0, IN_X + WALL - ICON_D]) linear_extrude(ICON_D + 1.0) children(); }
-module icon_svg() { sc = ICON_WR_H / icon_wr_span(); sw = max(icon_gear_wrench_sw(), SVC_MIN_W / sc);
-    icon_round(ICON_R * ICON_K) scale(sc) icon_wrench_raw(sw); }
+// 🔒 2026-09-04 ユーザー「これでやれもう」。スパナは uuu.png から起こした輪郭（icon_wrench_u）を使う。
+//   線を引いて塗る作りも、顎を彫り直す作りも使わない。形はユーザーの絵そのもの。
+module icon_svg() { sc = ICON_WR_H / icon_wrench_u_span();
+    icon_round(ICON_R * ICON_K) scale(sc) icon_wrench_u(); }
 module right_wall_ports_cut() {
     wall_pocket_x(XIAO_PORT_C, xiao_pocket_sz(), USBC_PORT_R + SLOT_M, XIAO_SEAT_X, SLOT_D, SLOT_BEV);   // オーバーモールドが座る深い彫り込み
     wall_port_x(XIAO_PORT_C, USBC_PORT, USBC_PORT_R, 0, XIAO_PAD_X0);                                   // 口（増し壁ごと貫く）

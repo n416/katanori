@@ -25,8 +25,8 @@ LBL  = 0.6;               // 上面に浮かせる数字の高さ
 
 // ---- 印を倍率 k で描く（case_base / case_v4 の中身と同じ式。ICON_K には依らせない）----
 module g_bolt(k) icon_round(ICON_R * k * ICON_BOLT_K) icon_bolt(TC_ICON_H * k * ICON_BOLT_K);
-module g_wrench(k) let(sc = 4.87 * k / icon_wr_span())
-    icon_round(ICON_R * k) scale(sc) icon_wrench_raw(max(icon_gear_wrench_sw(), SVC_MIN_W / sc));
+module g_wrench(k) let(sc = 4.87 * k / icon_wrench_u_span())
+    icon_round(ICON_R * k) scale(sc) icon_wrench_u();   // ユーザーの絵（uuu.png → icon_wrench_u.scad）
 module g_phone(k) let(h  = 0.7 * LJACK_D * k,
                       sc = h / icon_headphone_size()[1],
                       sw = max(icon_headphone_sw() * ICON_HP_SW, SVC_MIN_W / sc))
