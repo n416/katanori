@@ -15,6 +15,7 @@ include <_v4_props.scad>   // 🔴 自動生成の支柱の位置（`python hard
 // 🔒 2026-09-03 **凍結**: 傾けて浮かせる支柱（_v4_post_props）と、1 か所だけ足す支柱（_spot_props）は
 //    hardware/archive/floating_supports/ へ退避した。理由は docs/PRINT.md §3.9 の 🔒 2026-09-03。
 include <_v4_plate.scad>   // 🔴 自動生成の並べ方（`python hardware/_v4_plate.py`）。part="plate" で使う
+include <_v4_ribs.scad>   // 反り対策のリブ（内面の格子）。素の板だけ見るときは -D RIBS_OFF=true
 PROPS_OFF = false;
 use <icon_headphone.scad>   // ミニプラグの印（ユーザーの EPS → icon_headphone.svg → gen_icon_svg.py）
 include <case_v4_shutter.scad>   // 電池の入れ替え口（後ろ抜き・v3 の蓋の型を **横（右へ）スライド**に回したもの）
@@ -311,7 +312,8 @@ module lwall_port_cut4() {
     translate([0.99, 9.97, -0.5]) cube([LW_X - 0.99 + 0.01, 13.73 - 9.97, 35.03 + 0.5]);
     if (ICONS_ON) lwall_icon_cut4();   // 印（外から見て口の左）
 }
-module lwall_v4() {
+module lwall_v4(rib = true) {
+    if (rib) panel_ribs("lwall");
     difference() {
         union() {
             color("#b6c0cc") translate([LW_X - WALL, FY_IN, 0]) cube([WALL, IN_Y - FY_IN, IN_Z]);
@@ -359,7 +361,8 @@ module rwall_port_cut4() {
     translate([IN_X - 0.01, c[0] - USBC_PORT[0] / 2, -0.5]) cube([85.704 - IN_X + 0.01, USBC_PORT[0], c[1] + 0.5]);
     if (ICONS_ON) wall_icon_x([c[0] + USBC_PORT[0] / 2 + PORT_BEV + ICON_GAP + ICON_H / 2, c[1]]) icon_svg();   // 印（口の右）
 }
-module rwall_v4() {
+module rwall_v4(rib = true) {
+    if (rib) panel_ribs("rwall");
     difference() {
         union() {
             color("#b6c0cc") translate([IN_X, FY_IN, 0]) cube([WALL, IN_Y - FY_IN, IN_Z]);
@@ -550,7 +553,8 @@ module hatch_cuts4() {
     sw4_mag_window();      // 🔒 2026-08-29 磁石の芯の窓（枠 1.0 を残す・蓋で隠れる）
     battery_port_cut4();   // 電池の口（蓋が塞ぐのでベベル無し・v3 と同じ）
 }
-module hatch_v4() {
+module hatch_v4(rib = true) {
+    if (rib) panel_ribs("hatch");
     difference() {
         union() {
             color("#c9d0d8") translate([LW_X - WALL, IN_Y, -FLOOR_T]) cube([IN_X + 2 * WALL - LW_X, HATCH_T, IN_Z + FLOOR_T]);
@@ -600,18 +604,18 @@ module front_ears_low() {
         }
     }
 }
-module front_v4() { front_plate_raw(); color("#c9d0d8") front_ears_low(); }
-module skin1(k) {
+module front_v4(rib = true) { front_plate_raw(); color("#c9d0d8") front_ears_low(); if (rib) panel_ribs("front"); }
+module skin1(k, rib = true) {
     if (k == "floor") floor_v4();
-    if (k == "lwall") lwall_v4();
-    if (k == "rwall") rwall_v4();
+    if (k == "lwall") lwall_v4(rib);
+    if (k == "rwall") rwall_v4(rib);
     if (k == "top")   top_v4();
-    if (k == "front") front_v4();
-    if (k == "hatch") hatch_v4();
+    if (k == "front") front_v4(rib);
+    if (k == "hatch") hatch_v4(rib);
 }
 SKINS = ["floor", "lwall", "rwall", "top", "front", "hatch"];
 module skin_all() for (k = SKINS) skin1(k);
-module skin_except(k) for (n = SKINS) if (n != k) skin1(n);
+module skin_except(k, rib = true) for (n = SKINS) if (n != k) skin1(n, rib);
 // 🆕 2026-08-27（D-1）受けは印刷部品だが皮（SKINS）でも芯（core）でもないので、ここで箱の中身に混ぜる。
 //    こうしないと chk_floor / chk_lwall / chk_all が受けを一度も見ない
 module innards4(tgl = 0) { core(); color("#f6ad55") bat_v4(); pb_bat(); pbl_hous(); pbu_hous(); ina_bat(); tgl_v4(tgl); if (tgl != 0) tail_at(); tcb_v4(); color("#8d99a6") tc_seat4(); battery_floor4(); brg_v4(); brg_front(); straps_v4(); wires_pwr(); wires_sig(); door4(0, tgl != 0); }   // tgl: レバーの角度。絵は TAIL_ANG ＋ 尻尾＋蓋のビスの絵付き。door4 = 電池の蓋一式（閉）
