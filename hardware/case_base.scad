@@ -564,14 +564,13 @@ function icon_col_y() = XIAO_PORT_C[0] + xiao_pocket_sz()[0] / 2 + (SLOT_D + SLO
 module wall_icon_x(c) { translate([0, c[0], c[1]]) rotate([90, 0, 90]) translate([0, 0, IN_X + WALL - ICON_D]) linear_extrude(ICON_D + 1.0) children(); }
 // 🔒 2026-09-04 ユーザー「これでやれもう」。スパナは uuu.png から起こした輪郭（icon_wrench_u）を使う。
 //   線を引いて塗る作りも、顎を彫り直す作りも使わない。形はユーザーの絵そのもの。
-// 🔴 2026-09-04 uuu.png から起こした輪郭（icon_wrench_u）を使うのはやめ、元の絵に戻した。
-//   uuu.png は AI が裏から撮った絵のスクリーンショットで、向きが汚染されていた。
-//   実測: 元の絵と icon_wrench_u は 90 度ずれ（95.8%）／壁の上では差し替え前と 270 度ずれ（85.1%）。
-//   ⚠ この 2 つの数字は食い違っており、どちらの測り方が正しいかは詰めていない。
-//   角度を詰めずに済むよう、差し替える前の作り（経路 [2] を塗る）へそのまま戻した。
-//   icon_wrench_u.scad と uuu.png / uuu.svg は記録として残す（使わない）。
-module icon_svg() { sc = ICON_WR_H / icon_wr_span(); sw = max(icon_gear_wrench_sw(), SVC_MIN_W / sc);
-    icon_round(ICON_R * ICON_K) scale(sc) icon_wrench_raw(sw); }
+// 🔒 2026-09-04 スパナは icon_wrench_u（別セッションで平滑化した輪郭）を使う。
+//   🔴 AI が一度これを外して自分の作りへ戻したが、それは別セッションで解決済みの成果を捨てる行為だった。
+//      外す理由にした「向きが汚染されている」は当たっていたが、直し方は**向きだけ直す**で足りた。
+//   向き: 素の輪郭は口が右下を向いている。90 度回すと**口が右上**（🔒 icon-orientation-truth の基準）。
+//   0 / 90 / 180 / 270 を描いて目で選んだ（数値比較ではなく絵で確かめる）。
+module icon_svg() { sc = ICON_WR_H / icon_wrench_u_span();
+    icon_round(ICON_R * ICON_K) rotate([0, 0, 90]) scale(sc) icon_wrench_u(); }
 module right_wall_ports_cut() {
     wall_pocket_x(XIAO_PORT_C, xiao_pocket_sz(), USBC_PORT_R + SLOT_M, XIAO_SEAT_X, SLOT_D, SLOT_BEV);   // オーバーモールドが座る深い彫り込み
     wall_port_x(XIAO_PORT_C, USBC_PORT, USBC_PORT_R, 0, XIAO_PAD_X0);                                   // 口（増し壁ごと貫く）
