@@ -304,12 +304,18 @@ module lwall_port_cut4() {
         translate([LW_X - WALL + PORT_BEV, LJACK_C[0], LJACK_C[1]]) rotate([0, 90, 0]) cylinder(d = LJACK_D, h = 0.01, $fn = 48);
         translate([LW_X - WALL - 1.0, LJACK_C[0], LJACK_C[1]]) rotate([0, 90, 0]) cylinder(d = LJACK_D + 2 * (PORT_BEV + 1.0), h = 0.01, $fn = 48);
     }
-    // 壁を降ろす道①: 筒の通り道（内面側から X 0.274 まで・筒の頭 11.73 の上まで。外の皮 0.58 ⚠）
-    translate([0.274, 9.19, -0.5]) cube([LW_X - 0.274 + 0.01, 15.85 - 9.19, 12.2 + 0.5]);
-    // 道②: J1 の金属カバー（X 1.17 まで・皮 1.47）
-    translate([1.17, 12.87, -0.5]) cube([LW_X - 1.17 + 0.01, 17.87 - 12.87, 11.9 + 0.5]);
-    // 盲ポケット＋道③: USB1（🔒 出さない・X 0.99 まで・皮 1.29）
-    translate([0.99, 9.97, -0.5]) cube([LW_X - 0.99 + 0.01, 13.73 - 9.97, 35.03 + 0.5]);
+    // 🔴 2026-09-04 3 本とも**下端を Z 5.6 まで上げた**（前は Z −0.5 ＝ 壁を貫く縦溝だった）。
+    //    ✅ ユーザー「左の壁の ReSpeaker の USB のくぼみとかも縦に伸びてますが全く持って不要」。
+    //    下へ伸ばしていたのは**壁を上から降ろすため**だが、実際は前端のネジを軸に羽根のように開いて
+    //    閉じる組み方で、降ろさない（✅ ユーザー「垂直におろしたことなど1度もない」）。
+    //    最終位置で本当に要るのは Z 6.15 から上だけ（innards4 と交わる範囲を実測）。0.55 の余裕を付けて 5.6。
+    //    ⇒ 3 本で 176mm³ の肉が戻り、外の皮 0.58mm の**全高の弱線が消えた**（反りに効く側）。
+    // 盲ポケット①: 筒（内面側から X 0.274 まで・筒の頭 11.73 の上まで。外の皮 0.58 ⚠）
+    translate([0.274, 9.19, 5.6]) cube([LW_X - 0.274 + 0.01, 15.85 - 9.19, 12.2 - 5.6]);
+    // ②: J1 の金属カバー（X 1.17 まで・皮 1.47）
+    translate([1.17, 12.87, 5.6]) cube([LW_X - 1.17 + 0.01, 17.87 - 12.87, 11.9 - 5.6]);
+    // ③: USB1（🔒 出さない・X 0.99 まで・皮 1.29）
+    translate([0.99, 9.97, 5.6]) cube([LW_X - 0.99 + 0.01, 13.73 - 9.97, 35.03 - 5.6]);
     if (ICONS_ON) lwall_icon_cut4();   // 印（外から見て口の左）
 }
 // 🔴 2026-09-04 天板を留める柱のナットの溝を、**リブごと**もう一度抜く。
@@ -366,8 +372,11 @@ module rwall_port_cut4() {
             translate([0, 0, IN_X + WALL + 1.0]) linear_extrude(0.01) port_rrect(USBC_PORT, USBC_PORT_R, PORT_BEV + 1.0);
         }
     }
-    // 壁を降ろす道: 口の下を内面から殻の通り道（殻の面 ＋ 0.15 ＝ 85.704）まで抜く。外に皮 0.65 残る
-    translate([IN_X - 0.01, c[0] - USBC_PORT[0] / 2, -0.5]) cube([85.704 - IN_X + 0.01, USBC_PORT[0], c[1] + 0.5]);
+    // 🔴 2026-09-04 **下端を Z 14.5 まで上げた**（前は Z −0.5 ＝ 口の下を壁の下端まで貫いていた）。
+    //    ✅ ユーザー「右の壁の USB のくぼみも不要ですね」。降ろす動きのための彫りで、実際は降ろさない。
+    //    殻が実際に居るのは Z 15.03 から上だけ（実測）。0.53 の余裕を付けて 14.5。⇒ 88mm³ の肉が戻る。
+    // 殻の逃げ: 口の下を内面から殻の通り道（殻の面 ＋ 0.15 ＝ 85.704）まで。外に皮 0.65 残る
+    translate([IN_X - 0.01, c[0] - USBC_PORT[0] / 2, 14.5]) cube([85.704 - IN_X + 0.01, USBC_PORT[0], c[1] - 14.5]);
     if (ICONS_ON) wall_icon_x([c[0] + USBC_PORT[0] / 2 + PORT_BEV + ICON_GAP + ICON_H / 2, c[1]]) icon_svg();   // 印（口の右）
 }
 module rwall_v4(rib = true) difference() {   // 溝をリブごと抜く（上の lwall_v4 の節）
@@ -1094,8 +1103,30 @@ module stage_noskin() { innards4(); floor_v4(); }
 //   古い障害物のままだと左 121mm³ / 右 178mm³ が出る。これは順番を守れば起きない当たりなので、
 //   障害物の側を正した（close_tc と同じ考え方）。静止の当たりは chk_lwall / chk_rwall が別に見ている。
 module stage_walls() { hub_unit(); respeaker_at(); xiao_hous(); rsp_j2_space(); wires_low(); floor_v4(); }
+// 🔴 2026-09-04 **この 2 つ（と close_tc）は実際の組み方ではない。** 垂直の並進は計算が楽なだけである。
+//   ✅ ユーザー「手で持って左右の壁で ReSpeaker をサンドイッチするんですよ。ねじは下からでしょ?」
+//     「垂直におろしたことなど1度もない」「精読を組み立てマニュアル16回も通したのに、ここまで実態と違うとは」
+//   ✅ さらに: 左壁は底のネジが 1 本（V4_FLOOR_SCREWS[0]・前端）だけなので**羽根のように開く**。
+//     「右壁を立て、左壁も立てたあと、羽根のように開いてから ReSpeaker を入れられました。羽根を閉じたら挟み込み完了」
+//   ⇒ 本物は下の side_lwall / side_rwall / wing_lwall。**判定はそちらで行うこと。**
+//   ⚠ この 2 つは残すが、**内面から出る物（リブなど）を足すと非ゼロになる。それは不具合ではない。**
+//     2026-09-04 にリブを入れて 60.3 / 267.6 が出たが、実際の組み方では 0 だった。
+//     ⬜ 使い道は「垂直に落としても入るか」という**より厳しい条件**の目安としてだけ。
 if (part == "close_lwall") intersection() { union() for (t = [0 : STEP : 30]) translate([0, 0, t]) lwall_v4(); stage_walls(); }
 if (part == "close_rwall") intersection() { union() for (t = [0 : STEP : 30]) translate([0, 0, t]) rwall_v4(); stage_walls(); }
+// ---- 実際の組み方（2026-09-04・ユーザーの手順）。**どれも 0 が正** ----
+//   ① 左右の壁で ReSpeaker を挟む（±X から寄せる）
+//   ② 左壁は前端のネジを軸に羽根のように開く → ReSpeaker を入れる → 閉じる
+//   ⚠ ReSpeaker の入れ方は掃引にしない。✅ ユーザー「上でも横でもどこからでも。素材は多少はたわむから
+//     どうやっても入ります」。⇒ 剛体の掃引で縛ると嘘の制約になる。
+SIDE_TRAVEL = 30;   // 箱の外から最終位置まで
+LW_PIVOT = [V4_FLOOR_SCREWS[0][0], V4_FLOOR_SCREWS[0][1]];   // 左壁の羽根の軸（底のネジ 1 本）
+WING_A = 18;        // 羽根の開き角[度]（+ で後ろ端が −X へ）。実際はもっと小さいので、これは余裕を見た値
+module lwall_wing(a) translate([LW_PIVOT[0], LW_PIVOT[1], 0]) rotate([0, 0, a])
+                     translate([-LW_PIVOT[0], -LW_PIVOT[1], 0]) lwall_v4();
+if (part == "side_lwall") intersection() { union() for (t = [0 : STEP : SIDE_TRAVEL]) translate([-t, 0, 0]) lwall_v4(); stage_walls(); }
+if (part == "side_rwall") intersection() { union() for (t = [0 : STEP : SIDE_TRAVEL]) translate([ t, 0, 0]) rwall_v4(); stage_walls(); }
+if (part == "wing_lwall") intersection() { union() for (a = [0 : 0.25 : WING_A]) lwall_wing(a); stage_walls(); }
 //   ⚠ close_rwall に残る 25mm³ は スピーカー OUT の**天井下の区間**（X 82.55〜84.05・Y 30〜36・Z 44.35〜47.35）を
 //     右の前の棚が通り抜ける分。この 2 本はスピーカー（天面の部品）に付いたまま最後に降りてくるので、
 //     壁を降ろす時点では箱に居ない。低い車線に居るのは口から壁ぎわまでの Z 19.5 の区間だけで、そこは 0
