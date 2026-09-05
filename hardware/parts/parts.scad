@@ -793,10 +793,10 @@ module ina_hdr_straight(hous = true) {             // 直立て: 樹脂が板に
         translate([INA_HDR_X - 1.27, y - 1.27, INA_T + 2.5]) cube([2.54, 2.54, 10.0]);
         translate([INA_HDR_X - 1.8, y - 1.8, INA_T + 2.5 + 10.0]) cube([3.6, 3.6, 3.6]); }   // 線の逃げ（⚠既定 3.6）
 }
-module ina_hdr_ra(hous = true) {                   // L 字: 樹脂が板に座り、ピンは −x（板の外）へ水平
+module ina_hdr_ra(hous = true, yaw = 0) {          // L 字: 樹脂が板に座り、ピンは −x（板の外）へ水平。yaw: ピンを根元で板の面内に振る（v5・2026-09-05）
     color("#222")    translate([INA_HDR_X - 1.27, INA_PIN_Y[0] - 1.27, INA_T]) cube([2.54, INA_HDR_LEN, 2.5]);
     color("#c8ccd0") for (y = INA_PIN_Y) { translate([INA_HDR_X - 0.32, y - 0.32, INA_T]) cube([0.64, 0.64, 2.5 + 0.32]);
-        translate([INA_HDR_X - 1.27 - 6.0, y - 0.32, INA_T + 2.5 - 0.32]) cube([6.0 + 0.95, 0.64, 0.64]); }
+        translate([INA_HDR_X, y, INA_T + 2.5]) rotate([0, 0, yaw]) translate([-1.27 - 6.0, -0.32, -0.32]) cube([6.0 + 0.95, 0.64, 0.64]); }
     if (hous) color("#63b3ed", 0.85) for (i = [0 : INA_USED_N - 1]) { y = INA_PIN_Y[i];
         translate([INA_HDR_X - 1.27 - 10.0, y - 1.27, INA_T + 2.5 - 1.27]) cube([10.0, 2.54, 2.54]);
         translate([INA_HDR_X - 1.27 - 10.0 - 3.6, y - 1.8, INA_T + 2.5 - 1.8]) cube([3.6, 3.6, 3.6]); }   // 線の逃げ
@@ -817,7 +817,7 @@ function ina_h()    = INA_T + max(INA_SMD_H,
 function ina_back_env() = (INA_HDR && INA_HDR_BACK) ? INA_BACK_ENV : 0;          // 裏の面から出る厚み
 // 原点は板の角（ネジ端子側の長辺・左）。板は XY 平面・部品は +Z に生える
 // ra: ヘッダの 2 モデルの切り替え（use<> 先から呼び分けるための引数。既定は INA_HDR_RA）
-module ina226_module(ra = INA_HDR_RA, pwr_ra = true, hous = true, pwr_yaw = 0) {   // hous=false: DuPont を描かない（v5 は plug.scad が描く）。pwr_yaw: 電源の L 字ピンを根元で板の面内に振る角度（v5・2026-09-05 ユーザー「右に 25 度」）   // pwr_ra=false ＝ 電源の口（INPUT/OUT 4 本）を直立てに
+module ina226_module(ra = INA_HDR_RA, pwr_ra = true, hous = true, pwr_yaw = 0, i2c_yaw = 0) {   // hous=false: DuPont を描かない（v5 は plug.scad が描く）。pwr_yaw: 電源の L 字ピンを根元で板の面内に振る角度（v5・2026-09-05 ユーザー「右に 25 度」）   // pwr_ra=false ＝ 電源の口（INPUT/OUT 4 本）を直立てに
     color("#c0392b") difference() {
         cube([INA_L, INA_W, INA_T]);
         for (h = INA_HOLES) translate([h[0], h[1], -1]) cylinder(d = INA_HOLE_D, h = INA_T + 2, $fn = 24);
@@ -849,7 +849,7 @@ module ina226_module(ra = INA_HDR_RA, pwr_ra = true, hous = true, pwr_yaw = 0) {
         }
     }
     // 5 ピンヘッダ（短辺 x ≈ 3.3・y 方向）。🔒 2 モデルをピン単位で持つ（INA_HDR_RA で選ぶ）
-    if (INA_HDR && !INA_HDR_BACK) { if (ra) ina_hdr_ra(hous); else ina_hdr_straight(hous); }
+    if (INA_HDR && !INA_HDR_BACK) { if (ra) ina_hdr_ra(hous, i2c_yaw); else ina_hdr_straight(hous); }
     if (INA_HDR && INA_HDR_BACK)  { h = ina_hdr(); color("#222222") translate([h[0], h[2], -INA_BACK_ENV]) cube([h[1], h[3], INA_BACK_ENV]); }   // 裏出し（ハウジング込みの包絡）
 }
 
