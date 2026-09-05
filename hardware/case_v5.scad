@@ -569,7 +569,7 @@ module p_hatch() difference() {
 }
 // ハブ基板の留め（v4 §5: M3×8 ×4・頭は床の裏のザグリ・ナットは基板の上）: 床から柱 φ7.0（高さ = 板の下面 2.5）、通し φ3.2、裏の座ぐり φ6.0 × 2.0
 HUB_HOLES_W = [for (sx = [-1, 1], sy = [-1, 1]) [HUB_AT[0] + 37.0 + sx * 34.0, HUB_AT[1] + 26.0 + sy * 23.0]];   // hub_board_parts: 外形 74 × 52・穴の間隔 68 × 46
-HUB_POST_D = 7.0; HUB_SCR_D = 3.2; HUB_CB_D = 6.0; HUB_CB_T = 1.0;   // 座ぐりは床 2.0 のうち 1.0（残り 1.0）
+HUB_POST_D = 7.0; HUB_SCR_D = 3.4; HUB_CB_D = 6.4; HUB_CB_T = 2.2;   // 🔴 2026-09-05 実機: 3.2 / 6.0 / 1.0 は M3 が通らず頭も沈まなかった（基板の穴径 3.2 を写した AI のミス）。v4 case_base の M3_CLEAR 3.4・M3_CB 6.4・M3_HEAD_H 2.2 に戻す。座ぐりは床 2.0 を抜けて柱に 0.2 入る
 module hub_posts() for (h = HUB_HOLES_W) translate([h[0], h[1], -0.01]) cylinder(d = HUB_POST_D, h = HUB_AT[2] + 0.01, $fn = 32);
 module hub_screw_cuts() for (h = HUB_HOLES_W) translate([h[0], h[1], 0]) { translate([0, 0, -FLOOR_T - 1]) cylinder(d = HUB_SCR_D, h = FLOOR_T + HUB_AT[2] + 2, $fn = 24); translate([0, 0, -FLOOR_T - 0.01]) cylinder(d = HUB_CB_D, h = HUB_CB_T, $fn = 32); }
 
