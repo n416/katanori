@@ -26,15 +26,15 @@ module s_front()  { color("#9b59b6") p_front(); panel_ribs("front"); }
 module s_hatch()  { color("#27ae60") p_hatch(); panel_ribs("hatch"); one("tgl"); one("hatchplate"); one("shutter"); one("lock"); }
 
 // ---- 手順の段（累積）------------------------------------------------------
-//  1 床にハブ / 2 ReSpeaker / 3 ハブの口と XIAO の口・線を寝かせる / 4 左右の壁 / 5 Type-C 基板と充電の線 / 6 前板とブリッジ
+//  1 床にハブ / 2 ReSpeaker / 3 ハブの口と XIAO の口・線を寝かせる / 4 Type-C 基板と充電の線（上から・壁より先） / 5 前板とブリッジ（壁より先） / 6 左右の壁（横から・棚が腕を受ける）
 //  7 帯 3 本 / 8 電池 / 9 電流計と電源の線 / 10 天板の小組（絵は別）/ 11 OLED / 12 天板とフロント / 13 ハッチ
 module upto(n) {
     if (n >= 1)  { s_floor(); s_hub(); }
     if (n >= 2)  s_rsp();
     if (n >= 3)  { s_plugs(); w_low(); }
-    if (n >= 4)  s_walls();
-    if (n >= 5)  s_tc();
-    if (n >= 6)  s_brg();
+    if (n >= 4)  s_tc();
+    if (n >= 5)  s_brg();
+    if (n >= 6)  s_walls();
     if (n >= 7)  s_straps();
     if (n >= 8)  s_bat();
     if (n >= 9)  s_ina();

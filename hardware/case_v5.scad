@@ -22,7 +22,7 @@
 //   hit_wires … 線 ↔ 中身と皮の全部の当たり。hit_w_<束> は束 1 つだけ（xiao oled as5600 pwr chg ina tgl btn2 phin phout bat batout）。only_w_<束> は束 1 つの絵
 //   （皮・板・検査の語は皮を起こすときにここへ足す。既にある語の意味は変えない）
 // ============================================================
-part = "skin";
+part = "look";
 
 use <parts/parts.scad>
 use <parts/respeaker_lite.scad>

@@ -130,3 +130,11 @@
 {"t": "term", "id": "2026-09-04-2337", "out": "hardware/stl/term/2026-09-04-2337.stl", "move": [0, 0], "parts": [{"name": "v4_hatch.stl", "path": "hardware/stl/v4/v4_hatch.stl", "grip": 3333.6, "profile_max": null, "layers": 116, "height": 5.8, "cx": 0.0, "cy": 0.0}], "note": "hatch 単独。LCD の 25.9%。彫った面は下。", "at": "2026-09-04T23:30:16", "by": "ai"}
 {"t": "drop", "term": "2026-09-04-2336", "reason": "フロントの窓のベベルを階段から斜面に直した（518c14d）ので、この回の STL は古い。2026-09-05-0003 で置き直す", "at": "2026-09-05T00:03:55", "by": "ai"}
 {"t": "term", "id": "2026-09-05-0003", "out": "hardware/stl/term/2026-09-05-0003.stl", "move": [0, 0], "parts": [{"name": "v4_front.stl", "path": "hardware/stl/v4/v4_front.stl", "layers": 236, "height": 11.8, "cx": 0.0, "cy": 16.13}, {"name": "v4_shutfloor.stl", "path": "hardware/stl/v4/v4_shutfloor.stl", "layers": 72, "height": 3.6, "cx": -16.6, "cy": -20.36}, {"name": "v4_lock.stl", "path": "hardware/stl/v4/v4_lock.stl", "layers": 60, "height": 3.0, "cx": 32.05, "cy": -19.03}, {"name": "v4_shutter.stl", "path": "hardware/stl/v4/v4_shutter.stl", "layers": 55, "height": 2.75, "cx": 0.0, "cy": -36.48}], "note": "front と小物 3 点（shutfloor / lock / shutter）。2336 の置き直し（フロントのベベルを斜面にした版）。隙間 3.20mm・接地合計 2506.6mm2（LCD の 19.5%）。彫った面は下。", "at": "2026-09-05T00:03:55", "by": "ai"}
+{"t": "drop", "term": "2026-09-04-2327", "reason": "ｖ４凍結", "at": "2026-09-05T17:13:28", "by": "human"}
+{"t": "drop", "term": "2026-09-04-2328", "reason": "ｖ４凍結", "at": "2026-09-05T17:13:30", "by": "human"}
+{"t": "drop", "term": "2026-09-04-2330", "reason": "ｖ４凍結", "at": "2026-09-05T17:13:32", "by": "human"}
+{"t": "drop", "term": "2026-09-04-2337", "reason": "ｖ４凍結", "at": "2026-09-05T17:13:34", "by": "human"}
+{"t": "drop", "term": "2026-09-05-0003", "reason": "ｖ４凍結", "at": "2026-09-05T17:13:36", "by": "human"}
+{"t": "plan", "id": "p-2026-0905-171429", "kind": "plate", "grit": 1000, "at": "2026-09-05T17:14:29", "by": "human"}
+{"t": "did", "plan": "p-2026-0905-171429", "at": "2026-09-05T17:14:33", "by": "human"}
+{"t": "plate", "grit": 1000, "at": "2026-09-05T17:14:33", "by": "human"}
