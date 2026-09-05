@@ -9,7 +9,7 @@
 //   look     … 中身（基板・電池・口・線の出だし）。皮は描かない
 //   plugs    … 口だけ（ハブ 8 口＋OLED＋電流計＋PowerBoost＋XIAO＋つまみ）
 //   bridge   … ブリッジ（皿＋土手＋壁への帯）・前板・留め帯 3 本と、それが受ける電池・電流計
-//   explode  … bridge と同じ物を上下にばらす（前板は下へ、帯・電池・電流計は上へ）
+//   explode  … 箱全体の分解（皮 6 枚を外へ、天板は小組ごと上へ、ブリッジ・帯・電池・電流計・PowerBoost は段に分けて上へ。床とハブ・ReSpeaker・OLED・Type-C は置いたまま）
 //   tcfit    … Type-C 基板と、床（受け込み・橙）・左の壁（押さえ込み・青）・ハッチ（緑）だけ
 //   skin     … 皮（板 6 枚・ハッチは蓋の彫り込みと縁込み）。蓋・ロック・床の板は単位 shutter / lock / hatchplate
 //   all      … 皮＋中身＋ブリッジ一式
@@ -902,7 +902,18 @@ if (part == "p_hatch") { color("#27ae60") p_hatch(); panel_ribs("hatch"); }
 if (part == "fasten") { color("#4a90d9") p_lwall(); color("#4a90d9") p_rwall(); color("#e0a040", 0.35) p_floor(); color("#c9d0d8", 0.35) p_top(); color("#9b59b6", 0.35) p_front(); bridge(); brg_front(); straps(); }
 if (part == "tcfit")  { one("tc"); color("#e0a040", 0.9) p_floor(); color("#4a90d9", 0.35) p_lwall(); color("#27ae60", 0.35) p_hatch(); }   // 床（受け込み）＝橙・左の壁（押さえ込み）＝青・ハッチ＝緑
 if (part == "all")    { skin(); innards(); }
-if (part == "explode") { bridge(); translate([0, 0, -15]) brg_front(); translate([0, 0, 30]) straps(); translate([0, 0, 12]) one("bat"); translate([0, 0, 45]) one("ina"); }
+if (part == "explode") {   // 箱全体の分解。🔒 ユーザー 2026-09-05「explode がブリッジだけになっている」
+    color("#e0a040") p_floor(); one("hub"); one("rsp"); one("oled"); one("tc");                                       // 置いたまま
+    translate([-30, 0, 0]) { color("#4a90d9") p_lwall(); panel_ribs("lwall"); }                                      // 左の壁は左へ
+    translate([30, 0, 0])  { color("#4a90d9") p_rwall(); panel_ribs("rwall"); }                                      // 右の壁は右へ
+    translate([0, -30, 0]) { color("#9b59b6") p_front(); panel_ribs("front"); }                                      // フロントは前へ
+    translate([0, 35, 0])  { color("#27ae60") p_hatch(); panel_ribs("hatch"); one("tgl"); one("hatchplate"); one("shutter"); one("lock"); }   // ハッチは後ろへ（蓋とトグルごと）
+    translate([0, 0, 15])  { brg_front(); bridge(); panel_ribs("bridge"); }                                            // ブリッジと前板
+    translate([0, 0, 30])  straps();                                                                                    // 帯
+    translate([0, 0, 24])  one("bat");                                                                                  // 電池
+    translate([0, 0, 42])  one("ina");                                                                                  // 電流計
+    translate([0, 0, 60])  { color("#c9d0d8") p_top(); one("pb"); one("knob"); one("btn"); one("spk"); }              // 天板は小組ごと上へ
+}
 if (starts(part, "only_")) one(tail(part, 5));
 if (starts(part, "hit_"))  { n = tail(part, 4); intersection() { one(n); others(n); } }
 if (starts(part, "pair_")) { ab = tail(part, 5); k = search("_", ab)[0]; a = _join([for (i = [0 : k - 1]) ab[i]]); b = _join([for (i = [k + 1 : len(ab) - 1]) ab[i]]); intersection() { one(a); one(b); } }
