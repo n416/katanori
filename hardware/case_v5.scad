@@ -405,7 +405,10 @@ module port_cut(c, w, h, t, axis) {
 // ---- 外の稜の丸み R 2.0（v4 round_box・半径 = 壁厚）と、板どうしの 45° の継ぎ目 ----
 //   各板 = 板の直方体（外面まで伸ばす）− 隣の板と分け合う稜の楔（内側の角から外側の角へ 45°）、を丸い外形 env() と交わらせる
 EDGE_R = WALL;
-module env() hull() for (x = [OUT_X0 + EDGE_R, OUT_X1 - EDGE_R], y = [OUT_Y0 + EDGE_R, OUT_Y1 - EDGE_R], z = [-FLOOR_T + EDGE_R, Z_TOP + TOP_T - EDGE_R]) translate([x, y, z]) sphere(r = EDGE_R, $fn = 48);
+// 角の球。sphere() は極に頂点が無く（$fn 48 で緯度の輪が 3.75° から始まる）、外面が R (1 − cos 3.75°) = 0.0043 内側に来て板 5 枚が 0.0043 浮いた（🔒 ユーザー 2026-09-05「浮いてるってよ」）。
+//   半円（頂点が ±Z にある）を回して作ると極も赤道も頂点に乗り、外面が数字どおりの位置に出る
+module edge_ball() rotate_extrude($fn = 48) intersection() { circle(r = EDGE_R, $fn = 48); translate([0, -EDGE_R - 1]) square([EDGE_R + 1, 2 * EDGE_R + 2]); }
+module env() hull() for (x = [OUT_X0 + EDGE_R, OUT_X1 - EDGE_R], y = [OUT_Y0 + EDGE_R, OUT_Y1 - EDGE_R], z = [-FLOOR_T + EDGE_R, Z_TOP + TOP_T - EDGE_R]) translate([x, y, z]) edge_ball();
 BIG = 400;
 // 45° の半空間。p = 稜の内側の角（3D）、u = 稜に直交する 2 方向のうち「この板の面に沿う方向」の単位ベクトル、v = 「厚み方向」の単位ベクトル（外向き）。
 //   落とすのは (q − p)·u > (q − p)·v の側（隣の板の取り分）。楔 = その半空間 ∩ 角の直方体は、大きな回転した直方体で表す
