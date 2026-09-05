@@ -177,16 +177,19 @@ module sw4_reg_2d(g) {
     translate([SW4_REG_BX - SW4_REG_W / 2 - g, sw4_bz0() - SW4_BACK_FL - g]) square([SW4_REG_W + 2 * g, SW4_REG_L + 2 * g]);   // ② 下の帯
 }
 module sw4_rrect2d(x0, x1, z0, z1, r) hull() for (x = [x0 + r, x1 - r], z = [z0 + r, z1 - r]) translate([x, z]) circle(r = r, $fn = 48);
-module sw4_flange_2d() union() {
-    sw4_rrect2d(sw4_bx0() - SW4_BACK_FL, sw4_bx1() + SW4_BACK_FL, sw4_bz0() - SW4_BACK_FL, sw4_bz1() + SW4_BACK_FL, SHUT_R + SW4_BACK_FL);
-    offset(r = SHUT_CL + 1.0) sw4_lk_out_2d();
-    sw4_tabs_2d();
+module sw4_flange_2d() difference() {
+    union() {
+        sw4_rrect2d(sw4_bx0() - SW4_BACK_FL, sw4_bx1() + SW4_BACK_FL, sw4_bz0() - SW4_BACK_FL, sw4_bz1() + SW4_BACK_FL, SHUT_R + SW4_BACK_FL);
+        offset(r = SHUT_CL + 1.0) sw4_lk_out_2d();
+        sw4_tabs_2d();
+    }
+    sw4_flange_notch_2d();   // つばを欠く所（case_v5 が持つ。v5: トグルの胴の真下・上の縁を 1.0）
 }
 // のりしろ（🔒 2026-09-05 ユーザー「接着用ののりしろをいくつか」）。v4 の X はハッチのリブの間。v5 はリブ未設計なので同じ X をそのまま
-SW4_TAB_XS = [8.1, 25.694, 41.694, 57.694]; SW4_TAB_W = 5.6; SW4_TAB_H = 3.0; SW4_TAB_H_TOP = 2.5;
+SW4_TAB_XS = [8.1, 25.694, 41.694, 57.694]; SW4_TAB_W = 5.6; SW4_TAB_H = 3.0; SW4_TAB_TOP = false;   // 上ののりしろ 4 個は無し（🔒 ユーザー 2026-09-05「のりしろが減る。別に構わない」: トグルの胴の席を空ける）。下の 4 個だけ
 function sw4_tab_rects() = concat(
     [for (x = SW4_TAB_XS) [x - SW4_TAB_W / 2, x + SW4_TAB_W / 2, sw4_bz0() - SW4_BACK_FL - SW4_TAB_H, sw4_bz0() - SW4_BACK_FL + 0.5]],
-    [for (x = SW4_TAB_XS) [x - SW4_TAB_W / 2, x + SW4_TAB_W / 2, sw4_bz1() + SW4_BACK_FL - 0.5, sw4_bz1() + SW4_BACK_FL + SW4_TAB_H_TOP]]);
+    SW4_TAB_TOP ? [for (x = SW4_TAB_XS) [x - SW4_TAB_W / 2, x + SW4_TAB_W / 2, sw4_bz1() + SW4_BACK_FL - 0.5, sw4_bz1() + SW4_BACK_FL + 2.5]] : []);
 module sw4_tabs_2d() for (r = sw4_tab_rects()) translate([r[0], r[2]]) square([r[1] - r[0], r[3] - r[2]]);
 module sw4_floor_plate() difference() {   // 床の板（別部品）: 溝の床から内へ 1.2 ＋ 磁石の座 ＋ ロックのナットのボス
     union() {

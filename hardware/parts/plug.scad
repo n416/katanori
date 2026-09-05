@@ -16,6 +16,7 @@ use <parts.scad>
 PITCH = 2.54;
 WIRE_D = 1.55;
 STUB  = 4.0;     // 曲がった後、向きを見せるための線の長さ
+WIRES = false;   // 🔒 ユーザー 2026-09-05「線は引き直し」: 口はハウジングだけ描く。線（曲がり＋出だし）は別に引く
 
 function _arc(r, ex, n = 6) = [for (i = [0 : n]) let (a = 90 * i / n) [ex[0], ex[1], 0] * (r - r * cos(a)) + [0, 0, r * sin(a)]];
 
@@ -23,8 +24,8 @@ module plug(n, exit = [0, 1], h = dupont_h(), bend = dupont_bend()) {
     e = exit / norm(exit);
     // ハウジング n 個（1 列）
     color("#63b3ed", 0.85) translate([-PITCH / 2, -PITCH / 2, 0]) cube([n * PITCH, PITCH, h]);
-    // 線: 頭から真上に出て、半径 bend で exit の向きへ曲がり、STUB だけ進む
-    color("#e0b060") for (i = [0 : n - 1]) translate([i * PITCH, 0, h]) {
+    // 線: 頭から真上に出て、半径 bend で exit の向きへ曲がり、STUB だけ進む（WIRES のときだけ）
+    if (WIRES) color("#e0b060") for (i = [0 : n - 1]) translate([i * PITCH, 0, h]) {
         pts = concat(_arc(bend, e), [[e[0], e[1], 0] * (bend + STUB) + [0, 0, bend]]);
         for (k = [0 : len(pts) - 2]) hull() { translate(pts[k]) sphere(d = WIRE_D, $fn = 10); translate(pts[k + 1]) sphere(d = WIRE_D, $fn = 10); }
     }

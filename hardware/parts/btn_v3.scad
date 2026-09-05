@@ -487,7 +487,7 @@ module btn3_v_screws(ex = 0) for (i = [0, 1]) mirror([i, 0, 0]) translate([0, B3
         translate([B3_V_SCR_X, 0, b3_ear_z0(i)]) cylinder(d = B3_CB_D - 0.2, h = B3_CB_H, $fn = 24);
         translate([B3_V_SCR_X, 0, b3_ear_z0(i)]) cylinder(d = 2.0, h = B3_NUT_Z1 - b3_ear_z0(i), $fn = 20);
     }
-    color("#8a8a8a") translate([B3_V_SCR_X, 0, B3_NUT_Z0]) cylinder(d = B3_NUT_AF / cos(30), h = B3_NUT_T, $fn = 6);
+    color("#8a8a8a") translate([B3_V_SCR_X, 0, B3_NUT_Z0]) rotate([0, 0, 30]) cylinder(d = B3_NUT_AF / cos(30), h = B3_NUT_T, $fn = 6);   // 二面幅を X に向ける（台座の溝と同じ向き。2026-09-05 まで 30° ずれて描いていて、皮との当たり 1.1mm³ の正体だった）
 }
 
 
