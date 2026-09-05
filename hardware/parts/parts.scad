@@ -61,6 +61,11 @@ $fn = 64;
 //   ⇒ 直書きの 10 を 1 つの名前に集め、14 で置く。OLED・INA226・ハブの口の全部がこの 1 つを読む。
 DUPONT_H = 14.0;   // DuPont（2.54 メス・1 列）のハウジングの長さ。✅ ユーザー 2026-09-05「ピンヘッダは 10、ハウジングは 14」
 function dupont_h() = DUPONT_H;   // use<> 先（case_base の HOUS_H・respeaker_lite）はこれを読む。数字を 2 か所に書かない
+// ✅ ユーザー 2026-09-05「（ハブの部品面からの 17 は）コネクタまでの高さ。そこから曲がりを考慮するなら 20」
+//   ⇒ 樹脂 2.5 ＋ ハウジング 14 ＝ 16.5 ≈ 17（コネクタの頭）。線の曲がりはその上 3.0。
+//   🔴 v4 の case_base.scad は 17 を「曲がりの頭まで」と読み違えて HOUS_R 4.5 を導いていた。v5 はこちらを読む。
+DUPONT_BEND = 3.0;   // ハウジングの頭から線が横を向くまでの高さ
+function dupont_bend() = DUPONT_BEND;
 //      （治具時代の包絡「約 14」はこの鎖の逃げ無しの値と整合）
 //   ⚠ 取付回転（どの縁が箱のどちらを向くか）は未記録。天面を描くとき選んで 🔒 にする
 //   🔒 個体は 2 つあり、1 つは未はんだ（2026-08-24 ユーザー）⇒ **ヘッダの形は置き場の従属変数**
@@ -150,7 +155,7 @@ function as5600_row_r()   = AS5600_ROW_R;
 function as5600_used_l()  = AS5600_USED_L;
 function as5600_used_r()  = AS5600_USED_R;
 
-module as5600(show_connector = true, ra = false) {   // ra: false = 直立て（はんだ済みの個体）/ true = L 字横出し（未はんだの個体の選択肢）
+module as5600(show_connector = true, ra = false, hous = true) {   // hous=false: DuPont と曲がりを描かない（v5 は plug.scad が描く）   // ra: false = 直立て（はんだ済みの個体）/ true = L 字横出し（未はんだの個体の選択肢）
     color("#2b6b3f")
     difference() {
         translate([-AS5600_PCB / 2, -AS5600_PCB / 2, 0])
@@ -185,7 +190,7 @@ module as5600(show_connector = true, ra = false) {   // ra: false = 直立て（
 //    （以下は 08-27 の書き置き）⬜ 未反映: 列が長手方向へずれている分。符号を間違えると
     //       当たりの向きが逆になるので、確かめてから入れる。この分は下の列の右端 → 右下の穴の
     //       隙間（ユーザー実物「1mm もない」・写真読み 0.6mm）に効く
-    if (show_connector) as5600_headers(ra);
+    if (show_connector) as5600_headers(ra, hous);
 }
 // 🔒 2026-08-28 コネクタだけを独立した module にした。
 //   それまで _v4_core.scad の as_conn() が「基板＋コネクタ − 基板」で取り出していたが、
@@ -194,7 +199,7 @@ module as5600(show_connector = true, ra = false) {   // ra: false = 直立て（
 //   `inside` で AS5600 の穴が三日月に見えた正体。ゴーストは ASC_DY 分ずれて重なっていた）。
 //   ⚠ 引き算をやめたので、板の厚みの中を通るピンの区間も描かれる（前は消えていた）。
 //      当たり検査は広い側に転ぶので安全側
-module as5600_headers(ra = false) {
+module as5600_headers(ra = false, hous = true) {
     rotate([0, 0, 90]) for (s = [-1, 1]) {
         x   = s * (AS5600_PCB / 2 - ((s < 0) ? AS5600_EDGE_IN_L : AS5600_EDGE_IN_R));
         row = (s < 0) ? AS5600_ROW_L : AS5600_ROW_R;
@@ -202,9 +207,9 @@ module as5600_headers(ra = false) {
         color("#222") translate([x - 1.27, min(row) - 1.27, -2.5]) cube([2.54, len(row) * 2.54, 2.5]);      // 樹脂
         if (!ra) {
             color("#c8ccd0") for (y = row) translate([x - 0.32, y - 0.32, -2.5 - 6.0]) cube([0.64, 0.64, 6.0 + 2.5 + AS5600_T + 2.5]);   // ピン
-            color("#63b3ed", 0.85) for (i = used) { y = row[i];
+            if (hous) color("#63b3ed", 0.85) for (i = used) { y = row[i];
                 translate([x - 1.27, y - 1.27, -2.5 - DUPONT_H]) cube([2.54, 2.54, DUPONT_H]);                           // DuPont
-                translate([x - 1.8, y - 1.8, -12.5 - 3.6]) cube([3.6, 3.6, 3.6]); }                        // 線の逃げ（⚠既定 3.6）
+                translate([x - 1.8, y - 1.8, -12.5 - 3.6]) cube([3.6, 3.6, 3.6]); }                        // 線の逃げ（⚠既定 3.6・🔴 v5 は使わない。plug.scad）
         } else {
             color("#c8ccd0") for (y = row) {
                 translate([x - 0.32, y - 0.32, -2.5 - 0.32]) cube([0.64, 0.64, 0.32 + 2.5 + AS5600_T + 2.5]);        // 縦の足（はんだ側 2.5 込み）
@@ -410,7 +415,7 @@ module pb_usb_pin_header() {   // （旧）8 ピン列の USB（8 番）に真�
     color("#222")    translate([x - 1.27, y - 1.27, PB_PCB_T]) cube([2.54, 2.54, PB_RA_BODY]);
     color("#c8ccd0") translate([x - 0.32, y - 0.32, -PB_RA_TAIL]) cube([0.64, 0.64, PB_RA_TAIL + PB_PCB_T + PB_RA_BODY + PB_RA_PIN]);
 }
-module powerboost_1000c(hdr = "front", ra_dir = 1) {
+module powerboost_1000c(hdr = "front", ra_dir = 1, usb_hdr = false) {   // usb_hdr: USB-A の足跡の 4 ピン（🔒 2026-09-05 ユーザー「抜いてほしい。もう使わない」。5V は JP2 の L 字から）
     // 板（穴4つ）
     color("#1a3f6b") difference() {
         cube([PB_L, PB_W, PB_PCB_T]);
@@ -433,7 +438,7 @@ module powerboost_1000c(hdr = "front", ra_dir = 1) {
     // ✅ USB-A の足跡に立てた 2.54 ピッチ 4 ピンのピンヘッダ（2026-08-14 ユーザー。2026-08-24 写真で位置を確認して模型に入れた）
     //    🔴 それまでは「線 2 本の付け根（3×3×2.5）」で描いていて、ヘッダ（樹脂 2.5＋ピン 6.0）も裏の足も無かった。当たらない方の絵だった
     //    列の中心は USB-A の中心（PB_OUT の y）。x は VBUS/GND のパッドの x（PB_V5[0]）⚠ 穴の x は .brd で未確認
-    pb_usb_header();
+    if (usb_hdr) pb_usb_header();   // 🔴 2026-09-05 抜いた。5V/GND は JP2 の 5Vo/GND（POWER.md 755 行）
     // 8 ピン列のヘッダ: "front" = 部品面の L 字 4 本（5Vo・GND・EN・USB） ／ "back" = 裏の L 字 3 本（壁ポーズでは壁に入るため 2026-08-24 に不成立と判明）
     if (hdr == "front") pb_jp2_ra_header(ra_dir);
     if (hdr == "back")  pb_jp2_back_ra();
@@ -800,6 +805,7 @@ module ina_hdr_ra(hous = true) {                   // L 字: 樹脂が板に座�
 //    ⇒ 中心は端から 2.0〜2.5（どちら側が 0.5 かは ⚠。中間 2.25 で置く・誤差 ±0.25）。🔴 射影読みの旧値 x≈20 は 3.4 ずれていた
 INA_HOLES = [[16.6, 0.75 + 1.5], [16.6, INA_W - (0.75 + 1.5)]]; INA_HOLE_D = 3.0;   // ✅ φ3.0
 function ina_holes() = INA_HOLES;
+function ina_pwr_pins() = [for (y = [3.6, 7.87, 12.13, 16.4]) [26.0, y]];   // 電源の口（INPUT ±・OUT ±）のピン（板の局所）。y < 10 が INPUT 側
 function ina_hole_d() = INA_HOLE_D;
 // [x0, x の長さ, y0, y の長さ, 高さ]。L 型ならピンは −x（板の外）へ出る
 function ina_hdr() = INA_HDR_RA
@@ -811,7 +817,7 @@ function ina_h()    = INA_T + max(INA_SMD_H,
 function ina_back_env() = (INA_HDR && INA_HDR_BACK) ? INA_BACK_ENV : 0;          // 裏の面から出る厚み
 // 原点は板の角（ネジ端子側の長辺・左）。板は XY 平面・部品は +Z に生える
 // ra: ヘッダの 2 モデルの切り替え（use<> 先から呼び分けるための引数。既定は INA_HDR_RA）
-module ina226_module(ra = INA_HDR_RA, pwr_ra = true) {   // pwr_ra=false ＝ 電源の口（INPUT/OUT 4 本）を直立てに
+module ina226_module(ra = INA_HDR_RA, pwr_ra = true, hous = true, pwr_yaw = 0) {   // hous=false: DuPont を描かない（v5 は plug.scad が描く）。pwr_yaw: 電源の L 字ピンを根元で板の面内に振る角度（v5・2026-09-05 ユーザー「右に 25 度」）   // pwr_ra=false ＝ 電源の口（INPUT/OUT 4 本）を直立てに
     color("#c0392b") difference() {
         cube([INA_L, INA_W, INA_T]);
         for (h = INA_HOLES) translate([h[0], h[1], -1]) cylinder(d = INA_HOLE_D, h = INA_T + 2, $fn = 24);
@@ -835,15 +841,15 @@ module ina226_module(ra = INA_HDR_RA, pwr_ra = true) {   // pwr_ra=false ＝ 電
         color("#222")    translate([26.0 - 1.27, y - 1.27, INA_T]) cube([2.54, 2.54, 2.5]);                        // 樹脂
         if (pwr_ra) {
             color("#c8ccd0") translate([26.0 - 0.32, y - 0.32, -1.2]) cube([0.64, 0.64, 1.2 + INA_T + 2.5 + 1.59]);   // 足〜曲がり
-            color("#c8ccd0") translate([26.0 - 0.32, y - 0.32, INA_T + 2.5 + 1.27 - 0.32]) cube([6.32, 0.64, 0.64]);  // 板に沿うピン（+x＝縁の外へ）
-            color("#4a5568", 0.85) translate([26.0 + 0.5, y - 1.27, INA_T + 2.5]) cube([DUPONT_H, 2.54, 2.54]);             // DuPont（水平）
+            color("#c8ccd0") translate([26.0, y, INA_T + 2.5 + 1.27]) rotate([0, 0, pwr_yaw]) translate([-0.32, -0.32, -0.32]) cube([6.32, 0.64, 0.64]);  // 板に沿うピン（+x＝縁の外へ・pwr_yaw だけ振る）
+            if (hous) color("#4a5568", 0.85) translate([26.0 + 0.5, y - 1.27, INA_T + 2.5]) cube([DUPONT_H, 2.54, 2.54]);   // DuPont（水平）
         } else {
             color("#c8ccd0") translate([26.0 - 0.32, y - 0.32, -1.2]) cube([0.64, 0.64, 1.2 + INA_T + 2.5 + 6.0]);    // 足（まっすぐ上・頭は樹脂の 6.0 上）
-            color("#4a5568", 0.85) translate([26.0 - 1.27, y - 1.27, INA_T + 2.5]) cube([2.54, 2.54, DUPONT_H]);            // DuPont（縦）
+            if (hous) color("#4a5568", 0.85) translate([26.0 - 1.27, y - 1.27, INA_T + 2.5]) cube([2.54, 2.54, DUPONT_H]);  // DuPont（縦）
         }
     }
     // 5 ピンヘッダ（短辺 x ≈ 3.3・y 方向）。🔒 2 モデルをピン単位で持つ（INA_HDR_RA で選ぶ）
-    if (INA_HDR && !INA_HDR_BACK) { if (ra) ina_hdr_ra(); else ina_hdr_straight(); }
+    if (INA_HDR && !INA_HDR_BACK) { if (ra) ina_hdr_ra(hous); else ina_hdr_straight(hous); }
     if (INA_HDR && INA_HDR_BACK)  { h = ina_hdr(); color("#222222") translate([h[0], h[2], -INA_BACK_ENV]) cube([h[1], h[3], INA_BACK_ENV]); }   // 裏出し（ハウジング込みの包絡）
 }
 
