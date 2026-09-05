@@ -359,6 +359,7 @@ module straps() color("#ed8936") difference() {
     }
     if (STRAP_C_POCKET > 0) translate([INA_FOOT[0] - 0.5, INA_FOOT[2] - 0.5, BAT_TOP + STRAP_T - STRAP_C_POCKET]) cube([INA_FOOT[1] - INA_FOOT[0] + 1.0, INA_FOOT[3] - INA_FOOT[2] + 1.0, STRAP_C_POCKET + 1]);
     at_ina() translate([26.0 - 1.27 - 1.0, 3.6 - 1.27 - 1.0, -HDR_POCKET_D]) cube([2.54 + 2.0, 16.4 - 3.6 + 2.54 + 2.0, HDR_POCKET_D + 1]);   // 電源ヘッダの足の列の逃げ（板の座標で彫る。板が回れば一緒に回る。🔒 ユーザー 2026-09-05「ピンヘッダ部分は 1.2mm 掘って」）
+    at_ina() translate([3.3 - 1.27 - 1.0, 4.0 - 1.27 - 1.0, -HDR_POCKET_D]) cube([2.54 + 2.0, 4 * 2.54 + 2.54 + 2.0, HDR_POCKET_D + 1]);   // I2C ヘッダ 5 本（x 3.3・y 4.0〜14.7）の足の逃げ。🔴 2026-09-06 実機: 電源側だけ掘って前を掘らず、板が帯に載らなかった（ユーザー「後ろは気にしてるのに前無視？」）
 }
 // ---- 帯 1 本だけ・刷る向き ----
 //   strap_one(k): 帯 k（ツバ込み・その帯の上に立つ電流計の軸込み）。straps() を Y の板で切る（v4 strap_one と同じ切り方・ツバ TAB_L のぶん広げる）
