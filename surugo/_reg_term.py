@@ -55,5 +55,6 @@ print('書き出した: %s（面 %d）' % (e['out'], e['facets']))
 ev = S.append({'t': 'term', 'id': TERM, 'out': out, 'move': [dx, dy],
                'parts': [{'name': p['name'], 'path': p['path'], 'grip': p['grip'],
                           'profile_max': p.get('profile_max'), 'layers': p['layers'],
-                          'height': p['height'], 'cx': p['cx'], 'cy': p['cy']} for p in PL]}, by='ai')
+                          'height': p['height'], 'cx': p['cx'], 'cy': p['cy'],
+                          'w': p['w'], 'h': p['h'], 'rot': p.get('rot') or 0} for p in PL]}, by='ai')   # w/h/rot は画面の「編集」が図を出すのに使う（2026-09-05）
 print('登録した:', json.dumps(ev, ensure_ascii=False)[:200])

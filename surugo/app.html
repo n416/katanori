@@ -210,10 +210,37 @@ function editTerm(id){
   $('#filter').value = ''; drawList();
   document.querySelectorAll('#stls input').forEach(i => { i.checked = paths.includes(i.value); });
   $('#out').innerHTML = '';
-  msg(`${id} を編集します（${paths.length} 点を選び直しました）。`
-    + '部品を足し引きして「測って並べる」→「結合して書き出す」で、同じ名前のまま更新されます。', 'o');
   showTerm();
+  showTermPlate(t);
   return false;
+}
+
+// 編集を押したら、その回に記録してある置き場所をそのまま図に出す。
+//   🔒 2026-09-05 ユーザー「編集ボタンを押したのに、測って並べるを押さないと見れないのはちょっと変じゃない？」
+//   記録には cx/cy しか無い回（2026-09-05 以前）は、同じ部品で並べ直して w/h/回転だけ借りる（並べ方は決まった手順なので同じ答えが出る）。
+//   位置は記録の方が正。そのまま「結合して書き出す」もできる（並べ直すのは部品を足し引きしたときだけ）。
+async function showTermPlate(t){
+  const d = t.detail || [];
+  if(!d.length) return;
+  let dims = {};
+  if(d.some(p => p.w == null)){
+    msg('この回の記録には大きさが無いので、同じ部品を並べ直して大きさと向きを借ります…');
+    const r = await api('/api/arrange', {paths: d.map(p => p.path)});
+    (r.placements || []).forEach(p => dims[p.path] = p);
+  }
+  PLACED = d.map(p => ({...(dims[p.path] || {}), ...p,
+                        w: p.w != null ? p.w : (dims[p.path] || {}).w || 0,
+                        h: p.h != null ? p.h : (dims[p.path] || {}).h || 0,
+                        rot: p.rot != null ? p.rot : (dims[p.path] || {}).rot || 0}));
+  const mv = t.move || [0, 0];
+  SHIFT = {dx: mv[0] || 0, dy: mv[1] || 0, i: 0, room: [0, 0]};
+  drawPlate(PLACED);
+  const tall = PLACED.reduce((a, b) => (b.layers||0) > (a.layers||0) ? b : a, PLACED[0]);
+  msg(`${t.id} を編集します。記録どおりに ${PLACED.length} 点を置きました`
+    + `（層数 ${tall.layers}・一番背の高い ${tall.name}）。`
+    + '部品を足し引きしたら「測って並べる」、そのままなら「結合して書き出す」で、同じ名前のまま更新されます。', 'o');
+  TERM = t.id; showTerm();
+  $('#btnExport').disabled = !PLACED.length;
 }
 
 // 編集をやめて、次の書き出しを新しい回にする
@@ -350,7 +377,8 @@ $('#btnExport').onclick = async () => {
   await api('/api/event', {by:'human', ev:{t:'term', id:TERM, out, move:[SHIFT.dx, SHIFT.dy],
     parts: PLACED.map(p => ({name:p.name, path:p.path, grip:p.grip,
                              profile_max:p.profile_max,
-                             layers:p.layers, height:p.height, cx:p.cx, cy:p.cy}))}});
+                             layers:p.layers, height:p.height, cx:p.cx, cy:p.cy,
+                             w:p.w, h:p.h, rot:p.rot||0}))}});   // w/h/rot は「編集」で図を出すため（2026-09-05）
   if(wasEditing) msg(`${TERM} を更新しました（新しい回は作っていません）。`, 'o');
   showTerm();
   await loadState();
