@@ -340,7 +340,7 @@ function ina_hole_w(h) = let (v = [h[0] - ina_size()[0] / 2, h[1] - ina_size()[1
                          [INA_SX + PBF_O[0] - q[0], INA_SY + PBF_O[1] - q[1]];          // pb_frame0 の Z 軸 180° と送り
 INA_HOLES_W = [for (h = ina_holes()) ina_hole_w(h)];
 // E リング（呼び 1.5）の軸: φ2.0・板 1.6 の上に遊び 0.1 → 溝（径 1.5・幅 0.5）→ 掴みしろ 0.6。🔒 ユーザー 2026-09-05「電流計に E リング。PowerBoost もダボ＋E リング」。溝の数字は規格値（AI が置いた）
-E15_D = 2.0; E15_GRV_D = 1.5; E15_GRV_W = 0.5; E15_PLAY = 0.1; E15_GRIP = 0.6;
+E15_D = 2.0; E15_GRV_D = 1.5; E15_GRV_W = 0.5 + 0.3; E15_PLAY = 0.1; E15_GRIP = 0.6;   // 溝の幅 0.8（リング 0.4 ＋ 0.4）。🔒 ユーザー 2026-09-05「AS5600 のダボの E リングが取れないくらい厳しい。PowerBoost と電流計の溝も同じはず」: 0.5 → 0.8、軸は同じだけ長くなる（e15_len）
 function e15_len(t) = t + E15_PLAY + E15_GRV_W + E15_GRIP;   // 板厚 t の板を留める軸の長さ（板の面から）
 module e15_shaft(t) difference() {
     cylinder(d = E15_D, h = e15_len(t), $fn = 24);
