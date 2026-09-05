@@ -841,7 +841,7 @@ module ina226_module(ra = INA_HDR_RA, pwr_ra = true, hous = true, pwr_yaw = 0, i
         color("#222")    translate([26.0 - 1.27, y - 1.27, INA_T]) cube([2.54, 2.54, 2.5]);                        // 樹脂
         if (pwr_ra) {
             color("#c8ccd0") translate([26.0 - 0.32, y - 0.32, -1.2]) cube([0.64, 0.64, 1.2 + INA_T + 2.5 + 1.59]);   // 足〜曲がり
-            color("#c8ccd0") translate([26.0, y, INA_T + 2.5 + 1.27]) rotate([0, 0, pwr_yaw]) translate([-0.32, -0.32, -0.32]) cube([6.32, 0.64, 0.64]);  // 板に沿うピン（+x＝縁の外へ・pwr_yaw だけ振る）
+            color("#c8ccd0") translate([26.0, y, INA_T + 2.5 + 1.27]) rotate([0, 0, is_list(pwr_yaw) ? pwr_yaw[search([y], [for (q = ina_pwr_pins()) [q[1]]])[0]] : pwr_yaw]) translate([-0.32, -0.32, -0.32]) cube([6.32, 0.64, 0.64]);  // 板に沿うピン（+x＝縁の外へ・pwr_yaw だけ振る。pwr_yaw はピンごとのリストでもよい・2026-09-05）
             if (hous) color("#4a5568", 0.85) translate([26.0 + 0.5, y - 1.27, INA_T + 2.5]) cube([DUPONT_H, 2.54, 2.54]);   // DuPont（水平）
         } else {
             color("#c8ccd0") translate([26.0 - 0.32, y - 0.32, -1.2]) cube([0.64, 0.64, 1.2 + INA_T + 2.5 + 6.0]);    // 足（まっすぐ上・頭は樹脂の 6.0 上）

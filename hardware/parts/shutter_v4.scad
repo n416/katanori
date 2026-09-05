@@ -156,13 +156,14 @@ SW4_MAG_WIN_D = 4.1;   // 磁石の芯の窓（🔒 2026-08-29 蓋で見えな�
 module sw4_mag_window() for (x = sw4_mag_xs()) translate([x, sw4_yg() - 4.0, sw4_mag_z()]) rotate([-90, 0, 0]) cylinder(d = SW4_MAG_WIN_D, h = 6.0, $fn = 48);
 module sw4_lock_cut() {
     sw4_lock_bore(sw4_yg() - SHUT_LOCK_B - 2, SHUT_LOCK_B + SHUT_T + 4, SHUT_LOCK_D);
-    translate([sw4_lock_x(), sw4_yg() - SHUT_LOCK_B - 0.01, sw4_lock_z()]) rotate([-90, 0, 0]) rotate([0, 0, 30]) cylinder(d = SHUT_LOCK_NAF / cos(30), h = SHUT_LOCK_NT + 0.02, $fn = 6);   // ナットの六角ポケット
-    translate([sw4_lock_x() - SHUT_LOCK_NAF / 2, sw4_yg() - SHUT_LOCK_B - 0.01, sw4_lock_z()]) cube([SHUT_LOCK_NAF, SHUT_LOCK_NT + 0.02, sw4_lk_boss_z1() - sw4_lock_z() + 0.01]);   // 落とす溝
+    translate([sw4_lock_x(), sw4_yg() - SHUT_LOCK_B + SHUT_LOCK_FLR, sw4_lock_z()]) rotate([-90, 0, 0]) cylinder(d = SHUT_LOCK_NAF / cos(30), h = SHUT_LOCK_NT, $fn = 6);   // ナットの六角ポケット（二面幅を Z に＝右から差す溝の壁が回り止め）。内面に 0.8 の蓋を残す＝閉じたポケット（🔒 ユーザー 2026-09-05「裏から手を入れて保持するのはキツい」）
+    translate([sw4_lock_x(), sw4_yg() - SHUT_LOCK_B + SHUT_LOCK_FLR, sw4_lock_z() - SHUT_LOCK_NAF / 2]) cube([20, SHUT_LOCK_NT, SHUT_LOCK_NAF]);   // 右（+X）へ差す溝（板の右の縁まで抜く。ボスの幅 7 の先にも板の輪郭が続くので、そこで止めると袋になる）。🔒 ユーザー 2026-09-05「六角のポケットを上からではなく右から」（それまで上へ落とす溝）
 }
 // ---- 彫ったぶんハッチの裏へ足す肉（🔒 2026-09-04 溝の床 Y = IN_Y − 1.0 で 2 部品に割る: ハッチの縁と床の板）----
-function sw4_lock_boss_z0() = sw4_lock_z() - SHUT_LOCK_NAF / cos(30) / 2 - SHUT_LOCK_FLR;
+function sw4_lock_boss_z0() = sw4_lock_z() - SHUT_LOCK_NAF / 2 - SHUT_LOCK_FLR;   // ナット（二面幅を Z に）の下の床 0.8
+function sw4_lock_boss_z1() = sw4_lock_z() + SHUT_LOCK_NAF / 2 + SHUT_LOCK_FLR;   // ナットの上の肉 0.8（🔒 ユーザー 2026-09-05「六角の台座を作り直して」: 上から落とす溝の背の高い台座をやめ、右から差す溝を囲む箱に）
 SW4_BOSS_W = 7.0;
-module sw4_lock_boss() translate([sw4_lock_x() - SW4_BOSS_W / 2, sw4_yg() - SHUT_LOCK_B, sw4_lock_boss_z0()]) cube([SW4_BOSS_W, SHUT_LOCK_B, sw4_lk_boss_z1() - sw4_lock_boss_z0()]);
+module sw4_lock_boss() translate([sw4_lock_x() - SW4_BOSS_W / 2, sw4_yg() - SHUT_LOCK_B, sw4_lock_boss_z0()]) cube([SW4_BOSS_W, SHUT_LOCK_B, sw4_lock_boss_z1() - sw4_lock_boss_z0()]);   // 幅 7（六角の角 4.73 の左に肉 1.1・右は溝が開く）
 assert(SW4_BOSS_W / 2 - SHUT_LOCK_NAF / cos(30) / 2 >= 0.42, "ロックのナットのボスの壁が 0.42 を切る");
 SW4_BACK_FL = 1.0;   // つばの出
 SW4_BACK_CL = 0.3;   // 当たる部品との隙間
@@ -186,10 +187,11 @@ module sw4_flange_2d() difference() {
     sw4_flange_notch_2d();   // つばを欠く所（case_v5 が持つ。v5: トグルの胴の真下・上の縁を 1.0）
 }
 // のりしろ（🔒 2026-09-05 ユーザー「接着用ののりしろをいくつか」）。v4 の X はハッチのリブの間。v5 はリブ未設計なので同じ X をそのまま
-SW4_TAB_XS = [8.1, 25.694, 41.694, 57.694]; SW4_TAB_W = 5.6; SW4_TAB_H = 3.0; SW4_TAB_TOP = false;   // 上ののりしろ 4 個は無し（🔒 ユーザー 2026-09-05「のりしろが減る。別に構わない」: トグルの胴の席を空ける）。下の 4 個だけ
+SW4_TAB_XS = [8.1, 25.694, 41.694, 57.694]; SW4_TAB_W = 5.6; SW4_TAB_H = 3.0; SW4_TAB_TOP = true;   // 上ののりしろ 4 個: トグルが X 40 のとき胴の席を空けるため一度外した（2026-09-05「減っても構わない」）が、トグルが X 64.7 へ移って胴（X 60.7〜）と重ならなくなったので戻した（ユーザー「なんで上にはつかないんですか」）
+SW4_TAB_XS_TOP = [11.0, 25.694, 41.694, 57.694];   // 上の 4 個の X。左端は 8.1 → 11.0（左の壁の後ろの上の柱 X 〜7.7・Z 38.45〜 に 2.4 入ったため・2026-09-05）
 function sw4_tab_rects() = concat(
     [for (x = SW4_TAB_XS) [x - SW4_TAB_W / 2, x + SW4_TAB_W / 2, sw4_bz0() - SW4_BACK_FL - SW4_TAB_H, sw4_bz0() - SW4_BACK_FL + 0.5]],
-    SW4_TAB_TOP ? [for (x = SW4_TAB_XS) [x - SW4_TAB_W / 2, x + SW4_TAB_W / 2, sw4_bz1() + SW4_BACK_FL - 0.5, sw4_bz1() + SW4_BACK_FL + 2.5]] : []);
+    SW4_TAB_TOP ? [for (x = SW4_TAB_XS_TOP) [x - SW4_TAB_W / 2, x + SW4_TAB_W / 2, sw4_bz1() + SW4_BACK_FL - 0.5, sw4_bz1() + SW4_BACK_FL + 2.5]] : []);
 module sw4_tabs_2d() for (r = sw4_tab_rects()) translate([r[0], r[2]]) square([r[1] - r[0], r[3] - r[2]]);
 module sw4_floor_plate() difference() {   // 床の板（別部品）: 溝の床から内へ 1.2 ＋ 磁石の座 ＋ ロックのナットのボス
     union() {
@@ -210,6 +212,6 @@ module sw4_hatch_rim() difference() {   // ハッチ側の縁（溝の床 〜 �
 }
 // ---- 絵にだけ出す実体 ----
 module sw4_lock_screw() color("#e8e8e8") translate([sw4_lock_x(), sw4_yl(), sw4_lock_z()]) rotate([90, 0, 0]) { cylinder(d = 2.0, h = 6.0, $fn = 24); translate([0, 0, -1.3]) cylinder(d = 3.0, h = 1.3, $fn = 32); }
-module sw4_lock_nut() color("#888") translate([sw4_lock_x(), sw4_yg() - SHUT_LOCK_B, sw4_lock_z()]) rotate([-90, 0, 0]) rotate([0, 0, 30]) cylinder(d = SHUT_LOCK_NAF / cos(30), h = SHUT_LOCK_NT, $fn = 6);
+module sw4_lock_nut() color("#888") translate([sw4_lock_x(), sw4_yg() - SHUT_LOCK_B + SHUT_LOCK_FLR, sw4_lock_z()]) rotate([-90, 0, 0]) cylinder(d = SHUT_LOCK_NAF / cos(30), h = SHUT_LOCK_NT, $fn = 6);   // 二面幅を Z に（溝と同じ向き）
 module sw4_magnets_wall()    color("#c0c0c0") sw4_magnets(sw4_yg() - SHUT_MAG_H, SHUT_MAG_H);
 module sw4_magnets_shutter() color("#c0c0c0") sw4_magnets(sw4_yb(), SHUT_MAG_H);   // 蓋の中（裏面から 2.0・外面に 0.75 残る）。🔴 v4 は yb − H（ハッチの座の中）に描いていた
