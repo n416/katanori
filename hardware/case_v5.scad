@@ -546,7 +546,7 @@ module p_top() difference() {
 TC_PORT_C = [TC_AT[0] + tc_size()[2] + tc_conn()[2] / 2, IN_Y + HATCH_T / 2, TC_AT[2] + tc_size()[0] / 2];   // 板の表 ＋ 胴の高さの半分・板の長さの中央（4.92, ・, 10.75）
 TC_PORT_SZ = [3.86, 9.54];   // [X, Z]（殻 3.26 × 8.94 ＋ 片側 0.3）。基板が縦なので口は縦長（🔴 2026-09-05 まで横長に開けていた・ユーザー指摘）
 module p_hatch() difference() {
-    union() { slab_hatch(); sw4_hatch_rim(); hatch_claws(); }   // 縁（溝の床〜内面・つば・爪）と下の爪 2 つはハッチと一体
+    union() { slab_hatch(); sw4_hatch_rim(); hatch_claws(); hatch_ears_top(); hatch_ears_low(); }   // 縁（溝の床〜内面・つば・爪）・下の爪 2 つ・耳 3 つはハッチと一体
     port_cut(TC_PORT_C, TC_PORT_SZ[0], TC_PORT_SZ[1], HATCH_T, "y");
     battery_port_cut4(); sw4_band_cut(); sw4_lock_cut(); sw4_mag_window();   // 電池の口・蓋の彫り込み・ロックのねじとナット・磁石の窓
     hatch_icon_cut();
@@ -596,30 +596,31 @@ POST_W_F = 5.0;       // 前の上の柱（耳の柱）の幅。OLED の L の�
 POST_D_F_T = 8.0;     // 前の上の柱の奥行き（Y 1.0〜9.0・v4 の耳 2〜10）。ナット（二面幅を Y に）の前後に肉 1.9
 POST_T_H_F = 10.0;    // 前の上の柱の高さ（裾 Z 37.25 = ReSpeaker の板の頭 36.5 の 0.75 上）
 POST_B_H = 12.0;                       // 下の柱の高さ（v4 BOSS_B_H 12・M2×15 ＝ 床 2 ＋ 13）
-POST_T_H = 12.0;                       // 上の柱の高さ（天井から）
+POST_T_H = 9.0;                        // 後ろの上の柱の高さ（耳の下から）。12 → 9: ハッチの耳のぶん 3.2 下がった柱の裾が、蓋の縁と床の板の左端（Z 〜37.5）に入ったため（裾 38.25）
 EAR_T = 3.2;                           // フロント板の耳の厚み（v4 耳 3.2・M2×8）
 // 下の柱 3 本 [x0, y0]（左前・右前・右後ろ。左後ろは Type-C 基板の席）
 FY_IN = OUT_Y0 + FRONT_T;   // フロント板の内面 Y 1.0
 POSTS_B = [[LW_X, FY_IN], [IN_X - POST_W, FY_IN], [IN_X - POST_W, IN_Y - POST_W]];
 // 上の柱 4 本 [x0, y0, 耳の有無]（後ろ 2 本は天板 → 柱、前 2 本は 天板 → フロントの耳 → 柱）
-POSTS_T = [[LW_X, IN_Y - POST_W, false], [IN_X - POST_W, IN_Y - POST_W, false], [LW_X, FY_IN, true], [IN_X - POST_W_F, FY_IN, true]];
+POSTS_T = [[LW_X, IN_Y - POST_W, true], [IN_X - POST_W, IN_Y - POST_W, true], [LW_X, FY_IN, true], [IN_X - POST_W_F, FY_IN, true]];   // 4 本とも耳付き: 前 2 はフロントの上の耳、後ろ 2 はハッチの上の耳（🔒 ユーザー 2026-09-05「同じ仕組みでハッチにも羽根を」）
 module hex_pocket(af, t) rotate([0, 0, 30]) cylinder(d = (af + 0.1) / cos(30), h = t, $fn = 6);
 POST_D_FRONT = 4.5;   // 前の下の柱の奥行き（フロント板の内面 Y 1.0 から 5.5。ReSpeaker のボタン K1 が Y 5.6 まで来る）
-function post_dy(p) = (p[1] == FY_IN) ? (p[2] == true ? POST_D_F_T : POST_D_FRONT) : POST_W;
-function post_w(p) = (p[2] == true) ? POST_W_F : POST_W;   // 耳付き（前の上の柱）だけ細い
+function post_front(p) = (p[1] == FY_IN);
+function post_dy(p) = post_front(p) ? (p[2] == true ? POST_D_F_T : POST_D_FRONT) : POST_W;
+function post_w(p) = (post_front(p) && p[2] == true) ? POST_W_F : POST_W;   // 前の上の柱（フロントの耳付き）だけ細い
 module post_b(p) difference() {   // 下の柱: 床から POST_B_H。頭に上向きのナットのポケット・通し。前の 2 本はフロントの下の耳（EAR_T）のぶん床から浮く（v4 front_ears_low・2026-09-05 ユーザー「下も同じように止められないんですか」）
-    z0 = (p[1] == FY_IN) ? EAR_T : 0;
+    z0 = EAR_T;   // 3 本とも耳のぶん床から浮く: 前 2 はフロントの下の耳、後ろ右はハッチの下の耳（後ろ左は柱が無い）
     translate([p[0], p[1], z0]) cube([POST_W, post_dy(p), POST_B_H - z0]);
     translate([p[0] + POST_W / 2, p[1] + post_dy(p) / 2, -1]) cylinder(d = SCR_D, h = POST_B_H + 2, $fn = 24);
     translate([p[0] + POST_W / 2, p[1] + post_dy(p) / 2, POST_B_H - NUT_T]) hex_pocket(NUT_AF, NUT_T + 1);
 }
 POST_T_SKIN = 1.6;   // 上の柱: ナットの上に残す肉。ねじは上から締めるので、ナットはこの肉を掴む（🔴 上向きのポケットだと天板＋ねじ＋ナットが一緒に上へ抜ける。ユーザー 2026-09-05「前にナットと天板が上に抜けた」）
 module post_t(p) difference() {   // 上の柱: 天井から下がる。耳付きなら耳の厚みだけ低い。ナットは横差しの溝（上に肉 POST_T_SKIN）
-    zt = Z_TOP - (p[2] ? EAR_T : 0); h = p[2] ? POST_T_H_F : POST_T_H; w = post_w(p); d = post_dy(p);
+    zt = Z_TOP - (p[2] ? EAR_T : 0); h = (post_front(p) && p[2]) ? POST_T_H_F : POST_T_H; w = post_w(p); d = post_dy(p);
     cx = p[0] + w / 2; cy = p[1] + d / 2;
     translate([p[0], p[1], zt - h]) cube([w, d, h]);
     translate([cx, cy, zt - h - 1]) cylinder(d = SCR_D, h = h + 2, $fn = 24);
-    if (p[2]) {   // 前の柱（幅 5.0）: 溝は箱の内側の X の面へ開く。二面幅を Y に（通路の壁が回り止め）。外側は壁が受ける（v4 ear_col）
+    if (post_front(p)) {   // 前の柱（幅 5.0）: 溝は箱の内側の X の面へ開く。二面幅を Y に（通路の壁が回り止め）。外側は壁が受ける（v4 ear_col）
         sx = (p[0] < IN_X / 2) ? 1 : -1;
         hull() for (k = [0, sx * 10]) translate([cx + k, cy, zt - POST_T_SKIN - NUT_T]) rotate([0, 0, -30]) hex_pocket(NUT_AF, NUT_T);
     } else {      // 後ろの柱: 溝は −Y（前・箱の内側）へ開く
@@ -654,6 +655,15 @@ module front_ears_low() for (p = [POSTS_B[0], POSTS_B[1]]) difference() {
     translate([p[0], FY_IN - 0.01, 0]) cube([POST_W, post_dy(p) + 0.01, EAR_T]);
     translate([p[0] + POST_W / 2, FY_IN + post_dy(p) / 2, -1]) cylinder(d = SCR_D, h = EAR_T + 2, $fn = 24);
 }
+// ハッチの耳: 上 2 つ（天板と後ろの上の柱に挟まれる・M2×8）と下 1 つ（床と後ろ右の下の柱に挟まれる・M2×15）。左下は Type-C 基板の席で柱が無いので爪だけ
+module hatch_ears_top() for (p = [POSTS_T[0], POSTS_T[1]]) difference() {
+    translate([p[0], p[1], Z_TOP - EAR_T]) cube([post_w(p), post_dy(p) + 0.01, EAR_T]);
+    translate([p[0] + post_w(p) / 2, p[1] + post_dy(p) / 2, Z_TOP - EAR_T - 1]) cylinder(d = SCR_D, h = EAR_T + 2, $fn = 24);
+}
+module hatch_ears_low() { p = POSTS_B[2]; difference() {
+    translate([p[0], p[1], 0]) cube([POST_W, post_dy(p) + 0.01, EAR_T]);
+    translate([p[0] + POST_W / 2, p[1] + post_dy(p) / 2, -1]) cylinder(d = SCR_D, h = EAR_T + 2, $fn = 24);
+} }
 module front_ears() for (p = [POSTS_T[2], POSTS_T[3]]) difference() {
     translate([p[0], FY_IN - 0.01, Z_TOP - EAR_T]) cube([post_w(p), post_dy(p) + 0.01, EAR_T]);
     translate([p[0] + post_w(p) / 2, FY_IN + post_dy(p) / 2, Z_TOP - EAR_T - 1]) cylinder(d = SCR_D, h = EAR_T + 2, $fn = 24);

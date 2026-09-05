@@ -14,6 +14,6 @@ if (G == "tsume")  { color("#e0a040", 0.3) p_floor(); color("#27ae60", 0.3) p_ha
 if (G == "uke")    { color("#c9d0d8", 0.3) p_top(); color("#e07a5f") tgl_cradle(); one("tgl"); }   // トグルの受け
 if (G == "futa")   { one("hatchplate"); one("shutter"); one("lock"); }                          // 蓋・ロック・蓋の床の板
 if (G == "hashira") { color("#4a90d9", 0.3) p_lwall(); color("#4a90d9", 0.3) p_rwall(); color("#e07a5f") { fasten_lwall(); fasten_rwall(); } }   // 柱と棚（壁の内面）
-if (G == "mimi")   { color("#9b59b6", 0.3) p_front(); color("#e07a5f") { front_ears(); front_ears_low(); } }   // フロントの耳（上 2・下 2）
+if (G == "mimi")   { color("#9b59b6", 0.3) p_front(); color("#27ae60", 0.3) p_hatch(); color("#e07a5f") { front_ears(); front_ears_low(); hatch_ears_top(); hatch_ears_low(); } }   // 耳（フロント 4・ハッチ 3）
 if (G == "tub")    { at_btn() { btn3_tub(); btn3_switch(); btn3_sw_screws(); btn3_v_screws(); } color("#c9d0d8", 0.3) at_btn() btn3_station_add(); }   // 会話ボタンのバスタブと腕
 if (G == "uke_tc") { color("#e0a040", 0.3) p_floor(); color("#4a90d9", 0.3) p_lwall(); color("#e07a5f") { tc_seat(); tc_press(); } one("tc"); }   // Type-C 基板の受けと押さえ
