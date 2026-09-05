@@ -22,7 +22,7 @@
 //   hit_wires … 線 ↔ 中身と皮の全部の当たり。hit_w_<束> は束 1 つだけ（xiao oled as5600 pwr chg ina tgl btn2 phin phout bat batout）。only_w_<束> は束 1 つの絵
 //   （皮・板・検査の語は皮を起こすときにここへ足す。既にある語の意味は変えない）
 // ============================================================
-part = "all";
+part = "skin";
 
 use <parts/parts.scad>
 use <parts/respeaker_lite.scad>
@@ -473,7 +473,7 @@ module win_bulge2d(g = 0) offset(r = g + WIN_CL_Z, $fn = 24) oled_bulge_2d(1.0);
 module win_piece(k, g) { if (k == 0) win_rr2d(g); else win_bulge2d(g); }
 WIN_Z_OUT = 8.5 + FRONT_T - FRONT_DY;   // OLED の局所 z で板の外面（背面 8.5 ＋ 板 2.0 − 後ろへ寄せた 1.0 = 9.5）
 module p_front() difference() {
-    union() { slab_front(); front_ears(); }   // 板は Y −1.8〜1（厚み 2.8・内面 Y 1.0）
+    union() { slab_front(); front_ears(); front_ears_low(); }   // 板は Y −1.8〜1（厚み 2.8・内面 Y 1.0）。耳は上 2・下 2
     at_oled() {   // 局所 z 8.5 が板の内面・10.5 が外面
         translate([0, 0, 8.5 - FRONT_DY - 1]) linear_extrude(FRONT_T + 2) { win_rr2d(); win_bulge2d(); }   // 窓（黒枠＋隙間・角丸 WIN_CR）と下辺の張り出しの逃げ（貫通）
         for (k = [0, 1]) hull() {   // 外面のベベル 45°（PORT_BEV）: 輪郭を外へ向かって太らせる。角丸も一緒に太るので外面の角は WIN_CR + PORT_BEV の丸みになる。
@@ -607,8 +607,9 @@ module hex_pocket(af, t) rotate([0, 0, 30]) cylinder(d = (af + 0.1) / cos(30), h
 POST_D_FRONT = 4.5;   // 前の下の柱の奥行き（フロント板の内面 Y 1.0 から 5.5。ReSpeaker のボタン K1 が Y 5.6 まで来る）
 function post_dy(p) = (p[1] == FY_IN) ? (p[2] == true ? POST_D_F_T : POST_D_FRONT) : POST_W;
 function post_w(p) = (p[2] == true) ? POST_W_F : POST_W;   // 耳付き（前の上の柱）だけ細い
-module post_b(p) difference() {   // 下の柱: 床から POST_B_H。頭に上向きのナットのポケット・通し
-    translate([p[0], p[1], 0]) cube([POST_W, post_dy(p), POST_B_H]);
+module post_b(p) difference() {   // 下の柱: 床から POST_B_H。頭に上向きのナットのポケット・通し。前の 2 本はフロントの下の耳（EAR_T）のぶん床から浮く（v4 front_ears_low・2026-09-05 ユーザー「下も同じように止められないんですか」）
+    z0 = (p[1] == FY_IN) ? EAR_T : 0;
+    translate([p[0], p[1], z0]) cube([POST_W, post_dy(p), POST_B_H - z0]);
     translate([p[0] + POST_W / 2, p[1] + post_dy(p) / 2, -1]) cylinder(d = SCR_D, h = POST_B_H + 2, $fn = 24);
     translate([p[0] + POST_W / 2, p[1] + post_dy(p) / 2, POST_B_H - NUT_T]) hex_pocket(NUT_AF, NUT_T + 1);
 }
@@ -648,6 +649,11 @@ module top_screw_cuts() for (p = POSTS_T) translate([p[0] + post_w(p) / 2, p[1] 
     translate([0, 0, Z_TOP + TOP_T - SCR_CBT]) cylinder(d = SCR_CB, h = SCR_CBT + 0.01, $fn = 32);
 }
 // フロント板の耳 2 つ（天板と前の耳柱に挟まれる・通し付き）
+// フロントの下の耳 2 つ（床と前の下の柱に挟まれる・通し付き）。床の裏からの M2×15 が 床 2 ＋ 耳 3.2 ＋ 柱 8.8 を通ってナットへ
+module front_ears_low() for (p = [POSTS_B[0], POSTS_B[1]]) difference() {
+    translate([p[0], FY_IN - 0.01, 0]) cube([POST_W, post_dy(p) + 0.01, EAR_T]);
+    translate([p[0] + POST_W / 2, FY_IN + post_dy(p) / 2, -1]) cylinder(d = SCR_D, h = EAR_T + 2, $fn = 24);
+}
 module front_ears() for (p = [POSTS_T[2], POSTS_T[3]]) difference() {
     translate([p[0], FY_IN - 0.01, Z_TOP - EAR_T]) cube([post_w(p), post_dy(p) + 0.01, EAR_T]);
     translate([p[0] + post_w(p) / 2, FY_IN + post_dy(p) / 2, Z_TOP - EAR_T - 1]) cylinder(d = SCR_D, h = EAR_T + 2, $fn = 24);
