@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
 """組み立ての動きの掃引（_asm_chk_v5.scad を T を変えて回し、重なりの体積を並べる）。
-python hardware/_asm_chk_v5.py [SW ...]   … 省略で全部。結果は hardware/_tmp_v5/asm_chk/<SW>.txt と標準出力
+python hardware/tools/manual_v5/_asm_chk_v5.py [SW ...]   … 省略で全部。結果は hardware/_tmp_v5/asm_chk/<SW>.txt と標準出力
 """
 import os, subprocess, sys, concurrent.futures as cf
-HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(HERE, 'tools')); from stl_read import tris
+HERE = os.path.dirname(os.path.abspath(__file__))          # hardware/tools/manual_v5
+HW = os.path.dirname(os.path.dirname(HERE))
+sys.path.insert(0, os.path.join(HW, 'tools')); from stl_read import tris
 OPENSCAD = os.environ.get('OPENSCAD', r'C:\Program Files\OpenSCAD (Nightly)\openscad.com')
-OUT = os.path.join(HERE, '_tmp_v5', 'asm_chk'); os.makedirs(OUT, exist_ok=True)
+OUT = os.path.join(HW, '_tmp_v5', 'asm_chk'); os.makedirs(OUT, exist_ok=True)
 WIRES = '--wires' in sys.argv
 
 def frange(a, b, s):

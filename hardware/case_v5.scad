@@ -20,9 +20,14 @@
 //   only_<名> … 1 つだけ（外形を数字で取る用）。名は oled rsp hub bat ina pb tc knob btn spk tgl（基板＋その口）と hubplugs oledplug inaplug pbplug xiaoplugs knobplugs（口だけ）
 //   wires    … 中身＋線（束は丸・口の近くは 1 本ずつ扇）。wiresonly は線だけ
 //   hit_wires … 線 ↔ 中身と皮の全部の当たり。hit_w_<束> は束 1 つだけ（xiao oled as5600 pwr chg ina tgl btn2 phin phout bat batout）。only_w_<束> は束 1 つの絵
+//   print_<板>  … 刷る向き（floor top lwall rwall front hatch は外面を下・bridge は皿の裏を下。v4 と同じ）＋ 支柱とラフト（parts/props_v5_gen.scad）
+//   sk_<名>    … その 1 単位 ↔ 皮 6 枚 の当たり（0 が正。ReSpeaker の押し 0.3 は意図した当たり）
+//   seam_<板>_<板> … 板 2 枚の重なり（例 seam_top_front。0 が正）
+//   print_strap_a / print_strap_b / print_strap_c … 帯 1 本を刷る向き（直置き・足の裏が Z 0）＋ 支柱とラフト（parts/props_v5_gen.scad・python hardware/tools/props_gen.py）。素の形は -D PROPS_OFF=true
 //   （皮・板・検査の語は皮を起こすときにここへ足す。既にある語の意味は変えない）
 // ============================================================
-part = "look";
+part = "print_top";
+PROPS_OFF = false;   // true: 刷る向きの素の形（支柱・ラフト無し）。tools/props_gen.py がこれで焼いて支柱の位置を決める
 
 use <parts/parts.scad>
 use <parts/respeaker_lite.scad>
@@ -355,6 +360,12 @@ module straps() color("#ed8936") difference() {
     if (STRAP_C_POCKET > 0) translate([INA_FOOT[0] - 0.5, INA_FOOT[2] - 0.5, BAT_TOP + STRAP_T - STRAP_C_POCKET]) cube([INA_FOOT[1] - INA_FOOT[0] + 1.0, INA_FOOT[3] - INA_FOOT[2] + 1.0, STRAP_C_POCKET + 1]);
     at_ina() translate([26.0 - 1.27 - 1.0, 3.6 - 1.27 - 1.0, -HDR_POCKET_D]) cube([2.54 + 2.0, 16.4 - 3.6 + 2.54 + 2.0, HDR_POCKET_D + 1]);   // 電源ヘッダの足の列の逃げ（板の座標で彫る。板が回れば一緒に回る。🔒 ユーザー 2026-09-05「ピンヘッダ部分は 1.2mm 掘って」）
 }
+// ---- 帯 1 本だけ・刷る向き ----
+//   strap_one(k): 帯 k（ツバ込み・その帯の上に立つ電流計の軸込み）。straps() を Y の板で切る（v4 strap_one と同じ切り方・ツバ TAB_L のぶん広げる）
+//   strap_print(k): 直置き（組んだ姿勢のまま・足の裏とツバの裏が Z 0。🔒 ユーザー 2026-09-03「帯については浮かすのも傾けるのもやめましょう。柱を立てる方のパイプラインで」）。
+//     天板の裏（足と足の間 36mm のアーチ）は tools/props_gen.py が立てる柱（props_strap_*）と 0.3 のラフト（raft_strap_*）で受ける。電流計の軸は上を向くので支えは要らない
+module strap_one(k) intersection() { straps(); translate([-100, STRAP_BANDS[k][0] - TAB_L - 0.05, -100]) cube([400, STRAP_BANDS[k][1] + 2 * TAB_L + 0.1, 400]); }
+module strap_print(k) translate([0, 0, -TAB_Z0]) strap_one(k);
 // PowerBoost のダボ（天板の裏から部品面まで下りる胴 φ5.8・高さ 5.7、軸 φ2.0 が板の穴 φ2.4 を下へ貫いて E リング）。天板を描くとき天板に union する
 PB_DOWEL_D = 4.0;   // ダボの胴の径。5.8 だと足元が板の上の小さな部品（0.6〜0.7）に 2.8mm³ 乗る。4.0 で 0（2026-09-05）
 module pb_mount() color("#c9d0d8") at_pb() for (h = pb_mount()) translate([h[0], h[1], pb_pcb_t()]) { cylinder(d = PB_DOWEL_D, h = PB_CEIL_SO - pb_pcb_t() + 0.01); mirror([0, 0, 1]) e15_shaft(pb_pcb_t()); }   // 胴は部品面から天井まで 5.7・軸は板を下へ貫き E リングは板の裏（下から差せる）
@@ -740,6 +751,7 @@ module rib_free2d(k) offset(delta = -RIB_THIN) offset(r = RIB_OPEN) offset(r = -
 //   OpenSCAD の offset で座標を 100 倍に伸ばして篩う方法は精度が壊れて板の上に角が出た（2026-09-05）
 RIB_LMIN = 4.0;   // 🔒 ユーザー 2026-09-05「v4 と同じ 8mm 未満ではなく 4mm 未満にしましょう」
 include <parts/ribs_v5_gen.scad>   // RIB_SEGS
+include <parts/props_v5_gen.scad>  // props_strap_* / raft_strap_*（自動生成・python hardware/tools/props_gen.py）
 module rib_2d(k) for (s = RIB_SEGS) if (s[0] == k) { if (s[1] == 0) translate([s[3], s[2] - RIB_W / 2]) square([s[4] - s[3], RIB_W]); else translate([s[2] - RIB_W / 2, s[3]]) square([RIB_W, s[4] - s[3]]); }
 module panel_ribs(k) if (!RIBS_OFF) color("#8fb8a0") {
     if (k == "lwall") translate([LW_X + RIB_H, 0, 0]) rotate([0, -90, 0]) linear_extrude(RIB_H) rib_2d(k);
@@ -900,6 +912,32 @@ if (starts(part, "only_w_")) w_one(tail(part, 7));
 if (part == "plugs") plugs();
 if (part == "bridge") { bridge(); panel_ribs("bridge"); brg_front(); straps(); one("bat"); one("ina"); }
 if (part == "skin")   skin();
+// ---- 板 6 枚とブリッジを刷る向き（v4 と同じ）。板は外面を下（柱・棚・耳・格子・台座は全部上を向く）・ブリッジは皿の裏を下。前板（brg_front）と蓋一式（shutter_v4）は未定
+PLATES6 = ["floor", "top", "lwall", "rwall", "front", "hatch"];
+module plate_named(n) { if (n == "floor") p_floor(); if (n == "top") p_top(); if (n == "lwall") p_lwall(); if (n == "rwall") p_rwall(); if (n == "front") p_front(); if (n == "hatch") p_hatch(); }
+module skin_solid() for (n = PLATES6) plate_named(n);
+module print_floor()  translate([0, 0, FLOOR_T]) p_floor();
+module print_top()    translate([0, 0, Z_TOP + TOP_T]) rotate([180, 0, 0]) p_top();   // つまみのへこみの天井の柱とラフトは v4 と同じく生成器（props_top / raft_top）。knob_v5 の deck_props はつまみ単体の試し刷り用で、ここでは使わない（ユーザー 2026-09-05「ラフト無くなってる」「前のと違う」）
+module print_lwall()  translate([0, 0, -OUT_X0]) rotate([0, -90, 0]) { p_lwall(); panel_ribs("lwall"); }
+module print_rwall()  translate([0, 0, OUT_X1]) rotate([0, 90, 0]) { p_rwall(); panel_ribs("rwall"); }
+module print_front()  translate([0, 0, -OUT_Y0]) rotate([90, 0, 0]) { p_front(); panel_ribs("front"); }
+module print_hatch()  translate([0, 0, OUT_Y1]) rotate([-90, 0, 0]) { p_hatch(); panel_ribs("hatch"); }
+module print_bridge() translate([0, 0, -BRG_ZB]) { bridge(); panel_ribs("bridge"); }
+// 支柱を立ててはいけない体積（keepout。v4 と同じ流儀）: 板を貫く穴・口・軸の穴。tools/props_gen.py が刷る向きで焼き、柱の胴＋逃げ 0.3 が触る候補を落とす
+module keepout_top() { at_knob() { knob_station_shaft_cut(); knob_station_screw_cut(); knob_station_reed_cut(); } at_btn() btn3_station_cut(); top_screw_cuts(); spk_grille(); }   // つまみは軸・ねじ・リードの穴だけ（へこみ全体を入れると柱が全部落ちる）
+if (part == "keepout_top") translate([0, 0, Z_TOP + TOP_T]) rotate([180, 0, 0]) keepout_top();
+if (part == "print_floor")  { print_floor();  if (!PROPS_OFF) { props_floor();  raft_floor(); } }
+if (part == "print_top")    { print_top();    if (!PROPS_OFF) { props_top();    raft_top(); } }
+if (part == "print_lwall")  { print_lwall();  if (!PROPS_OFF) { props_lwall();  raft_lwall(); } }
+if (part == "print_rwall")  { print_rwall();  if (!PROPS_OFF) { props_rwall();  raft_rwall(); } }
+if (part == "print_front")  { print_front();  if (!PROPS_OFF) { props_front();  raft_front(); } }
+if (part == "print_hatch")  { print_hatch();  if (!PROPS_OFF) { props_hatch();  raft_hatch(); } }
+if (part == "print_bridge") { print_bridge(); if (!PROPS_OFF) { props_bridge(); raft_bridge(); } }
+if (starts(part, "sk_"))   intersection() { one(tail(part, 3)); skin_solid(); }
+if (starts(part, "seam_")) { ab = tail(part, 5); k = search("_", ab)[0]; a = _join([for (i = [0 : k - 1]) ab[i]]); b = _join([for (i = [k + 1 : len(ab) - 1]) ab[i]]); intersection() { plate_named(a); plate_named(b); } }
+if (part == "print_strap_a") { strap_print(0); if (!PROPS_OFF) { props_strap_a(); raft_strap_a(); } }
+if (part == "print_strap_b") { strap_print(1); if (!PROPS_OFF) { props_strap_b(); raft_strap_b(); } }
+if (part == "print_strap_c") { strap_print(2); if (!PROPS_OFF) { props_strap_c(); raft_strap_c(); } }
 if (part == "p_floor") color("#e0a040") p_floor();
 if (part == "p_top")   color("#c9d0d8") p_top();
 if (part == "p_lwall") { color("#4a90d9") p_lwall(); panel_ribs("lwall"); }

@@ -1,7 +1,7 @@
 // ============================================================
 // 組み立ての動きの検査 v5（2026-09-05）。筐体の部品ではない・マニュアル（docs/manual/assembly_v5.html）の手順が
 // 「その動きで本当に入るか」を、動く物を道に沿って T だけずらした姿と、その手順の時点で箱に在る物との重なり（体積）で見る。
-//   実行: openscad --backend=manifold -D 'SW="st6"' -D 'T=5' -o x.stl hardware/_asm_chk_v5.scad → tools/stl_vol.py で体積（0 が正）
+//   実行: openscad --backend=manifold -D 'SW="st6"' -D 'T=5' -o x.stl hardware/tools/manual_v5/_asm_chk_v5.scad → tools/stl_vol.py で体積（0 が正）
 //   SW と道（T の意味）:
 //     st2   ReSpeaker を上から座へ        T = 上へ [mm]       相手: 床・ハブ基板
 //     st4l  左の壁を左から               T = 左へ [mm]       相手: 床・ハブ（口込み）・ReSpeaker（XIAO の口込み）
@@ -19,7 +19,7 @@
 //     st13y ハッチ一式を真後ろへ         T = 後ろへ [mm]     相手: 全部（垂直のまま後ろから前へ押す動き）
 //   WIRES=true で線（最終の形）も相手に足す
 // ============================================================
-include <case_v5.scad>
+include <../../case_v5.scad>
 part = "none";
 SW = ""; T = 0; WIRES = false; LOOK = "";
 

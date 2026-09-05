@@ -1,35 +1,36 @@
 # -*- coding: utf-8 -*-
 # 組み立てマニュアル v5（docs/manual/assembly_v5.html）を case_v5.scad から作る道具。
 #
-#   python hardware/_asm_manual_v5.py             挿絵を出し直して HTML を書く
-#   python hardware/_asm_manual_v5.py --no-render 挿絵はそのままで HTML だけ書き直す
+#   python hardware/tools/manual_v5/_asm_manual_v5.py             挿絵を出し直して HTML を書く
+#   python hardware/tools/manual_v5/_asm_manual_v5.py --no-render 挿絵はそのままで HTML だけ書き直す
 #
-# 手順は 1 か所（下の STEPS）にしか無い。段の絵は hardware/_asm_sim_v5.scad の upto()。
-# 呼び名の絵は hardware/_asm_gloss_v5.scad。線の長さは case_v5 の束（WIRE_LEN=true の echo）から取る。
+# 手順は 1 か所（下の STEPS）にしか無い。段の絵は同じ場所の _asm_sim_v5.scad の upto()。
+# 呼び名の絵は _asm_gloss_v5.scad。この場所（hardware/tools/manual_v5/）はマニュアルの道具だけ。筐体の部品ではない。線の長さは case_v5 の束（WIRE_LEN=true の echo）から取る。
 # ハブの口の図と表は v4 の道具（frozen/v1-v4/_asm_manual_v4.py の hub_map_svg / pin_table / xiao_svg）を借りる
 # ——ハブ基板そのものは v4 と同じ板なので、口の並びと相手は変わらない。
 import base64, math, os, re, subprocess, sys
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.dirname(HERE)
-sys.path.insert(0, os.path.join(HERE, 'parts'))              # hub_ports
-sys.path.insert(0, os.path.join(HERE, 'frozen', 'v1-v4'))    # _asm_manual_v4（CSS・口の表）
+HERE = os.path.dirname(os.path.abspath(__file__))          # hardware/tools/manual_v5
+HW = os.path.dirname(os.path.dirname(HERE))                  # hardware
+ROOT = os.path.dirname(HW)
+sys.path.insert(0, os.path.join(HW, 'parts'))                # hub_ports
+sys.path.insert(0, os.path.join(HW, 'frozen', 'v1-v4'))      # _asm_manual_v4（CSS・口の表）
 import hub_ports
 import _asm_manual_v4 as V4
 
 IMGDIR = os.path.join(ROOT, 'docs', 'manual', '_manual_img_v5')
 OUT = os.path.join(ROOT, 'docs', 'manual', 'assembly_v5.html')
-TMP = os.path.join(HERE, '_tmp_v5')
+TMP = os.path.join(HW, '_tmp_v5')
 OPENSCAD = os.environ.get('OPENSCAD', r'C:\Program Files\OpenSCAD (Nightly)\openscad.com')
 
 N_STEPS = 13
 CAM = ['--projection=p', '--camera=43,36,22,58,0,205,330', '--imgsize=1100,850']
 SEQ = ['st%d' % n for n in range(1, N_STEPS + 1)]
-WIDE = [('explode', 'case_v5.scad', 'part', 'explode', '0,0,0,62,0,42,0'),
-        ('look',    'case_v5.scad', 'part', 'look',    '0,0,0,60,0,25,0'),
+WIDE = [('explode', os.path.join(HW, 'case_v5.scad'), 'part', 'explode', '0,0,0,62,0,42,0'),
+        ('look',    os.path.join(HW, 'case_v5.scad'), 'part', 'look',    '0,0,0,60,0,25,0'),
         ('wires',   '_asm_sim_v5.scad', 'ST', 'wires', '0,0,0,58,0,205,0'),
         ('door',    '_asm_sim_v5.scad', 'ST', 'door',  '0,0,0,60,0,25,0'),
-        ('knob',    'parts/knob_v5.scad', 'part', 'explode', '0,0,0,62,0,35,0')]
+        ('knob',    os.path.join(HW, 'parts', 'knob_v5.scad'), 'part', 'explode', '0,0,0,62,0,35,0')]
 FIXED = [('topsub', '_asm_sim_v5.scad', 'ST', 'topsub', '43,36,22,120,0,25,330'),
          ('claw',   '_asm_sim_v5.scad', 'ST', 'claw',   '64,70,10,70,0,200,120')]
 GLOSS_IMGS = ['sara', 'obi', 'maeita', 'dote', 'yokan', 'za', 'L', 'tsume', 'uke', 'futa', 'hashira', 'mimi', 'tub', 'uke_tc']
@@ -342,7 +343,7 @@ BODY = """
   <p class="eyebrow">katanori &middot; enclosure v5</p>
   <h1>カタノリ v5<br><em>組み立て</em></h1>
   <p class="sub">上から順にやれば組める。<b>順番を変えると入らない物がある</b>ので、その理由を各手順の「なぜ」に書いた。
-  図面は <b>hardware/case_v5.scad</b>、線は同じファイルの束、この手順の絵は <b>hardware/_asm_sim_v5.scad</b>。</p>
+  図面は <b>hardware/case_v5.scad</b>、線は同じファイルの束、この手順の絵は <b>hardware/tools/manual_v5/_asm_sim_v5.scad</b>。</p>
   <nav class="rail">__NAV__</nav>
 </header>
 

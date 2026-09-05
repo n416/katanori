@@ -1,6 +1,6 @@
 // 組み立てマニュアル v5 の「部品の呼び名」の挿絵。筐体の部品ではない・絵だけの道具
-//   openscad --backend=manifold --render=full --autocenter --viewall -D 'G="obi"' -o x.png hardware/_asm_gloss_v5.scad
-include <case_v5.scad>
+//   openscad --backend=manifold --render=full --autocenter --viewall -D 'G="obi"' -o x.png hardware/tools/manual_v5/_asm_gloss_v5.scad
+include <../../case_v5.scad>
 part = "none";
 G = "";
 if (G == "sara")   { color("#c9a45c") bridge(); }                                              // 皿と腕（ブリッジ）

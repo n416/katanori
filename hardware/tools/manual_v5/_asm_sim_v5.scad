@@ -1,9 +1,9 @@
 // ============================================================
 // 組み立てシミュレーション v5（2026-09-05）。筐体の部品ではない・マニュアルの挿絵だけの道具
 //   ST="st1" 〜 "st13" で「その手順を終えたときに在る物」を出す（番号は docs/manual/assembly_v5.html と同じ）。
-//   実行: openscad --backend=manifold --render=full -D 'ST="st6"' -o x.png hardware/_asm_sim_v5.scad
+//   実行: openscad --backend=manifold --render=full -D 'ST="st6"' -o x.png hardware/tools/manual_v5/_asm_sim_v5.scad
 // ============================================================
-include <case_v5.scad>
+include <../../case_v5.scad>
 part = "none";   // case_v5 の描画スイッチを止める（include の後の代入が勝つ）
 ST   = "";
 
