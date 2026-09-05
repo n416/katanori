@@ -20,13 +20,13 @@
 //   only_<名> … 1 つだけ（外形を数字で取る用）。名は oled rsp hub bat ina pb tc knob btn spk tgl（基板＋その口）と hubplugs oledplug inaplug pbplug xiaoplugs knobplugs（口だけ）
 //   wires    … 中身＋線（束は丸・口の近くは 1 本ずつ扇）。wiresonly は線だけ
 //   hit_wires … 線 ↔ 中身と皮の全部の当たり。hit_w_<束> は束 1 つだけ（xiao oled as5600 pwr chg ina tgl btn2 phin phout bat batout）。only_w_<束> は束 1 つの絵
-//   print_<板>  … 刷る向き（floor top lwall rwall front hatch は外面を下・bridge は皿の裏を下。v4 と同じ）＋ 支柱とラフト（parts/props_v5_gen.scad）
+//   print_<板>  … 刷る向き（floor top lwall rwall front hatch は外面を下・bridge は皿の裏を下・brgfront は前の面を下・shutter lock shutfloor は外面/溝の床を下。v4 と同じ。つまみは parts/knob_v5.scad、会話ボタンは parts/btn_v3.scad の print_piston / print_tub をそのファイルで焼く）＋ 支柱とラフト（parts/props_v5_gen.scad）
 //   sk_<名>    … その 1 単位 ↔ 皮 6 枚 の当たり（0 が正。ReSpeaker の押し 0.3 は意図した当たり）
 //   seam_<板>_<板> … 板 2 枚の重なり（例 seam_top_front。0 が正）
 //   print_strap_a / print_strap_b / print_strap_c … 帯 1 本を刷る向き（直置き・足の裏が Z 0）＋ 支柱とラフト（parts/props_v5_gen.scad・python hardware/tools/props_gen.py）。素の形は -D PROPS_OFF=true
 //   （皮・板・検査の語は皮を起こすときにここへ足す。既にある語の意味は変えない）
 // ============================================================
-part = "print_top";
+part = "look";
 PROPS_OFF = false;   // true: 刷る向きの素の形（支柱・ラフト無し）。tools/props_gen.py がこれで焼いて支柱の位置を決める
 
 use <parts/parts.scad>
@@ -260,7 +260,7 @@ BR_Y0 = TRAY_Y0;       BR_Y1 = TRAY_Y0 + lipo_size()[0] + 2.0;   // 皿の Y 12.
 ARM_Y = [50.5, 62.9];                 // 壁への帯の Y（v4 と同じ・幅 12.4・左右とも）。
 // 帯の両端を壁の棚へ M2×6 で留める（v4 と同じ流儀: ブリッジ側は通し φ2.3＋座ぐり φ4.4×1.6、ナットは壁の棚の中＝皮を描くときに彫る）。2026-09-05
 BRG_ANCH = [[LW_X + 3.5, (ARM_Y[0] + ARM_Y[1]) / 2], [IN_X - 3.5, (ARM_Y[0] + ARM_Y[1]) / 2]];   // ねじの芯 [X, Y]: 壁の内面から 3.5
-BRG_ANCH_D = 2.3; BRG_ANCH_CB = 4.4; BRG_ANCH_CBH = 1.6;   // （🔒 ユーザー 2026-09-05「奥のクソ細い橋は却下」。帯はつまみの口（X 58.7〜68.8・Y 〜49.8・Z 19〜）の後ろを通る）
+BRG_ANCH_D = 2.3; BRG_ANCH_CB = 4.4; BRG_ANCH_CBH = 0.6;   // 座ぐりの深さ 1.6 → 0.6（2026-09-05）: 腕は 2.0 厚なので 1.6 だと底が 0.4 しか残らず印刷の下限 0.42 を割る。腕の上は箱の中で頭が 0.7 出ても当たる物が無い   // （🔒 ユーザー 2026-09-05「奥のクソ細い橋は却下」。帯はつまみの口（X 58.7〜68.8・Y 〜49.8・Z 19〜）の後ろを通る）
 // ---- 前板（v4 の brg_front と同じ形・🔒 ユーザー 2026-09-05「v4 と同じ支え板を設置」）----
 //   首 23 × 2.0 が床の溝に立ち、皿を貫く抜きを通って、皿の裏の掘り込み（1.0）にフランジ（1.0 厚・奥行き 6）が沈む。上は返し（1.0 厚・電池の高さ 6）。ねじ無し（前へ倒れるとフランジが掘り込みの天井に、後ろへ倒れると首が抜きの奥に当たる）
 LEG_X0 = BAT_X0 + 6;                  // 17.5（v4: 意匠の引っ込み 6）
@@ -594,7 +594,8 @@ module tgl_cradle() { x0 = TGL_AT[0] - mts102_d() / 2 - CRADLE_CL; x1 = TGL_AT[0
     for (x = [x0 - CRADLE_T, x1]) translate([x, yf - CRADLE_T, CRADLE_Z0]) cube([CRADLE_T, CRADLE_Y1 - (yf - CRADLE_T), Z_TOP + 0.01 - CRADLE_Z0]);   // 両側の壁
     for (r = [[x0 - CRADLE_T, TGL_AT[0] - CRADLE_GAP], [TGL_AT[0] + CRADLE_GAP, x1 + CRADLE_T]]) translate([r[0], yf - CRADLE_T, CRADLE_Z0]) cube([r[1] - r[0], CRADLE_T, Z_TOP + 0.01 - CRADLE_Z0]);   // 前の当て（端子の両脇）
 }
-module p_floor() difference() { union() { slab_floor(); tc_seat(); hub_posts(); rsp_seat(); oled_rib(); hatch_strip(); } floor_screw_cuts(); hub_screw_cuts(); claw_pockets(); }   // Type-C の受け・ハブの柱・ReSpeaker の座・OLED のリブ・ハッチの爪の帯は床と一体
+module floor_bosses() for (p = POSTS_B) translate([p[0], p[1], -0.01]) cube([POST_W, post_dy(p), FLOOR_BOSS + 0.01]);   // 耳の下の台（柱と同じ足跡）
+module p_floor() difference() { union() { slab_floor(); tc_seat(); hub_posts(); rsp_seat(); oled_rib(); hatch_strip(); floor_bosses(); } floor_screw_cuts(); hub_screw_cuts(); claw_pockets(); }   // Type-C の受け・ハブの柱・ReSpeaker の座・OLED のリブ・ハッチの爪の帯は床と一体
 // 刷る部品ごとの色（同じ色 = 同じ部品として刷る）
 module skin(a = 0.5) { color("#e0a040", a) p_floor(); color("#c9d0d8", a) p_top(); color("#4a90d9", a) p_lwall(); color("#4a90d9", a) p_rwall(); color("#9b59b6", a) p_front(); color("#27ae60", a) p_hatch(); ribs(); }   // リブ込み（skin / all で見える）
 
@@ -609,6 +610,7 @@ POST_T_H_F = 10.0;    // 前の上の柱の高さ（裾 Z 37.25 = ReSpeaker の�
 POST_B_H = 12.0;                       // 下の柱の高さ（v4 BOSS_B_H 12・M2×15 ＝ 床 2 ＋ 13）
 POST_T_H = 9.0;                        // 後ろの上の柱の高さ（耳の下から）。12 → 9: ハッチの耳のぶん 3.2 下がった柱の裾が、蓋の縁と床の板の左端（Z 〜37.5）に入ったため（裾 38.25）
 EAR_T = 3.2;                           // フロント板の耳の厚み（v4 耳 3.2・M2×8）
+FLOOR_BOSS = 1.0;                      // 下の柱 3 本の耳の下に足す床の台（🔒 ユーザー 2026-09-05「耳の下に 1.0 の台を床に足す」: ねじの座ぐり 1.6 が床 2.0 に残す底 0.4 を 1.4 にする。耳は 1.0 上がり、柱は 1.0 短い。ねじは M2×15 のまま）
 // 下の柱 3 本 [x0, y0]（左前・右前・右後ろ。左後ろは Type-C 基板の席）
 FY_IN = OUT_Y0 + FRONT_T;   // フロント板の内面 Y 1.0
 POSTS_B = [[LW_X, FY_IN], [IN_X - POST_W, FY_IN], [IN_X - POST_W, IN_Y - POST_W]];
@@ -620,7 +622,7 @@ function post_front(p) = (p[1] == FY_IN);
 function post_dy(p) = post_front(p) ? (p[2] == true ? POST_D_F_T : POST_D_FRONT) : POST_W;
 function post_w(p) = (post_front(p) && p[2] == true) ? POST_W_F : POST_W;   // 前の上の柱（フロントの耳付き）だけ細い
 module post_b(p) difference() {   // 下の柱: 床から POST_B_H。頭に上向きのナットのポケット・通し。前の 2 本はフロントの下の耳（EAR_T）のぶん床から浮く（v4 front_ears_low・2026-09-05 ユーザー「下も同じように止められないんですか」）
-    z0 = EAR_T;   // 3 本とも耳のぶん床から浮く: 前 2 はフロントの下の耳、後ろ右はハッチの下の耳（後ろ左は柱が無い）
+    z0 = EAR_T + FLOOR_BOSS;   // 3 本とも 床の台 1.0 ＋ 耳 3.2 のぶん床から浮く: 前 2 はフロントの下の耳、後ろ右はハッチの下の耳（後ろ左は柱が無い）
     translate([p[0], p[1], z0]) cube([POST_W, post_dy(p), POST_B_H - z0]);
     translate([p[0] + POST_W / 2, p[1] + post_dy(p) / 2, -1]) cylinder(d = SCR_D, h = POST_B_H + 2, $fn = 24);
     translate([p[0] + POST_W / 2, p[1] + post_dy(p) / 2, POST_B_H - NUT_T]) hex_pocket(NUT_AF, NUT_T + 1);
@@ -663,8 +665,8 @@ module top_screw_cuts() for (p = POSTS_T) translate([p[0] + post_w(p) / 2, p[1] 
 // フロント板の耳 2 つ（天板と前の耳柱に挟まれる・通し付き）
 // フロントの下の耳 2 つ（床と前の下の柱に挟まれる・通し付き）。床の裏からの M2×15 が 床 2 ＋ 耳 3.2 ＋ 柱 8.8 を通ってナットへ
 module front_ears_low() for (p = [POSTS_B[0], POSTS_B[1]]) difference() {
-    translate([p[0], FY_IN - 0.01, 0]) cube([POST_W, post_dy(p) + 0.01, EAR_T]);
-    translate([p[0] + POST_W / 2, FY_IN + post_dy(p) / 2, -1]) cylinder(d = SCR_D, h = EAR_T + 2, $fn = 24);
+    translate([p[0], FY_IN - 0.01, FLOOR_BOSS]) cube([POST_W, post_dy(p) + 0.01, EAR_T]);   // 床の台の上
+    translate([p[0] + POST_W / 2, FY_IN + post_dy(p) / 2, -1]) cylinder(d = SCR_D, h = FLOOR_BOSS + EAR_T + 2, $fn = 24);
 }
 // ハッチの耳: 上 2 つ（天板と後ろの上の柱に挟まれる・M2×8）と下 1 つ（床と後ろ右の下の柱に挟まれる・M2×15）。左下は Type-C 基板の席で柱が無いので爪だけ
 module hatch_ears_top() for (p = [POSTS_T[0], POSTS_T[1]]) difference() {
@@ -672,8 +674,8 @@ module hatch_ears_top() for (p = [POSTS_T[0], POSTS_T[1]]) difference() {
     translate([p[0] + post_w(p) / 2, p[1] + post_dy(p) / 2, Z_TOP - EAR_T - 1]) cylinder(d = SCR_D, h = EAR_T + 2, $fn = 24);
 }
 module hatch_ears_low() { p = POSTS_B[2]; difference() {
-    translate([p[0], p[1], 0]) cube([POST_W, post_dy(p) + 0.01, EAR_T]);
-    translate([p[0] + POST_W / 2, p[1] + post_dy(p) / 2, -1]) cylinder(d = SCR_D, h = EAR_T + 2, $fn = 24);
+    translate([p[0], p[1], FLOOR_BOSS]) cube([POST_W, post_dy(p) + 0.01, EAR_T]);   // 床の台の上
+    translate([p[0] + POST_W / 2, p[1] + post_dy(p) / 2, -1]) cylinder(d = SCR_D, h = FLOOR_BOSS + EAR_T + 2, $fn = 24);
 } }
 module front_ears() for (p = [POSTS_T[2], POSTS_T[3]]) difference() {
     translate([p[0], FY_IN - 0.01, Z_TOP - EAR_T]) cube([post_w(p), post_dy(p) + 0.01, EAR_T]);
@@ -926,6 +928,15 @@ module print_bridge() translate([0, 0, -BRG_ZB]) { bridge(); panel_ribs("bridge"
 // 支柱を立ててはいけない体積（keepout。v4 と同じ流儀）: 板を貫く穴・口・軸の穴。tools/props_gen.py が刷る向きで焼き、柱の胴＋逃げ 0.3 が触る候補を落とす
 module keepout_top() { at_knob() { knob_station_shaft_cut(); knob_station_screw_cut(); knob_station_reed_cut(); } at_btn() btn3_station_cut(); top_screw_cuts(); spk_grille(); }   // つまみは軸・ねじ・リードの穴だけ（へこみ全体を入れると柱が全部落ちる）
 if (part == "keepout_top") translate([0, 0, Z_TOP + TOP_T]) rotate([180, 0, 0]) keepout_top();
+// 前板と蓋の 3 点（v4 と同じ向き・🔒 ユーザー 2026-09-05「v4 と同じ方向でいいよ」）: 前板は前の面を下（フランジと返しは上を向く）、蓋とロックはハッチの外面を下、床の板は溝の床の面を下
+module print_brgfront()  translate([0, 0, -FP_Y0]) rotate([90, 0, 0]) brg_front();
+module print_shutter()   translate([0, 0, SW4_YOUT]) rotate([-90, 0, 0]) battery_shutter4(0);
+module print_lock()      translate([0, 0, SW4_YOUT]) rotate([-90, 0, 0]) battery_lock4();
+module print_shutfloor() translate([0, 0, sw4_yg()]) rotate([-90, 0, 0]) difference() { sw4_floor_plate(); tgl_plate_notch(); }
+if (part == "print_brgfront")  print_brgfront();
+if (part == "print_shutter")   print_shutter();
+if (part == "print_lock")      print_lock();
+if (part == "print_shutfloor") print_shutfloor();
 if (part == "print_floor")  { print_floor();  if (!PROPS_OFF) { props_floor();  raft_floor(); } }
 if (part == "print_top")    { print_top();    if (!PROPS_OFF) { props_top();    raft_top(); } }
 if (part == "print_lwall")  { print_lwall();  if (!PROPS_OFF) { props_lwall();  raft_lwall(); } }
