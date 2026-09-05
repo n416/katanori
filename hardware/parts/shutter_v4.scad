@@ -168,7 +168,14 @@ SW4_BACK_FL = 1.0;   // つばの出
 SW4_BACK_CL = 0.3;   // 当たる部品との隙間
 module sw4_dilate(cl) for (d = [[0, 0, 0], [cl, 0, 0], [-cl, 0, 0], [0, cl, 0], [0, -cl, 0], [0, 0, cl], [0, 0, -cl]]) translate(d) children();
 module sw4_backing_carve(cl) sw4_dilate(cl) sw4_carve_targets();   // 当たる相手は case_v5 の sw4_carve_targets() が持つ（v5: Type-C 基板）
-SW4_REG_H  = 1.0;  SW4_REG_W  = 3.0;  SW4_REG_L  = 1.0;  SW4_REG_CL = 0.25;   // 位置決めの爪
+// 位置決めの爪 2 個（ハッチの縁に立ち、床の板の欠きに入る。貼るとき磁石とねじ無しで位置が決まる。🔒 ユーザー 2026-09-05「なら戻そう」）
+//   爪はハッチ側（板側に立てると寝かせて刷るとき爪が最下層になり板の本体が一度に現れる）
+SW4_REG_H  = 1.0;  SW4_REG_W  = 3.0;  SW4_REG_L  = 1.0;  SW4_REG_CL = 0.25;
+SW4_REG_BX = 30.0;   // ② の X の中心
+module sw4_reg_2d(g) {
+    translate([sw4_bx0() - SW4_BACK_FL - g, sw4_mag_z() - SW4_REG_W / 2 - g]) square([SW4_REG_L + 2 * g, SW4_REG_W + 2 * g]);   // ① 左の端
+    translate([SW4_REG_BX - SW4_REG_W / 2 - g, sw4_bz0() - SW4_BACK_FL - g]) square([SW4_REG_W + 2 * g, SW4_REG_L + 2 * g]);   // ② 下の帯
+}
 module sw4_rrect2d(x0, x1, z0, z1, r) hull() for (x = [x0 + r, x1 - r], z = [z0 + r, z1 - r]) translate([x, z]) circle(r = r, $fn = 48);
 module sw4_flange_2d() union() {
     sw4_rrect2d(sw4_bx0() - SW4_BACK_FL, sw4_bx1() + SW4_BACK_FL, sw4_bz0() - SW4_BACK_FL, sw4_bz1() + SW4_BACK_FL, SHUT_R + SW4_BACK_FL);
@@ -181,25 +188,20 @@ function sw4_tab_rects() = concat(
     [for (x = SW4_TAB_XS) [x - SW4_TAB_W / 2, x + SW4_TAB_W / 2, sw4_bz0() - SW4_BACK_FL - SW4_TAB_H, sw4_bz0() - SW4_BACK_FL + 0.5]],
     [for (x = SW4_TAB_XS) [x - SW4_TAB_W / 2, x + SW4_TAB_W / 2, sw4_bz1() + SW4_BACK_FL - 0.5, sw4_bz1() + SW4_BACK_FL + SW4_TAB_H_TOP]]);
 module sw4_tabs_2d() for (r = sw4_tab_rects()) translate([r[0], r[2]]) square([r[1] - r[0], r[3] - r[2]]);
-SW4_REG_BX = 30.0;
-module sw4_reg_2d(g) {
-    translate([sw4_bx0() - SW4_BACK_FL - g, sw4_mag_z() - SW4_REG_W / 2 - g]) square([SW4_REG_L + 2 * g, SW4_REG_W + 2 * g]);
-    translate([SW4_REG_BX - SW4_REG_W / 2 - g, sw4_bz0() - SW4_BACK_FL - g]) square([SW4_REG_W + 2 * g, SW4_REG_L + 2 * g]);
-}
 module sw4_floor_plate() difference() {   // 床の板（別部品）: 溝の床から内へ 1.2 ＋ 磁石の座 ＋ ロックのナットのボス
     union() {
         sw4_ext(IN_Y - SHUT_BACK, SHUT_BACK - (IN_Y - sw4_yg())) sw4_flange_2d();
         sw4_lock_boss();
         for (x = sw4_mag_xs()) translate([x, sw4_yg() - SHUT_MAG_H - 0.4, sw4_mag_z()]) rotate([-90, 0, 0]) cylinder(d = SHUT_MAG_D + 2.0, h = SHUT_MAG_H + 0.4 - 0.01, $fn = 48);
     }
-    sw4_ext(IN_Y - SHUT_BACK - 1, SHUT_BACK + 2) sw4_reg_2d(SW4_REG_CL);
+    sw4_ext(IN_Y - SHUT_BACK - 1, SHUT_BACK + 2) sw4_reg_2d(SW4_REG_CL);   // 爪が入る欠き（貫通）
     sw4_backing_carve(SW4_BACK_CL);
     battery_port_cut4(); sw4_lock_cut(); sw4_mag_window();   // 電池の口・ロックのねじとナット・磁石の窓（ハッチと同じ物を床の板にも）
 }
 module sw4_hatch_rim() difference() {   // ハッチ側の縁（溝の床 〜 内面）＋ 位置決めの爪 2 個
     union() {
         sw4_ext(sw4_yg(), IN_Y - sw4_yg()) sw4_flange_2d();
-        sw4_ext(sw4_yg() - SW4_REG_H, SW4_REG_H) sw4_reg_2d(0);
+        sw4_ext(sw4_yg() - SW4_REG_H, SW4_REG_H) sw4_reg_2d(0);   // 位置決めの爪 2 個（溝の床から板の側へ 1.0）
     }
     sw4_backing_carve(SW4_BACK_CL);
 }
