@@ -26,7 +26,7 @@
 //   print_strap_a / print_strap_b / print_strap_c … 帯 1 本を刷る向き（直置き・足の裏が Z 0）＋ 支柱とラフト（parts/props_v5_gen.scad・python hardware/tools/props_gen.py）。素の形は -D PROPS_OFF=true
 //   （皮・板・検査の語は皮を起こすときにここへ足す。既にある語の意味は変えない）
 // ============================================================
-part = "skin";
+part = "look";
 PROPS_OFF = false;   // true: 刷る向きの素の形（支柱・ラフト無し）。tools/props_gen.py がこれで焼いて支柱の位置を決める
 
 use <parts/parts.scad>
@@ -204,9 +204,9 @@ function ina_pwr_yaw(j) = is_list(INA_PWR_YAW) ? INA_PWR_YAW[j] : INA_PWR_YAW;
 module ina_pwr_plug() at_ina() for (j = [0 : 3]) let (q = ina_pwr_pins()[j]) translate([q[0] + 1.27, q[1], 1.6 + 2.5 + 1.27]) rotate([0, 0, ina_pwr_yaw(j)]) rotate([0, 90, 0]) plug(1, INA_PWR_EXIT);   // ピンの芯は板 1.6 ＋ 樹脂 2.5 ＋ 1.27。根元で INA_PWR_YAW だけ振る
 // PowerBoost: JP2 の L 字（pb_ra_pwr() 3 本 ＋ pb_ra_chg() 2 本・ピンは板の上を +y へ水平・芯 z = 1.6 + 2.5）。ハウジングは 1 本ずつ。線は上（+Z）へ曲がる
 module pb_plug() at_pb() for (i = concat(pb_ra_pwr(), pb_ra_chg())) translate([pb_jp2_x0() + i * 2.54, 0, 1.6 + 2.5]) rotate([90, 0, 0]) plug(1, [0, -1]);   // L 字は縁の外（局所 −y）へ水平。樹脂の外面 y=0。線は下（−Z・部品面が上なので天井を避ける）へ曲がる
-// XIAO: 2 列 × 使う本数（下の列 3 本・上の列 4 本）。ヘッダは XIAO の上（面から 1.4+2.5）・ハウジングは XIAO 面から真上（後ろ）へ
+// XIAO: 2 列 × 使う本数（🔒 2026-09-06 下の列 = 信号 4 本・上の列 = 電源 3 本。公式ピン配置を USB-C 左に回した向き＝マニュアル手順 2。それまで逆に置いていた）。ヘッダは XIAO の上（面から 1.4+2.5）・ハウジングは XIAO 面から真上（後ろ）へ
 //   線は低い車線（Z 19 前後）へ: 上の列は下へ、下の列は上へ曲がる
-module xiao_plugs() at_rsp() for (r = [0, 1]) { z = [9.397, 24.627][r]; used = [[0, 1, 2], [2, 3, 4, 5]][r];
+module xiao_plugs() at_rsp() for (r = [0, 1]) { z = [9.397, 24.627][r]; used = [[2, 3, 4, 5], [0, 1, 2]][r];
     x0 = 2.932 + used[0] * 2.54;
     translate([x0, -(1.4 + 2.5), z]) rotate([90, 0, 0]) plug(len(used), (r == 0) ? [0, 1] : [0, -1]); }   // 局所 +z → −Y（後ろ）・局所 +y → +Z
 // つまみ AS5600: 板の裏から下へ 2 列（左 2 本・右 3 本）
@@ -803,7 +803,7 @@ function hub_h(id) = [for (h = HUB_HEADERS) if (h[0] == id) h][0];
 function hub_part(id) = [for (h = HUB_PARTS) if (h[0] == id) h][0];
 function hub_mouth(id, k) = let (h = hub_h(id), ax = (h[6] - h[4]) >= (h[7] - h[5])) W_hub([h[4] + (ax ? k * 2.54 : 0), h[5] + (ax ? 0 : k * 2.54), 1.6 + 2.5 + dupont_h()]);   // ピン k のハウジングの頭・軸は +Z
 function ph_mouth(id) = let (h = hub_part(id)) W_hub([(h[3] + h[5]) / 2, (h[4] + h[6]) / 2, 1.6 + h[7] + 2.0]);   // PH のソケットの上 2.0（プラグの頭）・線は上へ
-function xiao_mouth(r, k) = let (used = [[0, 1, 2], [2, 3, 4, 5]][r]) W_rsp([2.932 + used[k] * 2.54, -(1.4 + 2.5) - dupont_h(), [9.397, 24.627][r]]);   // 軸は世界 +Y
+function xiao_mouth(r, k) = let (used = [[2, 3, 4, 5], [0, 1, 2]][r]) W_rsp([2.932 + used[k] * 2.54, -(1.4 + 2.5) - dupont_h(), [9.397, 24.627][r]]);   // 軸は世界 +Y
 function oled_mouth(k) = let (c = oled_hdr()) W_oled([c[0] - 1.5 * 2.54 + k * 2.54, c[1], oled_hous_z_top()]);   // 軸は世界 +Y
 function ina_i2c_mouth() = let (hd = ina_hdr()) W_ina([hd[0] + hd[4] - dupont_h(), hd[2] + 1.27 + 1.5 * 2.54, 1.6 + 2.5]);   // 4 本の中心・軸は W_ina_d([-1,0,0])
 function ina_pwr_mouth(j) = let (q = ina_pwr_pins()[j]) W_ina([q[0] + 1.27, q[1], 1.6 + 2.5 + 1.27] + rotz([dupont_h(), 0, 0], ina_pwr_yaw(j)));   // j 0,1 = INPUT / 2,3 = OUTPUT・軸は ina_pwr_ax(j)（ピンごとの振り INA_PWR_YAW 込み）
@@ -825,12 +825,12 @@ module w1(pts, nm = "", d = 1.55, r = 2.0) { if (WIRE_LEN) echo(wlen = [nm, 1, w
 module fan(ms, ax, m, r = 2.0, d = 1.55) for (p = ms) wire([p + ax * (d / 2), p + ax * 3.0, m], d = d, r = r);   // 口の頭 → 軸へ 3 → 合流点（1 本ずつ。始点は頭から線の半径だけ出す＝口と重ねない）
 function xs(a, b) = [for (i = [a : b]) i];
 // ---- 束 ----
-module w_xiao() {   // ハブ XIAO 7 ↔ ReSpeaker の XIAO 2 列（下 3・上 4）。口の頭の上（皿の下 Z 22.5）を右へ → 積みの右後ろ（Y 30.5）→ 積みの後ろから
+module w_xiao() {   // ハブ XIAO 7 ↔ ReSpeaker の XIAO 2 列（🔒 2026-09-06 下 = 信号 4・上 = 電源 3。それまで逆）。口の頭の上（皿の下 Z 22.5）を右へ → 積みの右後ろ（Y 30.5）→ 積みの後ろから
     m1 = [47.0, 20.5, 22.5]; m2 = [72.0, 30.5, 22.5]; m3 = [72.0, 30.5, 25.0]; m4 = [78.5, 30.5, 14.0];   // Y 20.5: OLED の線（Y 23.8〜）の前
     fan([for (k = xs(0, 6)) hub_mouth("XIAO", k)], [0.5, 0, 0.87], m1);   // 少し右へ傾けて出す（左端のピンの真上に前板のナットの箱の角 X 27.4 がある）
     bnd([m1, [64.5, 20.5, 22.5], [64.5, 30.5, 22.5], m2], 7, "xiao");
-    bnd([m2, m3], 4, "xiao"); fan([for (k = xs(0, 3)) xiao_mouth(1, k)], [0, 1, 0], m3);                 // 上の列 4 本（Z 27.1）
-    bnd([m2, [78.5, 30.5, 22.5], m4], 3, "xiao"); fan([for (k = xs(0, 2)) xiao_mouth(0, k)], [0, 1, 0], m4);   // 下の列 3 本（Z 11.9）
+    bnd([m2, m3], 3, "xiao"); fan([for (k = xs(0, 2)) xiao_mouth(1, k)], [0, 1, 0], m3);                 // 上の列 3 本＝電源（Z 27.1）
+    bnd([m2, [78.5, 30.5, 22.5], m4], 4, "xiao"); fan([for (k = xs(0, 3)) xiao_mouth(0, k)], [0, 1, 0], m4);   // 下の列 4 本＝信号（Z 11.9）
 }
 module w_oled() {   // OLED 4: 口（Y 21.1・Z 46.5）→ 後ろへ 3 → 右へ（Y 23.8）→ X 50 で Z 43.5 に下りて（スピーカーの下・電流計の電源の口の上）→ X 59.5（電源の口の列と電池の線の東）で皿の下（Z 22〜24）まで下り → 2 本 × 2 段（Y 23.8 / 25.5・Z 22.2 / 23.9）でハブの上（XIAO の口 〜20.3 と AS5600 の口 27.9〜 の間）を左へ → ハブの OLED の口へ
     //   ⚠ 口の周りは筒（左・Y 11.4〜）・スピーカー（右上・Z 45.65〜）・PowerBoost（後ろ・Y 26.1〜）・電流計の電源の口（下・頭 Z 42.0）に囲まれ、前の帯は ReSpeaker の背面の部品（Y 〜13.4・Z 〜36）と皿の前板（Y 12.9〜）で塞がっている。φ3.9 の束が通る道は無く、1 本ずつこの道を通す（2026-09-05）
