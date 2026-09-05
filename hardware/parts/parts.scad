@@ -479,6 +479,7 @@ MTS_MOUNT  = MTS_BUSH_D;
 function mts102_w()     = MTS_BODY_W;   // 13 胴の幅。端子 3 本（ピッチ 4.7）が並ぶのはこの向き
 function mts102_d()     = MTS_BODY_D;   //  8 胴の奥行き。`rotate([-90,0,0])` でハッチに付けると**こちらが縦**になる
 function mts102_deep()  = MTS_BODY_H + MTS_PIN_H;   // 18
+function mts102_pin_h() = MTS_PIN_H;   // 端子の長さ 6
 function mts102_lever() = MTS_LEVER;
 
 // ang: レバーの倒れ（度）。🔒 ON-ON なので**実物は必ずどちらかに倒れている**。

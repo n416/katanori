@@ -22,7 +22,7 @@
 //   hit_wires … 線 ↔ 中身と皮の全部の当たり。hit_w_<束> は束 1 つだけ（xiao oled as5600 pwr chg ina tgl btn2 phin phout bat batout）。only_w_<束> は束 1 つの絵
 //   （皮・板・検査の語は皮を起こすときにここへ足す。既にある語の意味は変えない）
 // ============================================================
-part = "bridge";
+part = "all";
 
 use <parts/parts.scad>
 use <parts/respeaker_lite.scad>
@@ -531,6 +531,7 @@ module p_top() difference() {
         pb_mount();   // PowerBoost のダボ（天板と一体・2026-09-05）
         oled_brackets();   // OLED の上の 2 穴を受ける L の足（天板から下ろす）
         rsp_press();       // ReSpeaker の板の頭を押さえる羊羹とマッチ棒
+        tgl_cradle();      // トグルの胴の受け（ハッチの上を留める）
         spk_rim();    // スピーカーの位置出しの縁
     }
     at_knob() knob_station_cut();
@@ -545,7 +546,7 @@ module p_top() difference() {
 TC_PORT_C = [TC_AT[0] + tc_size()[2] + tc_conn()[2] / 2, IN_Y + HATCH_T / 2, TC_AT[2] + tc_size()[0] / 2];   // 板の表 ＋ 胴の高さの半分・板の長さの中央（4.92, ・, 10.75）
 TC_PORT_SZ = [3.86, 9.54];   // [X, Z]（殻 3.26 × 8.94 ＋ 片側 0.3）。基板が縦なので口は縦長（🔴 2026-09-05 まで横長に開けていた・ユーザー指摘）
 module p_hatch() difference() {
-    union() { slab_hatch(); sw4_hatch_rim(); }   // 縁（溝の床〜内面・つば・爪）はハッチと一体
+    union() { slab_hatch(); sw4_hatch_rim(); hatch_claws(); }   // 縁（溝の床〜内面・つば・爪）と下の爪 2 つはハッチと一体
     port_cut(TC_PORT_C, TC_PORT_SZ[0], TC_PORT_SZ[1], HATCH_T, "y");
     battery_port_cut4(); sw4_band_cut(); sw4_lock_cut(); sw4_mag_window();   // 電池の口・蓋の彫り込み・ロックのねじとナット・磁石の窓
     hatch_icon_cut();
@@ -557,7 +558,32 @@ HUB_HOLES_W = [for (sx = [-1, 1], sy = [-1, 1]) [HUB_AT[0] + 37.0 + sx * 34.0, H
 HUB_POST_D = 7.0; HUB_SCR_D = 3.2; HUB_CB_D = 6.0; HUB_CB_T = 1.0;   // 座ぐりは床 2.0 のうち 1.0（残り 1.0）
 module hub_posts() for (h = HUB_HOLES_W) translate([h[0], h[1], -0.01]) cylinder(d = HUB_POST_D, h = HUB_AT[2] + 0.01, $fn = 32);
 module hub_screw_cuts() for (h = HUB_HOLES_W) translate([h[0], h[1], 0]) { translate([0, 0, -FLOOR_T - 1]) cylinder(d = HUB_SCR_D, h = FLOOR_T + HUB_AT[2] + 2, $fn = 24); translate([0, 0, -FLOOR_T - 0.01]) cylinder(d = HUB_CB_D, h = HUB_CB_T, $fn = 32); }
-module p_floor() difference() { union() { slab_floor(); tc_seat(); hub_posts(); rsp_seat(); oled_rib(); } floor_screw_cuts(); hub_screw_cuts(); }   // Type-C の受け・ハブの柱・ReSpeaker の座・OLED のリブは床と一体
+
+// ---- ハッチを箱に留める作り（🔒 v3 2026-08-22 ユーザーの絵「下＝爪、上＝ナット」: 床に掛けてから上を倒し、トグルのねじ部に通してナットで止める）----
+//   下: ハッチの内面の下端から脚が下り、その唇が床の後ろの帯に埋めたバーの下へ −Y に滑り込む（v3/v4 の爪。X 12〜20・66〜74）
+//   上: トグルの胴を天板から下ろした受け（両側の壁と、端子の両脇の前の当て）で X と −Y に固定し、ハッチの外のナットで胴にハッチを締める。
+//       胴は下と後ろが開いた受けに、ハッチを倒し込む弧で入る。⚠ ハッチを真後ろへ引く動きは、唇がバーの下を滑るだけで止める物が無い（v3/v4 と同じ）
+CLAW_X = [[12, 20], [66, 74]];                                              // 爪の X（2 つ）
+CLAW_STRIP_Y0 = HUB_AT[1] + 52.0 + 0.5;                                    // 床の帯の前縁（ハブの後端 67.9 ＋ 0.5）
+CLAW_STRIP_H = 2.5;
+CLAW_BAR_Y0 = IN_Y - 4.0; CLAW_BAR_Y1 = IN_Y - 2.0; CLAW_BAR_Z0 = 1.5;       // バー（Y 73.25〜75.25・Z 1.5〜2.5）。その後ろ（〜77.25）は脚が通る
+CLAW_LIP_T = 0.8; CLAW_LIP_L = 3.0; CLAW_LEG_T = 1.0; CLAW_CL = 0.2;         // 唇の厚み／長さ（−Y へ）／脚の厚み／隙間
+module hatch_strip() translate([RSP_RIB_X0, CLAW_STRIP_Y0, -0.01]) cube([RSP_RIB_X1 - RSP_RIB_X0, IN_Y - CLAW_STRIP_Y0, CLAW_STRIP_H + 0.01]);   // 床の後ろの帯（X 8〜76.35）
+module claw_pockets() for (cx = CLAW_X) {
+    translate([cx[0], CLAW_BAR_Y0 - 1.0, 0.3]) cube([cx[1] - cx[0], IN_Y - CLAW_BAR_Y0 + 2, CLAW_BAR_Z0 - 0.3]);          // 唇の道（バーの下・床の皮 0.3 を残す）
+    translate([cx[0], CLAW_BAR_Y1, CLAW_BAR_Z0 - 0.01]) cube([cx[1] - cx[0], IN_Y - CLAW_BAR_Y1 + 1, CLAW_STRIP_H]);      // 脚の道（バーの後ろ）
+}
+module hatch_claws() for (cx = CLAW_X) {
+    translate([cx[0] + CLAW_CL, IN_Y - CLAW_LEG_T, 0.3 + CLAW_CL]) cube([cx[1] - cx[0] - 2 * CLAW_CL, CLAW_LEG_T + 0.01, CLAW_STRIP_H - 0.3 - CLAW_CL + 0.01]);   // 脚（内面に沿って下りる）
+    translate([cx[0] + CLAW_CL, CLAW_BAR_Y0 + CLAW_CL, 0.3 + CLAW_CL]) cube([cx[1] - cx[0] - 2 * CLAW_CL, IN_Y - (CLAW_BAR_Y0 + CLAW_CL), CLAW_LIP_T]);          // 唇（脚からバーの下を −Y へ・バーの前端まで）
+}
+CRADLE_T = 1.6; CRADLE_CL = 0.3; CRADLE_Z0 = 41.0; CRADLE_Y1 = IN_Y - 2.75;   // 受け: 壁の厚み・胴との隙間・下端（胴の下端 36.85 の 4 上・胴の上 8.9 を抱く）・後端（ハッチの内面の縁とリブの手前）
+CRADLE_GAP = 2.2;   // 前の当ての、端子の両脇の切れ目（軸から ±2.2。端子 1.2 と、その両脇を下りる線 2 本が通る）
+module tgl_cradle() { x0 = TGL_AT[0] - mts102_d() / 2 - CRADLE_CL; x1 = TGL_AT[0] + mts102_d() / 2 + CRADLE_CL; yf = IN_Y - mts102_deep() + mts102_pin_h() - CRADLE_CL;   // 胴の前面 65.25 の 0.3 前
+    for (x = [x0 - CRADLE_T, x1]) translate([x, yf - CRADLE_T, CRADLE_Z0]) cube([CRADLE_T, CRADLE_Y1 - (yf - CRADLE_T), Z_TOP + 0.01 - CRADLE_Z0]);   // 両側の壁
+    for (r = [[x0 - CRADLE_T, TGL_AT[0] - CRADLE_GAP], [TGL_AT[0] + CRADLE_GAP, x1 + CRADLE_T]]) translate([r[0], yf - CRADLE_T, CRADLE_Z0]) cube([r[1] - r[0], CRADLE_T, Z_TOP + 0.01 - CRADLE_Z0]);   // 前の当て（端子の両脇）
+}
+module p_floor() difference() { union() { slab_floor(); tc_seat(); hub_posts(); rsp_seat(); oled_rib(); hatch_strip(); } floor_screw_cuts(); hub_screw_cuts(); claw_pockets(); }   // Type-C の受け・ハブの柱・ReSpeaker の座・OLED のリブ・ハッチの爪の帯は床と一体
 // 刷る部品ごとの色（同じ色 = 同じ部品として刷る）
 module skin(a = 0.5) { color("#e0a040", a) p_floor(); color("#c9d0d8", a) p_top(); color("#4a90d9", a) p_lwall(); color("#4a90d9", a) p_rwall(); color("#9b59b6", a) p_front(); color("#27ae60", a) p_hatch(); ribs(); }   // リブ込み（skin / all で見える）
 
@@ -753,78 +779,81 @@ BAT_LEAD = [BAT_AT[0] + lipo_size()[1] / 2, BAT_AT[1] + lipo_size()[0], BAT_AT[2
 SPK_BOT = 45.65;   // ⚠ スピーカーの模型の下端（磁石の出っ張り込み・only_spk の STL から 2026-09-05）。parts.scad に関数が無いので数字
 SPK_LEAD = [SPK_AT[0] + 4.0, SPK_AT[1] + spk_w() / 2 - 1.5, SPK_BOT];   // スピーカーの線の出口（⚠ 仮: 裏面の後ろの長辺の縁ぞい・中央より右 4）。軸 −Z
 
-module bnd(pts, n) wire(pts, d = bundle_d(n), r = WIRE_R);                 // 束（n 本）
+WIRE_LEN = false;   // true: 束ごとの実長を echo（_asm_manual_v5.py が切る長さの表に使う）
+module bnd(pts, n, nm = "") { if (WIRE_LEN) echo(wlen = [nm, n, wire_len(pts, WIRE_R)]); wire(pts, d = bundle_d(n), r = WIRE_R); }   // 束（n 本）
+module w1(pts, nm = "", d = 1.55, r = 2.0) { if (WIRE_LEN) echo(wlen = [nm, 1, wire_len(pts, r)]); wire(pts, d = d, r = r); }   // 1 本
 module fan(ms, ax, m, r = 2.0, d = 1.55) for (p = ms) wire([p + ax * (d / 2), p + ax * 3.0, m], d = d, r = r);   // 口の頭 → 軸へ 3 → 合流点（1 本ずつ。始点は頭から線の半径だけ出す＝口と重ねない）
 function xs(a, b) = [for (i = [a : b]) i];
 // ---- 束 ----
 module w_xiao() {   // ハブ XIAO 7 ↔ ReSpeaker の XIAO 2 列（下 3・上 4）。口の頭の上（皿の下 Z 22.5）を右へ → 積みの右後ろ（Y 30.5）→ 積みの後ろから
     m1 = [47.0, 20.5, 22.5]; m2 = [72.0, 30.5, 22.5]; m3 = [72.0, 30.5, 25.0]; m4 = [78.5, 30.5, 14.0];   // Y 20.5: OLED の線（Y 23.8〜）の前
     fan([for (k = xs(0, 6)) hub_mouth("XIAO", k)], [0.5, 0, 0.87], m1);   // 少し右へ傾けて出す（左端のピンの真上に前板のナットの箱の角 X 27.4 がある）
-    bnd([m1, [64.5, 20.5, 22.5], [64.5, 30.5, 22.5], m2], 7);
-    bnd([m2, m3], 4); fan([for (k = xs(0, 3)) xiao_mouth(1, k)], [0, 1, 0], m3);                 // 上の列 4 本（Z 27.1）
-    bnd([m2, [78.5, 30.5, 22.5], m4], 3); fan([for (k = xs(0, 2)) xiao_mouth(0, k)], [0, 1, 0], m4);   // 下の列 3 本（Z 11.9）
+    bnd([m1, [64.5, 20.5, 22.5], [64.5, 30.5, 22.5], m2], 7, "xiao");
+    bnd([m2, m3], 4, "xiao"); fan([for (k = xs(0, 3)) xiao_mouth(1, k)], [0, 1, 0], m3);                 // 上の列 4 本（Z 27.1）
+    bnd([m2, [78.5, 30.5, 22.5], m4], 3, "xiao"); fan([for (k = xs(0, 2)) xiao_mouth(0, k)], [0, 1, 0], m4);   // 下の列 3 本（Z 11.9）
 }
 module w_oled() {   // OLED 4: 口（Y 21.1・Z 46.5）→ 後ろへ 3 → 右へ（Y 23.8）→ X 50 で Z 43.5 に下りて（スピーカーの下・電流計の電源の口の上）→ X 59.5（電源の口の列と電池の線の東）で皿の下（Z 22〜24）まで下り → 2 本 × 2 段（Y 23.8 / 25.5・Z 22.2 / 23.9）でハブの上（XIAO の口 〜20.3 と AS5600 の口 27.9〜 の間）を左へ → ハブの OLED の口へ
     //   ⚠ 口の周りは筒（左・Y 11.4〜）・スピーカー（右上・Z 45.65〜）・PowerBoost（後ろ・Y 26.1〜）・電流計の電源の口（下・頭 Z 42.0）に囲まれ、前の帯は ReSpeaker の背面の部品（Y 〜13.4・Z 〜36）と皿の前板（Y 12.9〜）で塞がっている。φ3.9 の束が通る道は無く、1 本ずつこの道を通す（2026-09-05）
     m1 = [10.5, 30.0, 23.2];
     for (k = xs(0, 3)) { mo = oled_mouth(k); yq = (k < 2) ? 23.8 : 25.5; zq = (k % 2 == 0) ? 22.2 : 23.9;
-        wire([mo + [0, 0.8, 0], mo + [0, 3.0, 0], [50.0, 23.0, 46.5], [50.0, 23.0, 43.5], [59.5, 23.0, 43.5], [59.5, 23.0, zq + 2.5], [59.5, yq, zq], [13.0, yq, zq], m1], d = 1.55, r = 2.0); }   // 上の道は Y 23.0（JST の線が Y 24.7 を通る）
+        w1([mo + [0, 0.8, 0], mo + [0, 3.0, 0], [50.0, 23.0, 46.5], [50.0, 23.0, 43.5], [59.5, 23.0, 43.5], [59.5, 23.0, zq + 2.5], [59.5, yq, zq], [13.0, yq, zq], m1], "oled", d = 1.55, r = 2.0); }   // 上の道は Y 23.0（JST の線が Y 24.7 を通る）
     fan([for (k = xs(0, 3)) hub_mouth("OLED", k)], [0, 0, 1], m1);
 }
 module w_as5600() {   // ハブ AS5600 4 ↔ つまみの 5 口（左 2・右 3。GND は二股）。口の下から上へ入る。右 3 はリレー（頭 Z 14.1）の上なので前へ逃げてから下りる
     m1 = [40.0, 37.5, 17.0]; m2 = [56.0, 37.5, 12.5]; m3 = [56.0, 41.5, 15.5];
     fan([for (k = xs(0, 3)) hub_mouth("AS5600", k)], [0, 0, 1], m1);
-    bnd([m1, m2, m3], 4);
-    for (i = as5600_used_l()) { p = knob_mouth(-1, i); wire([p + [0, 0, -0.8], p + [0, 0, -3.0], m2], d = 1.55, r = 2.0); }
-    for (i = as5600_used_r()) { p = knob_mouth(1, i);  wire([p + [0, 0, -0.8], p + [0, -2.5, -1.0], m3], d = 1.55, r = 2.0); }
+    bnd([m1, m2, m3], 4, "as5600");
+    for (i = as5600_used_l()) { p = knob_mouth(-1, i); w1([p + [0, 0, -0.8], p + [0, 0, -3.0], m2], "as5600", d = 1.55, r = 2.0); }
+    for (i = as5600_used_r()) { p = knob_mouth(1, i);  w1([p + [0, 0, -0.8], p + [0, -2.5, -1.0], m3], "as5600", d = 1.55, r = 2.0); }
 }
 module w_pwr() {   // ハブ PWR 3（EN・GND・5Vo）↔ PowerBoost の JP2 の L 字 3。後ろの帯（Y 70.5・Z 33）をトグルの下・蓋の板の前で左へ → X 24 で上がる
     m1 = [67.0, 70.5, 24.0]; m2 = [24.0, 70.5, 47.2];
     fan([for (k = [0, 1, 3]) hub_mouth("PWR", k)], [0, 0, 1], m1);
-    bnd([m1, [67.0, 70.5, 33.0], [24.0, 70.5, 33.0], m2], 3);
+    bnd([m1, [67.0, 70.5, 33.0], [24.0, 70.5, 33.0], m2], 3, "pwr");
     fan([for (i = pb_ra_pwr()) pb_mouth(i)], W_pb_d([0, -1, 0]), m2);
 }
 module w_chg() {   // Type-C 基板の VBUS・GND ↔ PowerBoost の USB・GND2。左の溝（X 9.5）を上がって後ろの帯へ
     m1 = [9.5, 46.0, 17.0]; m2 = [10.0, 70.5, 47.2];
     fan([tc_mouth(0), tc_mouth(1)], [0, -1, 0], m1);
-    bnd([m1, [9.5, 46.0, 39.0], [9.5, 70.5, 39.0], [9.5, 70.5, 47.2], m2], 2);
+    bnd([m1, [9.5, 46.0, 39.0], [9.5, 70.5, 39.0], [9.5, 70.5, 47.2], m2], 2, "chg");
     fan([for (i = pb_ra_chg()) pb_mouth(i)], W_pb_d([0, -1, 0]), m2);
 }
 module w_ina() {   // ハブ INA 4 ↔ 電流計の I2C の L 字。後ろの帯（Y 71・Z 29.5・PWR の下）を左へ → X 20 で上がって口の向きへ
     ax = W_ina_d([-1, 0, 0]); pm = ina_i2c_mouth();
     m1 = [32.0, 71.0, 24.0];
     fan([for (k = xs(0, 3)) hub_mouth("INA", k)], [0, 0, 1], m1);
-    bnd([m1, [32.0, 71.0, 29.5], [20.0, 71.0, 29.5], [20.0, 71.0, 40.5], pm + ax * 6.0, pm + ax * 2.5], 4);
+    bnd([m1, [32.0, 71.0, 29.5], [20.0, 71.0, 29.5], [20.0, 71.0, 40.5], pm + ax * 6.0, pm + ax * 2.5], 4, "ina");
 }
-module w_tgl() {   // ハブ TOGGLE 2 ↔ トグルの端子（中 COM・下）。端子（X 64.7・Y 59.25〜65.25）はつまみの台座（Y 〜61.3）の中に先が入っているので、線は端子の根元（Y 64.0）から左へ出て、台座の後ろ（Y 64）を下り、皿の後ろでハブの口へ
-    m1 = [53.0, 64.2, 23.8];
-    for (i = [0, 1]) { t = tgl_term(i); wire([t + [-1.4, 4.75, 0], [t[0] - 4.2, 64.0, t[2]], [t[0] - 4.2, 64.0, 24.0], m1], d = 1.55, r = 2.0); }   // 端子（幅 1.2）の左の面から線の半径だけ外
+module w_tgl() {   // ハブ TOGGLE 2 ↔ トグルの端子（中 COM・下）。端子（X 64.7・Y 59.25〜65.25）の脇（X ±1.4・Y 64.0）から真下へ、天板の受けの前の当ての切れ目（軸 ±2.2）を抜けて Z 30 まで下り → 皿の帯（Y 〜62.9）の後ろを左へ → TOGGLE と REED の口の間（X 53.15）で下りてハブの口へ
+    m1 = [53.15, 64.0, 23.8];
+    for (i = [0, 1]) { t = tgl_term(i); sx = (i == 0) ? -1 : 1;
+        w1([t + [sx * 1.4, 4.75, 0], [t[0] + sx * 1.4, 64.0, 30.0], [53.15, 64.0, 30.0], m1], "tgl", d = 1.55, r = 2.0); }
     fan([hub_mouth("TOGGLE", 0), hub_mouth("TOGGLE", 1)], [0, 0, 1], m1);
 }
 module w_btn2() {   // ハブ BTN2 2 ↔ 会話ボタンのマイクロスイッチの端子（両端）。端子の横から前へ出て左の溝（X 9・Z 16）を後ろへ
     m1 = [9.0, 15.9, 36.3]; m2 = [9.0, 63.7, 23.6];   // Z 36.3: 筒の左の足（Z 37.87 まで）の下
-    for (i = [-1, 1]) { p = btn_pin(i); wire([p + [0, -1.2, 0.3], p + [0, -2.0, 1.0], m1], d = 1.55, r = 2.0); }   // 端子（Y 17.3・幅 0.8）の前の面から線の半径だけ離して始める
-    bnd([m1, [9.0, 15.9, 24.5], [9.0, 24.0, 24.5], [9.0, 24.0, 16.0], [9.0, 61.0, 16.0], m2], 2);   // Z 24.5 で Y 24 まで後ろへ（左前の角の ReSpeaker のスピーカーソケット J2 とその PH プラグ（Y 〜19.9・Z 〜23）の上・OLED の束（X 5.8・Z 27.5）の下）
+    for (i = [-1, 1]) { p = btn_pin(i); w1([p + [0, -1.2, 0.3], p + [0, -2.0, 1.0], m1], "btn2", d = 1.55, r = 2.0); }   // 端子（Y 17.3・幅 0.8）の前の面から線の半径だけ離して始める
+    bnd([m1, [9.0, 15.9, 24.5], [9.0, 24.0, 24.5], [9.0, 24.0, 16.0], [9.0, 61.0, 16.0], m2], 2, "btn2");   // Z 24.5 で Y 24 まで後ろへ（左前の角の ReSpeaker のスピーカーソケット J2 とその PH プラグ（Y 〜19.9・Z 〜23）の上・OLED の束（X 5.8・Z 27.5）の下）
     fan([hub_mouth("BTN2", 0), hub_mouth("BTN2", 1)], [0, 0, 1], m2);
 }
 module w_phin() {   // ReSpeaker のスピーカーソケット J2 → ハブ PHIN（PH 2 本）。左の壁ぎわ（X 5）で下りて → ハブの上（Y 24.5・Z 11）を右へ → X 64.5 を後ろへ → Y 41 で右へ → ソケットの上から
     j = j2_mouth(); ph = ph_mouth("PHIN");
-    bnd([j + [0, 0.8, 0], j + [0, 3.0, 0], [5.0, 24.5, 17.0], [5.0, 24.5, 11.0], [64.5, 24.5, 11.0], [64.5, 41.0, 11.0], [ph[0], 41.0, 11.0], [ph[0], 41.0, 15.0], [ph[0], ph[1], 15.0], ph + [0, 0, 0.8]], 2);
+    bnd([j + [0, 0.8, 0], j + [0, 3.0, 0], [5.0, 24.5, 17.0], [5.0, 24.5, 11.0], [64.5, 24.5, 11.0], [64.5, 41.0, 11.0], [ph[0], 41.0, 11.0], [ph[0], 41.0, 15.0], [ph[0], ph[1], 15.0], ph + [0, 0, 0.8]], 2, "phin");
 }
 module w_phout() {   // ハブ PHOUT → スピーカー（PH 2 本 → リード）。ソケットから右へ出てハブの右端の上（X 80.5・Z 8）を前へ → 右の壁ぎわ（X 83）を上がって → 天井の下（Z 44）を前へ → スピーカーの裏へ
     ph = ph_mouth("PHOUT");
-    bnd([ph + [0, 0, 0.8], [ph[0], ph[1], 14.5], [80.5, ph[1], 14.5], [80.5, ph[1], 8.0], [80.5, 31.5, 8.0], [83.0, 31.5, 8.0], [83.0, 31.5, 44.0], [83.0, 22.0, 44.0], [70.0, 22.0, 44.0], SPK_LEAD + [0, 0, -3.0], SPK_LEAD + [0, 0, -0.8]], 2);
+    bnd([ph + [0, 0, 0.8], [ph[0], ph[1], 14.5], [80.5, ph[1], 14.5], [80.5, ph[1], 8.0], [80.5, 31.5, 8.0], [83.0, 31.5, 8.0], [83.0, 31.5, 44.0], [83.0, 22.0, 44.0], [70.0, 22.0, 44.0], SPK_LEAD + [0, 0, -3.0], SPK_LEAD + [0, 0, -0.8]], 2, "phout");
 }
 module w_bat() {   // 電池 → 電流計 INPUT ±（2 本）。電流計は箱の軸に平行で、INPUT の 1 本目の口は左（X 20.6・Y 28.6・左向き）、2 本目は前（X 38.8・Y 14.6・前向き）。
     //   1 本目: 電池の後ろから左の溝（X 6.6・Z 30.4）を前へ → 皿の左の土手の上を越えて口へ。2 本目: 右（X 53.2・Z 29）を前へ → Y 12 で上がり、口の前へ左から入る
     l0 = BAT_LEAD + [0, 1.6, 0]; l1 = BAT_LEAD + [0, 3, 0]; c = [BAT_LEAD[0], 66.0, BAT_LEAD[2]];
     p0 = ina_pwr_mouth(0); p1 = ina_pwr_mouth(1);
-    wire([l0, l1, c, [6.6, 66.0, 30.4], [6.6, 30.0, 30.4], [12.0, 29.5, 37.0], p0 + ina_pwr_ax(0) * 3.0, p0 + ina_pwr_ax(0) * 0.8], d = 1.55, r = 2.5);
-    wire([l0, l1, c, [53.2, 66.0, 29.0], [53.2, 14.0, 29.0], [53.2, 12.0, 39.0], [42.0, 11.6, 39.0], p1 + ina_pwr_ax(1) * 3.0, p1 + ina_pwr_ax(1) * 0.8], d = 1.55, r = 2.5);
+    w1([l0, l1, c, [6.6, 66.0, 30.4], [6.6, 30.0, 30.4], [12.0, 29.5, 37.0], p0 + ina_pwr_ax(0) * 3.0, p0 + ina_pwr_ax(0) * 0.8], "bat", d = 1.55, r = 2.5);
+    w1([l0, l1, c, [53.2, 66.0, 29.0], [53.2, 14.0, 29.0], [53.2, 12.0, 39.0], [42.0, 11.6, 39.0], p1 + ina_pwr_ax(1) * 3.0, p1 + ina_pwr_ax(1) * 0.8], "bat", d = 1.55, r = 2.5);
 }
 module w_batout() {   // 電流計 OUTPUT ± → PowerBoost の JST（2 本・JST の線は φ1.0 → 束 φ1.6）。JST の頭（X 35.4・Y 26.1）の前は会話ボタンの筒の右の腕（X 〜35.35）で 1.2 しか無いので、出てすぐ右（X 37.5）へ → 電源の口の列の上（Z 43.3）を前へ → 口の前（Y 11.6）へ
     ax = W_ina_d([0, -1, 0]); jm = pb_jst_mouth(); jx = W_pb_d([0, 1, 0]); m1 = [40.5, 11.2, 42.5];
-    wire([jm + jx * 0.8, jm + jx * 1.5, [37.5, 25.0, 46.5], [37.5, 25.0, 43.3], [37.5, 12.0, 43.3], m1], d = 1.6, r = 2.0);
+    w1([jm + jx * 0.8, jm + jx * 1.5, [37.5, 25.0, 46.5], [37.5, 25.0, 43.3], [37.5, 12.0, 43.3], m1], "batout", d = 1.6, r = 2.0);
     fan([ina_pwr_mouth(2), ina_pwr_mouth(3)], ina_pwr_ax(2), m1, d = 1.0);
 }
 WIRE_NAMES = ["xiao", "oled", "as5600", "pwr", "chg", "ina", "tgl", "btn2", "phin", "phout", "bat", "batout"];
