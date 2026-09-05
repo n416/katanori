@@ -723,10 +723,17 @@ module plate_of(k) { if (k == "lwall") p_lwall(); if (k == "rwall") p_rwall(); i
 module plates_except(k) { if (k != "lwall") p_lwall(); if (k != "rwall") p_rwall(); if (k != "hatch") p_hatch(); if (k != "front") p_front(); p_floor(); p_top(); }
 module innards_except(k) for (n = UNITS) if (n != k) one(n);   // ブリッジ自身を障害物に数えない
 module rib_paths(k) { if (k == "lwall") for (t = [0 : 3 : 18]) translate([0, t, 0]) one("tc"); }   // Type-C 基板をハッチ側から後ろへ滑り込ませる道（受けは床・押さえは左の壁）
+// 板と一体の物（柱・棚・耳・爪・押さえ）もリブの障害物に数える。板の輪郭に含まれるので放っておくとリブがその上に立ち、柱の頭の横穴（ナット）や耳のねじ穴の端を埋める（🔒 ユーザー 2026-09-05「格子が六角の中に入ってきてない？」）
+module plate_features(k) {
+    if (k == "lwall") { fasten_lwall(); tc_press(); }
+    if (k == "rwall") fasten_rwall();
+    if (k == "hatch") { hatch_ears_top(); hatch_ears_low(); hatch_claws(); sw4_hatch_rim(); }
+    if (k == "front") { front_ears(); front_ears_low(); }
+}
 module flat(k) { if (k == "hatch" || k == "front") projection() rotate([-90, 0, 0]) children(); else if (k == "bridge") projection() children(); else projection() rotate([0, 90, 0]) children(); }   // 壁: 2D (x, y) = 世界 (Z, Y) ／ ハッチ・フロント: (X, Z) ／ ブリッジ: (X, Y)
 module rib_free2d(k) offset(delta = -RIB_THIN) offset(r = RIB_OPEN) offset(r = -RIB_OPEN) difference() {   // 開きは r（丸）で戻す。delta で戻すと角が元の空きより外へ出て、板や中身に 0.05mm³ 掛かった
     flat(k) plate_of(k);
-    offset(r = RIB_MARG) flat(k) intersection() { rib_slab(k); union() { innards_except(k); wires(); plates_except(k); rib_paths(k); } }
+    offset(r = RIB_MARG) flat(k) intersection() { rib_slab(k); union() { innards_except(k); wires(); plates_except(k); rib_paths(k); plate_features(k); } }
 }
 // 線は「幅 1.6 が丸ごと空いている区間」だけ、しかも RIB_LMIN 以上の長さだけ引く（🔒 ユーザー 2026-09-05「ある程度以下の長さは出さない。粗雑に見える」）
 //   区間は tools/ribs_gen.py が出す（part="ribfree_<板>" の 2D を SVG に書き出し、格子の線との交わりを取る）。🔴 中身・線・板を動かしたら回し直す
