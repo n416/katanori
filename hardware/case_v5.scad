@@ -569,9 +569,9 @@ module p_hatch() difference() {
 }
 // ハブ基板の留め（v4 §5: M3×8 ×4・頭は床の裏のザグリ・ナットは基板の上）: 床から柱 φ7.0（高さ = 板の下面 2.5）、通し φ3.2、裏の座ぐり φ6.0 × 2.0
 HUB_HOLES_W = [for (sx = [-1, 1], sy = [-1, 1]) [HUB_AT[0] + 37.0 + sx * 34.0, HUB_AT[1] + 26.0 + sy * 23.0]];   // hub_board_parts: 外形 74 × 52・穴の間隔 68 × 46
-HUB_POST_D = 8.0; HUB_SCR_D = 3.4; HUB_NUT_AF = 5.8; HUB_NUT_T = 2.6;   // 🔒 ユーザー 2026-09-05「ここが丸である利点はなんだ」→ ナットを床の裏の六角に埋め、ねじは基板の上から（二面幅 5.5 + 0.3・厚 2.4 + 0.2。v3 の M3_NAF/M3_NT と同じ数）。柱は 7.0 → 8.0（六角の角 6.70 に対して肉 0.65）   // 🔴 2026-09-05 実機: 3.2 / 6.0 / 1.0 は M3 が通らず頭も沈まなかった（基板の穴径 3.2 を写した AI のミス）。v4 case_base の M3_CLEAR 3.4・M3_CB 6.4・M3_HEAD_H 2.2 に戻す。座ぐりは床 2.0 を抜けて柱に 0.2 入る
+HUB_POST_D = 8.0; HUB_SCR_D = 3.4; HUB_NUT_AF = 5.8; HUB_NUT_T = 2.6; HUB_FOOT_D = 10.0; HUB_FOOT_T = 0.6;   // ゴム足の座 φ10 × 0.6 の中にナットが隠れる（🔒 v2 の形・CASE-V2.md 736 行。ユーザー 2026-09-05「ゴム足の話から考えてネジは上から」「忘れてるだけだ」）   // 🔒 ユーザー 2026-09-05「ここが丸である利点はなんだ」→ ナットを床の裏の六角に埋め、ねじは基板の上から（二面幅 5.5 + 0.3・厚 2.4 + 0.2。v3 の M3_NAF/M3_NT と同じ数）。柱は 7.0 → 8.0（六角の角 6.70 に対して肉 0.65）   // 🔴 2026-09-05 実機: 3.2 / 6.0 / 1.0 は M3 が通らず頭も沈まなかった（基板の穴径 3.2 を写した AI のミス）。v4 case_base の M3_CLEAR 3.4・M3_CB 6.4・M3_HEAD_H 2.2 に戻す。座ぐりは床 2.0 を抜けて柱に 0.2 入る
 module hub_posts() for (h = HUB_HOLES_W) translate([h[0], h[1], -0.01]) cylinder(d = HUB_POST_D, h = HUB_AT[2] + 0.01, $fn = 32);
-module hub_screw_cuts() for (h = HUB_HOLES_W) translate([h[0], h[1], 0]) { translate([0, 0, -FLOOR_T - 1]) cylinder(d = HUB_SCR_D, h = FLOOR_T + HUB_AT[2] + 2, $fn = 24); translate([0, 0, -FLOOR_T - 0.01]) rotate([0, 0, 30]) cylinder(d = HUB_NUT_AF / cos(30), h = HUB_NUT_T + 0.01, $fn = 6); }   // 通し φ3.4 ＋ 床の裏の六角（ナット）。床 2.0 を抜けて柱に 0.6 入る
+module hub_screw_cuts() for (h = HUB_HOLES_W) translate([h[0], h[1], 0]) { translate([0, 0, -FLOOR_T - 1]) cylinder(d = HUB_SCR_D, h = FLOOR_T + HUB_AT[2] + 2, $fn = 24); translate([0, 0, -FLOOR_T - 0.01]) rotate([0, 0, 30]) cylinder(d = HUB_NUT_AF / cos(30), h = HUB_NUT_T + 0.01, $fn = 6); translate([0, 0, -FLOOR_T - 0.01]) cylinder(d = HUB_FOOT_D, h = HUB_FOOT_T + 0.01, $fn = 48); }   // 通し φ3.4 ＋ 床の裏の六角（ナット）＋ ゴム足の座。床 2.0 を抜けて柱に 0.6 入る
 
 // ---- ハッチを箱に留める作り（🔒 v3 2026-08-22 ユーザーの絵「下＝爪、上＝ナット」: 床に掛けてから上を倒し、トグルのねじ部に通してナットで止める）----
 //   下: ハッチの内面の下端から脚が下り、その唇が床の後ろの帯に埋めたバーの下へ −Y に滑り込む（v3/v4 の爪。X 12〜20・66〜74）
