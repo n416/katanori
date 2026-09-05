@@ -20,7 +20,7 @@
 //   only_<名> … 1 つだけ（外形を数字で取る用）。名は oled rsp hub bat ina pb tc knob btn spk tgl（基板＋その口）と hubplugs oledplug inaplug pbplug xiaoplugs knobplugs（口だけ）
 //   （皮・板・検査の語は皮を起こすときにここへ足す。既にある語の意味は変えない）
 // ============================================================
-part = "look";
+part = "skin";
 
 use <parts/parts.scad>
 use <parts/respeaker_lite.scad>
@@ -75,7 +75,9 @@ PB_DY2  = -2.0;                     // 🔒 ユーザー 2026-09-05「PowerBoost
 // （PowerBoost の枠は下の at_pb()。v4 pb_frame() と同じ式）
 PB_TILT = 0;                        // 🔒 ユーザー 2026-09-05「PowerBoost の傾きを無くして」。v4 の 14°（2026-08-29）は電流計を前縁の下へ潜らせるための物で、重ねるなら要らない
 LW_X    = 1.694;                    // 左の壁の内面（v4: ReSpeaker の板の左端 2.024 − 0.33）
-IN_X    = RSP_X + respeaker_L() + xiao_usb_out() + 0.5;   // 右の壁の内面 86.05（v4: USB-C の先 ＋ 0.5）
+RIGHT_CL = -1.2;   // 🔒 v4 2026-08-25 ユーザー「壁の移動が足りないだけ」: XIAO の USB-C の殻（先 85.554）を壁に貫通させ、口の面を外面の 0.8 裏に置く
+IN_X    = RSP_X + respeaker_L() + xiao_usb_out() + RIGHT_CL;   // 右の壁の内面 84.354（🔴 2026-09-05 まで +0.5 の 86.054 で 1.7 外に置き「v4」と書いていた。ユーザー「XIAO の USB 口も全く違う」）
+XIAO_FACE_X = RSP_X + respeaker_L() + xiao_usb_out();   // 85.554 レセプタクルの面
 IN_Y    = HUB_Y0 + 52.0 + 10.1 + GROW_Y;      // v4 の式: HUB_Y0 11.9 ＋ 板 52 ＋ 後ろの逃げ 10.1（BACK_CL・2026-09-05）＝ 74.0。ハブの後縁 67.9 から 6.1（🔴 一時 HUB_AT[1]（+4）から数えて 86 にしていた）
 IN_Z    = 48.454 + GROW_Z;          // v4 の内寸 48.454（§1）+ 広げ
 Z_TOP   = IN_Z;                     // 天面の内面
@@ -368,13 +370,13 @@ PORT_BEV = 1.0;    // 口の縁のベベル（v4 PORT_BEV）
 FRONT_DY = 1.0;    // 🔒 v4 2026-08-25 ユーザー「板の位置を y−1」: フロント板を 1.0 後ろへ寄せ、OLED のガラスの面（Y 0）が外面の 1.0 奥に来る（黒枠は窓を素通りして前へ 1.0 出る）
 OUT_X0 = LW_X - WALL; OUT_X1 = IN_X + WALL; OUT_Y0 = -FRONT_T + FRONT_DY; OUT_Y1 = IN_Y + HATCH_T;
 // 角穴＋外面のベベル。c = 穴の中心（板の厚みの中央）・w, h = 板の面内の [横, 縦]・t = 板厚・axis = 板の法線 "x"|"y"・外面は法線の +側
-module port_cut(c, w, h, t, axis) {   // axis "x": w は Y・h は Z、外面は +X ／ axis "y": w は X・h は Z、外面は +Y
-    if (axis == "x") {
-        translate([c[0] - t / 2 - 1, c[1] - w / 2, c[2] - h / 2]) cube([t + 2, w, h]);
-        hull() { translate([c[0] + t / 2 - PORT_BEV, c[1] - w / 2, c[2] - h / 2]) cube([0.01, w, h]); translate([c[0] + t / 2, c[1] - w / 2 - PORT_BEV, c[2] - h / 2 - PORT_BEV]) cube([1.0, w + 2 * PORT_BEV, h + 2 * PORT_BEV]); }
-    } else {
-        translate([c[0] - w / 2, c[1] - t / 2 - 1, c[2] - h / 2]) cube([w, t + 2, h]);
-        hull() { translate([c[0] - w / 2, c[1] + t / 2 - PORT_BEV, c[2] - h / 2]) cube([w, 0.01, h]); translate([c[0] - w / 2 - PORT_BEV, c[1] + t / 2, c[2] - h / 2 - PORT_BEV]) cube([w + 2 * PORT_BEV, 1.0, h + 2 * PORT_BEV]); }
+PORT_R = 1.2;      // 口の角の丸み（v4 USBC_PORT_R）。🔴 2026-09-05 まで角の立った長方形で切っていた（ユーザー「何で四角いの」）
+module port_rr(sz, r, g = 0) hull() for (a = [-1, 1], b = [-1, 1]) translate([a * (sz[0] / 2 - r), b * (sz[1] / 2 - r)]) circle(r = r + g, $fn = 40);   // 角丸の四角（2D）。g で外へ広げる
+// 口: 角丸の四角を板に貫通させ、外面に 45° のベベル（PORT_BEV）。axis "x": w は Y・h は Z、外面は +X ／ axis "y": w は X・h は Z、外面は +Y
+module port_cut(c, w, h, t, axis) {
+    translate(c) rotate(axis == "x" ? [90, 0, 90] : [-90, 0, 0]) {   // 2D の x → Y（"x"）/ X（"y"）・押し出しは外向き
+        translate([0, 0, -t / 2 - 1]) linear_extrude(t + 2) port_rr([w, h], PORT_R);
+        hull() { translate([0, 0, t / 2 - PORT_BEV]) linear_extrude(0.01) port_rr([w, h], PORT_R); translate([0, 0, t / 2 + 1.0]) linear_extrude(0.01) port_rr([w, h], PORT_R, PORT_BEV + 1.0); }
     }
 }
 
@@ -432,12 +434,15 @@ module p_lwall() difference() {
     translate([JACK_COVER_POCKET[0], JACK_COVER_POCKET[1], JACK_COVER_POCKET[2]]) cube([JACK_COVER_POCKET[3], JACK_COVER_POCKET[4], JACK_COVER_POCKET[5]]);
     lwall_icon_cut();
 }
-// ---- 右の壁: XIAO の USB-C の口（ケーブルのプラグの胴 6.5 × 12.5 が通る）----
+// ---- 右の壁: XIAO の USB-C の口（殻の大きさ＋ベベルの 1 段。殻が壁を貫通し、口の面は外面の 0.8 裏。プラグのモールドは外面の外で止まる）----
 XUSB_C = [IN_X + WALL / 2, RSP_Y1 + xiao_usb_yz()[0], RSP_Z + xiao_usb_yz()[1]];
-XUSB_SZ = [7.5, 13.5];   // [Y, Z]（AI の値: 胴 6.5 × 12.5 ＋ 0.5 ずつ）
+XUSB_SZ = [xiao_usb_sz()[0] + 0.6, xiao_usb_sz()[1] + 0.6];   // [Y, Z] = [3.86, 9.54] 殻 ＋ 片側 0.3（🔴 2026-09-05 まで胴 6.5 × 12.5 ＋ 0.5 の 7.5 × 13.5 で開けていた）
+XUSB_REL_Z0 = 14.5;   // 殻の逃げの下端（殻が居るのは Z 15.03 から上・余裕 0.53）
+module xusb_shell_relief() translate([IN_X - 0.01, XUSB_C[1] - XUSB_SZ[0] / 2, XUSB_REL_Z0]) cube([XIAO_FACE_X + 0.15 - IN_X + 0.01, XUSB_SZ[0], XUSB_C[2] - XUSB_REL_Z0]);   // 壁を上から降ろすとき殻が通る道: 口の下を内面から殻の面 ＋ 0.15（85.704）まで抜く。外に皮 0.65 残る
 module p_rwall() difference() {
     union() { slab_rwall(); fasten_rwall(); }
     port_cut(XUSB_C, XUSB_SZ[0], XUSB_SZ[1], WALL, "x");
+    xusb_shell_relief();
     rwall_icon_cut();
 }
 // ---- フロント: OLED の窓（黒枠 61 × 38.5 ＋ 横 1.0・縦 0.15・下辺の張り出し）・マイクのヒゲ ----
@@ -445,22 +450,28 @@ WIN_CL_X = 1.0; WIN_CL_Z = 0.15;   // 🔒 2026-09-03 の値
 WSK_L = 6.0; WSK_W = 1.0; WSK_ANG = 4; WSK_CH = 0.5;   // v4: 6.0 × 1.0・3 本・3.6 間隔・±4°
 WSK_R = 0.4;   // ヒゲの外面のベベルの丸み
 module wsk_plate(l, w, y) translate([-l / 2, y, -w / 2]) rotate([90, 0, 0]) spk_obr(l, w, 0.01);   // 小判の薄い板（X-Z 面・y の位置）
-function bev_pts(ch, r, n = 6) = [for (i = [0 : n]) let (a = 90 * i / n) [-(r - r * cos(a)) - (ch - r) * (i == n ? 1 : 0), r * sin(a) + (ch - r) * (i == n ? 1 : 0)]];   // [奥行き, 広がり] の列。丸い面取り
+// ヒゲの外面の断面: 外面で ch 広がり、奥へ ch で 0 になる曲線。(0,ch)→(ch,0) を制御点 ((1−k)ch/2, 同) で結ぶ 2 次ベジエ＝内へ吸い込むように反る（k=WSK_R 0.4）。🔴 2026-09-05 まで凸の 1/4 円で描いていて顔が違った（ユーザー「猫ヒゲの形状も違う」）
+function bev_pts(c, k, n = 10) = [for (i = [0 : n]) let (t = i / n, p = (1 - k) * c / 2) [2 * t * (1 - t) * p + t * t * c, (1 - t) * (1 - t) * c + 2 * t * (1 - t) * p]];   // [奥行き, 広がり] の列
 module whisker(c, ang) translate([c[0], OUT_Y0, c[2]]) rotate([0, ang, 0]) {   // 原点 = 板の外面
-    hull() { wsk_plate(WSK_L + 2 * WSK_CH, WSK_W + 2 * WSK_CH, -0.5); for (q = bev_pts(WSK_CH, WSK_R)) wsk_plate(WSK_L + 2 * q[1], WSK_W + 2 * q[1], -q[0]); }   // 外面の丸いベベル
+    hull() { wsk_plate(WSK_L + 2 * WSK_CH, WSK_W + 2 * WSK_CH, -0.5); for (q = bev_pts(WSK_CH, WSK_R)) wsk_plate(WSK_L + 2 * q[1], WSK_W + 2 * q[1], q[0]); }   // 外面の反ったベベル
     hull() { wsk_plate(WSK_L, WSK_W, WSK_CH); wsk_plate(WSK_L, WSK_W, FRONT_T + 1); }   // 内面まで貫く小判のスリット
 }
+WIN_CR = WIN_CL_Z;   // 窓の角の丸み。四角いガラスを隙間で囲むと角の丸みは隙間の小さい方（縦 0.15）まで。🔴 2026-09-05 まで角の立った四角で切っていた（ユーザー「液晶のベベルの違い」）
+module win_rr2d(g = 0) offset(r = g, $fn = 32) hull() for (a = [0, 1], b = [0, 1]) translate([oled_glass_x() - WIN_CL_X + WIN_CR + a * (oled_glass()[0] + 2 * WIN_CL_X - 2 * WIN_CR), oled_glass_y() - WIN_CL_Z + WIN_CR + b * (oled_glass()[1] + 2 * WIN_CL_Z - 2 * WIN_CR)]) circle(r = WIN_CR, $fn = 24);   // 窓の輪郭（OLED 局所 XY・g で外へ太らせる）
+module win_bulge2d(g = 0) offset(r = g + WIN_CL_Z, $fn = 24) oled_bulge_2d(1.0);   // 下辺の張り出しの逃げ（台形・角は隙間ぶん丸い。1.0 は窓の中へ重ねる量）
+module win_piece(k, g) { if (k == 0) win_rr2d(g); else win_bulge2d(g); }
 WIN_Z_OUT = 8.5 + FRONT_T - FRONT_DY;   // OLED の局所 z で板の外面（背面 8.5 ＋ 板 2.0 − 後ろへ寄せた 1.0 = 9.5）
 module p_front() difference() {
     union() { slab_front(); front_ears(); }   // 板は Y −1.8〜1（厚み 2.8・内面 Y 1.0）
     at_oled() {   // 局所 z 8.5 が板の内面・10.5 が外面
-        translate([oled_glass_x() - WIN_CL_X, oled_glass_y() - WIN_CL_Z, 8.5 - FRONT_DY - 1]) cube([oled_glass()[0] + 2 * WIN_CL_X, oled_glass()[1] + 2 * WIN_CL_Z, FRONT_T + 2]);   // 窓
-        translate([0, 0, 8.5 - FRONT_DY - 1]) linear_extrude(FRONT_T + 2) offset(delta = WIN_CL_Z) oled_bulge_2d();                                                                   // 下辺の張り出し
-        hull() { translate([oled_glass_x() - WIN_CL_X, oled_glass_y() - WIN_CL_Z, WIN_Z_OUT - PORT_BEV]) cube([oled_glass()[0] + 2 * WIN_CL_X, oled_glass()[1] + 2 * WIN_CL_Z, 0.01]);
-                 translate([oled_glass_x() - WIN_CL_X - PORT_BEV, oled_glass_y() - WIN_CL_Z - PORT_BEV, WIN_Z_OUT]) cube([oled_glass()[0] + 2 * (WIN_CL_X + PORT_BEV), oled_glass()[1] + 2 * (WIN_CL_Z + PORT_BEV), 1.0]); }   // 外面のベベル
+        translate([0, 0, 8.5 - FRONT_DY - 1]) linear_extrude(FRONT_T + 2) { win_rr2d(); win_bulge2d(); }   // 窓（黒枠＋隙間・角丸 WIN_CR）と下辺の張り出しの逃げ（貫通）
+        for (k = [0, 1]) hull() {   // 外面のベベル 45°（PORT_BEV）: 輪郭を外へ向かって太らせる。角丸も一緒に太るので外面の角は WIN_CR + PORT_BEV の丸みになる。
+            translate([0, 0, WIN_Z_OUT - PORT_BEV]) linear_extrude(0.01) win_piece(k, 0);   //   窓と張り出しの和は凸でないので、凸な部品ごとに hull する（まとめて hull すると張り出しの逃げが埋まる）
+            translate([0, 0, WIN_Z_OUT + 1.0]) linear_extrude(0.01) win_piece(k, PORT_BEV + 1.0);
+        }
     }
     for (m = [[RSP_X + respeaker_L() - (4.162 + 6.812) / 2, +1], [RSP_X + respeaker_L() - (75.162 + 77.812) / 2, -1]])   // マイク U4（右・X 78.5）・U5（左・X 7.5）。ヒゲは外へ 1.0 寄せる
-        for (i = [-1, 0, 1]) whisker([m[0] + m[1] * 1.0, 0, RSP_Z + (15.252 + 18.752) / 2 + i * 3.6], m[1] * i * WSK_ANG);
+        for (i = [-1, 0, 1]) whisker([m[0] + m[1] * 1.0, 0, RSP_Z + (15.252 + 18.752) / 2 + i * 3.6], -m[1] * i * WSK_ANG);   // 扇は外（顔の外側）へ開く: 上のひげは外側の端が上がる。🔴 2026-09-05 まで符号が逆で内へ開いていた（ユーザー「角度だよ」）
 }
 // ---- 刻印（外面に 1.0 彫る。大きさは口の長辺の 7 割 × 1.5、口の縁から 1.5。向きの正: スパナは口が右上・稲妻は右上から左下・ヘッドホンは帯が上）----
 ICON_D = 1.0; ICON_GAP = 1.5; ICON_K = 1.5; ICON_R = 0.20; ICON_BOLT_K = 1.3; ICON_HP_SW = 2.0; SVC_MIN_W = 0.5;
@@ -487,23 +498,34 @@ module icon_headphone2d() { sw = max(icon_headphone_sw() * ICON_HP_SW, SVC_MIN_W
 module lwall_icon_cut() translate([LW_X - WALL - 1.0, JACK_ICON_C[0], JACK_ICON_C[1]]) rotate([90, 0, 90]) linear_extrude(ICON_D + 1.0) mirror([1, 0]) icon_headphone2d();
 
 // ---- 天板: つまみの台座と抜き・会話ボタンの台座と口・スピーカーの座とハニカムのグリル ----
-SPK_LIFT = 0.9; SPK_CL = 0.3;
+SPK_LIFT = 0.9; SPK_CL = 0.3;       // 座の深さ（天板の内面から）・座の逃げ（片側）
+SPK_REL = 0.4 + SPK_LIFT;           // 振動板の逃げの深さ（内面から 1.3）: 振動板の上の空気の層 0.4 ＋ 座で持ち上げた 0.9。天板の残りは 1.2
+SPK_HEX_AF = 2.2; SPK_HEX_WALL = 0.6;   // ハニカム: 六角の二面幅 2.2・穴どうしの肉 0.6（ピッチ 2.8・開口率 62%）。2026-09-05 まで肉 1.2 で小判に切り抜いていて目が粗く縁の六角が欠けていた（ユーザー指摘）
+SPK_RIM_H = 0.8; SPK_RIM_T = 0.6;   // 位置出しの縁: 天板の裏に立つ小判の囲い（高さ 0.8・肉 0.6・逃げは座と同じ SPK_CL）。両面テープで貼るときにここへ落とし込んで位置を出す
 module spk_obr(l, w, h) hull() for (sx = [w / 2, l - w / 2]) translate([sx, w / 2, 0]) cylinder(d = w, h = h, $fn = 48);
+// ハニカムの穴: 振動板 14 × 8 の範囲に六角を千鳥で並べる（偶数段 nx+1 個・奇数段は半ピッチ狭いので 1 個少ない）。小判で切り抜かず、六角は欠けさせない。平らな辺が左右（X）を向く
+module spk_grille() { pitch = SPK_HEX_AF + SPK_HEX_WALL; w = spk_dia()[0]; d = spk_dia()[1]; rh = pitch * 0.866;
+    nx = floor(w / pitch + 1e-6); nxo = max(0, floor((w - pitch) / pitch + 1e-6)); ny = floor(d / rh + 1e-6);
+    for (j = [0 : ny]) { n = (j % 2) ? nxo : nx;
+        for (i = [0 : n]) translate([SPK_AT[0] - n * pitch / 2 + i * pitch, SPK_AT[1] - ny * rh / 2 + j * rh, Z_TOP - 1]) rotate([0, 0, 30]) cylinder(d = SPK_HEX_AF / cos(30), h = TOP_T + 2, $fn = 6); } }
+module spk_rim() translate([SPK_AT[0] - spk_l() / 2 - SPK_CL - SPK_RIM_T, SPK_AT[1] - spk_w() / 2 - SPK_CL - SPK_RIM_T, Z_TOP - SPK_RIM_H]) difference() {
+    spk_obr(spk_l() + 2 * (SPK_CL + SPK_RIM_T), spk_w() + 2 * (SPK_CL + SPK_RIM_T), SPK_RIM_H + 0.01);
+    translate([SPK_RIM_T, SPK_RIM_T, -1]) spk_obr(spk_l() + 2 * SPK_CL, spk_w() + 2 * SPK_CL, SPK_RIM_H + 3);
+}
 module p_top() difference() {
     union() {
         slab_top();
         at_knob() knob_station_add();
         at_btn()  btn3_station_add();
         pb_mount();   // PowerBoost のダボ（天板と一体・2026-09-05）
+        spk_rim();    // スピーカーの位置出しの縁
     }
     at_knob() knob_station_cut();
     at_btn()  btn3_station_cut();
     top_screw_cuts();
     translate([SPK_AT[0] - spk_l() / 2 - SPK_CL, SPK_AT[1] - spk_w() / 2 - SPK_CL, Z_TOP - 0.01]) spk_obr(spk_l() + 2 * SPK_CL, spk_w() + 2 * SPK_CL, SPK_LIFT + 0.01);   // 座（内面から 0.9）
-    intersection() {   // グリル: 振動板 14 × 8 の上にハニカム（二面幅 2.2・壁 1.2）
-        translate([SPK_AT[0] - spk_dia()[0] / 2, SPK_AT[1] - spk_dia()[1] / 2, Z_TOP - 1]) spk_obr(spk_dia()[0], spk_dia()[1], TOP_T + 2);
-        for (i = [-3 : 3], j = [-2 : 2]) translate([SPK_AT[0] + i * 3.4 + (j % 2 == 0 ? 0 : 1.7), SPK_AT[1] + j * 2.94, Z_TOP - 1]) cylinder(d = 2.2 / cos(30), h = TOP_T + 2, $fn = 6);
-    }
+    translate([SPK_AT[0] - (spk_dia()[0] + 1) / 2, SPK_AT[1] - (spk_dia()[1] + 1) / 2, Z_TOP - 0.01]) spk_obr(spk_dia()[0] + 1, spk_dia()[1] + 1, SPK_REL + 0.01);   // 振動板の逃げ（小判 15 × 9・内面から 1.3）
+    spk_grille();   // ハニカムのグリル（天板を貫通）
 }
 // ---- ハッチ: Type-C の口・トグルの穴・電池の口 ----
 TC_PORT_C = [TC_AT[0] + tc_size()[2] + tc_conn()[2] / 2, IN_Y + HATCH_T / 2, TC_AT[2] + tc_size()[0] / 2];   // 板の表 ＋ 胴の高さの半分・板の長さの中央（4.92, ・, 10.75）
