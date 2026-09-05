@@ -344,9 +344,13 @@ INA_HOLES_W = [for (h = ina_holes()) ina_hole_w(h)];
 // E リング（呼び 1.5）の軸: φ2.0・板 1.6 の上に遊び 0.1 → 溝（径 1.5・幅 0.5）→ 掴みしろ 0.6。🔒 ユーザー 2026-09-05「電流計に E リング。PowerBoost もダボ＋E リング」。溝の数字は規格値（AI が置いた）
 E15_D = 2.0; E15_GRV_D = 1.5; E15_GRV_W = 0.5 + 0.3; E15_PLAY = 0.1; E15_GRIP = 0.6;   // 溝の幅 0.8（リング 0.4 ＋ 0.4）。🔒 ユーザー 2026-09-05「AS5600 のダボの E リングが取れないくらい厳しい。PowerBoost と電流計の溝も同じはず」: 0.5 → 0.8、軸は同じだけ長くなる（e15_len）
 function e15_len(t) = t + E15_PLAY + E15_GRV_W + E15_GRIP;   // 板厚 t の板を留める軸の長さ（板の面から）
-module e15_shaft(t, d_fit = E15_D) difference() {   // d_fit: 板を通る部分の径（板の穴に合わせる）。板の上は E15_D で E リングの溝。🔴 2026-09-06 ユーザー「E-1.5 のピンに電流計の 3mm 近い穴を乗せるとどうなると思ってんの」: 2.0 の軸を 3.0 の穴に通していた（1mm ガタ）
-    union() { cylinder(d = d_fit, h = t, $fn = 32); cylinder(d = E15_D, h = e15_len(t), $fn = 24); }
-    translate([0, 0, t + E15_PLAY]) difference() { cylinder(d = E15_D + 1, h = E15_GRV_W, $fn = 24); translate([0, 0, -1]) cylinder(d = E15_GRV_D, h = E15_GRV_W + 2, $fn = 24); }
+module e15_shaft(t) ering_shaft(t, E15_D, E15_GRV_D, E15_GRV_W);
+// 電流計の軸: 3.0（穴 3.2〜3.4）に E-2.3（軸 3〜4 用）の溝。🔒 ユーザー 2026-09-06「軸 3 を留める E リングなんていくらでも持ってる」。溝径 2.3・幅は板厚 0.6 ＋ 0.4（E-1.5 の溝を 0.4 広げた前例と同じ）
+E23_D = 3.0; E23_GRV_D = 2.3; E23_GRV_W = 0.6 + 0.4;
+module e23_shaft(t) ering_shaft(t, E23_D, E23_GRV_D, E23_GRV_W);
+module ering_shaft(t, d, grv_d, grv_w) difference() {   // 板厚 t の板を留める軸。板の上に遊び E15_PLAY → 溝 → 掴みしろ E15_GRIP。🔴 2026-09-06 ユーザー「E-1.5 のピンに電流計の 3mm 近い穴を乗せるとどうなると思ってんの」: 2.0 の軸を 3.0 の穴に通していた（1mm ガタ）
+    cylinder(d = d, h = t + E15_PLAY + grv_w + E15_GRIP, $fn = 32);
+    translate([0, 0, t + E15_PLAY]) difference() { cylinder(d = d + 1, h = grv_w, $fn = 32); translate([0, 0, -1]) cylinder(d = grv_d, h = grv_w + 2, $fn = 32); }
 }
 // 電流計の板の足跡（世界・軸に平行）: 4 隅を ina_hole_w() と同じ変換で写す
 INA_FOOT = let (c = [for (q = [[0, 0], [ina_size()[0], 0], [ina_size()[0], ina_size()[1]], [0, ina_size()[1]]]) ina_hole_w(q)])
@@ -357,7 +361,7 @@ HDR_FOOT = let (c = [for (q = [[26.0 - 1.27, 3.6 - 1.27], [26.0 + 1.27, 3.6 - 1.
 module straps() color("#ed8936") difference() {
     union() {
         for (b = STRAP_BANDS) strap_u(b[0], b[1]);
-        for (h = INA_HOLES_W) translate([h[0], h[1], BAT_TOP + STRAP_T - STRAP_C_POCKET]) { if (INA_LIFT > 0) cylinder(d = 5.8, h = INA_LIFT); translate([0, 0, INA_LIFT]) e15_shaft(ina_size()[2], 3.0); }   // 電流計の支柱: 板を通る部分は 3.0（🔒 ユーザー 2026-09-06「この穴は恐らく 3.2 か 3.4 ある。つまり軸は 3 でいい」）・板の上は 2.0 で E-1.5 の溝
+        for (h = INA_HOLES_W) translate([h[0], h[1], BAT_TOP + STRAP_T - STRAP_C_POCKET]) { if (INA_LIFT > 0) cylinder(d = 5.8, h = INA_LIFT); translate([0, 0, INA_LIFT]) e23_shaft(ina_size()[2]); }   // 電流計の支柱: 軸 3.0 ＋ E-2.3 の溝（🔒 ユーザー 2026-09-06「この穴は恐らく 3.2 か 3.4 ある。つまり軸は 3 でいい」「軸 3 を留める E リングなんていくらでも持ってる」）
     }
     if (STRAP_C_POCKET > 0) translate([INA_FOOT[0] - 0.5, INA_FOOT[2] - 0.5, BAT_TOP + STRAP_T - STRAP_C_POCKET]) cube([INA_FOOT[1] - INA_FOOT[0] + 1.0, INA_FOOT[3] - INA_FOOT[2] + 1.0, STRAP_C_POCKET + 1]);
     at_ina() translate([26.0 - 1.27 - 1.0, 3.6 - 1.27 - 1.0, -HDR_POCKET_D]) cube([2.54 + 2.0, 16.4 - 3.6 + 2.54 + 2.0, HDR_POCKET_D + 1]);   // 電源ヘッダの足の列の逃げ（板の座標で彫る。板が回れば一緒に回る。🔒 ユーザー 2026-09-05「ピンヘッダ部分は 1.2mm 掘って」）
