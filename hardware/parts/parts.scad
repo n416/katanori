@@ -768,7 +768,7 @@ INA_SMD_H = 1.1;    // ⚠ 板の上でいちばん高いSMD（IC）。**全面�
 //    ⚠ 横出しは高さを下げる代わりに**横へ出る**。線の逃げは板の面内に要る
 INA_HDR    = true;    // ヘッダを付けるか
 INA_HDR_RA = true;    // ⚠ true = L字（横出し）
-INA_HDR_BACK = false; // （2026-08-24 に一度 true にしたが、あれは PowerBoost の話の聞き違いだった。INA は部品面側の L 字・ブリッジに密着のまま）
+INA_HDR_BACK = false; // 🔒 2026-09-06 実物: ヘッダは表。裏に出るのは足の先だけ（数ミリ）。裏の逃げは case_v5 の帯に掘る（2026-08-24 に一度 true にしたが、あれは PowerBoost の話の聞き違いだった。INA は部品面側の L 字・ブリッジに密着のまま）
 INA_HDR_H  = INA_HDR_RA ? 6.0 : 8.5;
 INA_BACK_ENV = 3.8;   // 裏出しのとき、裏の面から出る厚み（ピン中心 2.5 ＋ ハウジング断面の半分 1.27）
 function ina_size() = [INA_L, INA_W, INA_T];

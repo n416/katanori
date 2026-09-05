@@ -26,7 +26,7 @@
 //   print_strap_a / print_strap_b / print_strap_c … 帯 1 本を刷る向き（直置き・足の裏が Z 0）＋ 支柱とラフト（parts/props_v5_gen.scad・python hardware/tools/props_gen.py）。素の形は -D PROPS_OFF=true
 //   （皮・板・検査の語は皮を起こすときにここへ足す。既にある語の意味は変えない）
 // ============================================================
-part = "look";
+part = "bridge";
 PROPS_OFF = false;   // true: 刷る向きの素の形（支柱・ラフト無し）。tools/props_gen.py がこれで焼いて支柱の位置を決める
 
 use <parts/parts.scad>
@@ -73,7 +73,7 @@ STRAP_T = 2.0;                      // 留め帯の天板の厚み（v4 STRAP_T�
 PAIR_Y0 = TRAY_Y0 + (lipo_size()[0] - (pb_size()[1] + 0.5 + ina_size()[1])) / 2;   // v4 PAIR_Y0（電流計と PowerBoost を電池の Y の中央に並べる）
 STRAP_C_POCKET = 0.0;               // 2026-09-05 一度 1.0 にしたが、ユーザー「ピンヘッダ部分は 1.2mm 掘って」で板を帯に直置きにしたので 0 に戻す
 HDR_POCKET_D = 1.2 + 0.3;           // 電源ヘッダの足の裏出し 1.2 の逃げ（帯 C の天板に掘る・床 0.5 残る）
-INA_DX  = -4.7; INA_DY = 3.0; INA_LIFT = 0.0; INA_THETA = 0;   // INA_LIFT: v4 は 1.0。🔒 ユーザー 2026-09-05「浮いてるでしょ」: 足の逃げは帯に掘って板は帯に直置き（0）   // v4 の値（🔒 2026-08-29 INA_DY 3.0・2026-08-26 0°）
+INA_DX  = -4.7; INA_DY = 3.0; INA_LIFT = 0.0; INA_THETA = 0;   // 2026-09-06 一度 4.5 にしたが取り消し（ヘッダは表・裏は足の先だけ）。   // INA_LIFT: v4 は 1.0。🔒 ユーザー 2026-09-05「浮いてるでしょ」: 足の逃げは帯に掘って板は帯に直置き（0）   // v4 の値（🔒 2026-08-29 INA_DY 3.0・2026-08-26 0°）
 BOARD_LIFT = 0.5;                   // v4: PowerBoost の蝶番を帯の面から 0.5 浮かせる（🔒 2026-08-25）
 INA_SX  = -4.0 + 5.0 + 0.6 - 2.0 + 1.0 + 4.0 + 5.0;   // →「右に 4mm」: +4 →「右に 5mm」: +5。 🔒 ユーザー 2026-09-05 …→ −4 →「右に 5mm」: +1 →「2mm 左に」: −1 →「1mm 右に」: 0。電池を −0.6 したとき枠が動いたぶんを +0.6 補正（電流計の場所は変えない）
 INA_SY  = 1.2 - 3.0;                // 🔒 ユーザー 2026-09-05 …→ +1.2 →「手前に 3mm」: −1.8
@@ -196,7 +196,9 @@ module oled_plug() at_oled() { c = oled_hdr(); translate([c[0] - 1.5 * 2.54, c[1
 //   ハウジングは −X（板の外）へ水平・線は後ろ（+Y）へ曲がる（ハブの電流計の口は後縁で +Y 向き）
 INA_I2C_YAW = 0;   // I2C の L 字は振れない（5 ピンの L 字ヘッダ・🔒 ユーザー 2026-09-05「そっちは角度つけられんよ」）
 INA_I2C_EXIT = [0, 1];   // I2C の口から出た線が曲がる向き（plug の局所）。[-1,0] は後ろ（ハッチへ 3.4 出た・2026-09-05）→ 横へ
-module ina_plug() at_ina() { hd = ina_hdr(); translate([hd[0] + hd[4] + 1.27, hd[2] + 1.27, 1.6 + 2.5]) rotate([0, 0, INA_I2C_YAW]) translate([-1.27, 0, 0]) rotate([0, -90, 0]) rotate([0, 0, 90]) plug(4, INA_I2C_EXIT); }   // ピンの根元（樹脂の中心線）で INA_I2C_YAW だけ振る
+module ina_plug() at_ina() ina_back_flip() { hd = ina_hdr(); translate([hd[0] + hd[4] + 1.27, hd[2] + 1.27, 1.6 + 2.5]) rotate([0, 0, INA_I2C_YAW]) translate([-1.27, 0, 0]) rotate([0, -90, 0]) rotate([0, 0, 90]) plug(4, INA_I2C_EXIT); }
+// I2C ヘッダが裏（INA_HDR_BACK）なら、上に描いた口を板の中面 z 0.8 で鏡にして裏へ（2026-09-06）
+module ina_back_flip() { if (ina_back_env() > 0) translate([0, 0, 0.8]) mirror([0, 0, 1]) translate([0, 0, -0.8]) children(); else children(); }   // ピンの根元（樹脂の中心線）で INA_I2C_YAW だけ振る
 // 電流計の電源の口: 4 本・L 字（🔒 ユーザー 2026-09-05「では電流計を L 字にしてください」。同日 直立て→L→直立て→L と往復）。ピンは端子側の縁（局所 +x）の外へ水平・樹脂の外面 x = 26+1.27・芯 z = 1.6+2.5。線は上へ曲がる
 INA_PWR_EXIT = [0, 1];    // 口から出た線が曲がる向き（plug の局所 xy）。[-1,0] = 上（板の法線）・[0,1] = 右（+X 世界）・[0,-1] = 左。上だとバスタブの底に入るので右へ（行き先の電池のコネクタ対と PowerBoost の JST が右側・2026-09-05）
 INA_PWR_YAW = [90 - 180, 0, 0, 0];   // 電源の L 字ピン 4 本の根元の振り（板の局所 y 3.6・7.87・12.13・16.4 の順＝板が 180 のとき世界の左から右）。🔒 ユーザー 2026-09-05「一番左のピンだけを左に 90 度回転」: 1 本目 +90（左＝反時計回り）→「右に 180 度」: −90（ハウジングが左＝−X を向く）。それまで 0（「右に 25 度」→「30 度」→「0 に戻す」）
@@ -359,7 +361,7 @@ module straps() color("#ed8936") difference() {
     }
     if (STRAP_C_POCKET > 0) translate([INA_FOOT[0] - 0.5, INA_FOOT[2] - 0.5, BAT_TOP + STRAP_T - STRAP_C_POCKET]) cube([INA_FOOT[1] - INA_FOOT[0] + 1.0, INA_FOOT[3] - INA_FOOT[2] + 1.0, STRAP_C_POCKET + 1]);
     at_ina() translate([26.0 - 1.27 - 1.0, 3.6 - 1.27 - 1.0, -HDR_POCKET_D]) cube([2.54 + 2.0, 16.4 - 3.6 + 2.54 + 2.0, HDR_POCKET_D + 1]);   // 電源ヘッダの足の列の逃げ（板の座標で彫る。板が回れば一緒に回る。🔒 ユーザー 2026-09-05「ピンヘッダ部分は 1.2mm 掘って」）
-    at_ina() translate([3.3 - 1.27 - 1.0, 4.0 - 1.27 - 1.0, -HDR_POCKET_D]) cube([2.54 + 2.0, 4 * 2.54 + 2.54 + 2.0, HDR_POCKET_D + 1]);   // I2C ヘッダ 5 本（x 3.3・y 4.0〜14.7）の足の逃げ。🔴 2026-09-06 実機: 電源側だけ掘って前を掘らず、板が帯に載らなかった（ユーザー「後ろは気にしてるのに前無視？」）
+    at_ina() translate([3.3 - 1.27 - 1.0, 4.0 - 1.27 - 1.0, -HDR_POCKET_D]) cube([2.54 + 2.0, 4 * 2.54 + 2.54 + 2.0, HDR_POCKET_D + 1]);   // I2C ヘッダ 5 本（x 3.3・y 4.0〜14.7）の足の先の逃げ。🔴 2026-09-06 実機: 電源側だけ掘って前を掘らず、板が帯に載らなかった（ユーザー「後ろは気にしてるのに前無視？」）。深さは電源側と同じ 1.5（帯の床 0.5 残し・下は電池なので抜かない）。足がそれより長ければ切る
 }
 // ---- 帯 1 本だけ・刷る向き ----
 //   strap_one(k): 帯 k（ツバ込み・その帯の上に立つ電流計の軸込み）。straps() を Y の板で切る（v4 strap_one と同じ切り方・ツバ TAB_L のぶん広げる）
@@ -806,7 +808,7 @@ function hub_mouth(id, k) = let (h = hub_h(id), ax = (h[6] - h[4]) >= (h[7] - h[
 function ph_mouth(id) = let (h = hub_part(id)) W_hub([(h[3] + h[5]) / 2, (h[4] + h[6]) / 2, 1.6 + h[7] + 2.0]);   // PH のソケットの上 2.0（プラグの頭）・線は上へ
 function xiao_mouth(r, k) = let (used = [[2, 3, 4, 5], [0, 1, 2]][r]) W_rsp([2.932 + used[k] * 2.54, -(1.4 + 2.5) - dupont_h(), [9.397, 24.627][r]]);   // 軸は世界 +Y
 function oled_mouth(k) = let (c = oled_hdr()) W_oled([c[0] - 1.5 * 2.54 + k * 2.54, c[1], oled_hous_z_top()]);   // 軸は世界 +Y
-function ina_i2c_mouth() = let (hd = ina_hdr()) W_ina([hd[0] + hd[4] - dupont_h(), hd[2] + 1.27 + 1.5 * 2.54, 1.6 + 2.5]);   // 4 本の中心・軸は W_ina_d([-1,0,0])
+function ina_i2c_mouth() = let (hd = ina_hdr()) W_ina([hd[0] + hd[4] - dupont_h(), hd[2] + 1.27 + 1.5 * 2.54, (ina_back_env() > 0) ? 0.8 - (1.6 + 2.5 - 0.8) : 1.6 + 2.5]);   // 裏出しなら z −2.5（中面 0.8 の鏡）   // 4 本の中心・軸は W_ina_d([-1,0,0])
 function ina_pwr_mouth(j) = let (q = ina_pwr_pins()[j]) W_ina([q[0] + 1.27, q[1], 1.6 + 2.5 + 1.27] + rotz([dupont_h(), 0, 0], ina_pwr_yaw(j)));   // j 0,1 = INPUT / 2,3 = OUTPUT・軸は ina_pwr_ax(j)（ピンごとの振り INA_PWR_YAW 込み）
 function ina_pwr_ax(j) = W_ina_d(rotz([1, 0, 0], ina_pwr_yaw(j)));
 function pb_mouth(i) = W_pb([pb_jp2_x0() + i * 2.54, -dupont_h(), 1.6 + 2.5]);   // JP2 のピン i・軸は世界 +Y
