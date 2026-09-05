@@ -357,7 +357,7 @@ HDR_FOOT = let (c = [for (q = [[26.0 - 1.27, 3.6 - 1.27], [26.0 + 1.27, 3.6 - 1.
 module straps() color("#ed8936") difference() {
     union() {
         for (b = STRAP_BANDS) strap_u(b[0], b[1]);
-        for (h = INA_HOLES_W) translate([h[0], h[1], BAT_TOP + STRAP_T - STRAP_C_POCKET]) { if (INA_LIFT > 0) cylinder(d = 5.8, h = INA_LIFT); translate([0, 0, INA_LIFT]) e15_shaft(ina_size()[2], ina_hole_d() - 0.1); }   // 電流計の支柱: 板を通る部分は穴 3.0 − 0.1 = 2.9・板の上は 2.0 で E-1.5 の溝
+        for (h = INA_HOLES_W) translate([h[0], h[1], BAT_TOP + STRAP_T - STRAP_C_POCKET]) { if (INA_LIFT > 0) cylinder(d = 5.8, h = INA_LIFT); translate([0, 0, INA_LIFT]) e15_shaft(ina_size()[2], 3.0); }   // 電流計の支柱: 板を通る部分は 3.0（🔒 ユーザー 2026-09-06「この穴は恐らく 3.2 か 3.4 ある。つまり軸は 3 でいい」）・板の上は 2.0 で E-1.5 の溝
     }
     if (STRAP_C_POCKET > 0) translate([INA_FOOT[0] - 0.5, INA_FOOT[2] - 0.5, BAT_TOP + STRAP_T - STRAP_C_POCKET]) cube([INA_FOOT[1] - INA_FOOT[0] + 1.0, INA_FOOT[3] - INA_FOOT[2] + 1.0, STRAP_C_POCKET + 1]);
     at_ina() translate([26.0 - 1.27 - 1.0, 3.6 - 1.27 - 1.0, -HDR_POCKET_D]) cube([2.54 + 2.0, 16.4 - 3.6 + 2.54 + 2.0, HDR_POCKET_D + 1]);   // 電源ヘッダの足の列の逃げ（板の座標で彫る。板が回れば一緒に回る。🔒 ユーザー 2026-09-05「ピンヘッダ部分は 1.2mm 掘って」）
