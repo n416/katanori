@@ -26,7 +26,7 @@
 //   print_strap_a / print_strap_b / print_strap_c … 帯 1 本を刷る向き（直置き・足の裏が Z 0）＋ 支柱とラフト（parts/props_v5_gen.scad・python hardware/tools/props_gen.py）。素の形は -D PROPS_OFF=true
 //   （皮・板・検査の語は皮を起こすときにここへ足す。既にある語の意味は変えない）
 // ============================================================
-part = "bridge";
+part = "look";
 PROPS_OFF = false;   // true: 刷る向きの素の形（支柱・ラフト無し）。tools/props_gen.py がこれで焼いて支柱の位置を決める
 
 use <parts/parts.scad>
@@ -344,8 +344,8 @@ INA_HOLES_W = [for (h = ina_holes()) ina_hole_w(h)];
 // E リング（呼び 1.5）の軸: φ2.0・板 1.6 の上に遊び 0.1 → 溝（径 1.5・幅 0.5）→ 掴みしろ 0.6。🔒 ユーザー 2026-09-05「電流計に E リング。PowerBoost もダボ＋E リング」。溝の数字は規格値（AI が置いた）
 E15_D = 2.0; E15_GRV_D = 1.5; E15_GRV_W = 0.5 + 0.3; E15_PLAY = 0.1; E15_GRIP = 0.6;   // 溝の幅 0.8（リング 0.4 ＋ 0.4）。🔒 ユーザー 2026-09-05「AS5600 のダボの E リングが取れないくらい厳しい。PowerBoost と電流計の溝も同じはず」: 0.5 → 0.8、軸は同じだけ長くなる（e15_len）
 function e15_len(t) = t + E15_PLAY + E15_GRV_W + E15_GRIP;   // 板厚 t の板を留める軸の長さ（板の面から）
-module e15_shaft(t) difference() {
-    cylinder(d = E15_D, h = e15_len(t), $fn = 24);
+module e15_shaft(t, d_fit = E15_D) difference() {   // d_fit: 板を通る部分の径（板の穴に合わせる）。板の上は E15_D で E リングの溝。🔴 2026-09-06 ユーザー「E-1.5 のピンに電流計の 3mm 近い穴を乗せるとどうなると思ってんの」: 2.0 の軸を 3.0 の穴に通していた（1mm ガタ）
+    union() { cylinder(d = d_fit, h = t, $fn = 32); cylinder(d = E15_D, h = e15_len(t), $fn = 24); }
     translate([0, 0, t + E15_PLAY]) difference() { cylinder(d = E15_D + 1, h = E15_GRV_W, $fn = 24); translate([0, 0, -1]) cylinder(d = E15_GRV_D, h = E15_GRV_W + 2, $fn = 24); }
 }
 // 電流計の板の足跡（世界・軸に平行）: 4 隅を ina_hole_w() と同じ変換で写す
@@ -357,7 +357,7 @@ HDR_FOOT = let (c = [for (q = [[26.0 - 1.27, 3.6 - 1.27], [26.0 + 1.27, 3.6 - 1.
 module straps() color("#ed8936") difference() {
     union() {
         for (b = STRAP_BANDS) strap_u(b[0], b[1]);
-        for (h = INA_HOLES_W) translate([h[0], h[1], BAT_TOP + STRAP_T - STRAP_C_POCKET]) { if (INA_LIFT > 0) cylinder(d = 5.8, h = INA_LIFT); translate([0, 0, INA_LIFT]) e15_shaft(ina_size()[2]); }   // 電流計の支柱: 浮き 0 なら E リングの軸だけ
+        for (h = INA_HOLES_W) translate([h[0], h[1], BAT_TOP + STRAP_T - STRAP_C_POCKET]) { if (INA_LIFT > 0) cylinder(d = 5.8, h = INA_LIFT); translate([0, 0, INA_LIFT]) e15_shaft(ina_size()[2], ina_hole_d() - 0.1); }   // 電流計の支柱: 板を通る部分は穴 3.0 − 0.1 = 2.9・板の上は 2.0 で E-1.5 の溝
     }
     if (STRAP_C_POCKET > 0) translate([INA_FOOT[0] - 0.5, INA_FOOT[2] - 0.5, BAT_TOP + STRAP_T - STRAP_C_POCKET]) cube([INA_FOOT[1] - INA_FOOT[0] + 1.0, INA_FOOT[3] - INA_FOOT[2] + 1.0, STRAP_C_POCKET + 1]);
     at_ina() translate([26.0 - 1.27 - 1.0, 3.6 - 1.27 - 1.0, -HDR_POCKET_D]) cube([2.54 + 2.0, 16.4 - 3.6 + 2.54 + 2.0, HDR_POCKET_D + 1]);   // 電源ヘッダの足の列の逃げ（板の座標で彫る。板が回れば一緒に回る。🔒 ユーザー 2026-09-05「ピンヘッダ部分は 1.2mm 掘って」）
