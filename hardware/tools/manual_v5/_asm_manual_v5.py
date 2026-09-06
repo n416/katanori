@@ -95,6 +95,126 @@ BUNDLES = [
 ]
 
 
+# 線の色（ネットごと・全部の口で同じ）。🔒 2026-09-02 ユーザー: SCL＝緑・SDA＝黄色。🔒 2026-09-06 ユーザー: 会話ボタンの信号＝紫・3V3＝赤・GND＝黒か白・EN＝橙・5V＝茶。
+# 「仮」はユーザーが指定していない線。D3（ミュートリレーの駆動）・スピーカー ±（秋月 112495 のリードが青/白）・電池 ±（JST-PH のリードが赤/黒）。
+COLOR = {'SCL': '緑', 'SDA': '黄', 'BTN': '紫', 'V33': '赤', 'GND': '黒（白でも可）', 'EN': '橙', 'V5': '茶',
+         'IN': '灰（仮）', 'SPKP': '青（仮・スピーカーのリードと同じ）', 'SPKO': '青（仮・同）', 'SPKM': '白（仮・同）',
+         'BATP': '赤（仮・電池のリードと同じ）', 'BATM': '黒（仮・同）'}
+# 束 → 線の一覧 [(名前, ネット)]。ハブに挿さる束は hub_ports から、挿さらない 3 束はここに書く
+HUB_PORT_OF = {'xiao': 'XIAO', 'phin': 'PHIN', 'oled': 'OLED', 'as5600': 'AS5600', 'btn2': 'BTN2',
+               'phout': 'PHOUT', 'pwr': 'PWR', 'ina': 'INA', 'tgl': 'TOGGLE'}
+OFFBOARD_WIRES = {'chg': [('5V', 'V5'), ('GND', 'GND')],
+                  'bat': [('＋', 'BATP'), ('−', 'BATM')], 'batout': [('＋', 'BATP'), ('−', 'BATM')]}
+
+
+def bundle_wires(key):
+    """束の線を [(名前, ネット)] で返す。つまみは GND が二股なので DIR 行を足す（線は 5 本）。電源の空きは線ではない。"""
+    if key in HUB_PORT_OF:
+        p = {q.id: q for q in hub_ports.ports()}[HUB_PORT_OF[key]]
+        ws = [(hub_ports.disp(fn, net), net) for h, fn, net, x, y in p.pins if net]
+        if key == 'as5600':
+            ws.append(('GND の二股 → DIR', 'GND'))
+        return ws
+    return OFFBOARD_WIRES[key]
+
+
+def wire_cells(key):
+    return '・'.join('<b>%s</b> %s' % (nm, COLOR[net]) for nm, net in bundle_wires(key))
+
+
+# 線の色 → 絵の色
+COLOR_HEX = {'緑': '#2e9e44', '黄': '#e2c200', '紫': '#7b3fa0', '赤': '#d0342c', '黒': '#26292c', '橙': '#f08a24',
+             '茶': '#7a4a1e', '灰': '#8a8f95', '青': '#2a6fd6', '白': '#f4f4f2'}
+FAR_KIND = {'xiao': 'dupont', 'phin': 'ph', 'oled': 'dupont', 'as5600': 'dupont', 'btn2': 'bare', 'phout': 'bare',
+            'pwr': 'dupont', 'ina': 'dupont', 'tgl': 'bare', 'chg': 'dupont', 'bat': 'dupont', 'batout': 'ph'}
+NEAR_KIND = {'chg': 'dupont', 'bat': 'jst', 'batout': 'dupont'}   # ハブに挿さらない 3 束の「ハブ側」の端
+
+
+def cut_fig(segs):
+    """手順 0 の切り出し図。束ごとに線を実寸比（1mm = 3px）の色で描く。左がハブ側（殻）、右が逆の端。両端の銅色は被覆をむく所。"""
+    SC = 3.0            # px / mm
+    STRIP = 3.0         # 被覆をむく長さ [mm]（絵の上だけ・端末処理 25 の内）
+    X0, XL = 240, 30    # 線の左端の X・名札の X
+    PITCH, GAP = 17, 30 # 線の間隔・束の間
+    rows = {r[0]: r for r in cut_rows(segs)}
+    maxcut = max(r[5] for r in rows.values())
+    W = X0 + maxcut * SC + 300
+    y = 34
+    o = []
+    for disp, key, n, shell, far, how in BUNDLES:
+        r = rows[disp]; cut = r[5]; wires = bundle_wires(key)
+        near = shell if key in HUB_PORT_OF else {'chg': 'Type-C 基板側は 1 連 × 2', 'bat': '電池側は JST-PH の受け',
+                                                'batout': '電流計側は 1 連 × 2'}[key]
+        o.append('<text x="%d" y="%d" font-size="15" font-weight="700" fill="%s">%s</text>'
+                 '<text x="%d" y="%d" font-size="13" fill="%s">%d 本・<tspan font-weight="700" fill="#b8860b">%d mm</tspan>'
+                 '（模型の実長 %d）・左の殻: %s</text>'
+                 % (XL, y, hub_ports.PAL['edge'], disp, XL + 150, y, hub_ports.PAL['sub'], n, cut, r[4], re.sub(r'<[^>]+>', '', near)))
+        y += 14
+        x1 = X0 + cut * SC
+        top = y
+        for nm, net in wires:
+            cname = COLOR[net]; hexc = COLOR_HEX[cname[0]]
+            yy = y + PITCH / 2
+            o.append('<text x="%d" y="%.1f" font-size="12" fill="%s" text-anchor="end"><tspan font-weight="700" fill="%s">%s</tspan>　%s</text>'
+                     % (X0 - 36, yy + 4, hub_ports.PAL['sub'], hub_ports.PAL['edge'], nm, cname.split('（')[0]))
+            # 線（被覆）: 両端 STRIP は銅色
+            o.append('<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="#b87333" stroke-width="3"/>' % (X0, yy, x1, yy))
+            o.append('<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="%s" stroke-width="7" stroke-linecap="butt"%s/>'
+                     % (X0 + STRIP * SC, yy, x1 - STRIP * SC, yy, hexc, ' stroke-opacity="1"' if True else ''))
+            if cname[0] == '白':
+                o.append('<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="#9a9a96" stroke-width="8" fill="none" stroke-opacity="0.35"/>'
+                         % (X0 + STRIP * SC, yy, x1 - STRIP * SC, yy))
+            y += PITCH
+        bot = y
+        # ハブ側の端（左）
+        nk = NEAR_KIND.get(key, 'dupont')
+        o.append(_end_box(X0 - 2, top, bot, nk, '', left=True))
+        # 逆の端（右）
+        o.append(_end_box(x1 + 2, top, bot, FAR_KIND[key], re.sub(r'<[^>]+>', '', far), left=False))
+        y += GAP
+    H = y
+    o.insert(0, '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %d %d" width="%d" height="%d" '
+                'preserveAspectRatio="xMidYMid meet" font-family="system-ui, sans-serif">' % (W, H, W, H))
+    o.insert(1, '<text x="%d" y="18" font-size="12" fill="%s">← ハブ側（殻に圧着して挿す）　　線は実寸比（%d mm ＝ %d px）。両端の銅色は被覆をむく所　　逆の端 →</text>'
+             % (X0, hub_ports.PAL['sub'], 100, int(100 * SC)))
+    o.append('</svg>')
+    return ('<figure class="wide">' + ''.join(o) +
+            '<figcaption>束ごとの線の色と切る長さ。<b>同じ束の線は全部同じ長さ</b>で、ハブ側（左）は殻に入る。'
+            '色は全部の口で同じ（GND は黒か白のどちらでもよい）。「仮」の線（D3・スピーカー ±・電池 ±）はユーザーの指定がなく、相手のリードの色に合わせて置いた。</figcaption></figure>')
+
+
+def _end_box(x, top, bot, kind, label, left):
+    """線の端の形。dupont＝黒い殻、ph／jst＝白いプラグ、bare＝殻なし（直はんだ）。label はその横の文。"""
+    h = max(bot - top, 14)
+    txt = re.sub(r'\s+', ' ', label).replace('<br>', ' ')
+    parts = []
+    if kind == 'dupont':
+        bw = 26
+        bx = x - bw if left else x
+        parts.append('<rect x="%.1f" y="%.1f" width="%d" height="%.1f" rx="3" fill="#2f3a43"/>' % (bx, top, bw, h))
+    elif kind in ('ph', 'jst'):
+        bw = 22
+        bx = x - bw if left else x
+        parts.append('<rect x="%.1f" y="%.1f" width="%d" height="%.1f" rx="3" fill="#f4f4f2" stroke="#9a9a96" stroke-width="1.2"/>' % (bx, top, bw, h))
+    else:
+        bw = 0
+    tx = (x - bw - 6) if left else (x + bw + 8)
+    anc = 'end' if left else 'start'
+    # 右の文は長いので 2 行に割る
+    if txt:
+        lines, rest = [], txt
+        while len(rest) > 24:                       # 空白・「・」・「（」の手前で折る（無ければ 24 字で）
+            k = max(rest.rfind(c, 8, 24) for c in (' ', '・', '（', '→'))
+            k = 24 if k < 0 else k
+            lines.append(rest[:k].rstrip()); rest = rest[k:].lstrip()
+        lines.append(rest)
+        y0 = top + h / 2 + 4 - 13 * (len(lines) - 1) / 2
+        for k, ln in enumerate(lines):
+            parts.append('<text x="%.1f" y="%.1f" font-size="11" fill="%s" text-anchor="%s">%s</text>'
+                         % (tx, y0 + 13 * k, hub_ports.PAL['sub'], anc, ln))
+    return ''.join(parts)
+
+
 def cut_rows(segs):
     rows = []
     for disp, key, n, shell, far, how in BUNDLES:
@@ -113,15 +233,21 @@ def cut_rows(segs):
         else:
             ln = sum(bund) + FAN * 2
         cut = int(math.ceil((ln + WIRE_MARGIN) / 5.0) * 5)
-        rows.append((disp, n, shell, far, int(round(ln)), cut))
+        assert len(bundle_wires(key)) == n, (key, n)
+        rows.append((disp, n, shell, far, int(round(ln)), cut, wire_cells(key)))
     return rows
 
 
 def cuttable(segs):
-    rows = ['<tr><td class="w">{}</td><td class="n">{}</td><td class="n">{}</td><td>{}</td>'
-            '<td class="n">{}</td><td class="n hi"><b>{} mm</b></td></tr>'.format(*r) for r in cut_rows(segs)]
-    return ('<div class="tw"><table><thead><tr><th>束</th><th>線の本数</th><th>ハブ側の殻</th>'
-            '<th>逆の端</th><th>模型の実長</th><th>切る長さ</th></tr></thead><tbody>' + ''.join(rows) + '</tbody></table></div>')
+    rows = ['<tr><td class="w">{}</td><td class="n">{}</td><td>{}</td><td class="n">{}</td><td>{}</td>'
+            '<td class="n">{}</td><td class="n hi"><b>{} mm</b></td></tr>'.format(r[0], r[1], r[6], r[2], r[3], r[4], r[5])
+            for r in cut_rows(segs)]
+    return ('<div class="tw"><table><thead><tr><th>束</th><th>本数</th><th>線と色（束の中の全部）</th><th>ハブ側の殻</th>'
+            '<th>逆の端</th><th>模型の実長</th><th>切る長さ（束の全部の線）</th></tr></thead><tbody>' + ''.join(rows) + '</tbody></table></div>'
+            '<p>🔒 <b>線の色</b>: SCL＝緑・SDA＝黄・会話ボタンの信号（D2）＝紫・3V3＝赤・GND＝黒（白でも可）・EN＝橙・5V＝茶（全部の口で同じ）。'
+            '「仮」は決めていない線で、ここでは相手のリードの色に合わせて置いた。'
+            '<b>同じ束の線は全部同じ長さに切る</b>（二股・枝分かれは長い方に合わせてある）。'
+            '端末処理の 25mm は両端の被覆むきと圧着のぶんで、切る長さに入っている。</p>')
 
 
 # ---------------------------------------------------------------- 手順
@@ -136,6 +262,7 @@ STEPS = [
    '<span class="w">電池→電流計</span>（電池の JST の受け ↔ 電流計の INPUT）、<span class="w">電流計→JST</span>（電流計の OUT ↔ PowerBoost の JST に挿すプラグ）。'
    '電池の線は電流計を通ってから PowerBoost へ入る。',
    '<b>切る長さはこれ。</b>模型の実長（case_v5 の束）に 65（端末処理 25 ＋ 天面を机に置くための余り 40）を足して 5mm 単位に上げた。'
+   '__CUTFIG__',
    '__CUTTABLE__',
    '<b>逆の端が直はんだなのは 3 束</b>——会話ボタン 2・トグル 2・スピーカー OUT 2。ハブ側だけ圧着して、反対側は裸のまま（手順 12・13 で付ける）。',
    '<b>リードスイッチの口は空けたまま</b>（置き場所が決まっていない・2026-09-05）。',
@@ -542,7 +669,7 @@ def build():
         if s.get('note'):
             bits.append('<p class="cal note"><span class="tag">なぜ</span>{}</p>'.format(s['note']))
         extra = s.get('extra'); extra = extra() if callable(extra) else (extra or '')
-        acts = [a.replace('__CUTTABLE__', cuttable(segs)) for a in s['acts']]
+        acts = [a.replace('__CUTTABLE__', cuttable(segs)).replace('__CUTFIG__', cut_fig(segs)) for a in s['acts']]
         return ('<section class="step" id="s{n}" data-n="{n}">\n<div class="num"><span>{n}</span></div>\n<div class="body">\n'
                 '<h3>{t}</h3>\n{fig}\n<ol class="acts">{acts}</ol>\n{extra}\n{bits}\n</div>\n</section>').format(
                     n=s['n'], t=s['t'], fig=fig, extra=extra, acts='\n'.join('<li>%s</li>' % x for x in acts), bits=''.join(bits))
