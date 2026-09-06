@@ -253,7 +253,7 @@ PB_SMD_H  = 3.3;                    // 📄 部品面の一般高さ＝**イン�
 PB_USB_H  = 3.0;                    // 📄 micro-B レセプタクル
 PB_USB_SZ = [5.0, 7.5];             // ⚠ 同・X奥行 × Y幅（Y幅は写真では測れない）
 PB_USB_OUT = 0.5;                   // 📄 板の端からわずかに出ている（写真で確認）
-PB_JST_H  = 5.2;                    // 📄 JST-PH ボードコネクタ（**この板の最高点**）
+PB_JST_H  = 6.0;                    // ✅ JST-PH ボードコネクタ（横出し・**この板の最高点**）。2026-09-06 ユーザー実測 6.0。それまで 08-19 の側面写真読みの 5.2 で、天板のダボ 5.7 より高かった
 PB_JST_SZ = [7.9, 4.5];             // ⚠ 同・X × Y
 // 🔒 **外形の高さはここから出す。** 直接 10 と書かない
 PB_H = PB_PCB_T + PB_JST_H;         // 📄 6.8（JST が最高点・±0.5）
@@ -313,6 +313,7 @@ function pb_size()   = [PB_L, PB_W, PB_H];
 function pb_pcb_t()  = PB_PCB_T;
 function pb_mount()  = PB_MOUNT;
 function pb_mount_d()= PB_MOUNT_D;
+function pb_jst_h()  = PB_JST_H;    // 横出し JST-PH の高さ（この板の最高点。天板のダボの高さが読む）
 function pb_usb()    = PB_USB;        // 充電口の中心（板の -X 端）
 function pb_usb_sz() = [PB_USB_SZ[0] + PB_USB_OUT, PB_USB_SZ[1], PB_USB_H];
 function pb_jst()    = PB_JST;        // 電池コネクタの中心（板の +Y 端）

@@ -121,7 +121,7 @@ module at_hub()  translate(HUB_AT) children();
 //   "下_I2C前"    … 電流計が帯の上（PowerBoost の枠の位置）・PowerBoost がその上（PB_ON_INA_Z）。向きは INA_RZ（0: I2C 前・電源 後ろ／180: その逆）と INA_SX・INA_SY で送る
 INA_POSE = "下_I2C前";             // 🔒 ユーザー 2026-09-05「PowerBoost と電流計の位置を入れ替えて」: 電流計が帯の上・PowerBoost がその上。向き（I2C 前・電源 後ろ）はそのまま
 INA_PWR_L = true;   // 電源の口: true = L 字（🔒 ユーザー 2026-09-05）／ false = 直立て（v4・🔒 2026-08-26）。比較用
-INA_ON_PB_Z = 1.6 + 5.2 + 0.5;   // PowerBoost の板の裏から電流計の板の裏まで（板 1.6 ＋ JST 5.2 ＋ 隙間 0.5）
+INA_ON_PB_Z = 1.6 + pb_jst_h() + 0.5;   // PowerBoost の板の裏から電流計の板の裏まで（板 1.6 ＋ JST ＋ 隙間 0.5）
 module at_ina() {
     if (INA_POSE == "横並び") translate([INA_DX + BAT_X0 + (lipo_size()[1] - ina_size()[0]) / 2 + ina_size()[0], PAIR_Y0 + INA_DY + ina_size()[1], BAT_TOP + STRAP_T + INA_LIFT]) rotate([-INA_THETA, 0, 0]) rotate([0, 0, 180]) children();   // v4 ina_frame()
     else if (INA_POSE == "下_I2C前") translate([INA_SX, INA_SY, INA_LIFT - BOARD_LIFT - STRAP_C_POCKET]) pb_frame0() translate([pb_size()[0] / 2, pb_size()[1] / 2, 0]) rotate([0, 0, -90 + INA_RZ]) translate([-ina_size()[0] / 2, -ina_size()[1] / 2, 0]) children();   // PowerBoost の枠の位置に電流計。PowerBoost はその上
@@ -133,7 +133,7 @@ PB_ON_INA_Z = 1.6 + 2.5 + 1.27 + 0.5 + 1.2;   // 電流計の板の裏から Pow
 PB_SX = -9.0 + 0.6 + 3.0 + 2.0;     // 🔒 ユーザー 2026-09-05「右に 3mm」（回転 15° の後）→「右に 2mm」（17° の後）。電池を −0.6 したとき枠が動いたぶんを +0.6 補正（PowerBoost の場所は変えない）。🔒 ユーザー 2026-09-05「PowerBoost を 2mm 左へ」→「左に 4mm」(−6)。電池を +3 したとき枠が動いたぶんを −3 補正して −9（PowerBoost の場所は変えない）
 // 🔒 ユーザー 2026-09-05「PowerBoost は天井につけましょう」: 板の裏を天板の内面に向けて（部品は下向き）座 PB_CEIL_SO で浮かす。
 //   XY の中心は pb_frame0 の場所のまま。
-PB_CEIL_SO = pb_pcb_t() + 5.2 + 0.5;   // 天板の内面 ↔ 板の裏 7.3（板 1.6 ＋ JST 5.2 ＋ 隙間 0.5）。🔒 ユーザー 2026-09-05「基板面を下にしなければならない理由はない」: 部品面を上（天井側）に
+PB_CEIL_SO = pb_pcb_t() + pb_jst_h() + 0.5;   // 天板の内面 ↔ 板の裏 8.1（板 1.6 ＋ JST 6.0 ＋ 隙間 0.5）。🔴 2026-09-06 実機: JST 5.2 で描いたダボ 5.7 より PH コネクタ（実測 6.0）が高かった → ダボ 6.5。刷った天板（1918）は 5.7 のまま使い、次に刷り直すときにこの形（ユーザー）。🔒 ユーザー 2026-09-05「基板面を下にしなければならない理由はない」: 部品面を上（天井側）に
 PB_FLIP = [0, 0, 0];                // 裏返さない（部品が上）。2026-09-05 まで [180,0,0]
 PB_RZ = 0;                          // 🔒 ユーザー 2026-09-05「Z 軸左回転 15 度」→「もう 2 度」→「元に戻して」: 0（JST 前・L 字 後ろ）（上から見て反時計回り）。それまで 0（JST 前・L 字 後ろ。「Z 軸で 180 度回転」は裏返しと組の値で、部品面を上にしたとき 0 に戻した）
 PBC = [BAT_X0 + (lipo_size()[1] - pb_size()[0]) / 2 + pb_size()[0] / 2 + PB_SX, PAIR_Y0 + ina_size()[1] + 0.5 + pb_size()[1] / 2 + PB_DY + PB_DY2];   // 板の中心 XY（27.0, 44.2）
