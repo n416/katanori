@@ -42,6 +42,18 @@
         "8732"
       ],
       "port": 8732
+    },
+    {
+      "name": "manual-docs",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "5234",
+        "--directory",
+        "docs/manual"
+      ],
+      "port": 5234
     }
   ]
 }

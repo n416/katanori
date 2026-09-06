@@ -164,7 +164,7 @@ STEPS = [
    '<span class="w">会話ボタン</span> 2・<span class="w">スピーカー OUT</span> 2・<span class="w">電源</span> 3・<span class="w">電流計</span> 4・'
    '<span class="w">トグル</span> 2 の 9 束を<b>ハブ側だけ全部挿す</b>（リードの口は空けたまま）。'
    '<b>どの口の何本目に何が来るかは、この手順の下の図と表に全部書いてある。</b>',
-   '🔴 <b>数え始めは口ごとに違う。</b>手前と奥の縁の口は<b>左から</b>、左右の縁の口は<b>前（OLED 側）から</b>数える。表の「数え始め」を読む。',
+   '🔴 <b>数え始めは口ごとに違う。</b>手前（ハッチ側）と奥（OLED 側）の縁の口は<b>ジャックの壁側（図の右）から</b>、左右の壁側の縁の口は<b>奥（OLED 側）から</b>数える。表の「数え始め」を読む。',
    '<b>XIAO と スピーカー IN は逆側もここで挿す。</b>XIAO は手順 2 で挿した 3 個の殻へ、スピーカー IN は ReSpeaker のスピーカーソケット J2 へ。'
    'J2 は板の左端の裏にあって、手順 5 で <span class="g">皿</span> が真上に載ると届かない。',
    '<b>残りの束は、逆の端を挿す相手がまだ無いので寝かせておく。</b>寝かせる道は決まっている（この後の手順の絵に黄色で出ている）:'
@@ -478,10 +478,50 @@ def xiao_svg():
             'ReSpeaker に直付けした今は読めない——<b>数えるしかない</b>。</figcaption></figure>')
 
 
+# ハブのどの口か。挿す人が見る向き（箱の後ろ・ハッチ側から。上の hub_map_svg と同じ）で書く。
+# 「左右」は挿す人の左右＝図の左右。壁の名前を錨にする（USB-C の壁が図の左・ジャックの壁が図の右）。
+# 🔴 ピン番号は口ごとに数え始めが違う。数え始めは必ず文に入れる。相手側（線の逆の端）は v4 の MATE をそのまま使う。
+PLACE = {
+ 'XIAO':   '奥の縁（OLED 側）に 1 列。板でいちばん長い口。<b>ジャックの壁側（図の右）から</b>数える',
+ 'AS5600': 'XIAO の口より 1 列手前、板の中ほど。<b>ジャックの壁側（図の右）から</b>数える',
+ 'BTN2':   'ジャックの壁側の縁（図の右）の手前寄り（2 つあるうち<b>手前・ハッチ側</b>）。<b>奥（OLED 側）から</b>数える',
+ 'PHIN':   'USB-C の壁側の縁（図の左）の<b>奥寄り</b>の白いコネクタ。<b>奥（OLED 側）から</b>数える',
+ 'PHOUT':  'USB-C の壁側の縁（図の左）の<b>手前寄り</b>の白いコネクタ。<b>奥（OLED 側）から</b>数える',
+ 'OLED':   'ジャックの壁側の縁（図の右）の奥寄り（2 つあるうち<b>奥・OLED 側</b>）。<b>奥（OLED 側）から</b>数える',
+ 'INA':    '手前の縁（ハッチ側）に並ぶ 4 つのうち、<b>ジャックの壁側から 1 つ目</b>（図のいちばん右）。<b>ジャックの壁側（図の右）から</b>数える',
+ 'TOGGLE': '手前の縁（ハッチ側）に並ぶ 4 つのうち、<b>ジャックの壁側から 2 つ目</b>。<b>ジャックの壁側（図の右）から</b>数える',
+ 'REED':   '手前の縁（ハッチ側）に並ぶ 4 つのうち、<b>ジャックの壁側から 3 つ目</b>。<b>ジャックの壁側（図の右）から</b>数える',
+ 'PWR':    '手前の縁（ハッチ側）に並ぶ 4 つのうち、<b>ジャックの壁側から 4 つ目</b>（USB-C の壁側の端・図のいちばん左）。<b>ジャックの壁側（図の右）から</b>数える',
+}
+
+
 def pin_table():
-    """v4 の表をそのまま使い、XIAO の列の呼び名だけこの向き（USB-C が左）に合わせる。"""
-    return (V4.pin_table().replace('左の列', '下の列').replace('右の列', '上の列')
-            .replace('左の 4 連', '下の 4 連'))
+    """口の表。ハブ側の「どの口の何本目か」は hub_ports.py、場所の文は上の PLACE（後ろから見た向き）、
+    相手側の文は v4 の MATE / MATE_NOTE（XIAO の列の呼び名だけ USB-C が左の向きに直す）。"""
+    ps = {p.id: p for p in hub_ports.ports()}
+    rows = []
+    for pid in V4.PORT_ORDER:
+        p = ps[pid]
+        mates = V4.MATE[pid]
+        for i, (h, fn, net, x, y) in enumerate(p.pins):
+            cells = []
+            if i == 0:
+                cells.append('<td class="w" rowspan="%d"><b>%s</b><br>'
+                             '<span class="n">%d 本</span></td>' % (p.n, p.bundle, p.n))
+                cells.append('<td rowspan="%d">%s</td>' % (p.n, PLACE[pid]))
+            cells.append('<td class="n hi"><b>%d 本目</b></td>' % (i + 1))
+            cells.append('<td class="n">%s</td>' % hub_ports.disp(fn, net))
+            cells.append('<td>%s</td>' % mates[i])
+            rows.append('<tr%s>%s</tr>'
+                        % (' class="bs"' if i == 0 else '', ''.join(cells)))
+        if V4.MATE_NOTE.get(pid):
+            rows.append('<tr><td colspan="5" class="pn">%s</td></tr>' % V4.MATE_NOTE[pid])
+    html = ('<div class="tw"><table class="pins"><thead><tr><th>束</th>'
+            '<th>ハブ基板のどの口か（数え始め・後ろから見た向き）</th><th>何本目</th><th>信号</th>'
+            '<th>線の逆の端は、相手の何本目か</th></tr></thead><tbody>'
+            + '\n'.join(rows) + '</tbody></table></div>')
+    return (html.replace('左の列', '下の列').replace('右の列', '上の列').replace('左の 4 連', '下の 4 連')
+            .replace('2 つとも右の縁にある', '2 つとも USB-C の壁側の縁（図の左）にある'))
 
 
 def build():
