@@ -824,7 +824,7 @@ function btn_pin(i) = W_btn(btn3_sw_pin(i));   // マイクロスイッチの端
 function j2_mouth() = let (j = respeaker_spk_j2()) W_rsp([(j[0] + j[1]) / 2, -(j[4] + 3.0), (j[2] + j[3]) / 2]);   // ReSpeaker のスピーカーソケットの PH プラグの頭・軸は世界 +Y
 BAT_LEAD = [BAT_AT[0] + lipo_size()[1] / 2, BAT_AT[1] + lipo_size()[0], BAT_AT[2] + lipo_size()[2] / 2];   // 電池の線の出口: 後ろの面の中央（タブは後ろ・at_bat）。軸 +Y
 SPK_BOT = 45.65;   // スピーカーの模型の下端（測った値）（磁石の出っ張り込み・only_spk の STL から 2026-09-05）。parts.scad に関数が無いので数字
-SPK_LEAD = [SPK_AT[0] + 4.0, SPK_AT[1] + spk_w() / 2 - 1.5, SPK_BOT];   // スピーカーの線の出口。⚠ 未確認（秋月 112495 のページに図面が無い。リードの根元の位置は実物で見て入れる）。効くのは線 phout の模型の始点だけで、天板の穴や溝はここから彫っていない。軸 −Z
+SPK_LEAD = [SPK_AT[0] + spk_l() / 2 - 1.5, SPK_AT[1], SPK_BOT];   // スピーカーの線の出口: 裏面（磁石側）の端の縁のパッド（✅ DIMENSIONS.md 376 行・2026-08-17 写真「リードは裏面の縁のパッドから出る。外形が対称なので端子の端は貼る向きで選べる」）。端は線が来る右（+X）側に貼る。🔴 それまで長辺の縁・中央より右 4 と仮に置いていた（2026-09-06 直し）。軸 −Z
 
 WIRE_LEN = false;   // true: 束ごとの実長を echo（_asm_manual_v5.py が切る長さの表に使う）
 module bnd(pts, n, nm = "") { if (WIRE_LEN) echo(wlen = [nm, n, wire_len(pts, WIRE_R)]); wire(pts, d = bundle_d(n), r = WIRE_R); }   // 束（n 本）
