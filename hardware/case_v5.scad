@@ -226,7 +226,7 @@ module one(n) {
     if (n == "hub")  { at_hub()  hub_board(ra = false); hub_plugs(); }
     if (n == "bat")  at_bat()  lipo_1000mah();
     if (n == "ina")  { at_ina()  ina226_module(ra = true, pwr_ra = INA_PWR_L, hous = false, pwr_yaw = INA_PWR_YAW, i2c_yaw = INA_I2C_YAW); ina_plug(); ina_pwr_plug(); }   // I2C も電源も L 字・電源の 4 本は直立て（🔒 2026-08-26）
-    if (n == "pb")   { at_pb()   { powerboost_1000c(ra_dir = -1); pb_jst_plug(); } pb_plug(); }   // L 字は板の縁の外（🔒 2026-08-25）・電池の JST は挿した状態
+    if (n == "pb")   { at_pb()   { powerboost_1000c(ra_dir = -1); pb_jst_plug(); } pb_plug(); pb_screws(); }   // M2×8 の頭も単位に含める（2026-09-07）   // L 字は板の縁の外（🔒 2026-08-25）・電池の JST は挿した状態
     if (n == "tc")   { at_tc() typec_115426(pins = false); tc_ra(); tc_plugs(); }   // ピンは L 字（v4 tcb_ra）: 板に沿って前（−Y）へ。ハウジングは X 4.5〜7.1（ハブの左端 6.0 の上に少しかかる・v4 と同じ）
     if (n == "knob") { at_knob() assembly(show_deck = false); knob_plugs(); }   // 台座（knob_station_add/cut）は天板 p_top() の側   // 島・つまみ・柱・基板・E リング・磁石
     if (n == "btn")  at_btn()  { btn3_piston(); btn3_tub(); btn3_switch(); btn3_sw_screws(); btn3_v_screws(); }   // 台座（btn3_station_add/cut）は天板 p_top() の側   // バスタブ込み
@@ -358,10 +358,31 @@ INA_FOOT = let (c = [for (q = [[0, 0], [ina_size()[0], 0], [ina_size()[0], ina_s
 // 電源ヘッダの足の列（板の局所 x 26・y 3.6〜16.4）の世界の足跡
 HDR_FOOT = let (c = [for (q = [[26.0 - 1.27, 3.6 - 1.27], [26.0 + 1.27, 3.6 - 1.27], [26.0 + 1.27, 16.4 + 1.27], [26.0 - 1.27, 16.4 + 1.27]]) ina_hole_w(q)])
            [min([for (q = c) q[0]]), max([for (q = c) q[0]]), min([for (q = c) q[1]]), max([for (q = c) q[1]])];
+// ---- 電流計の留め（🔒 ユーザー 2026-09-07 決定）----
+//   ① E リングはやめて素のダボ（左の穴・帯 B の上）。樹脂の軸に E リングは割れる（同日実機・PowerBoost の首 1.5 で 1 本割れ、「2mm だって無理」）
+//   ② 帯 B と帯 C の上、電流計の左の縁に薄いレール（壁 1.0・唇 0.8 が縁に 1.0 被さる・隙間 0.2）
+//   ③ 右のダボは帯から消し、天板から足（φ3.6）を下ろして先にダボ（φ2.8）。天板を載せると板が押さえられる（ina_ceiling_leg・p_top 側）
+//   台座でナットを入れる案は、電流計の一番高い所が PowerBoost の裏の 0.33 下にあり、台座 4.2 で 3.9 食い込む（当たり 113mm³）ので不可（同日検算）
+INA_PEG_D = 2.8; INA_PEG_H = ina_size()[2] + 0.4;          // ダボ φ2.8（穴 φ3.0 ✅実測）・高さ 2.0（板 1.6 ＋ 0.4）
+INA_RAIL_W = 1.0; INA_RAIL_LIP = 0.8; INA_RAIL_IN = 1.0; INA_RAIL_CL = 0.2;   // 壁の厚み・唇の厚み・唇が縁に被さる幅・板との隙間
+INA_RAIL_H = ina_size()[2] + INA_RAIL_CL + INA_RAIL_LIP;   // 2.6
+INA_LEG_D = 3.6; INA_LEG_PLAY = 0.1;                      // 天板の足 φ3.6（PowerBoost まで 2.3・つまみの島まで 2.4 の間）。足の肩と板の上の遊び 0.1
+INA_TOP_Z = BAT_TOP + STRAP_T + ina_size()[2];             // 板の上面 36.975
+module ina_peg_left() let (h = INA_HOLES_W[0]) translate([h[0], h[1], BAT_TOP + STRAP_T - 0.01]) cylinder(d = INA_PEG_D, h = INA_PEG_H + 0.01, $fn = 32);
+module ina_rail_left() for (b = [STRAP_BANDS[1], STRAP_BANDS[2]]) translate([0, b[0], BAT_TOP + STRAP_T - 0.01]) {
+    translate([INA_FOOT[0] - INA_RAIL_CL - INA_RAIL_W, 0, 0]) cube([INA_RAIL_W, b[1], INA_RAIL_H + 0.01]);                                      // 壁（板の左の縁の外）
+    translate([INA_FOOT[0] - INA_RAIL_CL - INA_RAIL_W, 0, ina_size()[2] + INA_RAIL_CL]) cube([INA_RAIL_W + INA_RAIL_CL + INA_RAIL_IN, b[1], INA_RAIL_LIP + 0.01]);   // 唇（縁の上に 1.0 被さる）
+}
+module ina_ceiling_leg() let (h = INA_HOLES_W[1], z0 = INA_TOP_Z + INA_LEG_PLAY) translate([h[0], h[1], 0]) {   // 天板の裏から右の穴へ下ろす足＋先のダボ
+    translate([0, 0, z0]) cylinder(d = INA_LEG_D, h = Z_TOP - z0 + 0.01, $fn = 32);
+    translate([0, 0, z0 - ina_size()[2] - 0.3]) cylinder(d = INA_PEG_D, h = ina_size()[2] + 0.3 + 0.01, $fn = 32);   // ダボ: 板を貫いて 0.3 出る
+}
+echo(str("INA hold: peg L at ", INA_HOLES_W[0], " d ", INA_PEG_D, " h ", INA_PEG_H, " / rail wall X ", INA_FOOT[0] - INA_RAIL_CL - INA_RAIL_W, "-", INA_FOOT[0] - INA_RAIL_CL, " lip to X ", INA_FOOT[0] + INA_RAIL_IN, " H ", INA_RAIL_H, " / leg at ", INA_HOLES_W[1], " d ", INA_LEG_D, " Z ", INA_TOP_Z + INA_LEG_PLAY, "-", Z_TOP, " (len ", Z_TOP - INA_TOP_Z - INA_LEG_PLAY, ")"));
 module straps() color("#ed8936") difference() {
     union() {
         for (b = STRAP_BANDS) strap_u(b[0], b[1]);
-        for (h = INA_HOLES_W) translate([h[0], h[1], BAT_TOP + STRAP_T - STRAP_C_POCKET]) { if (INA_LIFT > 0) cylinder(d = 5.8, h = INA_LIFT); translate([0, 0, INA_LIFT]) e23_shaft(ina_size()[2]); }   // 電流計の支柱: 軸 3.0 ＋ E-2.3 の溝（🔒 ユーザー 2026-09-06「この穴は恐らく 3.2 か 3.4 ある。つまり軸は 3 でいい」「軸 3 を留める E リングなんていくらでも持ってる」）
+        ina_peg_left();   // 左のダボ（素の軸・E リング無し）
+        ina_rail_left();  // 左の縁のレール（帯 B・C の上）   // 電流計の支柱: 軸 3.0 ＋ E-2.3 の溝（🔒 ユーザー 2026-09-06「この穴は恐らく 3.2 か 3.4 ある。つまり軸は 3 でいい」「軸 3 を留める E リングなんていくらでも持ってる」）
     }
     if (STRAP_C_POCKET > 0) translate([INA_FOOT[0] - 0.5, INA_FOOT[2] - 0.5, BAT_TOP + STRAP_T - STRAP_C_POCKET]) cube([INA_FOOT[1] - INA_FOOT[0] + 1.0, INA_FOOT[3] - INA_FOOT[2] + 1.0, STRAP_C_POCKET + 1]);
     at_ina() translate([26.0 - 1.27 - 1.0, 3.6 - 1.27 - 1.0, -HDR_POCKET_D]) cube([2.54 + 2.0, 16.4 - 3.6 + 2.54 + 2.0, HDR_POCKET_D + 1]);   // 電源ヘッダの足の列の逃げ（板の座標で彫る。板が回れば一緒に回る。🔒 ユーザー 2026-09-05「ピンヘッダ部分は 1.2mm 掘って」）
@@ -374,9 +395,31 @@ module straps() color("#ed8936") difference() {
 module strap_one(k) intersection() { straps(); translate([-100, STRAP_BANDS[k][0] - TAB_L - 0.05, -100]) cube([400, STRAP_BANDS[k][1] + 2 * TAB_L + 0.1, 400]); }
 module strap_print(k) translate([0, 0, -TAB_Z0]) strap_one(k);
 // PowerBoost のダボ（天板の裏から部品面まで下りる胴 φ5.8・高さ 5.7、軸 φ2.0 が板の穴 φ2.4 を下へ貫いて E リング）。天板を描くとき天板に union する
-PB_DOWEL_D = 4.0;   // ダボの胴の径。5.8 だと足元が板の上の小さな部品（0.6〜0.7）に 2.8mm³ 乗る。4.0 で 0（2026-09-05）
-module pb_mount() color("#c9d0d8") at_pb() for (h = pb_mount()) translate([h[0], h[1], pb_pcb_t()]) { cylinder(d = PB_DOWEL_D, h = PB_CEIL_SO - pb_pcb_t() + 0.01); mirror([0, 0, 1]) e15_shaft(pb_pcb_t()); }   // 胴は部品面から天井まで 5.7・軸は板を下へ貫き E リングは板の裏（下から差せる）
+PB_DOWEL_D = 4.0;   // ダボの胴の径（板のそば）。5.8 だと足元が板の上の小さな部品（0.6〜0.7）に 2.8mm³ 乗る。4.0 で 0（2026-09-05）
+// 🔒 ユーザー 2026-09-07「PowerBoost はネジとナットでいいよ」: E リングの軸（首 1.5）は嵌めると割れた。胴に通し φ2.5、板の裏から M2×8、ナットは胴の上の横穴（上に肉 0.7・天板が続く）。
+//   胴は板から PB_BOSS_LO の間は φ4（部品を避ける）、その上は φ7（ナットの角 4.97 を包む）。溝の口は板の縁の外側（左の穴は −X・右の穴は +X）
+PB_BOSS_D2 = 7.0; PB_BOSS_LO = 1.5; PB_NUT_SKIN = 0.7;
+PB_SCR_HEAD_D = 3.8; PB_SCR_HEAD_H = 1.4;   // M2 なべ頭（板の裏に載る）
+module pb_mount() color("#c9d0d8") at_pb() difference() {
+    for (h = pb_mount()) translate([h[0], h[1], pb_pcb_t()]) { cylinder(d = PB_DOWEL_D, h = PB_BOSS_LO + 0.01); translate([0, 0, PB_BOSS_LO]) cylinder(d = PB_BOSS_D2, h = PB_CEIL_SO - pb_pcb_t() - PB_BOSS_LO + 0.01); }
+    for (h = pb_mount()) let (sx = (h[0] < pb_size()[0] / 2) ? -1 : 1) translate([h[0], h[1], 0]) {
+        translate([0, 0, -1]) cylinder(d = SCR_D, h = PB_CEIL_SO + 2, $fn = 24);
+        hull() for (k = [0, sx * 10]) translate([k, 0, PB_CEIL_SO - PB_NUT_SKIN - NUT_T]) rotate([0, 0, -30]) hex_pocket(NUT_AF, NUT_T);   // 二面幅を Y に・口は X の外へ
+    }
+}
+module pb_screws() color("#4a5a70") at_pb() for (h = pb_mount()) translate([h[0], h[1], 0]) { mirror([0, 0, 1]) cylinder(d = PB_SCR_HEAD_D, h = PB_SCR_HEAD_H, $fn = 24); cylinder(d = 2.0, h = 8.0 - PB_SCR_HEAD_H * 0 , $fn = 16); }   // M2×8 の頭（板の裏）と軸（当たり検査用）
+echo(str("PB screw: board ", pb_pcb_t(), " + boss ", PB_CEIL_SO - pb_pcb_t(), " = ", PB_CEIL_SO, " / nut Z ", PB_CEIL_SO - PB_NUT_SKIN - NUT_T, "-", PB_CEIL_SO - PB_NUT_SKIN, " above the board back / M2x8 tip at 8.0 -> engages ", min(8.0, PB_CEIL_SO - PB_NUT_SKIN) - (PB_CEIL_SO - PB_NUT_SKIN - NUT_T), " of nut ", NUT_T));
 
+// 前板の脚を受ける床の溝（v4 floor_v4 の「ブリッジの前の脚の受け溝」と同じ形。🔴 2026-09-07 実機: v5 の床に彫っていなかった。ユーザー「あれの溝がどこにもない。v4 は床にあった」）
+//   脚（厚み 2.0・幅 23）の前後 ±0.25 を空け、前の壁 1.6・後ろの壁はハブの前縁（Y 15.9）から 0.3 逃げた残り 0.45・高さ 2.5。X は脚の両端に 0.5 の空きと 1.0 の壁
+FPG_H = 2.5; FPG_CL = 0.25; FPG_WF = 1.6; FPG_XCL = 0.5; FPG_XW = 1.0;
+FPG_Y0 = FP_Y0 - FPG_CL - FPG_WF;                 // 溝の塊の前端 11.05
+FPG_Y1 = HUB_AT[1] - 0.3;                          // 溝の塊の後端 15.6（ハブの前縁 15.9 の 0.3 手前）
+module fp_groove() difference() {
+    translate([LEG_X0 - FPG_XCL - FPG_XW, FPG_Y0, -0.01]) cube([LEG4W + 2 * (FPG_XCL + FPG_XW), FPG_Y1 - FPG_Y0, FPG_H + 0.01]);
+    translate([LEG_X0 - FPG_XCL, FP_Y0 - FPG_CL, -1]) cube([LEG4W + 2 * FPG_XCL, BRG_T + 2 * FPG_CL, FPG_H + 2]);
+}
+echo(str("FP groove: leg Y ", FP_Y0, "-", FP_Y0 + BRG_T, " / slot Y ", FP_Y0 - FPG_CL, "-", FP_Y0 + BRG_T + FPG_CL, " / block Y ", FPG_Y0, "-", FPG_Y1, " (rear wall ", FPG_Y1 - (FP_Y0 + BRG_T + FPG_CL), ") H ", FPG_H));   // ASCII only: the manual generator decodes OpenSCAD output with cp932
 // 前板そのもの（別部品・v4 brg_front）。断面 Y-Z を X に押し出す
 module brg_front() color("#c9d0d8") difference() {
     union() {
@@ -550,6 +593,7 @@ module p_top() difference() {
         at_knob() knob_station_add();
         at_btn()  btn3_station_add();
         pb_mount();   // PowerBoost のダボ（天板と一体・2026-09-05）
+        ina_ceiling_leg();   // 電流計の右の穴へ下ろす足（🔒 ユーザー 2026-09-07）
         oled_brackets();   // OLED の上の 2 穴を受ける L の足（天板から下ろす）
         rsp_press();       // ReSpeaker の板の頭を押さえる羊羹とマッチ棒
         tgl_cradle();      // トグルの胴の受け（ハッチの上を留める）
@@ -567,7 +611,7 @@ module p_top() difference() {
 TC_PORT_C = [TC_AT[0] + tc_size()[2] + tc_conn()[2] / 2, IN_Y + HATCH_T / 2, TC_AT[2] + tc_size()[0] / 2];   // 板の表 ＋ 胴の高さの半分・板の長さの中央（4.92, ・, 10.75）
 TC_PORT_SZ = [3.86, 9.54];   // [X, Z]（殻 3.26 × 8.94 ＋ 片側 0.3）。基板が縦なので口は縦長（🔴 2026-09-05 まで横長に開けていた・ユーザー指摘）
 module p_hatch() difference() {
-    union() { slab_hatch(); sw4_hatch_rim(); hatch_claws(); hatch_ears_top(); hatch_ears_low(); }   // 縁（溝の床〜内面・つば・爪）・下の爪 2 つ・耳 3 つはハッチと一体
+    union() { slab_hatch(); sw4_hatch_rim(); hatch_ears_top(); hatch_feet(); }   // 縁（溝の床〜内面・つば）・上の耳 2 つ・下の足 2 つはハッチと一体。下の爪 2 つは 2026-09-07 に廃止（床の裏からのねじ 2 本に）。右下の耳も同日廃止（🔒 ユーザー「羽根はいらないね」）
     port_cut(TC_PORT_C, TC_PORT_SZ[0], TC_PORT_SZ[1], HATCH_T, "y");
     battery_port_cut4(); sw4_band_cut(); sw4_lock_cut(); sw4_mag_window();   // 電池の口・蓋の彫り込み・ロックのねじとナット・磁石の窓
     hatch_icon_cut();
@@ -586,10 +630,23 @@ module hub_screw_cuts() for (h = HUB_HOLES_W) translate([h[0], h[1], 0]) { trans
 //       胴は下と後ろが開いた受けに、ハッチを倒し込む弧で入る。爪だけでは真後ろへ引く動きを止めないが、上の耳 2 本と下の耳 1 本のねじで柱に留まるので、組んだ状態では動かない（2026-09-06 整理）
 CLAW_X = [[12, 20], [66, 74]];                                              // 爪の X（2 つ）
 CLAW_STRIP_Y0 = HUB_AT[1] + 52.0 + 0.5;                                    // 床の帯の前縁（ハブの後端 67.9 ＋ 0.5）
-CLAW_STRIP_H = 2.5;
+CLAW_STRIP_H = 2.5;   // （旧・爪のバーの帯の高さ。爪は 2026-09-07 に廃止。段の高さは HSTRIP_H）
 CLAW_BAR_Y0 = IN_Y - 4.0; CLAW_BAR_Y1 = IN_Y - 2.0; CLAW_BAR_Z0 = 1.5;       // バー（Y 73.25〜75.25・Z 1.5〜2.5）。その後ろ（〜77.25）は脚が通る
 CLAW_LIP_T = 0.8; CLAW_LIP_L = 3.0; CLAW_LEG_T = 1.0; CLAW_CL = 0.2;         // 唇の厚み／長さ（−Y へ）／脚の厚み／隙間
-module hatch_strip() translate([RSP_RIB_X0, CLAW_STRIP_Y0, -0.01]) cube([RSP_RIB_X1 - RSP_RIB_X0, IN_Y - CLAW_STRIP_Y0, CLAW_STRIP_H + 0.01]);   // 床の後ろの帯（X 8〜76.35）
+// ---- ハッチの下の縁の留め（🔒 ユーザー 2026-09-07「爪部分をねじにできないかなぁ」→「まずやってみて」→「ハッチからねじ止め辞めよう。下からねじ止めしよう。6角ポケットも横からで」）----
+//   床の爪（バーの下の高さ 1.2 のトンネル）は v4・v5 とも印刷で出なかったので廃止。床の後ろの段（爪のバーの帯）も役が無いので廃止。
+//   ハッチの下の縁の内側に足 2 つ（X 16・70）。足の中に M2 ナットの横差しの六角（口は前・上に肉 1.0・床の肉 0.6）。床の裏から M2×6（座ぐり付き）で上へ。
+//   下の柱と同じ向き: 入れる力でナットは上の肉へ押され、締める力でも上の肉を掴む。ハッチの外にねじの頭は出ない
+module hatch_feet() for (x = HSCR_X) difference() {
+    translate([x - HFOOT_W / 2, IN_Y - HFOOT_D, 0]) cube([HFOOT_W, HFOOT_D + 0.01, HFOOT_H]);
+    translate([x, HFOOT_Y, -1]) cylinder(d = SCR_D, h = HFOOT_H + 2, $fn = 24);                                              // 通し（足を貫く。ねじの先は足の上へ出る）
+    hull() for (k = [0, -10]) translate([x, HFOOT_Y + k, HFOOT_FLOOR]) hex_pocket(NUT_AF, NUT_T);                                // ナットの横穴（口は前）
+}
+module floor_hatch_screw_cuts() for (x = HSCR_X) translate([x, HFOOT_Y, 0]) {
+    translate([0, 0, -FLOOR_T - 1]) cylinder(d = SCR_D, h = FLOOR_T + 2, $fn = 24);
+    translate([0, 0, -FLOOR_T - 0.01]) cylinder(d = SCR_CB, h = SCR_CBT, $fn = 32);                                              // 座ぐり（床の裏）
+}
+echo(str("hatch feet: X ", HSCR_X, " Y ", IN_Y - HFOOT_D, "-", IN_Y, " H ", HFOOT_H, " / nut Z ", HFOOT_FLOOR, "-", HFOOT_FLOOR + NUT_T, " / M2x", HSCR_LEN, " head at Z ", -FLOOR_T + SCR_CBT, " tip at Z ", -FLOOR_T + SCR_CBT + HSCR_LEN, " (foot top ", HFOOT_H, ")"));
 module claw_pockets() for (cx = CLAW_X) {
     translate([cx[0], CLAW_BAR_Y0 - 1.0, 0.3]) cube([cx[1] - cx[0], IN_Y - CLAW_BAR_Y0 + 2, CLAW_BAR_Z0 - 0.3]);          // 唇の道（バーの下・床の皮 0.3 を残す）
     translate([cx[0], CLAW_BAR_Y1, CLAW_BAR_Z0 - 0.01]) cube([cx[1] - cx[0], IN_Y - CLAW_BAR_Y1 + 1, CLAW_STRIP_H]);      // 脚の道（バーの後ろ）
@@ -605,7 +662,7 @@ module tgl_cradle() { x0 = TGL_AT[0] - mts102_d() / 2 - CRADLE_CL; x1 = TGL_AT[0
     for (r = [[x0 - CRADLE_T, TGL_AT[0] - CRADLE_GAP], [TGL_AT[0] + CRADLE_GAP, x1 + CRADLE_T]]) translate([r[0], yf - CRADLE_T, CRADLE_Z0]) cube([r[1] - r[0], CRADLE_T, Z_TOP + 0.01 - CRADLE_Z0]);   // 前の当て（端子の両脇）
 }
 module floor_bosses() for (p = POSTS_B) translate([p[0], p[1], -0.01]) cube([POST_W, post_dy(p), FLOOR_BOSS + 0.01]);   // 耳の下の台（柱と同じ足跡）
-module p_floor() difference() { union() { slab_floor(); tc_seat(); hub_posts(); rsp_seat(); oled_rib(); hatch_strip(); floor_bosses(); } floor_screw_cuts(); hub_screw_cuts(); claw_pockets(); }   // Type-C の受け・ハブの柱・ReSpeaker の座・OLED のリブ・ハッチの爪の帯は床と一体
+module p_floor() difference() { union() { slab_floor(); tc_seat(); hub_posts(); rsp_seat(); oled_rib(); floor_bosses(); fp_groove(); } floor_screw_cuts(); hub_screw_cuts(); floor_hatch_screw_cuts(); }   // Type-C の受け・ハブの柱・ReSpeaker の座・OLED のリブ・ハッチの爪の帯は床と一体
 // 刷る部品ごとの色（同じ色 = 同じ部品として刷る）
 module skin(a = 0.5) { color("#e0a040", a) p_floor(); color("#c9d0d8", a) p_top(); color("#4a90d9", a) p_lwall(); color("#4a90d9", a) p_rwall(); color("#9b59b6", a) p_front(); color("#27ae60", a) p_hatch(); ribs(); }   // リブ込み（skin / all で見える）
 
@@ -613,6 +670,11 @@ module skin(a = 0.5) { color("#e0a040", a) p_floor(); color("#c9d0d8", a) p_top(
 // 締結（v4 §5 の流儀: 樹脂にねじを切らない・貫通＋ナット。ビスは M2×15 / M2×6 / M2×8・ナット M2）
 // ============================================================
 NUT_AF = 4.20; NUT_T = 1.8; SCR_D = 2.5; SCR_CB = 4.4; SCR_CBT = 1.6;   // v4 case_base の値（ナット厚 1.8・通し φ2.5・座ぐり φ4.4 × 1.6）。🔴 NUT_AF は 4.10 → 4.20（2026-09-05 実機で 4.10＝ポケット 4.20 にナットが入らず、PRINT.md §2「六角は呼び + 0.3」に戻した。hex_pocket が +0.1 するので 4.30）
+// ハッチの下の足のねじ・ナット（NUT_AF/NUT_T を読むのでここ）
+HSCR_X = [16.0, 70.0]; HSCR_LEN = 6.0;                       // ねじの X（旧・爪の中央）・M2×6
+HFOOT_W = 6.0; HFOOT_D = 6.0; HFOOT_FLOOR = 0.6; HFOOT_SKIN = 1.0;
+HFOOT_H = HFOOT_FLOOR + NUT_T + HFOOT_SKIN;                   // 足の高さ 3.4
+HFOOT_Y = IN_Y - HFOOT_D / 2;                                 // ねじの芯 Y（ハッチの内面から 3.0 前）
 POST_W = 6.0;                          // 柱の一辺（v4 BOSS 7.0。OLED の板の端 X 8.0 との隙間を 0.3 取るため 6.0）
 POST_W_F = 5.0;       // 前の上の柱（耳の柱）の幅。OLED の L の足（X 7.0〜13.0 / 73.1〜79.1）まで 0.3（v4 の耳 4.96 と同じ理由・2026-09-05）
 POST_D_F_T = 8.0;     // 前の上の柱の奥行き（Y 1.0〜9.0・v4 の耳 2〜10）。ナット（二面幅を Y に）の前後に肉 1.9
@@ -631,13 +693,16 @@ POST_D_FRONT = 4.5;   // 前の下の柱の奥行き（フロント板の内面 
 function post_front(p) = (p[1] == FY_IN);
 function post_dy(p) = post_front(p) ? (p[2] == true ? POST_D_F_T : POST_D_FRONT) : POST_W;
 function post_w(p) = (post_front(p) && p[2] == true) ? POST_W_F : POST_W;   // 前の上の柱（フロントの耳付き）だけ細い
-module post_b(p) difference() {   // 下の柱: 床から POST_B_H。頭に上向きのナットのポケット・通し。前の 2 本はフロントの下の耳（EAR_T）のぶん床から浮く（v4 front_ears_low・2026-09-05 ユーザー「下も同じように止められないんですか」）
-    z0 = EAR_T + FLOOR_BOSS;   // 3 本とも 床の台 1.0 ＋ 耳 3.2 のぶん床から浮く: 前 2 はフロントの下の耳、後ろ右はハッチの下の耳（後ろ左は柱が無い）
-    translate([p[0], p[1], z0]) cube([POST_W, post_dy(p), POST_B_H - z0]);
-    translate([p[0] + POST_W / 2, p[1] + post_dy(p) / 2, -1]) cylinder(d = SCR_D, h = POST_B_H + 2, $fn = 24);
-    translate([p[0] + POST_W / 2, p[1] + post_dy(p) / 2, POST_B_H - NUT_T]) hex_pocket(NUT_AF, NUT_T + 1);
-}
 POST_T_SKIN = 1.6;   // 上の柱: ナットの上に残す肉。ねじは上から締めるので、ナットはこの肉を掴む（🔴 上向きのポケットだと天板＋ねじ＋ナットが一緒に上へ抜ける。ユーザー 2026-09-05「前にナットと天板が上に抜けた」）
+POST_B_SKIN = POST_T_SKIN;   // 下の柱: ナットの上に残す肉（上の柱と同じ 1.6）。🔴 2026-09-07 実機: 頭の上向きポケットだと、床の裏から M2×15 をねじ込む力でナットがポケットから上へ押し出されて空回りし、組めなかった（ユーザー「止まらない・浮き上がる」）。上の柱の 09-05 と同じ症状なので同じ横差しの溝に
+module post_b(p) difference() {   // 下の柱: 床から POST_B_H。ナットは頭の 1.6 下の横差しの溝（口は挟む板の側: 前の 2 本は前板へ −Y・後ろ右はハッチへ +Y。板の内面が口を塞ぐ）・通し。前の 2 本はフロントの下の耳（EAR_T）のぶん床から浮く（v4 front_ears_low・2026-09-05 ユーザー「下も同じように止められないんですか」）
+    z0 = post_front(p) ? EAR_T + FLOOR_BOSS : FLOOR_BOSS;   // 前 2 本は 床の台 1.0 ＋ フロントの下の耳 3.2 のぶん床から浮く。後ろ右はハッチの耳を 2026-09-07 に廃止したので台の上まで下ろす（右の壁を床に留める役だけ残る）
+    cx = p[0] + POST_W / 2; cy = p[1] + post_dy(p) / 2;
+    sy = post_front(p) ? -1 : 1;   // 溝の口の向き（前板側 −Y ／ ハッチ側 +Y）
+    translate([p[0], p[1], z0]) cube([POST_W, post_dy(p), POST_B_H - z0]);
+    translate([cx, cy, -1]) cylinder(d = SCR_D, h = POST_B_H + 2, $fn = 24);
+    hull() for (k = [0, sy * 10]) translate([cx, cy + k, POST_B_H - POST_B_SKIN - NUT_T]) hex_pocket(NUT_AF, NUT_T);   // 二面幅を X に（柱 6.0 に肉 0.85 ずつ）。角は Y を向き、前の柱（奥行き 4.5）では角が奥の面から 0.24 出る——上向きポケットの時から同じ
+}
 module post_t(p) difference() {   // 上の柱: 天井から下がる。耳付きなら耳の厚みだけ低い。ナットは横差しの溝（上に肉 POST_T_SKIN）
     zt = Z_TOP - (p[2] ? EAR_T : 0); h = (post_front(p) && p[2]) ? POST_T_H_F : POST_T_H; w = post_w(p); d = post_dy(p);
     cx = p[0] + w / 2; cy = p[1] + d / 2;
@@ -750,7 +815,7 @@ module rib_paths(k) { if (k == "lwall") for (t = [0 : 3 : 18]) translate([0, t, 
 module plate_features(k) {
     if (k == "lwall") { fasten_lwall(); tc_press(); }
     if (k == "rwall") fasten_rwall();
-    if (k == "hatch") { hatch_ears_top(); hatch_ears_low(); hatch_claws(); sw4_hatch_rim(); }
+    if (k == "hatch") { hatch_ears_top(); hatch_feet(); sw4_hatch_rim(); }
     if (k == "front") { front_ears(); front_ears_low(); }
 }
 module flat(k) { if (k == "hatch" || k == "front") projection() rotate([-90, 0, 0]) children(); else if (k == "bridge") projection() children(); else projection() rotate([0, 90, 0]) children(); }   // 壁: 2D (x, y) = 世界 (Z, Y) ／ ハッチ・フロント: (X, Z) ／ ブリッジ: (X, Y)
