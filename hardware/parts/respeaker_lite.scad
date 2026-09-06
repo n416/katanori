@@ -6,7 +6,6 @@
 //
 //   use <respeaker_lite.scad>
 //   respeaker_lite();          // 基板＋部品
-//   respeaker_mating_space();  // ケーブル・プラグが要る空間（筐体はこちらも開ける）
 //   関数 respeaker_L() / respeaker_H() / respeaker_T() / respeaker_center_back()
 //
 // ============================================================
@@ -144,10 +143,6 @@ XIAO_USB_Y0  = 0.2 + 1.2;                    // 面からの距離（＝XIAO_SOL
 function xiao_usb_yz() = [XIAO_USB_Y0 + XIAO_USB_H / 2, XIAO_USB_Z + XIAO_USB_L / 2];
 function xiao_usb_sz() = [XIAO_USB_H, XIAO_USB_L];
 function xiao_usb_out() = XIAO_USB_OUT;   // 筐体が ReSpeaker の X をこれで決める（case_v2 の RSP_X）
-// プラグのオーバーモールドの上限（絵のための値。v5 では未使用: 右の壁の穴は殻の寸法で開け、樹脂の胴は壁の外に残る） [厚み(面から), 幅]。規格は殻（8.25×2.40）しか決めていない。
-//    市販品は概ね 5.5〜6.5 × 10.5〜12.5。面から USB_SEAT(0.3) 離れた所から始まる
-XIAO_PLUG_OM   = [6.5, 12.5];
-XIAO_PLUG_SEAT = 0.3;
 
 // 🔴 このブロックは XIAO_USB_H より後ろに置くこと（use<> 先では前方参照が効かず、XIAO_TOP が undef になって積み重ねが消えた・2026-08-24）
 // ✅ 構成（2026-08-24 ユーザー写真＋説明。🔴 同日中に 2 回間違えた末の確定）:
@@ -183,10 +178,6 @@ module respeaker_xiao_housings(bend = true, hous_h) color("#63b3ed", 0.85)
         translate([x - 1.27, -respeaker_xiao_head(), z - 1.27]) cube([2.54, hous_h, 2.54]);
         if (bend) translate([x - 1.8, -respeaker_xiao_head() - 3.6, z - 1.8]) cube([3.6, 3.6, 3.6]);   // 線の逃げ（曲がりの余白 既定 3.6）
     }
-
-// 挿した状態の絵を描くための長さ（壁の外へ出る量）。箱の形も検査もこの値を読まない
-JACK_PLUG_OUT  = 20.0;
-USBC_CABLE_OUT = 25.0;
 
 // ---------------- 自動生成データの参照 ----------------
 // PARTS_CAD の1行 = [ ref, f, x0, x1, z0, z1, 出っ張り ]
@@ -250,30 +241,6 @@ module respeaker_lite() {
     // XIAOのUSB-C（左端から張り出す・XIAO面側）。🔴 2026-08-24: 頭ではなく XIAO の板の上に置き直した
     color("#9cf") translate([-XIAO_USB_OUT, -(XIAO_USB_Y0 + XIAO_USB_H), XIAO_USB_Z])
         cube([XIAO_USB_OUT, XIAO_USB_H, XIAO_USB_L]);
-}
-
-// 挿さる物・線が要る空間。**筐体はここも開ける。**
-module respeaker_mating_space() {
-    spk  = cad_part("J2");     // 📄 スピーカーソケット
-    jack = cad_part("J1");     // 📄 3.5mmジャック
-    usb  = cad_part("USB1");   // 📄 ReSpeakerのUSB-C
-    color("#f80", 0.3) {
-        // ✅ スピーカーの線: 面から15mmまで
-        face_box(spk[2], spk[3], spk[4], spk[5], 15.0, +1);
-        // ジャックのプラグ: 筒の先から右へ（筒の突き出しは📄1.578）
-        translate([jack[3], -jack[6], jack[4]])
-            cube([JACK_PLUG_OUT, jack[6], jack[5] - jack[4]]);
-        // 📄向き（長さは絵のため）: ReSpeakerのUSB-C。口は上の長辺より1.78mm内側。ケーブルは上へ抜ける
-        translate([usb[2], -(usb[6] + 3), usb[5]])
-            cube([usb[3] - usb[2], usb[6] + 3, USBC_CABLE_OUT]);
-        // XIAOのUSB-C: 左端から左へ
-        // 📄 XIAOのUSB-C: レセプタクルの面の 0.3 先から、オーバーモールドの上限の箱で左へ
-        //    （レセプタクルの中心に揃える）。筐体の彫り込みはこれが座る面
-        translate([-XIAO_USB_OUT - XIAO_PLUG_SEAT - USBC_CABLE_OUT,
-                   -(XIAO_USB_Y0 + XIAO_USB_H / 2) - XIAO_PLUG_OM[0] / 2,
-                   XIAO_USB_Z + XIAO_USB_L / 2 - XIAO_PLUG_OM[1] / 2])
-            cube([USBC_CABLE_OUT, XIAO_PLUG_OM[0], XIAO_PLUG_OM[1]]);
-    }
 }
 
 // 上方向の印（単体表示のときだけ。OpenSCADの視点で上下を取り違えないため）
