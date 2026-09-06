@@ -80,7 +80,7 @@ FAN = 7.0          # 口の頭から合流点まで（扇の 1 本ぶん・3 ＋
 # 束: (表示名, 束の名, 線の本数, ハブ側の殻, 逆の端, 1 本の実長の出し方)
 #   実長 = 束の道の合計 ＋ 扇。xiao と as5600 は枝が 2 つあるので長い方を取る
 BUNDLES = [
- ('XIAO',          'xiao',   7, '7 連',                 'XIAO の上のピンヘッダ（<b>1 連・2 連・4 連</b> の 3 個。5V は 1 連で単独）', 'branch'),
+ ('XIAO',          'xiao',   7, '1 連（D2）＋ 4 連（SDA・SCL・3V3・GND）＋ 2 連（D3・5V）', 'XIAO の上のピンヘッダ（<b>6 連 × 2</b>。上の列に 5V・GND・3V3＋空き 3、下の列に 空き 2＋D2・D3・SDA・SCL）', 'branch'),
  ('スピーカー IN', 'phin',   2, 'PH2.0 の 2 極プラグ',    'ReSpeaker のスピーカーソケット J2（PH2.0 の 2 極プラグ）', 'ph'),
  ('OLED',          'oled',   4, '4 連',                 'OLED の 4 本ヘッダ（<b>4 連</b>）', 'single'),
  ('つまみ',        'as5600', 5, '4 連（GND は二股）',     'AS5600 の基板の裏の 5 本（<b>1 連 × 5</b>）', 'branch'),
@@ -130,19 +130,35 @@ FAR_KIND = {'xiao': 'dupont', 'phin': 'ph', 'oled': 'dupont', 'as5600': 'dupont'
 NEAR_KIND = {'chg': 'dupont', 'bat': 'jst', 'batout': 'dupont'}   # ハブに挿さらない 3 束の「ハブ側」の端
 
 
+# 殻の分け方。束 → [(括りの名前, [(殻の名札, [穴ごとの線の名前]), ...]), ...]。'空' は殻の空きの穴（線は無い）。
+# 🔒 XIAO（2026-09-06 ユーザー。7 連の殻は無い）
+#    ハブ側: D2 の 1 連 ＋ SDA・SCL・3V3・GND の 4 連 ＋ D3・5V の 2 連（口の並びのまま）
+#    XIAO 側: 6 連 × 2。上の列 1〜6 本目＝5V・GND・3V3・空・空・空、下の列 1〜6 本目＝空・空・D2・D3・SDA・SCL。7 本目は裸。
+#    ハブの並び（D2 SDA SCL 3V3 GND D3 5V）と XIAO の並びが違うので、線は途中で交差する。
+#    'each' は 1 連 × n（線ごとに殻 1 個）。無い束は殻 1 個。
+NEAR_GROUPS = {'xiao': [('1 連', ['D2']), ('4 連', ['SDA', 'SCL', '3V3', 'GND']), ('2 連', ['D3', '5V'])]}
+FAR_GROUPS = {
+ 'xiao': [('下の列', [('6 連（1〜6 本目。1・2 は空き）', ['空', '空', 'D2', 'D3', 'SDA', 'SCL'])]),
+          ('上の列', [('6 連（1〜6 本目。4〜6 は空き）', ['5V', 'GND', '3V3', '空', '空', '空'])])],
+ 'as5600': 'each', 'pwr': 'each', 'chg': 'each', 'bat': 'each'}
+
+
 def cut_fig(segs):
-    """手順 0 の切り出し図。束ごとに線を実寸比（1mm = 3px）の色で描く。左がハブ側（殻）、右が逆の端。両端の銅色は被覆をむく所。"""
+    """手順 0 の切り出し図。束ごとに線を実寸比（1mm = 3px）の色で描く。左がハブ側、右が逆の端。殻ごとに箱、空きの穴は「空」。
+    右端は殻の穴の順に並ぶので、ハブの並びと違う束（XIAO）は線が途中で交差する。両端の銅色は被覆をむく所。"""
     SC = 3.0            # px / mm
     STRIP = 3.0         # 被覆をむく長さ [mm]（絵の上だけ・端末処理 25 の内）
     X0, XL = 240, 30    # 線の左端の X・名札の X
-    PITCH, GAP = 17, 30 # 線の間隔・束の間
+    PITCH = 17          # 線の間隔
+    GAP_SHELL, GAP_GRP, GAP = 6, 12, 30   # 殻と殻・括りと括り・束と束の間
     rows = {r[0]: r for r in cut_rows(segs)}
     maxcut = max(r[5] for r in rows.values())
-    W = X0 + maxcut * SC + 300
+    W = X0 + maxcut * SC + 470
     y = 34
     o = []
     for disp, key, n, shell, far, how in BUNDLES:
         r = rows[disp]; cut = r[5]; wires = bundle_wires(key)
+        names = [nm for nm, net in wires]
         near = shell if key in HUB_PORT_OF else {'chg': 'Type-C 基板側は 1 連 × 2', 'bat': '電池側は JST-PH の受け',
                                                 'batout': '電流計側は 1 連 × 2'}[key]
         o.append('<text x="%d" y="%d" font-size="15" font-weight="700" fill="%s">%s</text>'
@@ -150,28 +166,82 @@ def cut_fig(segs):
                  '（模型の実長 %d）・左の殻: %s</text>'
                  % (XL, y, hub_ports.PAL['edge'], disp, XL + 150, y, hub_ports.PAL['sub'], n, cut, r[4], re.sub(r'<[^>]+>', '', near)))
         y += 14
-        x1 = X0 + cut * SC
         top = y
-        for nm, net in wires:
+        x1 = X0 + cut * SC
+        # 逆の端の括りと殻
+        fg = FAR_GROUPS.get(key)
+        if fg == 'each':
+            groups = [('', [('1 連' if i == 0 else '', [nm])]) for i, nm in enumerate(names)]
+            g_shell, g_grp = 3, 3
+        elif fg:
+            groups = fg; g_shell, g_grp = GAP_SHELL, GAP_GRP
+        else:
+            groups = [('', [('', names)])]; g_shell, g_grp = 0, 0
+        flat = [nm for gname, shells in groups for lab, ns in shells for nm in ns if nm != '空']
+        assert sorted(flat) == sorted(names), (key, flat, names)
+        yl = {nm: top + i * PITCH + PITCH / 2 for i, nm in enumerate(names)}     # 左（ハブ側）の Y
+        yr, yy, empties, shell_span = {}, top + PITCH / 2, [], []                # 右（逆の端）の Y・空きの穴の Y・殻の上下
+        for gi, (gname, shells) in enumerate(groups):
+            for si, (lab, ns) in enumerate(shells):
+                st = yy - PITCH / 2
+                for nm in ns:
+                    if nm == '空':
+                        empties.append(yy)
+                    else:
+                        yr[nm] = yy
+                    yy += PITCH
+                shell_span.append((gname if si == 0 else '', lab, st, yy - PITCH / 2, len(shells) > 1))
+                if si < len(shells) - 1:
+                    yy += g_shell
+            if gi < len(groups) - 1:
+                yy += g_grp
+        bot_l, bot_r = top + len(names) * PITCH, yy - PITCH / 2
+        xa, xb = X0 + (x1 - X0) * 0.50, X0 + (x1 - X0) * 0.68                  # 斜めに渡る区間
+        # 線。交差する線が上に来るよう、右端の Y が左端と違う線を後に描く
+        order = sorted(wires, key=lambda w: yl[w[0]] != yr[w[0]])
+        for nm, net in order:
             cname = COLOR[net]; hexc = COLOR_HEX[cname[0]]
-            yy = y + PITCH / 2
+            y0, y1 = yl[nm], yr[nm]
             o.append('<text x="%d" y="%.1f" font-size="12" fill="%s" text-anchor="end"><tspan font-weight="700" fill="%s">%s</tspan>　%s</text>'
-                     % (X0 - 36, yy + 4, hub_ports.PAL['sub'], hub_ports.PAL['edge'], nm, cname.split('（')[0]))
-            # 線（被覆）: 両端 STRIP は銅色
-            o.append('<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="#b87333" stroke-width="3"/>' % (X0, yy, x1, yy))
-            o.append('<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="%s" stroke-width="7" stroke-linecap="butt"%s/>'
-                     % (X0 + STRIP * SC, yy, x1 - STRIP * SC, yy, hexc, ' stroke-opacity="1"' if True else ''))
+                     % (X0 - 36, y0 + 4, hub_ports.PAL['sub'], hub_ports.PAL['edge'], nm, cname.split('（')[0]))
+            pts_cu = [(X0, y0), (xa, y0), (xb, y1), (x1, y1)] if y0 != y1 else [(X0, y0), (x1, y1)]
+            pts_in = [(X0 + STRIP * SC, y0), (xa, y0), (xb, y1), (x1 - STRIP * SC, y1)] if y0 != y1 \
+                else [(X0 + STRIP * SC, y0), (x1 - STRIP * SC, y1)]
+            d_cu = 'M ' + ' L '.join('%.1f %.1f' % p for p in pts_cu)
+            d_in = 'M ' + ' L '.join('%.1f %.1f' % p for p in pts_in)
+            o.append('<path d="%s" fill="none" stroke="#b87333" stroke-width="3"/>' % d_cu)      # 銅
             if cname[0] == '白':
-                o.append('<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="#9a9a96" stroke-width="8" fill="none" stroke-opacity="0.35"/>'
-                         % (X0 + STRIP * SC, yy, x1 - STRIP * SC, yy))
-            y += PITCH
-        bot = y
-        # ハブ側の端（左）
-        nk = NEAR_KIND.get(key, 'dupont')
-        o.append(_end_box(X0 - 2, top, bot, nk, '', left=True))
-        # 逆の端（右）
-        o.append(_end_box(x1 + 2, top, bot, FAR_KIND[key], re.sub(r'<[^>]+>', '', far), left=False))
-        y += GAP
+                o.append('<path d="%s" fill="none" stroke="#9a9a96" stroke-width="9" stroke-linejoin="round" stroke-opacity="0.45"/>' % d_in)
+            o.append('<path d="%s" fill="none" stroke="%s" stroke-width="7" stroke-linejoin="round"/>' % (d_in, hexc))   # 被覆
+        # ハブ側の端（左）: 殻 1 個か、NEAR_GROUPS の分け方で複数
+        ng = NEAR_GROUPS.get(key, [('', names)])
+        for lab, ns in ng:
+            o.append(_end_box(X0 - 2, yl[ns[0]] - PITCH / 2 + 1, yl[ns[-1]] + PITCH / 2 - 1, NEAR_KIND.get(key, 'dupont'), '', left=True))
+            if lab:
+                o.append('<text x="%.1f" y="%.1f" font-size="9" fill="#d5dbe0" text-anchor="middle" '
+                         'transform="rotate(-90 %.1f %.1f)">%s</text>'
+                         % (X0 - 15, (yl[ns[0]] + yl[ns[-1]]) / 2 + 3, X0 - 15, (yl[ns[0]] + yl[ns[-1]]) / 2 + 3, lab))
+        # 逆の端（右）: 殻ごとに箱と名札。空きの穴は「空」。括りが 2 つ以上の殻を持つときは縦線で括る
+        kind = FAR_KIND[key]
+        bw = 26 if kind == 'dupont' else 22 if kind in ('ph', 'jst') else 0
+        for gname, lab, st, sb, multi in shell_span:
+            o.append(_end_box(x1 + 2, st, sb, kind, '', left=False))
+            txt = ('<tspan font-weight="700" fill="%s">%s</tspan>　' % (hub_ports.PAL['edge'], gname) if gname else '') + lab
+            if txt:
+                o.append('<text x="%.1f" y="%.1f" font-size="11" fill="%s">%s</text>'
+                         % (x1 + 2 + bw + (14 if multi else 6), (st + sb) / 2 + 4, hub_ports.PAL['sub'], txt))
+        for ye in empties:
+            o.append('<text x="%.1f" y="%.1f" font-size="10" fill="#c9c4b8" text-anchor="middle">空</text>' % (x1 + 2 + bw / 2, ye + 4))
+        for gname, shells in groups:
+            if len(shells) > 1:
+                g_top = min(st for g, l, st, sb, m in shell_span if g == gname); g_bot = max(sb for g, l, st, sb, m in shell_span if g == gname)
+                bx = x1 + 2 + bw + 7
+                o.append('<path d="M %.1f %.1f L %.1f %.1f L %.1f %.1f L %.1f %.1f" fill="none" stroke="%s" stroke-width="1.4"/>'
+                         % (bx - 3, g_top + 2, bx, g_top + 2, bx, g_bot - 2, bx - 3, g_bot - 2, hub_ports.PAL['edge']))
+        # 逆の端の説明（束の右）
+        tx = x1 + 2 + bw + (230 if fg and fg != 'each' else 60 if fg == 'each' else 8)
+        o.append(_end_box(tx, top, max(bot_l, bot_r), 'none', re.sub(r'<[^>]+>', '', far), left=False))
+        y = max(bot_l, bot_r) + GAP
     H = y
     o.insert(0, '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %d %d" width="%d" height="%d" '
                 'preserveAspectRatio="xMidYMid meet" font-family="system-ui, sans-serif">' % (W, H, W, H))
@@ -179,28 +249,28 @@ def cut_fig(segs):
              % (X0, hub_ports.PAL['sub'], 100, int(100 * SC)))
     o.append('</svg>')
     return ('<figure class="wide">' + ''.join(o) +
-            '<figcaption>束ごとの線の色と切る長さ。<b>同じ束の線は全部同じ長さ</b>で、ハブ側（左）は殻に入る。'
+            '<figcaption>束ごとの線の色と切る長さ。<b>同じ束の線は全部同じ長さ</b>。左がハブ側の殻、右が逆の端の殻で、「空」は殻の空きの穴（線を入れない）。'
+            '<b>XIAO はハブ側が 1 連＋4 連＋2 連、XIAO 側が 6 連 × 2</b>（上の列 5V・GND・3V3＋空き 3、下の列 空き 2＋D2・D3・SDA・SCL）で、並びが違うので線が途中で交差する。'
             '色は全部の口で同じ（GND は黒か白のどちらでもよい）。「仮」の線（D3・スピーカー ±・電池 ±）はユーザーの指定がなく、相手のリードの色に合わせて置いた。</figcaption></figure>')
 
 
 def _end_box(x, top, bot, kind, label, left):
-    """線の端の形。dupont＝黒い殻、ph／jst＝白いプラグ、bare＝殻なし（直はんだ）。label はその横の文。"""
+    """線の端の形。dupont＝黒い殻、ph／jst＝白いプラグ、bare＝殻なし（直はんだ）、none＝文だけ。label はその横の文（24 字で折る）。"""
     h = max(bot - top, 14)
     txt = re.sub(r'\s+', ' ', label).replace('<br>', ' ')
     parts = []
     if kind == 'dupont':
         bw = 26
         bx = x - bw if left else x
-        parts.append('<rect x="%.1f" y="%.1f" width="%d" height="%.1f" rx="3" fill="#2f3a43"/>' % (bx, top, bw, h))
+        parts.append('<rect x="%.1f" y="%.1f" width="%d" height="%.1f" rx="3" fill="#2f3a43"/>' % (bx, top + 1, bw, h - 2))
     elif kind in ('ph', 'jst'):
         bw = 22
         bx = x - bw if left else x
-        parts.append('<rect x="%.1f" y="%.1f" width="%d" height="%.1f" rx="3" fill="#f4f4f2" stroke="#9a9a96" stroke-width="1.2"/>' % (bx, top, bw, h))
+        parts.append('<rect x="%.1f" y="%.1f" width="%d" height="%.1f" rx="3" fill="#f4f4f2" stroke="#9a9a96" stroke-width="1.2"/>' % (bx, top + 1, bw, h - 2))
     else:
         bw = 0
     tx = (x - bw - 6) if left else (x + bw + 8)
     anc = 'end' if left else 'start'
-    # 右の文は長いので 2 行に割る
     if txt:
         lines, rest = [], txt
         while len(rest) > 24:                       # 空白・「・」・「（」の手前で折る（無ければ 24 字で）
@@ -257,7 +327,7 @@ STEPS = [
    '🔒 2026-08-07「DuPont のまま＋抜け止め。はんだ付けはしない」——分解できるようにするため。',
    '🔴 <b>殻のピン数は線の本数と同じとは限らない</b>——<span class="w">つまみ</span>は線 5 本に殻は 4 連（GND が二股で DIR へ）、'
    '<span class="w">電源</span>は線 3 本に殻は 4 連（3 本目は空き）。本数どおりに作ると手順 3 で 1 本ずつずれて挿さる。',
-   '⚠ <b>XIAO の逆側は 7 連が使えない</b>（7 本が XIAO の 2 列にまたがる）。🔒 <b>1 連・2 連・4 連の 3 個</b>——5V だけ 1 連で単独、GND と 3V3 が 2 連、D2〜D5 が 4 連。<b>5V と GND を同じ殻に入れない。</b>',
+   '⚠ <b>7 連の殻は無い。</b>🔒 XIAO の束の殻（2026-09-06 ユーザー）——ハブ側は <b>D2 の 1 連・SDA・SCL・3V3・GND の 4 連・D3＋5V の 2 連</b>の 3 個、XIAO 側は <b>6 連 × 2</b>——上の列に <b>5V・GND・3V3＋空き 3</b>、下の列に <b>空き 2＋D2・D3・SDA・SCL</b>。空きの穴には何も入れない。I2C の 4 本の並びは他の口と同じ SDA・SCL・3V3・GND。',
    '<b>ハブに挿さらない束が 3 つある</b>——<span class="w">充電</span>（Type-C 基板 ↔ PowerBoost）、'
    '<span class="w">電池→電流計</span>（電池の JST の受け ↔ 電流計の INPUT）、<span class="w">電流計→JST</span>（電流計の OUT ↔ PowerBoost の JST に挿すプラグ）。'
    '電池の線は電流計を通ってから PowerBoost へ入る。',
@@ -281,7 +351,7 @@ STEPS = [
  dict(n='2', t='ReSpeaker を床の座に立て、XIAO の口を挿す', img='st2', acts=[
    'ReSpeaker を床の <span class="g">座</span> へ上から差す。板の下端が台に乗り、前の唇と後ろの振れ止め 2 つに挟まれる。<b>ビスは無い。</b>頭は手順 12 で天板の <span class="g">羊羹</span> と <span class="g">マッチ棒</span> が 0.3 押さえる。',
    '向きは、<b>イヤホンジャックと ReSpeaker 自身の USB-C が左の壁側</b>、<b>XIAO の USB-C が右の壁側</b>。左の壁に開いているのはジャックの丸い口だけで、ReSpeaker 自身の USB-C は外へ出さない。',
-   '<b>この段で XIAO の上のピンヘッダに 1 連・2 連・4 連を挿す。</b>下の列の 3〜6 本目に 4 連、上の列の 1 本目に 1 連（5V）、2・3 本目に 2 連（GND・3V3）。'
+   '<b>この段で XIAO の上のピンヘッダに 6 連を 2 個挿す。どちらも USB-C 側の端（1 本目）に突き当てる。</b>上の列: 5V・GND・3V3＋空き 3（1〜6 本目）。下の列: 空き 2＋D2・D3・SDA・SCL（1〜6 本目）。挿し終わると<b>両列とも反対側の端（7 本目）だけ裸</b>。🔴 6 連は 7 本のピンに 2 通りの位置で入る。1 本ずれると上の列は <b>5V の線が GND のピンに乗る</b>。'
    '⚠ ピン名は基板の裏に印刷されていて読めない。<b>USB-C を左にして数える</b>（手順 3 の図・箱の後ろから見た向き）。壁が立った後では右の壁が口の真横に来て、ピンセットが入らない。',
  ], warn='<b>壁（手順 6）より先に入れる。</b>壁を当てた後では、ReSpeaker は上から入らない（壁の押さえと天板の羊羹の席が真上に来る）。'),
 
@@ -541,6 +611,12 @@ def hub_map_svg():
             '実物の板に行や列の刻印は無いので、口は縁と並び順で見分ける。</figcaption></figure>')
 
 
+# 🔒 XIAO 側の殻の配置（2026-09-06 ユーザー。7 連の殻は無い）。(列, 始まり, 終わり)。何本目は USB-C 側から。
+#    上の列 1〜6 に 6 連（5V・GND・3V3・空・空・空）、下の列 1〜6 に 6 連（空・空・D2・D3・SDA・SCL）。7 本目は裸。
+#    どちらも USB-C 側の端に突き当てる。1 本ずれると上の列は 5V の線が GND のピンに乗る。
+XIAO_SHELLS = [('下', 1, 6), ('上', 1, 6)]
+
+
 def xiao_svg():
     """XIAO を USB-C を左にして、XIAO の面を見た図（箱の後ろから見た向き）。v4 の xiao_svg を 90° 回したもの。
     USB-C が上の図で右の列（5V…）だったものが上の列、左の列（D0…）だったものが下の列。"""
@@ -565,7 +641,15 @@ def xiao_svg():
     o.append('<text x="%d" y="%d" font-size="12" font-weight="700" fill="#9aa5ad" text-anchor="middle">XIAO</text>'
              % (bx + bw / 2, (y_top + y_bot) / 2 + 4))
     o.append('<text x="%d" y="%d" font-size="13" font-weight="700" fill="#9aa5ad" text-anchor="middle">USB-C 側から数える →</text>'
-             % (bx + bw / 2, y_top + 34))
+             % (bx + bw / 2, (y_top + y_bot) / 2 + 26))
+    # 殻（ピンの下に描く）: 6 連 × 2。USB-C 側の端に突き当てる
+    for row, a_, b_ in XIAO_SHELLS:
+        cy = y_top if row == '上' else y_bot
+        xa, xb = x0 + (a_ - 1) * pitch - 24, x0 + (b_ - 1) * pitch + 24
+        o.append('<rect x="%d" y="%d" width="%d" height="48" rx="5" fill="#55636f" stroke="#9aa5ad" stroke-width="1.6"/>'
+                 % (xa, cy - 24, xb - xa))
+        o.append('<text x="%d" y="%d" font-size="10" fill="#c9c4b8" text-anchor="middle">%d 連（%d〜%d 本目・USB-C 側の端に突き当てる）</text>'
+                 % ((xa + xb) / 2, cy + (37 if row == '上' else -29), b_ - a_ + 1, a_, b_))
     for row, names, cy in (('上', V4.XIAO_R, y_top), ('下', V4.XIAO_L, y_bot)):
         up = row == '上'
         o.append('<text x="%d" y="%d" font-size="15" font-weight="700" fill="%s" text-anchor="start">%sの列</text>'
@@ -583,9 +667,9 @@ def xiao_svg():
             if n:
                 sub1, sub2 = 'ハブの %d 本目' % n, ''
             elif nm in V4.XIAO_STOP:
-                sub1, sub2 = '🔴 触らない', '（%s）' % V4.XIAO_STOP[nm]
+                sub1, sub2 = '殻の空き（🔴 触らない）', '（%s）' % {'RGB LED のデータ線': 'RGB LED', 'XMOS のリセット': 'XMOS リセット'}.get(V4.XIAO_STOP[nm], V4.XIAO_STOP[nm])
             else:
-                sub1, sub2 = '使わない', '（%s）' % V4.XIAO_BUSY.get(nm, '')
+                sub1, sub2 = ('殻の空き（使わない）' if i < 6 else '裸（使わない）'), '（%s）' % V4.XIAO_BUSY.get(nm, '')
             # 上の列は板の上へ（下から 名前・sub1・sub2 の順に積む）、下の列は板の下へ
             ys = (cy - 74, cy - 58, cy - 44) if up else (cy + 46, cy + 62, cy + 76)
             o.append('<text x="%d" y="%d" font-size="14" font-weight="700" fill="%s" text-anchor="middle">%s</text>'
@@ -602,7 +686,7 @@ def xiao_svg():
             'ピンの中の数字は <b>USB-C 側から何本目か</b>。'
             'ハブから来る 7 本は色が付いていて、その下に<b>ハブの口の何本目か</b>が入っている。'
             '⚠ XIAO のピン名は基板の裏に印刷されていて、'
-            'ReSpeaker に直付けした今は読めない——<b>数えるしかない</b>。</figcaption></figure>')
+            'ReSpeaker に直付けした今は読めない——<b>数えるしかない</b>。🔒 <b>殻は 6 連 × 2</b>（2026-09-06 ユーザー。7 連は無い）——上の列 1〜6 本目に 5V・GND・3V3＋空き 3、下の列 1〜6 本目に 空き 2＋D2・D3・SDA・SCL。空きの穴には線を入れない。<b>どちらも USB-C 側の端に突き当て、7 本目だけ裸</b>。1 本ずれると上の列は 5V の線が GND のピンに乗る。</figcaption></figure>')
 
 
 # ハブのどの口か。挿す人が見る向き（箱の後ろ・ハッチ側から。上の hub_map_svg と同じ）で書く。
@@ -620,6 +704,11 @@ PLACE = {
  'REED':   '手前の縁（ハッチ側）に並ぶ 4 つのうち、<b>ジャックの壁側から 3 つ目</b>。<b>ジャックの壁側（図の右）から</b>数える',
  'PWR':    '手前の縁（ハッチ側）に並ぶ 4 つのうち、<b>ジャックの壁側から 4 つ目</b>（USB-C の壁側の端・図のいちばん左）。<b>ジャックの壁側（図の右）から</b>数える',
 }
+
+
+# 表の注。v4 の MATE_NOTE を使い、XIAO だけ v5 の殻の分け方（D2＋D3／I2C 束／5V）に差し替える
+MATE_NOTE = dict(V4.MATE_NOTE)
+MATE_NOTE['XIAO'] = '🔴 <b>この 7 本は XIAO の 2 つの列にまたがる</b>（上の図）。🔒 <b>殻</b>（2026-09-06 ユーザー。7 連の殻は無い）——ハブ側は <b>D2 の 1 連＋SDA・SCL・3V3・GND の 4 連＋D3・5V の 2 連</b>の 3 個。XIAO 側は <b>6 連 × 2</b>——上の列 1〜6 本目に <b>5V・GND・3V3＋空き 3</b>、下の列 1〜6 本目に <b>空き 2＋D2・D3・SDA・SCL</b>。I2C の 4 本の並びは他の口と同じ <b>SDA・SCL・3V3・GND</b>。🔴 <b>6 連は 7 本のピンに 2 通りの位置で入る。USB-C 側の端に突き当てて、反対側（7 本目）だけ裸が正。</b>1 本ずれると上の列は <b>5V の線が GND のピンに乗り</b>、下の列は D2 の線が D3 に、SCL の線が D6（I2S DIN）に乗る。'
 
 
 def pin_table():
@@ -641,8 +730,8 @@ def pin_table():
             cells.append('<td>%s</td>' % mates[i])
             rows.append('<tr%s>%s</tr>'
                         % (' class="bs"' if i == 0 else '', ''.join(cells)))
-        if V4.MATE_NOTE.get(pid):
-            rows.append('<tr><td colspan="5" class="pn">%s</td></tr>' % V4.MATE_NOTE[pid])
+        if MATE_NOTE.get(pid):
+            rows.append('<tr><td colspan="5" class="pn">%s</td></tr>' % MATE_NOTE[pid])
     html = ('<div class="tw"><table class="pins"><thead><tr><th>束</th>'
             '<th>ハブ基板のどの口か（数え始め・後ろから見た向き）</th><th>何本目</th><th>信号</th>'
             '<th>線の逆の端は、相手の何本目か</th></tr></thead><tbody>'
