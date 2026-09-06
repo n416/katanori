@@ -6,8 +6,8 @@
 #
 # 手順は 1 か所（下の STEPS）にしか無い。段の絵は同じ場所の _asm_sim_v5.scad の upto()。
 # 呼び名の絵は _asm_gloss_v5.scad。この場所（hardware/tools/manual_v5/）はマニュアルの道具だけ。筐体の部品ではない。線の長さは case_v5 の束（WIRE_LEN=true の echo）から取る。
-# ハブの口の図と表は v4 の道具（frozen/v1-v4/_asm_manual_v4.py の hub_map_svg / pin_table / xiao_svg）を借りる
-# ——ハブ基板そのものは v4 と同じ板なので、口の並びと相手は変わらない。
+# ハブの口の表は v4 の道具（frozen/v1-v4/_asm_manual_v4.py の pin_table）を借りる——ハブ基板そのものは v4 と同じ板なので、口の並びと相手は変わらない。
+# 図は v5 で向きを変えた（下の hub_map_svg / xiao_svg。ハブは OLED が上・XIAO は USB-C が左＝箱の後ろから見た向き）。
 import base64, math, os, re, subprocess, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))          # hardware/tools/manual_v5
@@ -154,12 +154,12 @@ STEPS = [
  dict(n='2', t='ReSpeaker を床の座に立て、XIAO の口を挿す', img='st2', acts=[
    'ReSpeaker を床の <span class="g">座</span> へ上から差す。板の下端が台に乗り、前の唇と後ろの振れ止め 2 つに挟まれる。<b>ビスは無い。</b>頭は手順 12 で天板の <span class="g">羊羹</span> と <span class="g">マッチ棒</span> が 0.3 押さえる。',
    '向きは、<b>イヤホンジャックと ReSpeaker 自身の USB-C が左の壁側</b>、<b>XIAO の USB-C が右の壁側</b>。左の壁に開いているのはジャックの丸い口だけで、ReSpeaker 自身の USB-C は外へ出さない。',
-   '<b>この段で XIAO の上のピンヘッダに 1 連・2 連・4 連を挿す。</b>左の列の 3〜6 本目に 4 連、右の列の 1 本目に 1 連（5V）、2・3 本目に 2 連（GND・3V3）。'
-   '⚠ ピン名は基板の裏に印刷されていて読めない。<b>USB-C を上にして数える</b>（手順 3 の図）。壁が立った後では右の壁が口の真横に来て、ピンセットが入らない。',
+   '<b>この段で XIAO の上のピンヘッダに 1 連・2 連・4 連を挿す。</b>下の列の 3〜6 本目に 4 連、上の列の 1 本目に 1 連（5V）、2・3 本目に 2 連（GND・3V3）。'
+   '⚠ ピン名は基板の裏に印刷されていて読めない。<b>USB-C を左にして数える</b>（手順 3 の図・箱の後ろから見た向き）。壁が立った後では右の壁が口の真横に来て、ピンセットが入らない。',
  ], warn='<b>壁（手順 6）より先に入れる。</b>壁を当てた後では、ReSpeaker は上から入らない（壁の押さえと天板の羊羹の席が真上に来る）。'),
 
  dict(n='3', t='ハブの口を全部挿して、線を寝かせる', img='st3',
-      extra=lambda: V4.hub_map_svg() + V4.xiao_svg() + V4.pin_table(), acts=[
+      extra=lambda: hub_map_svg() + xiao_svg() + pin_table(), acts=[
    '<span class="w">XIAO</span> 7・<span class="w">スピーカー IN</span> 2・<span class="w">OLED</span> 4・<span class="w">つまみ</span> 4・'
    '<span class="w">会話ボタン</span> 2・<span class="w">スピーカー OUT</span> 2・<span class="w">電源</span> 3・<span class="w">電流計</span> 4・'
    '<span class="w">トグル</span> 2 の 9 束を<b>ハブ側だけ全部挿す</b>（リードの口は空けたまま）。'
@@ -394,6 +394,94 @@ __STEPS__
 </ol></section>
 </div>
 """
+
+
+# ---------------------------------------------------------------- 手順 3 の図と表（v5 の向き）
+# 🔒 2026-09-06 ユーザー「上が OLED であってほしい・XIAO の図も左が USB であってほしい」。
+#    どちらも箱の後ろ（ハッチ側）から覗いた向き。v4 の図を紙の上で回しただけで、鏡ではない
+#    （ハブ: 180°・XIAO: 90°）。XIAO の「左の列／右の列」はこの向きでは上下に並ぶので「上の列／下の列」と呼ぶ。
+# 線の色: docs（2026-09-02）SCL＝緑・SDA＝黄色。図の直下に出す（ユーザー 2026-09-06）。
+WIRE_COLORS = '🔒 <b>線の色: SCL ＝ 緑・SDA ＝ 黄色</b>（全部の口で同じ）。'
+
+
+def hub_map_svg():
+    return ('<figure class="wide">' + hub_ports.board_svg(oled_top=True) +
+            '<figcaption>' + WIRE_COLORS + '<br>'
+            'ハブ基板を<b>上から</b>見た図。<b>上が OLED（前）・下がハッチ（後ろ）</b>で、箱の後ろから覗いた向き。'
+            'だから板の<b>左（ジャックの壁）が図の右</b>、<b>右（USB-C の壁）が図の左</b>に来る。'
+            'ピンの中の数字が「何本目」で、<b>数え始めは口ごとに違う</b>（表の「数え始め」と図の数字のとおり）。'
+            '色は信号の別（<b>赤</b>=5V・<b>黒</b>=GND・<b>橙</b>=3V3・<b>青</b>=SDA/SCL）。'
+            '実物の板に行や列の刻印は無いので、口は縁と並び順で見分ける。</figcaption></figure>')
+
+
+def xiao_svg():
+    """XIAO を USB-C を左にして、XIAO の面を見た図（箱の後ろから見た向き）。v4 の xiao_svg を 90° 回したもの。
+    USB-C が上の図で右の列（5V…）だったものが上の列、左の列（D0…）だったものが下の列。"""
+    hub = {hub_ports.disp(fn, net): i + 1
+           for p in hub_ports.ports() if p.id == 'XIAO'
+           for i, (h, fn, net, x, y) in enumerate(p.pins)}
+    P = hub_ports.PAL
+    NC = {'5V': P['v5'], 'GND': P['gnd'], '3V3': P['v33'],
+          'SDA': P['i2c'], 'SCL': P['i2c'], 'D2': P['ink'], 'D3': P['ink']}
+    pitch, x0 = 132, 150            # ピンの間隔・1 本目の X
+    W, H = x0 + pitch * 7 + 40, 420
+    y_top, y_bot = 150, 320         # 上の列・下の列の Y
+    bx, by = x0 - 40, y_top - 36    # 板
+    bw, bh = pitch * 6 + 80, y_bot - y_top + 72
+    o = ['<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %d %d" width="%d" '
+         'height="%d" preserveAspectRatio="xMidYMid meet" '
+         'font-family="system-ui, sans-serif">' % (W, H, W, H)]
+    o.append('<rect x="%d" y="%d" width="%d" height="%d" rx="9" fill="#2f3a43"/>' % (bx, by, bw, bh))
+    o.append('<rect x="%d" y="%d" width="22" height="52" rx="5" fill="#9aa5ad"/>' % (bx - 20, (y_top + y_bot) / 2 - 26))
+    o.append('<text x="%d" y="%d" font-size="11" font-weight="700" fill="#1b2227" text-anchor="middle" '
+             'transform="rotate(-90 %d %d)">USB-C</text>' % (bx - 9, (y_top + y_bot) / 2, bx - 9, (y_top + y_bot) / 2))
+    o.append('<text x="%d" y="%d" font-size="12" font-weight="700" fill="#9aa5ad" text-anchor="middle">XIAO</text>'
+             % (bx + bw / 2, (y_top + y_bot) / 2 + 4))
+    o.append('<text x="%d" y="%d" font-size="13" font-weight="700" fill="#9aa5ad" text-anchor="middle">USB-C 側から数える →</text>'
+             % (bx + bw / 2, y_top + 34))
+    for row, names, cy in (('上', V4.XIAO_R, y_top), ('下', V4.XIAO_L, y_bot)):
+        up = row == '上'
+        o.append('<text x="%d" y="%d" font-size="15" font-weight="700" fill="%s" text-anchor="start">%sの列</text>'
+                 % (bx + bw + 14, cy + 5, P['sub'], row))
+        for i, nm in enumerate(names):
+            cx = x0 + i * pitch
+            use = V4.XIAO_ALT.get(nm, nm)
+            n = hub.get(use)
+            col = NC.get(use, P['sub']) if n else P['sub']
+            o.append('<rect x="%d" y="%d" width="26" height="26" rx="3" fill="%s" stroke="%s" stroke-width="1.6"/>'
+                     % (cx - 13, cy - 13, '#ffffff' if n else '#e6e3dc', col))
+            o.append('<text x="%d" y="%.1f" font-size="12" font-weight="700" fill="%s" text-anchor="middle">%d</text>'
+                     % (cx, cy + 4.5, col, i + 1))
+            lab = nm + ('（%s）' % V4.XIAO_ALT[nm] if nm in V4.XIAO_ALT else '')
+            if n:
+                sub1, sub2 = 'ハブの %d 本目' % n, ''
+            elif nm in V4.XIAO_STOP:
+                sub1, sub2 = '🔴 触らない', '（%s）' % V4.XIAO_STOP[nm]
+            else:
+                sub1, sub2 = '使わない', '（%s）' % V4.XIAO_BUSY.get(nm, '')
+            # 上の列は板の上へ（下から 名前・sub1・sub2 の順に積む）、下の列は板の下へ
+            ys = (cy - 74, cy - 58, cy - 44) if up else (cy + 46, cy + 62, cy + 76)
+            o.append('<text x="%d" y="%d" font-size="14" font-weight="700" fill="%s" text-anchor="middle">%s</text>'
+                     % (cx, ys[0], col if n else P['sub'], lab))
+            o.append('<text x="%d" y="%d" font-size="11.5" fill="%s" text-anchor="middle">%s</text>'
+                     % (cx, ys[1], P['sub'], sub1))
+            if sub2:
+                o.append('<text x="%d" y="%d" font-size="11" fill="%s" text-anchor="middle">%s</text>'
+                         % (cx, ys[2], P['sub'], sub2))
+    o.append('</svg>')
+    return ('<figure class="wide">' + ''.join(o) +
+            '<figcaption>' + WIRE_COLORS + '<br>'
+            'XIAO を <b>USB-C が左</b>になるように置いて、XIAO の面を見た図（箱の後ろから見た向き。手順 2 で ReSpeaker を立てると XIAO の面は後ろを向き、USB-C は右の壁へ出る）。'
+            'ピンの中の数字は <b>USB-C 側から何本目か</b>。'
+            'ハブから来る 7 本は色が付いていて、その下に<b>ハブの口の何本目か</b>が入っている。'
+            '⚠ XIAO のピン名は基板の裏に印刷されていて、'
+            'ReSpeaker に直付けした今は読めない——<b>数えるしかない</b>。</figcaption></figure>')
+
+
+def pin_table():
+    """v4 の表をそのまま使い、XIAO の列の呼び名だけこの向き（USB-C が左）に合わせる。"""
+    return (V4.pin_table().replace('左の列', '下の列').replace('右の列', '上の列')
+            .replace('左の 4 連', '下の 4 連'))
 
 
 def build():

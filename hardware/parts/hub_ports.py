@@ -167,22 +167,27 @@ LABEL_SIDE = {"XIAO": "S", "AS5600": "W", "OLED": "W", "BTN2": "W",
               "PHIN": "E", "PHOUT": "E"}
 
 
-def board_svg(scale=9.0, padx=160.0, pady=92.0):
-    """板を上から見て、10 口とピン番号を描いた SVG を返す。"""
+def board_svg(scale=9.0, padx=160.0, pady=92.0, oled_top=False):
+    """板を上から見て、10 口とピン番号を描いた SVG を返す。
+
+    oled_top=False: OLED（前）を下に（外から OLED を見る向き。v4 のマニュアル）
+    oled_top=True : OLED（前）を上に（箱の後ろ・ハッチ側から覗いた向き。v5 のマニュアル・2026-09-06 ユーザー「上が OLED であってほしい」）
+    どちらも上から見た図で、後者は前者を紙の上で 180° 回しただけ（鏡ではない）。左右の名札は板と一緒に回る。
+    """
     W, H = BOARD_L * scale + padx * 2, BOARD_W * scale + pady * 2
 
     def sx(x):
-        return padx + x * scale
+        return padx + ((BOARD_L - x) if oled_top else x) * scale
 
     def sy(y):
-        return pady + (BOARD_W - y) * scale   # Y 小（前・OLED 側）を下に
+        return pady + (y if oled_top else (BOARD_W - y)) * scale   # 既定は Y 小（前・OLED 側）を下に
 
     o = ['<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %.0f %.0f" '
          'width="%.0f" height="%.0f" preserveAspectRatio="xMidYMid meet" '
          'font-family="system-ui, sans-serif">' % (W, H, W, H)]
     o.append('<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" rx="4" fill="%s" '
              'stroke="%s" stroke-width="1.6"/>'
-             % (sx(0), sy(BOARD_W), BOARD_L * scale, BOARD_W * scale,
+             % (min(sx(0), sx(BOARD_L)), min(sy(0), sy(BOARD_W)), BOARD_L * scale, BOARD_W * scale,
                 PAL["board"], PAL["edge"]))
     for mx in (-MOUNT[0] / 2, MOUNT[0] / 2):
         for my in (-MOUNT[1] / 2, MOUNT[1] / 2):
@@ -190,10 +195,17 @@ def board_svg(scale=9.0, padx=160.0, pady=92.0):
                      'stroke-width="1.2"/>'
                      % (sx(BOARD_L / 2 + mx), sy(BOARD_W / 2 + my), 1.6 * scale, PAL["edge"]))
     # 箱の中での方角
-    for px, py, lab, anc in ((W / 2, H - 16, "前（OLED はこちら）", "middle"),
-                             (W / 2, 24, "後ろ（ハッチ）", "middle"),
-                             (14, H / 2, "左", "start"),
-                             (W - 14, H / 2, "右", "end")):
+    if oled_top:
+        dirs = ((W / 2, 24, "前（OLED はこちら）", "middle"),
+                (W / 2, H - 16, "後ろ（ハッチ・見ている側）", "middle"),
+                (14, H / 2, "右（USB-C の壁）", "start"),
+                (W - 14, H / 2, "左（ジャックの壁）", "end"))
+    else:
+        dirs = ((W / 2, H - 16, "前（OLED はこちら）", "middle"),
+                (W / 2, 24, "後ろ（ハッチ）", "middle"),
+                (14, H / 2, "左", "start"),
+                (W - 14, H / 2, "右", "end"))
+    for px, py, lab, anc in dirs:
         o.append('<text x="%.1f" y="%.1f" font-size="15" font-weight="700" fill="%s" '
                  'text-anchor="%s">%s</text>' % (px, py, PAL["edge"], anc, lab))
 
@@ -210,11 +222,11 @@ def board_svg(scale=9.0, padx=160.0, pady=92.0):
                         1.9 * scale, 1.9 * scale, PAL["pin"], col))
             o.append('<text x="%.1f" y="%.1f" font-size="12" font-weight="700" fill="%s" '
                      'text-anchor="middle">%d</text>' % (sx(x), sy(y) + 4.5, col, i))
-        lx, ly, anc, dy1, dy2 = {
-            "S": (cx, -3.4, "middle", 0, 15),
-            "N": (cx, BOARD_W + 3.4, "middle", 0, 15),
-            "W": (-2.6, cy, "end", -3, 12),
-            "E": (BOARD_L + 2.6, cy, "start", -3, 12)}[d]
+        lx, ly = {"S": (cx, -3.4), "N": (cx, BOARD_W + 3.4),
+                  "W": (-2.6, cy), "E": (BOARD_L + 2.6, cy)}[d]      # 板の座標で名札の位置
+        scr = {"S": "N", "N": "S", "W": "E", "E": "W"}[d] if oled_top else d   # 紙の上でどちら側に出るか
+        anc, dy1, dy2 = {"S": ("middle", 0, 15), "N": ("middle", 0, 15),
+                         "W": ("end", -3, 12), "E": ("start", -3, 12)}[scr]
         o.append('<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="%s" '
                  'stroke-width="1.2" stroke-dasharray="3 3"/>'
                  % (sx(cx), sy(cy), sx(lx), sy(ly), PAL["lead"]))
