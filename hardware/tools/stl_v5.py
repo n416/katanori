@@ -21,7 +21,7 @@ BTN  = os.path.join(HW, 'parts', 'btn_v3.scad')
 # ファイル名 → (元の .scad, part の値)。名前は v5_<キー>.stl になる。
 PARTS = [(k, CASE, 'print_%s' % k) for k in
          ['floor', 'lwall', 'rwall', 'top', 'front', 'hatch', 'bridge', 'brgfront',
-          'strap_a', 'strap_b', 'strap_c', 'shutter', 'lock', 'shutfloor']] + [
+          'strap_a', 'strap_b', 'strap_c', 'inabar', 'shutter', 'lock', 'shutfloor']] + [   # inabar: 電流計の小帯（2026-09-07・上面を下）
     ('piston',   BTN,  'print_piston2'),  # 会話ボタンの押し子 2（根元寄りの線・台形の足。🔒 2026-09-07 決定。天面を下）
     ('tub',      BTN,  'print_tub'),      # 会話ボタンのバスタブ（底を下）
     ('knob',     KNOB, 'knob'),           # つまみ本体

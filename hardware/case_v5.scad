@@ -15,7 +15,7 @@
 //   all      … 皮＋中身＋ブリッジ一式
 //   p_floor / p_top / p_lwall / p_rwall / p_front / p_hatch … 板 1 枚だけ（柱・棚・耳・ダボ・穴込み）
 //   fasten   … 締結の絵: 左右の壁（柱・棚）を不透明、床と天板を半透明、ブリッジと前板と帯を重ねる
-//   hit_<名>  … その 1 単位 ↔ 他の全部 の当たり（体積を STL で取る。0 が正）。名は oled rsp hub bat ina pb tc knob btn spk tgl bridge reed
+//   hit_<名>  … その 1 単位 ↔ 他の全部 の当たり（体積を STL で取る。0 が正）。名は oled rsp hub bat ina pb tc knob btn spk tgl bridge reed inabar
 //   pair_<a>_<b> … 2 単位の重なり（例 pair_ina_btn）
 //   only_<名> … 1 つだけ（外形を数字で取る用）。名は oled rsp hub bat ina pb tc knob btn spk tgl（基板＋その口）と hubplugs oledplug inaplug pbplug xiaoplugs knobplugs（口だけ）
 //   wires    … 中身＋線（束は丸・口の近くは 1 本ずつ扇）。wiresonly は線だけ
@@ -23,10 +23,11 @@
 //   print_<板>  … 刷る向き（floor top lwall rwall front hatch は外面を下・bridge は皿の裏を下・brgfront は前の面を下・shutter lock shutfloor は外面/溝の床を下。v4 と同じ。つまみは parts/knob_v5.scad、会話ボタンは parts/btn_v3.scad の print_piston / print_tub をそのファイルで焼く）＋ 支柱とラフト（parts/props_v5_gen.scad）
 //   sk_<名>    … その 1 単位 ↔ 皮 6 枚 の当たり（0 が正。ReSpeaker の押し 0.3 は意図した当たり）
 //   seam_<板>_<板> … 板 2 枚の重なり（例 seam_top_front。0 が正）
+//   print_inabar … 電流計の小帯（ダボ 2 本に載せる橋・2026-09-07）を刷る向き（上面を下）。組んだ姿勢は only_inabar・当たりは hit_inabar
 //   print_strap_a / print_strap_b / print_strap_c … 帯 1 本を刷る向き（直置き・足の裏が Z 0）＋ 支柱とラフト（parts/props_v5_gen.scad・python hardware/tools/props_gen.py）。素の形は -D PROPS_OFF=true
 //   （皮・板・検査の語は皮を起こすときにここへ足す。既にある語の意味は変えない）
 // ============================================================
-part = "look";
+part = "explode";
 PROPS_OFF = false;   // true: 刷る向きの素の形（支柱・ラフト無し）。tools/props_gen.py がこれで焼いて支柱の位置を決める
 
 use <parts/parts.scad>
@@ -219,7 +220,7 @@ module knob_plugs() at_knob() translate([0, 0, -knob_deep()]) rotate([0, 0, 90])
 module plugs() { hub_plugs(); oled_plug(); ina_plug(); ina_pwr_plug(); pb_plug(); xiao_plugs(); knob_plugs(); }
 
 // 単位（基板＋その口を 1 つに数える。ピンはハウジングの中に居るので、別々に数えると自分同士の重なりが出る）
-UNITS = ["oled", "rsp", "hub", "bat", "ina", "pb", "tc", "knob", "btn", "spk", "tgl", "bridge", "front", "straps", "shutter", "lock", "hatchplate"];   // pbmount は天板と一体・tcseat は床と一体にした（2026-09-05）   // リードスイッチは 2026-09-05 に一度置いて外した（ユーザー「そんなところについてないだろ」）
+UNITS = ["oled", "rsp", "hub", "bat", "ina", "pb", "tc", "knob", "btn", "spk", "tgl", "bridge", "front", "straps", "inabar", "shutter", "lock", "hatchplate"];   // pbmount は天板と一体・tcseat は床と一体にした（2026-09-05）   // リードスイッチは 2026-09-05 に一度置いて外した（ユーザー「そんなところについてないだろ」）
 module one(n) {
     if (n == "oled") { at_oled() oled_242(); oled_plug(); }
     if (n == "rsp")  { at_rsp()  respeaker_lite(); xiao_plugs(); }
@@ -235,6 +236,7 @@ module one(n) {
     if (n == "bridge") bridge();
     if (n == "front")  brg_front();
     if (n == "straps") straps();
+    if (n == "inabar") ina_bar();   // 電流計の小帯（2026-09-07）
     if (n == "shutter") { color("#b8c4d8") battery_shutter4(); sw4_magnets_shutter(); }   // 蓋（磁石 2 個込み）
     if (n == "lock") { color("#b8c4d8") battery_lock4(); sw4_lock_screw(); sw4_lock_nut(); }   // ロック（M2・ナット込み）
     if (n == "hatchplate") { color("#27ae60") difference() { sw4_floor_plate(); tgl_plate_notch(); } sw4_magnets_wall(); }   // 床の板（ハッチの裏・別部品・磁石 2 個込み）。🔒 ユーザー 2026-09-05「蓋の底をトグルスイッチ分削って」: トグルの胴の逃げ
@@ -361,28 +363,39 @@ HDR_FOOT = let (c = [for (q = [[26.0 - 1.27, 3.6 - 1.27], [26.0 + 1.27, 3.6 - 1.
 // ---- 電流計の留め（🔒 ユーザー 2026-09-07 決定）----
 //   ① E リングはやめて素のダボ（左の穴・帯 B の上）。樹脂の軸に E リングは割れる（同日実機・PowerBoost の首 1.5 で 1 本割れ、「2mm だって無理」）
 //   ② 帯 B と帯 C の上、電流計の左の縁に薄いレール（壁 1.0・唇 0.8 が縁に 1.0 被さる・隙間 0.2）
-//   ③ 右のダボは帯から消し、天板から足（φ3.6）を下ろして先にダボ（φ2.8）。天板を載せると板が押さえられる（ina_ceiling_leg・p_top 側）
+//   ③ 2026-09-07 の同日、ユーザー「ダボとダボを結ぶ小帯パーツがあった方がよくないですか」→ 描く: 右のダボも帯 B に戻して 2 本にし、
+//      2 つの穴に小帯 inabar（足 φ6.0 × 高さ INA_BAR_H・間は橋）を載せる。天板の足（φ3.6・先は平ら）は小帯の右の足の上に降りて押さえる（ina_ceiling_leg・p_top 側）。
+//      小帯の穴は φ3.0 のすべり嵌め（ダボ φ2.8）。ダボの先は小帯の上面より 0.2 低く、天板の足はダボではなく小帯に当たる
+//      ② のレールは帯 C だけに残す（帯 B の唇 X 30.95〜31.95 は小帯の左の足 X 30.2〜36.2 と同じ場所・INA_RAIL_BANDS）
 //   台座でナットを入れる案は、電流計の一番高い所が PowerBoost の裏の 0.33 下にあり、台座 4.2 で 3.9 食い込む（当たり 113mm³）ので不可（同日検算）
-INA_PEG_D = 2.8; INA_PEG_H = ina_size()[2] + 0.4;          // ダボ φ2.8（穴 φ3.0 ✅実測）・高さ 2.0（板 1.6 ＋ 0.4）
+INA_BAR_H = 3.0; INA_BAR_T = 1.5; INA_BAR_FOOT_D = 6.0; INA_BAR_W = 4.0; INA_BAR_HOLE_D = 3.0;   // 小帯: 足の高さ（板の上から）・橋の厚み・足の径・橋の幅・穴 φ3.0（ダボ φ2.8 のすべり嵌め）
+INA_PEG_D = 2.8; INA_PEG_H = ina_size()[2] + INA_BAR_H - 0.2;   // ダボ φ2.8・高さ 4.4（板 1.6 ＋ 小帯の足 3.0 − 0.2。先は小帯の上面より低い）
+INA_RAIL_BANDS = [2];                                        // レールを立てる帯（帯 C だけ。帯 B は小帯の左の足の場所）
 INA_RAIL_W = 1.0; INA_RAIL_LIP = 0.8; INA_RAIL_IN = 1.0; INA_RAIL_CL = 0.2;   // 壁の厚み・唇の厚み・唇が縁に被さる幅・板との隙間
 INA_RAIL_H = ina_size()[2] + INA_RAIL_CL + INA_RAIL_LIP;   // 2.6
 INA_LEG_D = 3.6; INA_LEG_PLAY = 0.1;                      // 天板の足 φ3.6（PowerBoost まで 2.3・つまみの島まで 2.4 の間）。足の肩と板の上の遊び 0.1
 INA_TOP_Z = BAT_TOP + STRAP_T + ina_size()[2];             // 板の上面 36.975
-module ina_peg_left() let (h = INA_HOLES_W[0]) translate([h[0], h[1], BAT_TOP + STRAP_T - 0.01]) cylinder(d = INA_PEG_D, h = INA_PEG_H + 0.01, $fn = 32);
-module ina_rail_left() for (b = [STRAP_BANDS[1], STRAP_BANDS[2]]) translate([0, b[0], BAT_TOP + STRAP_T - 0.01]) {
+module ina_pegs() for (h = INA_HOLES_W) translate([h[0], h[1], BAT_TOP + STRAP_T - 0.01]) cylinder(d = INA_PEG_D, h = INA_PEG_H + 0.01, $fn = 32);   // ダボ 2 本（左は帯 B の X 33.2・右は X 48.8）
+INA_BAR_Z0 = INA_TOP_Z; INA_BAR_TOP = INA_TOP_Z + INA_BAR_H;   // 小帯の裏（板の上面）と上面
+module ina_bar() let (a = INA_HOLES_W[0], b = INA_HOLES_W[1]) color("#f6ad55") difference() {   // 小帯（組んだ姿勢）: 穴の上に足 2 本・その上面を橋で結ぶ
+    union() {
+        for (h = [a, b]) translate([h[0], h[1], INA_BAR_Z0]) cylinder(d = INA_BAR_FOOT_D, h = INA_BAR_H, $fn = 48);
+        translate([a[0], a[1] - INA_BAR_W / 2, INA_BAR_TOP - INA_BAR_T]) cube([b[0] - a[0], INA_BAR_W, INA_BAR_T]);
+    }
+    for (h = [a, b]) translate([h[0], h[1], INA_BAR_Z0 - 1]) cylinder(d = INA_BAR_HOLE_D, h = INA_BAR_H + 2, $fn = 48);
+}
+module print_inabar() translate([0, 0, INA_BAR_TOP]) rotate([180, 0, 0]) ina_bar();   // 刷る向き: 上面を下（足は上を向く・張り出し無し）
+module ina_rail_left() for (k = INA_RAIL_BANDS) let (b = STRAP_BANDS[k]) translate([0, b[0], BAT_TOP + STRAP_T - 0.01]) {
     translate([INA_FOOT[0] - INA_RAIL_CL - INA_RAIL_W, 0, 0]) cube([INA_RAIL_W, b[1], INA_RAIL_H + 0.01]);                                      // 壁（板の左の縁の外）
     translate([INA_FOOT[0] - INA_RAIL_CL - INA_RAIL_W, 0, ina_size()[2] + INA_RAIL_CL]) cube([INA_RAIL_W + INA_RAIL_CL + INA_RAIL_IN, b[1], INA_RAIL_LIP + 0.01]);   // 唇（縁の上に 1.0 被さる）
 }
-module ina_ceiling_leg() let (h = INA_HOLES_W[1], z0 = INA_TOP_Z + INA_LEG_PLAY) translate([h[0], h[1], 0]) {   // 天板の裏から右の穴へ下ろす足＋先のダボ
-    translate([0, 0, z0]) cylinder(d = INA_LEG_D, h = Z_TOP - z0 + 0.01, $fn = 32);
-    translate([0, 0, z0 - ina_size()[2] - 0.3]) cylinder(d = INA_PEG_D, h = ina_size()[2] + 0.3 + 0.01, $fn = 32);   // ダボ: 板を貫いて 0.3 出る
-}
-echo(str("INA hold: peg L at ", INA_HOLES_W[0], " d ", INA_PEG_D, " h ", INA_PEG_H, " / rail wall X ", INA_FOOT[0] - INA_RAIL_CL - INA_RAIL_W, "-", INA_FOOT[0] - INA_RAIL_CL, " lip to X ", INA_FOOT[0] + INA_RAIL_IN, " H ", INA_RAIL_H, " / leg at ", INA_HOLES_W[1], " d ", INA_LEG_D, " Z ", INA_TOP_Z + INA_LEG_PLAY, "-", Z_TOP, " (len ", Z_TOP - INA_TOP_Z - INA_LEG_PLAY, ")"));
+module ina_ceiling_leg() let (h = INA_HOLES_W[1], z0 = INA_BAR_TOP + INA_LEG_PLAY) translate([h[0], h[1], z0]) cylinder(d = INA_LEG_D, h = Z_TOP - z0 + 0.01, $fn = 32);   // 天板の裏から小帯の右の足の上へ下ろす足（先は平ら・ダボ無し）
+echo(str("INA hold: pegs at ", INA_HOLES_W, " d ", INA_PEG_D, " h ", INA_PEG_H, " (tip Z ", BAT_TOP + STRAP_T + INA_PEG_H, ") / bar Z ", INA_BAR_Z0, "-", INA_BAR_TOP, " foot d ", INA_BAR_FOOT_D, " hole d ", INA_BAR_HOLE_D, " bridge W ", INA_BAR_W, " T ", INA_BAR_T, " / bar top to PB bottom ", Z_TOP - PB_CEIL_SO - INA_BAR_TOP, " / rail wall X ", INA_FOOT[0] - INA_RAIL_CL - INA_RAIL_W, "-", INA_FOOT[0] - INA_RAIL_CL, " lip to X ", INA_FOOT[0] + INA_RAIL_IN, " H ", INA_RAIL_H, " / leg at ", INA_HOLES_W[1], " d ", INA_LEG_D, " Z ", INA_BAR_TOP + INA_LEG_PLAY, "-", Z_TOP, " (len ", Z_TOP - INA_BAR_TOP - INA_LEG_PLAY, ")"));
 module straps() color("#ed8936") difference() {
     union() {
         for (b = STRAP_BANDS) strap_u(b[0], b[1]);
-        ina_peg_left();   // 左のダボ（素の軸・E リング無し）
-        ina_rail_left();  // 左の縁のレール（帯 B・C の上）   // 電流計の支柱: 軸 3.0 ＋ E-2.3 の溝（🔒 ユーザー 2026-09-06「この穴は恐らく 3.2 か 3.4 ある。つまり軸は 3 でいい」「軸 3 を留める E リングなんていくらでも持ってる」）
+        ina_pegs();       // ダボ 2 本（素の軸・E リング無し）
+        ina_rail_left();  // 左の縁のレール（帯 C の上）   // 電流計の支柱: 軸 3.0 ＋ E-2.3 の溝（🔒 ユーザー 2026-09-06「この穴は恐らく 3.2 か 3.4 ある。つまり軸は 3 でいい」「軸 3 を留める E リングなんていくらでも持ってる」）
     }
     if (STRAP_C_POCKET > 0) translate([INA_FOOT[0] - 0.5, INA_FOOT[2] - 0.5, BAT_TOP + STRAP_T - STRAP_C_POCKET]) cube([INA_FOOT[1] - INA_FOOT[0] + 1.0, INA_FOOT[3] - INA_FOOT[2] + 1.0, STRAP_C_POCKET + 1]);
     at_ina() translate([26.0 - 1.27 - 1.0, 3.6 - 1.27 - 1.0, -HDR_POCKET_D]) cube([2.54 + 2.0, 16.4 - 3.6 + 2.54 + 2.0, HDR_POCKET_D + 1]);   // 電源ヘッダの足の列の逃げ（板の座標で彫る。板が回れば一緒に回る。🔒 ユーザー 2026-09-05「ピンヘッダ部分は 1.2mm 掘って」）
@@ -993,7 +1006,7 @@ if (part == "hit_wires") intersection() { wires(); all_solid(); }
 if (starts(part, "hit_w_")) intersection() { w_one(tail(part, 6)); all_solid(); }
 if (starts(part, "only_w_")) w_one(tail(part, 7));
 if (part == "plugs") plugs();
-if (part == "bridge") { bridge(); panel_ribs("bridge"); brg_front(); straps(); one("bat"); one("ina"); }
+if (part == "bridge") { bridge(); panel_ribs("bridge"); brg_front(); straps(); one("bat"); one("ina"); ina_bar(); }
 if (part == "skin")   skin();
 // ---- 板 6 枚とブリッジを刷る向き（v4 と同じ）。板は外面を下（柱・棚・耳・格子・台座は全部上を向く）・ブリッジは皿の裏を下。前板（brg_front）と蓋一式（shutter_v4）は未定
 PLATES6 = ["floor", "top", "lwall", "rwall", "front", "hatch"];
@@ -1030,6 +1043,7 @@ if (starts(part, "seam_")) { ab = tail(part, 5); k = search("_", ab)[0]; a = _jo
 if (part == "print_strap_a") { strap_print(0); if (!PROPS_OFF) { props_strap_a(); raft_strap_a(); } }
 if (part == "print_strap_b") { strap_print(1); if (!PROPS_OFF) { props_strap_b(); raft_strap_b(); } }
 if (part == "print_strap_c") { strap_print(2); if (!PROPS_OFF) { props_strap_c(); raft_strap_c(); } }
+if (part == "print_inabar") print_inabar();   // 電流計の小帯（上面を下・支柱不要）
 if (part == "p_floor") color("#e0a040") p_floor();
 if (part == "p_top")   color("#c9d0d8") p_top();
 if (part == "p_lwall") { color("#4a90d9") p_lwall(); panel_ribs("lwall"); }
@@ -1049,6 +1063,7 @@ if (part == "explode") {   // 箱全体の分解。🔒 ユーザー 2026-09-05�
     translate([0, 0, 30])  straps();                                                                                    // 帯
     translate([0, 0, 24])  one("bat");                                                                                  // 電池
     translate([0, 0, 42])  one("ina");                                                                                  // 電流計
+    translate([0, 0, 50])  ina_bar();                                                                                   // 電流計の小帯
     translate([0, 0, 60])  { color("#c9d0d8") p_top(); one("pb"); one("knob"); one("btn"); one("spk"); }              // 天板は小組ごと上へ
 }
 if (starts(part, "only_")) one(tail(part, 5));
