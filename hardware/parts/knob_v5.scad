@@ -87,7 +87,7 @@
 // ---- ⬜ まだ入っていないもの ----
 //   ・刷り直したらゼロ点を取り直す（knobzero）
 
-part = "explode";
+part = "look";
 raft = (part == "deck");   // サポートの床。刷るときだけ。-D raft=true/false
 $fn  = 96;
 
@@ -226,7 +226,7 @@ PAD_Y  = 39.0;             // 35 → 37 → 39。リードの穴は y 14.5〜18.
 //    ⚠ ±X の 16 は動かない（皿 r14.1 ＋ 壁 1.9）。真円にすると柱の小判の角（対角 r18.4）で逆に太る。
 //    ⚠ +Y の 19.5 も動かない（リードの穴 17.8 ＋ 壁 1.7 ＝ この板の最薄）。
 PAD_R  = 9.0;              // 隅の丸め。r10 にすると最薄が 1.70 → 1.62 に落ちる（＝今より薄くなる）ので 9 が上限
-PAD_Y0 = -PAD_X / 2;       // −Y の端 −16.0。ここは皿しか無いので ±X と同じ壁 1.9 で足りる
+PAD_Y0 = -16.7;            // −Y の端。−16.0 → −16.7（2026-09-08: 吊るす足（y −11.8〜−15.8）のナットのポケット（y −15.95 まで）に肉 0.75 を残すため。世界ではスピーカーの後ろの縁 Y 24.8 まで 0.3。−18.5 にしたらスピーカーに 70mm³ 当たった）
                            //   （旧 −19.5 は、リードで伸ばした +Y に四角を合わせただけの余り）
 // 🔴 板は Y に対称ではなくなった。**端は knob_pad_y0() / knob_pad_y1() で名指しする。**
 //    knob_bay_y() はその 2 つから導く footprint の深さ（35.5）で、もう「端 ×2」ではない。
@@ -438,7 +438,7 @@ POST_D     = 3.5;   // ✅ 2026-08-28 現物合わせ。印刷した φ3.5 が�
 // 📄 規格値（呼び ＝ 溝径であって軸径ではない・docs/KNOB-ENCODER.md）。適用軸 3.2〜4 に φ3.5 が入る
 ERING3_OD    = 7.0;    // 📄 外径。⬜ 現物未実測（呼び6 は実測 12.0 で規格どおりだった）
 ERING3_T     = 0.6;    // 📄 厚み
-ERING3_GRV_D = 3.0;    // 📄 溝径 d2（φ3.5 の棒に片側 0.25 彫る＝芯は φ3.0 残る）
+ERING3_GRV_D = 2.6;    // 溝径。📄 規格 3.0 → 2.6（2026-09-08）。🔒 ユーザー「ほとんど圧入で抜けない。クリアランスを付けてくれと言った」（2026-09-05 の「溝を広げて」を私が幅と読み違え、径を変えていなかった）。リングは口 2.3 ＜ 首 2.6 で保持され、締め付けはしない
 ERING3_GRV_W = 0.65 + 0.35;   // 溝の幅 1.0。🔒 ユーザー 2026-09-05「一回付けたら取れないくらい厳しいので溝をもう少し広げて。ダボの長さは 1mm 増やしてよい」: 0.65（リング 0.6 ＋ 0.05）→ 1.0。広げたぶん棒の下端（Z_PIN_BOT）も 0.35 下がる。基板はリングの上に座るので高さの遊びも 0.4 になる
 //   軸のリング（ERING_GRV_W 0.95）は「引き上げ量」を作るために広げたが、こちらは逆で、
 //   **基板がリングの上に座る**ので遊びは基板の高さのずれになる。厚み 0.6 ＋ 0.05 だけにする
@@ -459,8 +459,12 @@ function _hdr_rect(s) =
 function _hdr_d(px, py) =
     min([for (s = [-1, 1]) let (r = _hdr_rect(s)) _rect_d(px, py, r[0], r[1], r[2], r[3])]);
 // 角の呼び名（rotate 90 後の座標で）。DIR は 4 本列の端で、そこがいちばん狭い
-HDR_CORNERS = [[[ 1,  1], "DIR角"], [[-1,  1], "GPO角"],
-               [[ 1, -1], "VCC角"], [[-1, -1], "GND角"]];
+// 🔴 2026-09-08 座標の直書きをやめ、parts.scad の列（row）から出す。parts.scad で列の符号を反転した
+//   （同日「また鏡」）ので、直書きのままでは DIR の角を「GPO角」と呼んでいた。
+//   rotate 90 後は ピンの x = −row[i]、列の y は 4 本列が +・3 本列が −（_hdr_rect と同じ数え方）
+function _sgn(v) = (v < 0) ? -1 : 1;
+HDR_CORNERS = [[[_sgn(-as5600_row_r()[0]),  1], "DIR角"], [[_sgn(-as5600_row_r()[3]),  1], "GPO角"],
+               [[_sgn(-as5600_row_l()[0]), -1], "VCC角"], [[_sgn(-as5600_row_l()[2]), -1], "GND角"]];
 // 🔒 2026-08-28 ダボにする角は**書かずに計算する**（ユーザー案「3 点 E リング・1 個ダボ」）。
 //   リングの外周がヘッダの樹脂に食い込む角＝そこにはリングを入れられない＝ダボ。
 //   座標を手で書くと、基板の取付回転（R）や parts.scad の実物合わせを直したときに嘘になる。
@@ -496,10 +500,48 @@ Z_MAG2_BOT = Z_MAG2_TOP - MAG2_PART_D;              // -2.45
 Z_CHIP_TOP = Z_MAG_BOT - CHIP_GAP;       // -17.0
 Z_PCB_TOP  = Z_CHIP_TOP - CHIP_H;        // -18.1
 Z_PCB_BOT  = Z_PCB_TOP - PCB_T;          // -19.7
+// ---- AS5600 を吊るす板（🔒 ユーザー 2026-09-08 案）----
+//   基板の下にエの形の板、板から足 2 本が台座の裏まで立ち、ねじ 2 本で台座に留める。基板は上を φ4 の段、下をこの板で止める（遊び HANG_PLAY）。
+//   棒 4 本は位置決めだけで溝は無い。E リング（呼び 3）は廃止。板と足は 1 部品（ユーザー「印刷のしずらさを考慮してパーツは分けた方がいい」）、天板側はナットのポケットだけ。
+//   足は x 6.5〜13.5（軸の E リングが ±Y から入る通り道 x ±6 の外）・y ±(11.8〜15.8)（基板の縁 11.5 から 0.3）。ナットの六角（y ±13.8 に二面幅 4.3）は台座の −Y の端 −16.7 まで肉 0.75。
+//   エの縦棒は x −6.0〜−4.85（4 本列の樹脂 x −4.53〜5.63・3 本列 −3.96〜3.66 の外、棒 φ3.5（x ±6.3）の内。+x 側は 0.67 しか無い）。
+//   横棒は y 8.3〜15.8 と −15.8〜−8.9（ヘッダの樹脂 +y 7.97・−y −8.57 から 0.33）。棒の先は横棒の内縁の切り欠き（半円より深い）に入る。
+//   ねじ M2×15 を板の下から。ナットは台座の裏に開く六角ポケット（天板を裏返して組むので落ちない）。先はポケットの上の肉に入る
+HANG = true;
+PCB_ROT = 90;   // 🔒 ユーザー 2026-09-08「AS5600 だけ Z 軸さらに 90 度回転」（手・バスタブ 2 を 90 にした後）。以前: 基板の Z 回転。2026-09-08 に一度 90 にしたが、実物は「奥の右がダボ（DIR 角）」で 0 の向きと一致するので 0 に戻した（ヘッダの列は奥と手前の縁に X 方向）
+function knob_pcb_rot() = PCB_ROT;   // case_v5 の口と線（knob_plugs / knob_mouth）が同じ角で回す
+// 🔒 ユーザー 2026-09-08（2 回目）: 天板の台座の裏から**短い手 2 本**（±X）を下ろし、手の中にナットのポケット。
+//   バスタブ 2 は ±X の壁でその手を外から掴み、基板の下・ピンヘッダ 2 列（±Y）の間に板を這わせて、反対の壁でもう一方の手を掴む。
+//   ねじは横（軸 X）。壁の外から M2×6 → 壁 1.5 → 手の外の肉 1.2 → ナット。ナットは手の下からポケットへ滑り込ませる。
+//   ナットの座カバーとはまだ繋がない（形の確認が先）。当たり検査は一旦見ない。
+HANG_ARM_X0 = 12.0; HANG_ARM_X1 = 16.0;   // 手の X（内 12.0 = 基板の縁 11.5 から 0.5・外 16.0 = 台座の縁 PAD_X/2）
+HANG_ARM_W  = 8.0;                        // 手の Y 幅（y ±4）
+HANG_ARM_Z0 = Z_PCB_BOT - 0.2;            // 手の下端 −19.9 ＝ バスタブ 2 の板の上面（Z_HANG_TOP。🔒 ユーザー 2026-09-08「手の高さをバスタブ内側の高さに揃えて」）。上端は台座の裏 −9.0 → 長さ 10.9
+HANG_SCR_Z  = Z_PCB_BOT - 0.2 + 0.85 + (M25_NUT_AF + 0.3) / 2;   // −16.9 横ねじの芯＝六角の中心。🔒 ユーザー 2026-09-08「ナットポケットを手の一番先、つまり下に下げて」: 六角の下の平面が手の下端 −19.9 から肉 0.85（前は −13.0）
+HANG_SCR_D  = 2.5;
+HANG_NUT_AF = M25_NUT_AF + 0.3; HANG_NUT_T = M25_NUT_T + 0.2;   // M2 ナット 4.3 × 1.8（呼び＋0.3 の実績値）
+HANG_NUT_X0 = HANG_ARM_X0 + 1.0;          // ポケットの内の面 13.0（内の肉 1.0）。外の面 14.8 → 外の肉 1.2
+HANG_PLAY = 0.2; HANG_WALL_T = 1.5; HANG_PLATE_T = 2.5;   // 板 1.5 → 2.5（🔒 ユーザー 2026-09-08「残り 0.2 はまずい。板の厚みを増やそう」: ザグリ 1.3 の下に 1.2 残す）
+HANG_WALL_X0 = HANG_ARM_X1 + HANG_PLAY; HANG_WALL_X1 = HANG_WALL_X0 + HANG_WALL_T;   // 壁の X 16.2〜17.7
+HANG_Y = [-1, 1] * (POST_XY_LO + POST_D / 2 + 1.0);   // 板と壁の Y ±10.8。🔒 ユーザー 2026-09-08「穴部分までバスタブの幅を広げて」: 基板の穴（±8.05・φ3.5）の縁 9.8 に肉 1.0。ヘッダは中央の切り欠きで避ける（hang_plate2d）
+Z_HANG_TOP = Z_PCB_BOT - HANG_PLAY; Z_HANG_BOT = Z_HANG_TOP - HANG_PLATE_T;   // 板 −19.9〜−22.4
+Z_HANG_WALL_T = HANG_SCR_Z + HANG_NUT_AF / 2;   // 壁の上端 −14.75 ＝ ナットの六角の上の平面。🔒 ユーザー 2026-09-08「バスタブの開始を手のナットポケットの位置まで下げて」（前は台座の裏から 0.2 の −9.2）。ねじの頭 φ4 の上 −14.9 は壁の中
+HANG_SCR_LEN = M25_LEN;                   // M2×6: 頭は壁の外 17.7、先 11.7
+HANG_WALL_TOPW = HANG_ARM_W / 2;          // 壁の上端の半幅 4.0 ＝ 手の幅（🔒 ユーザー 2026-09-08「手の幅から板まで」。2.5 は私の読み違い）。斜面は上端から板の上面（−19.9）の外の縁へ
+HANG_CB_D = M25_HEAD_D_MAX + 0.4; HANG_CB_T = M25_HEAD_T;   // 板の裏のねじの頭のザグリ φ4.4 × 1.3（🔒 ユーザー 2026-09-08「バスタブにネジのザグリは入れておいて」）。板 2.5 なので残り 1.2
+HANG_ROT = 90;                            // 🔒 ユーザー 2026-09-08「これやるなら Z 軸 90 度回して」: 手・バスタブ 2・ねじを全部 Z で回す（手は ±Y へ）
+// ---- ナットの座カバー（🔒 ユーザー 2026-09-08）: 基板の部品面（上）に載る口の形の板。4 つの穴の上に M2 ナットの座、ナットは ±Y の縁から横に差す ----
+//   外形は基板と同じ 23 角、内側の開口は ±NCV_IN（軸 φ7 と磁石が通る・チップ 5×4 を避ける）。
+//   ヘッダの列（回転後は x ±7 に沿って y ±4.7）のピンの尻（基板の上に 2.5）を避けるため、±X の帯をそこだけ貫通で抜く（幅 NCV_GRV_W・長さ NCV_GRV_L）。
+//   ナットの座は基板の上に直に置く（座の床は基板）。天井の肉 NCV_SKIN にねじの通し φ2.5
+NCV_T = 2.8; NCV_IN = 6.2; NCV_SKIN = NCV_T - (M25_NUT_T + 0.2);   // 厚み 2.8 ＝ ナット 1.8 ＋ 遊び 0.2 ＋ 天井 0.8
+NCV_NUT_AF = M25_NUT_AF + 0.3;                                    // 4.3（呼び＋0.3 の実績値）
+NCV_GRV_W = 3.4; NCV_GRV_D = NCV_T + 0.02; NCV_GRV_X = 7.0; NCV_GRV_L = 10.0;   // ピンの尻の逃げ: x ±7.0 を中心に幅 3.4・y ±5.0 を貫通で抜く（ピンは基板の上に 2.5 出る。溝 1.5 では 7 本が 0.41mm³ ずつ当たった）。ナットの座（y 5.9〜）まで肉 0.9
+Z_NCV_BOT = Z_PCB_TOP; Z_NCV_TOP = Z_NCV_BOT + NCV_T;             // −18.1〜−15.3（軸の下端 −15.9 は開口の中）
 // 棒の溝（基板の裏に E リングが座る）。🔒 溝の**上端 ＝ 基板の裏**。ここが基板の高さを決める
 Z_PIN_GRV_T = Z_PCB_BOT;                      // -19.7
 Z_PIN_GRV_B = Z_PIN_GRV_T - ERING3_GRV_W;     // -20.7（溝 1.0）
-Z_PIN_BOT   = Z_PIN_GRV_B - 0.55;             // -21.25 棒の下端（リングを差すときの掴みしろ）
+Z_PIN_BOT   = HANG ? Z_HANG_BOT + 0.4 : Z_PIN_GRV_B - 0.55;   // 棒の下端。吊るす板のとき −21.0（板の穴に 1.1 入って板の位置も決める）／E リングのとき −21.25
 // ⚠ knob_deep() は 19.7（基板の裏）のまま動かさない。棒はそこから 1.2mm 下へ出るが、
 //   その下には既にピンヘッダ（6mm）と DuPont（基板の裏から 16.1mm）が居るので、箱は元から空いている
 SCR_TIP_Z  = (Z_WALL_T - SCR_CB_T) - M25_LEN;   // -12.0 ねじの先（増し肉を貫通して下へ出る）
@@ -799,12 +841,89 @@ module wall_part() {
 //    いま柱に彫るのは E リングの溝だけで、それは post_solid() が自分で持っている。
 //    （外から呼んでいるファイルは無いことを確認済み: grep knob_station_post_cut）
 
-module knob_station_add() {
-    translate([0, 0, Z_PAD_BOT]) linear_extrude(PAD_T) knob_station_pad2d();
-    // 中央の段。ナットの六角ポケットはこの中だけに掘る（外周は薄いまま）
-    translate([0, 0, Z_BOSS_BOT]) cylinder(d = BOSS_D, h = BOSS_T + 0.01);
-    for (x = [-1, 1], y = [-1, 1]) post_solid(x, y);
+module knob_station_add() difference() {
+    union() {
+        translate([0, 0, Z_PAD_BOT]) linear_extrude(PAD_T) knob_station_pad2d();
+        // 中央の段。ナットの六角ポケットはこの中だけに掘る（外周は薄いまま）
+        translate([0, 0, Z_BOSS_BOT]) cylinder(d = BOSS_D, h = BOSS_T + 0.01);
+        if (!HANG) for (x = [-1, 1], y = [-1, 1]) post_solid(x, y);   // 🔒 ユーザー 2026-09-08「4 本のダボを削除」（吊るす板のときは棒無し）
+        if (HANG) hang_arms();    // 短い手 2 本（±X）
+    }
+    if (HANG) knob_station_hang_cut();
 }
+// 短い手 2 本（天板側・台座の裏から下ろす）
+module hang_arms() rotate([0, 0, HANG_ROT]) for (sx = [-1, 1]) difference() {
+    translate([sx > 0 ? HANG_ARM_X0 : -HANG_ARM_X1, -HANG_ARM_W / 2, HANG_ARM_Z0]) cube([HANG_ARM_X1 - HANG_ARM_X0, HANG_ARM_W, Z_PAD_BOT - HANG_ARM_Z0 + 0.01]);
+    // 🔒 ユーザー 2026-09-08 絵「ここ削って」: 手の外側の面を、壁の上端から台座の裏まで、壁の厚み 1.5 だけ削る（壁に掴まれる下の部分は 4 のまま）
+    // 🔒 同日 絵「印刷時に壊さないように」: 段の入隅を 45° の斜面（1.5 × 1.5）にする。太い部分の外の上の縁から、薄い面へ 1.5 上がって着く
+    mirror([sx > 0 ? 0 : 1, 0, 0]) translate([0, HANG_ARM_W / 2 + 1, 0]) rotate([90, 0, 0]) linear_extrude(HANG_ARM_W + 2)
+        polygon([[HANG_ARM_X1 - HANG_WALL_T, Z_HANG_WALL_T + HANG_WALL_T], [HANG_ARM_X1, Z_HANG_WALL_T], [HANG_ARM_X1 + 1, Z_HANG_WALL_T],
+                 [HANG_ARM_X1 + 1, Z_PAD_BOT - 0.01], [HANG_ARM_X1 - HANG_WALL_T, Z_PAD_BOT - 0.01]]);
+}
+// 手のナットのポケット（六角・軸 X・平面が上下）と、横の面から差し込む溝、横ねじの通し（手を貫通）。天板の keepout にも入れる
+module knob_station_hang_cut() rotate([0, 0, HANG_ROT]) for (sx = [-1, 1]) {
+    translate([sx * (HANG_NUT_X0 + HANG_NUT_T / 2), 0, HANG_SCR_Z]) {
+        rotate([30, 0, 0]) rotate([0, 90, 0]) cylinder(d = HANG_NUT_AF / cos(30), h = HANG_NUT_T, center = true, $fn = 6);   // 平面が上下（z ±2.15）
+        translate([-HANG_NUT_T / 2, 0, -HANG_NUT_AF / 2]) cube([HANG_NUT_T, HANG_ARM_W / 2 + 1, HANG_NUT_AF]);   // 🔒 ユーザー 2026-09-08「ポケットを下ではなく横に」: 手の横の面（局所 +Y）へ開く溝。ナットは横から差す
+    }
+    translate([sx * (HANG_ARM_X0 + HANG_ARM_X1) / 2, 0, HANG_SCR_Z]) rotate([0, 90, 0]) cylinder(d = HANG_SCR_D, h = HANG_ARM_X1 - HANG_ARM_X0 + 2, center = true, $fn = 24);
+}
+// 板の平面（HANG の局所座標）。🔒 ユーザー 2026-09-08「バスタブ 2 はピンヘッダーを避けて。中央を細く」:
+//   ヘッダ 2 列（樹脂＋ピン）の足跡を、列の長さの範囲だけ ±Y から切り欠く（中央の幅 −5.66〜5.06 = 10.7）。両端（壁の側）は HANG_Y の幅のまま
+HANG_HDR_GAP = 0.37;
+function _hdr_y(s) = s * (as5600_pcb() / 2 - as5600_edge_in_s(s));                  // 列の中心の局所 y（+: 4 本列 6.7・−: 3 本列 −7.3）
+function _hdr_x(s) = let (r = (s < 0) ? as5600_row_l() : as5600_row_r()) [-(max(r) + 1.27), -(min(r) - 1.27)];   // 樹脂の局所 x の範囲
+module hang_plate2d() difference() {
+    translate([-HANG_WALL_X1, HANG_Y[0]]) square([2 * HANG_WALL_X1, HANG_Y[1] - HANG_Y[0]]);
+    for (s = [-1, 1]) let (xr = _hdr_x(s), y0 = _hdr_y(s) - s * (1.27 + HANG_HDR_GAP))
+        translate([xr[0] - HANG_HDR_GAP, s > 0 ? y0 : -50]) square([xr[1] - xr[0] + 2 * HANG_HDR_GAP, s > 0 ? 50 : 50 + y0]);
+    // 基板の 4 つの穴と同じ位置に M2 の通し φ2.5（🔒 ユーザー 2026-09-08「AS5600 の穴部分に通るように穴を」）
+    for (x = [-1, 1], y = [-1, 1]) translate([x * POST_XY_LO, y * POST_XY_LO]) circle(d = HANG_SCR_D, $fn = 24);
+}
+// バスタブ 2（別部品）: 基板の下・ヘッダ 2 列の間の板 ＋ ±X の壁 2 枚（手を外から掴む）。壁に横ねじの通し
+module hang_part() rotate([0, 0, HANG_ROT]) color("#e0a040") difference() {
+    union() {
+        translate([0, 0, Z_HANG_BOT]) linear_extrude(HANG_PLATE_T) hang_plate2d();
+        // 壁: 板の高さまでは全幅、その上は上端の幅 2 × HANG_WALL_TOPW（ねじの頭の周り）へ向けて両側を斜めに落とす（🔒 ユーザー 2026-09-08 絵「ここカット」）
+        for (sx = [-1, 1]) translate([sx > 0 ? HANG_WALL_X0 : -HANG_WALL_X1, 0, 0]) rotate([90, 0, 90]) linear_extrude(HANG_WALL_T)
+            polygon([[HANG_Y[0], Z_HANG_BOT], [HANG_Y[1], Z_HANG_BOT], [HANG_Y[1], Z_HANG_TOP], [HANG_WALL_TOPW, Z_HANG_WALL_T], [-HANG_WALL_TOPW, Z_HANG_WALL_T], [HANG_Y[0], Z_HANG_TOP]]);
+    }
+    for (sx = [-1, 1]) translate([sx * (HANG_WALL_X0 + HANG_WALL_X1) / 2, 0, HANG_SCR_Z]) rotate([0, 90, 0]) cylinder(d = HANG_SCR_D, h = HANG_WALL_T + 2, center = true, $fn = 24);
+    // 基板のねじ 4 本の頭のザグリ（板の裏から）
+    for (x = [-1, 1], y = [-1, 1]) translate([x * POST_XY_LO, y * POST_XY_LO, Z_HANG_BOT - 0.01]) cylinder(d = HANG_CB_D, h = HANG_CB_T + 0.01, $fn = 32);
+}
+// 基板をバスタブ 2 に留めるねじ 4 本（M2×6・頭はザグリの中）とナット（基板の上に直に）
+module hang_pcb_screws() color("#b8b8b8") for (x = [-1, 1], y = [-1, 1]) translate([x * POST_XY_LO, y * POST_XY_LO, Z_HANG_BOT + HANG_CB_T]) { mirror([0, 0, 1]) cylinder(d = M25_HEAD_D_MAX, h = M25_HEAD_T, $fn = 24); cylinder(d = 2.0, h = M25_LEN, $fn = 16); }
+module hang_pcb_nuts() color("#b8b8b8") for (x = [-1, 1], y = [-1, 1]) translate([x * POST_XY_LO, y * POST_XY_LO, Z_PCB_TOP]) rotate([0, 0, 30]) cylinder(d = M25_NUT_AF / cos(30), h = M25_NUT_T, $fn = 6);
+module hang_screws() rotate([0, 0, HANG_ROT]) color("#b8b8b8") for (sx = [-1, 1]) translate([sx * HANG_WALL_X1, 0, HANG_SCR_Z]) rotate([0, -sx * 90, 0]) { mirror([0, 0, 1]) cylinder(d = M25_HEAD_D_MAX, h = M25_HEAD_T, $fn = 24); cylinder(d = 2.0, h = HANG_SCR_LEN, $fn = 16); }   // M2×6。頭は壁の外、軸は壁の中へ（🔴 2026-09-08 回転の符号が逆で、軸が壁の外へ突き出ていた）
+module hang_nuts() rotate([0, 0, HANG_ROT]) color("#b8b8b8") for (sx = [-1, 1]) translate([sx * (HANG_NUT_X0 + HANG_NUT_T / 2), 0, HANG_SCR_Z]) rotate([0, 90, 0]) cylinder(d = M25_NUT_AF / cos(30), h = M25_NUT_T, center = true, $fn = 6);
+// ナットの座カバー本体（別部品）
+NCV = false;    // 🔒 ユーザー 2026-09-08「ナットの座リングなし」: 基板は机の上でバスタブ 2 に直接ナット止め（ナットは基板の上・ねじは板の下から）。モジュールは残すが描かない
+NCV_ROT = 90;   // 🔒 ユーザー 2026-09-08「基板面上のナットリングを Z 軸で 90 度回転」: ナットの座の口が ±X の縁に向く。はんだの逃げはヘッダの列（PCB_ROT）に付いたまま
+module nut_cover() rotate([0, 0, NCV_ROT]) color("#8fb8a0") difference() {
+    translate([0, 0, Z_NCV_BOT]) linear_extrude(NCV_T) difference() {
+        square(as5600_pcb(), center = true);
+        square(2 * NCV_IN, center = true);
+    }
+    // ナットの座: 穴の上の六角（二面幅を X に）から ±Y の縁まで、基板の面から高さ ナット＋0.2（床は基板）
+    for (x = [-1, 1], y = [-1, 1]) hull() for (k = [0, 1])
+        translate([x * POST_XY_LO, y * (POST_XY_LO + k * 6), Z_NCV_BOT - 0.01]) rotate([0, 0, 30]) cylinder(d = NCV_NUT_AF / cos(30), h = M25_NUT_T + 0.2 + 0.01, $fn = 6);
+    // ねじの通し
+    for (x = [-1, 1], y = [-1, 1]) translate([x * POST_XY_LO, y * POST_XY_LO, Z_NCV_BOT - 1]) cylinder(d = HANG_SCR_D, h = NCV_T + 2, $fn = 24);
+    // はんだの盛りの逃げ（±X の帯の裏）
+    for (x = [-1, 1]) rotate([0, 0, PCB_ROT + 90 - NCV_ROT]) translate([x * NCV_GRV_X - NCV_GRV_W / 2, -NCV_GRV_L / 2, Z_NCV_BOT - 0.01]) cube([NCV_GRV_W, NCV_GRV_L, NCV_GRV_D + 0.01]);   // 列の向きに合わせて回す。as5600_headers() が内部で 90 回すので列の世界の角は PCB_ROT + 90（🔴 2026-09-08 それまで PCB_ROT だけで、列と 90 ずれていた）
+}
+module nut_cover_nuts() rotate([0, 0, NCV_ROT]) color("#b8b8b8") for (x = [-1, 1], y = [-1, 1]) translate([x * POST_XY_LO, y * POST_XY_LO, Z_NCV_BOT + 0.1]) rotate([0, 0, 30]) cylinder(d = M25_NUT_AF / cos(30), h = M25_NUT_T, $fn = 6);
+// カバー ↔ 基板（チップ・ヘッダ込み）・軸・磁石 の当たり（0 が正）。part="ncovcheck"
+module nut_cover_check() intersection() {
+    nut_cover();
+    union() { translate([0, 0, Z_PCB_BOT]) rotate([0, 0, PCB_ROT]) as5600(show_connector = true, hous = false); knob_part(); knob_group("mag"); }
+}
+// 板・足 ↔ 基板（ヘッダ込み）の当たり（0 が正）。part="hangcheck"
+module hang_check() intersection() { hang_part(); translate([0, 0, Z_PCB_BOT]) rotate([0, 0, PCB_ROT]) as5600(show_connector = true, hous = false); }
+// 足 ↔ 台座・棒・軸まわりの当たり（0 が正。足の上面と台座の裏は面で接する → Z を 0.01 引いてから見る）。part="hangcheck2"
+module hang_check2() intersection() { hang_part(); union() { knob_station_add(); stop_screws(); stop_nuts(); } }
+
 
 // 🔴 2026-08-27 の未解決（「この柱の設計は実物で成立していない」「ほんとガタガタしてる」）は、
 //    2026-08-28 のユーザー案で解いた。当時の記録は残す:
@@ -830,7 +949,7 @@ function is_dowel(x, y) = len([for (d = DOWEL_XY) if (d[0] == x && d[1] == y) 1]
 
 module post_solid(x, y) difference() {
     post_body(x, y);
-    if (!is_dowel(x, y)) post_groove(x, y);
+    if (!HANG && !is_dowel(x, y)) post_groove(x, y);   // 吊るす板のときは溝無し（棒は位置決めだけ）
 }
 // 棒: 外周の裏（Z_PAD_BOT）から、基板を貫いて Z_PIN_BOT まで φ3.5。
 //   基板の表（Z_PCB_TOP）から上へ POST_COLLAR_H だけ φ4.0 の段（基板の上限を決める面）
@@ -1096,7 +1215,7 @@ module stop_nuts() {
 
 // 組む単位で取り出せる形にした（2026-08-23）。筐体の explode 図が
 //   「持ち手・島・ねじ・E リング・基板」を別々に散らすため。assembly() はこれを順に呼ぶだけ
-KNOB_PARTS = ["knob", "mag", "screw", "wall", "nut", "ering", "pcb", "pring"];   // 🔒 2026-08-28 pscr/pnut/pwas（基板の M2・ナット・座金）→ pring（E リング）
+KNOB_PARTS = ["knob", "mag", "screw", "wall", "nut", "ering", "pcb", "pring", "hang", "ncov"];   // ncov = ナットの座カバー（2026-09-08）   // hang = 吊るす板（足込み）とそのねじ・ナット（2026-09-08）   // 🔒 2026-08-28 pscr/pnut/pwas（基板の M2・ナット・座金）→ pring（E リング）
 function knob_parts() = KNOB_PARTS;   // use<> では変数が見えないので関数で渡す
 module knob_group(g) {
     if (g == "knob")  color("#d8dde3") knob_part();
@@ -1108,10 +1227,12 @@ module knob_group(g) {
     //   ヘッダは基板にはんだ付けされている物なので、基板の模型が持つのが正しい。
     //   false だった理由は 2026-08-21 の 0177c20 以来ひとつも記録が無い（AI が後から
     //   「as_conn が別に描くから」と説明したが、as_conn の初出は 4 日あとの 08-25 で成り立たない）
-    if (g == "pcb")   translate([0, 0, Z_PCB_BOT]) as5600(show_connector = true, hous = false);   // 🔒 v5: DuPont は plug.scad が描く（2026-09-05）
+    if (g == "pcb")   translate([0, 0, Z_PCB_BOT]) rotate([0, 0, PCB_ROT]) as5600(show_connector = true, hous = false);   // 🔒 v5: DuPont は plug.scad が描く（2026-09-05）
     // 基板を受ける E リング。⚠ 絵は 4 本ぜんぶに描く（DOWEL_XY が決まったらそこだけ消える）
-    if (g == "pring") color("#c0c0c0") for (x = [-1, 1], y = [-1, 1])
+    if (g == "pring" && !HANG) color("#c0c0c0") for (x = [-1, 1], y = [-1, 1])
         if (!is_dowel(x, y)) ering3_part(x, y);
+    if (g == "hang" && HANG) { hang_part(); hang_screws(); hang_nuts(); hang_pcb_screws(); hang_pcb_nuts(); }
+    if (g == "ncov" && HANG && NCV) { nut_cover(); nut_cover_nuts(); }
     if (g == "mag") {
         color("#bbb") translate([0, 0, Z_MAG_BOT]) cylinder(d = 4.0, h = 2.0);
         // ⚠ 絵も B向き（軸は +X＝接線）。ポケットと同じ角度へ回す。
@@ -1130,7 +1251,9 @@ function knob_exp_dz(g) =
     : g == "nut"   ? -0.6      // 島のナット ×2（天板の段の裏のポケット）
     : g == "ering" ? -1.2      // E リング（軸の溝へ横から）
     : g == "pcb"   ? -2.4      // AS5600 基板（4 本の棒に通す）
-    : g == "pring" ? -3.0 : 0; // 基板を受ける E リング（呼び3）×3（裏から横に差す）
+    : g == "pring" ? -3.0      // 基板を受ける E リング（呼び3）×3（裏から横に差す・HANG では描かない）
+    : g == "hang"  ? -3.6      // 吊るす板とねじ（下から）
+    : g == "ncov"  ?  1.2 : 0; // ナットの座カバー（基板の上に載せる）
 
 module assembly(show_deck = true) {
     if (show_deck) color("#9aa5b1", 0.75) deck_test(props = false);
@@ -1146,11 +1269,13 @@ module exploded() {
     // 🔒 2026-08-28 ここは板とチップを自前の箱で描いていた（穴もピン列も無い模型）。
     //    parts.scad に実物合わせの as5600() があるのに二重に持っていただけなので、そちらへ差し替えた。
     //    ピン列まで出るので、E リングとヘッダの樹脂の近さが**絵で見える**ようになる
-    translate([0, 0, -30]) translate([0, 0, Z_PCB_BOT]) as5600(show_connector = true, hous = false);   // 🔒 v5: DuPont は plug.scad が描く（2026-09-05）
+    translate([0, 0, -30]) translate([0, 0, Z_PCB_BOT]) rotate([0, 0, PCB_ROT]) as5600(show_connector = true, hous = false);   // 🔒 v5: DuPont は plug.scad が描く（2026-09-05）
     // 🔒 2026-08-28 基板を受ける E リング。ここに描いていなかったので、
     //    ねじ止めだった頃から**留め具が 1 つも出てこない分解図**になっていた
-    translate([0, 0, -38]) color("#c0c0c0")
+    if (!HANG) translate([0, 0, -38]) color("#c0c0c0")
         for (x = [-1, 1], y = [-1, 1]) if (!is_dowel(x, y)) ering3_part(x, y);
+    if (HANG) translate([0, 0, -44]) { hang_part(); hang_screws(); hang_nuts(); hang_pcb_screws(); hang_pcb_nuts(); }   // 吊るす板（バスタブ 2）とねじ・ナット（2026-09-08）
+    if (HANG && NCV) translate([0, 0, -22]) { nut_cover(); nut_cover_nuts(); }   // ナットの座カバー（基板の上）
     translate([0, 0, 24]) color("#bbb") translate([0, 0, Z_MAG_BOT]) cylinder(d = 4.0, h = 2.0);
 }
 
@@ -1185,7 +1310,8 @@ module exploded() {
 ERING_IN_Y = 22;           // 差し込みの開始位置（完全に外）
 
 module ering_obstacles() {
-    for (x = [-1, 1], y = [-1, 1]) post_solid(x, y);
+    if (!HANG) for (x = [-1, 1], y = [-1, 1]) post_solid(x, y);
+    if (HANG) { hang_arms(); hang_part(); }   // 手（y ±12〜16）とバスタブ 2 の壁（y ±16.2〜17.7）。通り道 x ±6 の外
     // 🔴 2026-08-28（15 度目の机上の通し）。ここは自前の円柱で「ねじの胴のうち Z_BOSS_BOT より
     //    下へ出る分」を描いていたが、**高さが Z_BOSS_BOT − SCR_TIP_Z = −0.2 の負の円柱**になっていて
     //    実体が 0 だった（＝ この検査はねじを障害物に数えていなかった）。ねじの現物 stop_screws() を
@@ -1234,6 +1360,11 @@ else if (part == "knobprop") rotate([180, 0, 0])   // 段のまま＋柱
 else if (part == "kpropcheck") kprop_check();
 else if (part == "deck")    rotate([180, 0, 0]) deck_test();
 else if (part == "wall")    translate([0, 0, Z_WALL_T]) rotate([180, 0, 0]) wall_part();
+else if (part == "hang")    translate([0, 0, -Z_HANG_BOT]) hang_part();   // 吊るす板を刷る向き（板を下・足が上に立つ）
+else if (part == "hangcheck")  hang_check();
+else if (part == "ncov")       translate([0, 0, Z_NCV_TOP]) rotate([180, 0, 0]) nut_cover();   // ナットの座カバーを刷る向き（天井を下・座の口が上に開く）
+else if (part == "ncovcheck")  nut_cover_check();
+else if (part == "hangcheck2") hang_check2();
 else if (part == "magpath")    magnet_path_check();
 else if (part == "ering")      ering_part();
 else if (part == "eringpath")  ering_path_check(1);

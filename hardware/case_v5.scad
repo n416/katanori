@@ -27,7 +27,7 @@
 //   print_strap_a / print_strap_b / print_strap_c … 帯 1 本を刷る向き（直置き・足の裏が Z 0）＋ 支柱とラフト（parts/props_v5_gen.scad・python hardware/tools/props_gen.py）。素の形は -D PROPS_OFF=true
 //   （皮・板・検査の語は皮を起こすときにここへ足す。既にある語の意味は変えない）
 // ============================================================
-part = "explode";
+part = "look";
 PROPS_OFF = false;   // true: 刷る向きの素の形（支柱・ラフト無し）。tools/props_gen.py がこれで焼いて支柱の位置を決める
 
 use <parts/parts.scad>
@@ -213,7 +213,7 @@ module xiao_plugs() at_rsp() for (r = [0, 1]) { z = [9.397, 24.627][r]; used = [
     x0 = 2.932 + used[0] * 2.54;
     translate([x0, -(1.4 + 2.5), z]) rotate([90, 0, 0]) plug(len(used), (r == 0) ? [0, 1] : [0, -1]); }   // 局所 +z → −Y（後ろ）・局所 +y → +Z
 // つまみ AS5600: 板の裏から下へ 2 列（左 2 本・右 3 本）
-module knob_plugs() at_knob() translate([0, 0, -knob_deep()]) rotate([0, 0, 90]) for (s = [-1, 1]) {   // 基板の裏 = 天板の外面から knob_deep() 下
+module knob_plugs() at_knob() translate([0, 0, -knob_deep()]) rotate([0, 0, 90 + knob_pcb_rot()]) for (s = [-1, 1]) {   // knob_pcb_rot: 基板の Z 回転（knob_v5 PCB_ROT）   // 基板の裏 = 天板の外面から knob_deep() 下
     x = s * (as5600_pcb() / 2 - as5600_edge_in_s(s)); row = (s < 0) ? as5600_row_l() : as5600_row_r(); used = (s < 0) ? as5600_used_l() : as5600_used_r();
     for (i = used) translate([x, row[i], -2.5]) mirror([0, 0, 1]) plug(1, [-s, 0]); }
 
@@ -401,12 +401,12 @@ module strap_print(k) translate([0, 0, -TAB_Z0]) strap_one(k);
 // PowerBoost のダボ（天板の裏から部品面まで下りる胴 φ5.8・高さ 5.7、軸 φ2.0 が板の穴 φ2.4 を下へ貫いて E リング）。天板を描くとき天板に union する
 PB_DOWEL_D = 4.0;   // ダボの胴の径（板のそば）。5.8 だと足元が板の上の小さな部品（0.6〜0.7）に 2.8mm³ 乗る。4.0 で 0（2026-09-05）
 // 🔒 ユーザー 2026-09-07「PowerBoost はネジとナットでいいよ」: E リングの軸（首 1.5）は嵌めると割れた。胴に通し φ2.5、板の裏から M2×8、ナットは胴の上の横穴（上に肉 0.7・天板が続く）。
-//   胴は板から PB_BOSS_LO の間は φ4（部品を避ける）、その上は φ7（ナットの角 4.97 を包む）。溝の口は板の縁の外側（左の穴は −X・右の穴は +X）
-PB_BOSS_D2 = 7.0; PB_BOSS_LO = 1.5; PB_NUT_SKIN = 0.7;
+//   胴は板から PB_BOSS_LO の間は φ4（部品を避ける）、その上は φ7（ナットの角 4.97 を包む）。溝の口は 4 本とも −X（2026-09-08。右の穴を +X に向けるとつまみの台座に塞がれる）
+PB_BOSS_D2 = 8.0; PB_BOSS_LO = 2.8; PB_NUT_SKIN = 0.7;   // 2026-09-08: 胴 7.0 → 8.0（口を片側に閉じると閉じた側でナットの角と胴の外面の肉が 0.35 になる。8.0 で消える）、細い部分 1.5 → 2.8（8.0 だと左後ろの穴のそばの部品の頭（板の裏から 3.1〜4.1）に 0.43mm³ 乗る。2.8 まで φ4 で逃げて 0）
 PB_SCR_HEAD_D = 3.8; PB_SCR_HEAD_H = 1.4;   // M2 なべ頭（板の裏に載る）
 module pb_mount() color("#c9d0d8") at_pb() difference() {
     for (h = pb_mount()) translate([h[0], h[1], pb_pcb_t()]) { cylinder(d = PB_DOWEL_D, h = PB_BOSS_LO + 0.01); translate([0, 0, PB_BOSS_LO]) cylinder(d = PB_BOSS_D2, h = PB_CEIL_SO - pb_pcb_t() - PB_BOSS_LO + 0.01); }
-    for (h = pb_mount()) let (sx = (h[0] < pb_size()[0] / 2) ? -1 : 1) translate([h[0], h[1], 0]) {
+    for (h = pb_mount()) let (sx = +1) translate([h[0], h[1], 0]) {   // 🔴 2026-09-08 実機: 右の 2 本（世界 X 43.5）の口が +X を向いていて、つまみの台座の壁（X 48.7）まで 1.7 しか無くナットが入らない（ユーザー「つまみの台座に干渉してる」）。4 本とも口を世界の −X へ ＝ 枠が 180° 回っているので局所は +x。右の 2 本は PowerBoost の板の上の空へ、左の 2 本は左の壁まで 6.9
         translate([0, 0, -1]) cylinder(d = SCR_D, h = PB_CEIL_SO + 2, $fn = 24);
         hull() for (k = [0, sx * 10]) translate([k, 0, PB_CEIL_SO - PB_NUT_SKIN - NUT_T]) rotate([0, 0, -30]) hex_pocket(NUT_AF, NUT_T);   // 二面幅を Y に・口は X の外へ
     }
@@ -892,7 +892,7 @@ function ina_pwr_mouth(j) = let (q = ina_pwr_pins()[j]) W_ina([q[0] + 1.27, q[1]
 function ina_pwr_ax(j) = W_ina_d(rotz([1, 0, 0], ina_pwr_yaw(j)));
 function pb_mouth(i) = W_pb([pb_jp2_x0() + i * 2.54, -dupont_h(), 1.6 + 2.5]);   // JP2 のピン i・軸は世界 +Y
 function pb_jst_mouth() = W_pb([pb_jst()[0], pb_jst()[1] + pb_jst_sz()[1] / 2 + pb_jst_mate(), 1.6 + 2.6]);   // 電池の JST の頭・軸は世界 −Y
-function knob_mouth(s, i) = let (x = s * (as5600_pcb() / 2 - as5600_edge_in_s(s)), row = (s < 0) ? as5600_row_l() : as5600_row_r()) W_knob(rotz([x, row[i], -2.5 - dupont_h()], 90) + [0, 0, -knob_deep()]);   // 軸は −Z
+function knob_mouth(s, i) = let (x = s * (as5600_pcb() / 2 - as5600_edge_in_s(s)), row = (s < 0) ? as5600_row_l() : as5600_row_r()) W_knob(rotz([x, row[i], -2.5 - dupont_h()], 90 + knob_pcb_rot()) + [0, 0, -knob_deep()]);   // 軸は −Z
 function tc_mouth(i) = [TC_PIN_XC, TC_Y0 + 2.54 - 1.27 - dupont_h(), TC_ZT - (2.54 + i * 2.54)];   // 軸は −Y
 function tgl_term(i) = W_tgl([i * 4.7, 0, -mts102_deep()]);   // 端子の先（i = −1/0/+1）・軸は W_tgl_d([0,0,-1])
 function btn_pin(i) = W_btn(btn3_sw_pin(i));   // マイクロスイッチの端子の先（i = −1/0/+1）・下向き
@@ -1011,7 +1011,7 @@ module print_front()  translate([0, 0, -OUT_Y0]) rotate([90, 0, 0]) { p_front();
 module print_hatch()  translate([0, 0, OUT_Y1]) rotate([-90, 0, 0]) { p_hatch(); panel_ribs("hatch"); }
 module print_bridge() translate([0, 0, -BRG_ZB]) { bridge(); panel_ribs("bridge"); }
 // 支柱を立ててはいけない体積（keepout。v4 と同じ流儀）: 板を貫く穴・口・軸の穴。tools/props_gen.py が刷る向きで焼き、柱の胴＋逃げ 0.3 が触る候補を落とす
-module keepout_top() { at_knob() { knob_station_shaft_cut(); knob_station_screw_cut(); knob_station_reed_cut(); } at_btn() btn3_station_cut(); top_screw_cuts(); spk_grille(); }   // つまみは軸・ねじ・リードの穴だけ（へこみ全体を入れると柱が全部落ちる）
+module keepout_top() { at_knob() { knob_station_shaft_cut(); knob_station_screw_cut(); knob_station_reed_cut(); knob_station_hang_cut(); } at_btn() btn3_station_cut(); top_screw_cuts(); spk_grille(); }   // つまみは軸・ねじ・リードの穴だけ（へこみ全体を入れると柱が全部落ちる）
 if (part == "keepout_top") translate([0, 0, Z_TOP + TOP_T]) rotate([180, 0, 0]) keepout_top();
 // 前板と蓋の 3 点（v4 と同じ向き・🔒 ユーザー 2026-09-05「v4 と同じ方向でいいよ」）: 前板は前の面を下（フランジと返しは上を向く）、蓋とロックはハッチの外面を下、床の板は溝の床の面を下
 module print_brgfront()  translate([0, 0, -FP_Y0]) rotate([90, 0, 0]) brg_front();
