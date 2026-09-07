@@ -5,6 +5,7 @@ part = "none";
 G = "";
 if (G == "sara")   { color("#c9a45c") bridge(); }                                              // 皿と腕（ブリッジ）
 if (G == "obi")    { color("#c9a45c", 0.35) bridge(); color("#e0a040") straps(); }              // 帯 3 本（皿の上）
+if (G == "koobi")  { color("#e0a040", 0.35) straps(); color("#5b7fa6", 0.5) one("ina"); color("#e07a5f") ina_bar(); }   // 小帯（電流計の 2 穴のダボに掛ける橋・帯 B の上）
 if (G == "maeita") { color("#c9a45c", 0.35) bridge(); color("#e0a040") brg_front(); }           // 前板
 if (G == "dote")   { color("#c9a45c") bridge(); color("#e0a040", 0.5) straps(); }               // 土手（皿の縁の壁。帯のツバが入る溝がある）
 if (G == "yokan")  { color("#c9d0d8", 0.3) p_top(); color("#e07a5f") rsp_press(); }            // 羊羹とマッチ棒（天板の裏・ReSpeaker の頭を押す）

@@ -18,7 +18,7 @@ module s_tc()     { one("tc"); w_chg(); }
 module s_brg()    { brg_front(); bridge(); panel_ribs("bridge"); }
 module s_straps() straps();
 module s_bat()    one("bat");
-module s_ina()    { one("ina"); w_bat(); w_batout(); }
+module s_ina()    { one("ina"); one("inabar"); w_bat(); w_batout(); }   // 小帯（ダボ 2 本に掛ける橋・2026-09-07）
 module s_topgrp() { one("pb"); one("knob"); one("btn"); one("spk"); }         // 天板に付く小組（天板そのものは s_top）
 module s_oled()   one("oled");
 module s_top()    { color("#c9d0d8") p_top(); }
