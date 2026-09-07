@@ -39,11 +39,11 @@ module upto(n) {
     if (n >= 8)  s_bat();
     if (n >= 9)  s_ina();
     if (n >= 10) s_topgrp();
-    if (n >= 11) s_oled();
-    if (n >= 12) { s_top(); s_front(); }
+    if (n >= 12) { s_top(); s_oled(); s_front(); }   // OLED はフロントに嵌めて 12 で一緒に前から差す（🔒 2026-09-07 ユーザー。11 の絵はフロント＋OLED だけ・下）
     if (n >= 13) s_hatch();
 }
-for (n = [1 : 13]) if (ST == str("st", n)) upto(n);
+for (n = [1 : 13]) if (ST == str("st", n) && n != 11) upto(n);
+if (ST == "st11") { s_front(); s_oled(); }   // フロントに OLED を嵌めた小組（箱は描かない）
 if (ST == "topsub") { s_top(); s_topgrp(); }                       // 天板の小組（裏から見る）
 if (ST == "wires")  { innards(); wires(); }                        // 線の全体
 if (ST == "door")   { one("hatchplate"); one("shutter"); one("lock"); }   // 電池の蓋の一式

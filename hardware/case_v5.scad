@@ -757,17 +757,23 @@ module front_ears() for (p = [POSTS_T[2], POSTS_T[3]]) difference() {
     translate([p[0] + post_w(p) / 2, FY_IN + post_dy(p) / 2, Z_TOP - EAR_T - 1]) cylinder(d = SCR_D, h = EAR_T + 2, $fn = 24);
 }
 
-// ---- OLED の L（🔒 v4: 天面から L を下ろして OLED の上の 2 穴を中で受ける・フロントにビスを見せない）----
-//   足は OLED の裏（Y 4.6）に面で当たる。幅 6.0（前の上の柱まで 0.3）・厚み 3.6（🔒 2026-08-28 2.0 は「ガビガビ」だった）。
-//   ビス M2 は Y に通し、ナットは足の後ろの面の六角のポケット。足の下端は穴の 5.5 下
+// ---- OLED の L（🔒 v4: 天面から L を下ろして OLED の裏を上の 2 穴の所で受ける・フロントにビスを見せない）----
+//   🔒 2026-09-07 ユーザー「ねじを廃止して抑えるだけに。ダボにしておくといいかも」: OLED は窓に圧入されてフロントと一体になった（縦の隙間 0.15）。
+//   L はねじで引き寄せず、足の前面が OLED の裏（Y 4.4）に当たる止め。足の前面から φ2.8 のダボ（電流計のダボと同じ径・穴 φ3.0 ✅）が上の 2 穴へ入って X を出す
+//   （窓の横の隙間は 1.0 なので窓だけでは X が決まらない）。組む順は 天板 → OLED を嵌めたフロントを前から差す（ダボは前から入る。天板を後にすると穴の上の 0.5 の帯に引っかかる）。
+//   足は幅 6.0（前の上の柱まで 0.3）・厚み 3.6（🔒 2026-08-28 2.0 は「ガビガビ」だった）。足の下端は穴の 5.5 下。ねじ穴と六角は 2026-09-07 に消した
 OLED_L_W = 6.0; OLED_L_T = 3.6; OLED_L_BELOW = 5.5;
-function oled_back_y() = OLED_AT[1] - (oled_hous_z_top() + 2.5 + dupont_h());   // OLED の板の裏の世界 Y（4.6）
+OLED_PEG_D = 2.8; OLED_PEG_L = 2.0; OLED_PEG_CH = 0.6;   // ダボ: φ2.8・足の前面から 2.0（板 1.6 を抜けて 0.4 出る。フロントの内面 Y 1.0 まで 1.4 残る）・先の面取り 0.6（窓の横の遊び ±1.0 を寄せる）
+function oled_back_y() = OLED_AT[1] - (oled_hous_z_top() + 2.5 + dupont_h());   // OLED の板の裏の世界 Y（4.4。黒枠 2.8 ＋ 板 1.6）
 function oled_top_holes_w() = [for (h = oled_mount()) if (h[1] > oled_w() / 2) [OLED_AT[0] + h[0], OLED_AT[2] + h[1]]];   // 上の 2 穴 [X, Z]
-module oled_brackets() for (h = oled_top_holes_w()) difference() {
+module oled_brackets() for (h = oled_top_holes_w()) {
     translate([h[0] - OLED_L_W / 2, oled_back_y(), h[1] - OLED_L_BELOW]) cube([OLED_L_W, OLED_L_T, Z_TOP + 0.01 - (h[1] - OLED_L_BELOW)]);
-    translate([h[0], oled_back_y() - 1, h[1]]) rotate([-90, 0, 0]) cylinder(d = SCR_D, h = OLED_L_T + 2, $fn = 24);
-    translate([h[0], oled_back_y() + OLED_L_T - NUT_T, h[1]]) rotate([-90, 0, 0]) hex_pocket(NUT_AF, NUT_T + 1);
+    translate([h[0], oled_back_y() + 0.01, h[1]]) rotate([90, 0, 0]) {   // ダボ（−Y へ）
+        cylinder(d = OLED_PEG_D, h = OLED_PEG_L - OLED_PEG_CH + 0.01, $fn = 32);
+        translate([0, 0, OLED_PEG_L - OLED_PEG_CH]) cylinder(d1 = OLED_PEG_D, d2 = OLED_PEG_D - 2 * OLED_PEG_CH, h = OLED_PEG_CH, $fn = 32);
+    }
 }
+echo(str("OLED L: foot Y ", oled_back_y(), "-", oled_back_y() + OLED_L_T, " / peg d ", OLED_PEG_D, " tip Y ", oled_back_y() - OLED_PEG_L, " (front inner Y ", FY_IN, ") / holes ", oled_top_holes_w()));
 // ---- ReSpeaker の押さえ（🔒 v4 rsp_press4: 羊羹 X 31〜37.5 とマッチ棒 X 50〜52.4。板の頭を 0.3 押す）----
 //   Y は板の前面 −0.5 から板の背面まで（v4 は背面 +1.0 だったが、v5 は会話ボタンの台座の前面 Y 10.15 があるので板の背面 10.0 で止める）
 RSP_TOP = RSP_Z + respeaker_H(); RSP_PRESS = 0.3;
