@@ -559,8 +559,11 @@ Z_NCV_BOT = Z_PCB_TOP; Z_NCV_TOP = Z_NCV_BOT + NCV_T;             // −18.1〜�
 Z_PIN_GRV_T = Z_PCB_BOT;                      // -19.7
 Z_PIN_GRV_B = Z_PIN_GRV_T - ERING3_GRV_W;     // -20.7（溝 1.0）
 Z_PIN_BOT   = HANG ? Z_HANG_BOT + 0.4 : Z_PIN_GRV_B - 0.55;   // 棒の下端。吊るす板のとき −21.0（板の穴に 1.1 入って板の位置も決める）／E リングのとき −21.25
-// ⚠ knob_deep() は 19.7（基板の裏）のまま動かさない。棒はそこから 1.2mm 下へ出るが、
-//   その下には既にピンヘッダ（6mm）と DuPont（基板の裏から 16.1mm）が居るので、箱は元から空いている
+// ⚠ knob_deep() は 19.7（基板の裏）のまま動かさない。case_v5 の口と線はこれを基準にしている。
+// ⚠ 2026-09-09: 下へ出る一番深い所は **バスタブ 2 の板の裏（Z_HANG_BOT −22.4）＝基板の裏から 2.7mm**。
+//   この段の元の文は「棒が 1.2mm 下へ出るが、その下には既にピンヘッダ（6mm）と DuPont（基板の裏から
+//   16.1mm）が居るので、箱は元から空いている」だった。高さとしては 2.7 もその 16.1 の中に入るが、
+//   **箱との当たりは case_v5 の検査で見ること**（ここの文は根拠にしない）
 SCR_TIP_Z  = (Z_WALL_T - SCR_CB_T) - M25_LEN;   // -12.0 ねじの先（増し肉を貫通して下へ出る）
 
 function knob_deep()   = -Z_PCB_BOT;             // 19.7（v4 と同じ）
@@ -569,7 +572,7 @@ function knob_dish_d() = DISH_D;   // 筐体はこれで置き場所を決める
 function knob_bay_x()  = PAD_X;
 // 🔴 板は Y に対称ではない。中身がそうだから（リードの穴は +Y にしか無い）。
 //    だから「深さ」1 つでは端の位置が決まらない。**端は名指しで取る。**
-function knob_pad_y0() = PAD_Y0;       // 板の −Y の端 −16.0
+function knob_pad_y0() = PAD_Y0;       // 板の −Y の端 −16.7（2026-09-08 に −16.0 から。243 行）
 function knob_pad_y1() = PAD_Y / 2;    // 板の +Y の端 +19.5（リード側）
 function knob_bay_y()  = knob_pad_y1() - knob_pad_y0();   // footprint の深さ 35.5（端から導く）
 function knob_pad_h()  = DECK_T + PAD_T;
@@ -1647,5 +1650,8 @@ echo(str("⑦c 床の掴み: ラフト上 ", len(PROP_PTS), " ＋ プレート�
 echo(str("   ピンの帯 r", DECK_PIN_R, ": 内縁 ", DECK_PIN_R - DECK_PROP_D / 2, " ↔ ラフト ",
          DECK_RAFT_R, " ／ 外縁 ", DECK_PIN_R + DECK_PROP_D / 2, " ↔ 壁 ", DISH_D / 2,
          " ⚠ 取り外しはピンが先・ラフトが後"));
-echo(str("天板の下に要る深さ ", knob_deep(), "mm（v4 と同じ）/ 外へ ", knob_grip_h(),
-         "mm / 座 ", PAD_X, "×", PAD_Y));
+echo(str("天板の下に要る深さ ", HANG ? -Z_HANG_BOT : knob_deep(), "mm",
+         HANG ? str("（バスタブ 2 の板の裏。基板の裏 ＝ knob_deep() は ", knob_deep(), "）")
+              : "（v4 と同じ）",
+         " / 外へ ", knob_grip_h(), "mm / 座 ", PAD_X, "×", PAD_Y / 2 - PAD_Y0,
+         "（y ", PAD_Y0, "〜", PAD_Y / 2, "。⚠ PAD_Y ", PAD_Y, " は丸ごとの長さで、−Y は PAD_Y0 まで落としてある）"));
