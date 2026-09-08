@@ -27,7 +27,7 @@
 //   print_strap_a / print_strap_b / print_strap_c … 帯 1 本を刷る向き（直置き・足の裏が Z 0）＋ 支柱とラフト（parts/props_v5_gen.scad・python hardware/tools/props_gen.py）。素の形は -D PROPS_OFF=true
 //   （皮・板・検査の語は皮を起こすときにここへ足す。既にある語の意味は変えない）
 // ============================================================
-part = "look";
+part = "explode";
 PROPS_OFF = false;   // true: 刷る向きの素の形（支柱・ラフト無し）。tools/props_gen.py がこれで焼いて支柱の位置を決める
 
 use <parts/parts.scad>
@@ -779,11 +779,16 @@ module oled_brackets() for (h = oled_top_holes_w()) {
     }
 }
 echo(str("OLED L: foot Y ", oled_back_y(), "-", oled_back_y() + OLED_L_T, " / peg d ", OLED_PEG_D, " tip Y ", oled_back_y() - OLED_PEG_L, " (front inner Y ", FY_IN, ") / holes ", oled_top_holes_w()));
-// ---- ReSpeaker の押さえ（🔒 v4 rsp_press4: 羊羹 X 31〜37.5 とマッチ棒 X 50〜52.4。板の頭を 0.3 押す）----
+// ---- ReSpeaker の押さえ（v4 rsp_press4 を写した物: 羊羹とマッチ棒 X 50〜52.4。板の頭を 0.3 押す）----
+//   ⚠ 🔒 ではない。X 31 は v4 から写した値で、ユーザーが決めた記録は無い（2026-09-09 に git を辿って確認。
+//     出どころの印に 🔒 を使っていたのが間違い）。動かしたのはスピーカーのバスタブのねじを回す道を空けるため
 //   Y は板の前面 −0.5 から板の背面まで（v4 は背面 +1.0 だったが、v5 は会話ボタンの台座の前面 Y 10.15 があるので板の背面 10.0 で止める）
 RSP_TOP = RSP_Z + respeaker_H(); RSP_PRESS = 0.3;
 RSP_BD_Y0 = RSP_Y1 - respeaker_T();   // 板の前面 8.185
-YOKAN_X0 = 31.0; YOKAN_W = 6.5; MATCH_X0 = 50.0; MATCH_X1 = 52.4;
+YOKAN_X0 = 32.5; YOKAN_W = 5.3;   // 31.0 / 6.5 → 32.5 / 5.3（2026-09-09 ユーザー「うごかしてください」）: スピーカーの右のねじの軸に羊羹の角が 0.63mm 入ってドライバーが通らなかった。
+                                  //   右へ動かすだけだと OLED の板（X 37.97〜）に当たるので、右端を 37.8 に留めて幅を詰めた（32.5〜37.8）。
+                                  //   これでドライバーの軸は φ5.5 まで通る（それ以上は天板の内面 50.45 とねじの軸 47.6 の隙間 2.85 が効く）。ReSpeaker の板は X 0.42〜85.55 なので頭の上のまま MATCH_X0 = 50.0; MATCH_X1 = 52.4;
+MATCH_X0 = 50.0; MATCH_X1 = 52.4;   // マッチ棒（板の右寄りを押さえる細い方）。🔴 2026-09-09 この 2 つは元は YOKAN と同じ行にあり、私がコメントを足したときに飲ませて undef にした（同じ事故が 2026-09-05 にもある）
 module rsp_press() for (x = [[YOKAN_X0, YOKAN_W], [MATCH_X0, MATCH_X1 - MATCH_X0]])
     translate([x[0], RSP_BD_Y0 - 0.5, RSP_TOP - RSP_PRESS]) cube([x[1], RSP_Y1 - (RSP_BD_Y0 - 0.5), Z_TOP + 0.01 - (RSP_TOP - RSP_PRESS)]);
 // ---- 床: ReSpeaker の座と OLED の下辺の後ろのリブ（🔒 v4 floor_v4）----
