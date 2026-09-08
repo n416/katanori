@@ -252,7 +252,9 @@ PAD_X  = 32.0;             // 30 → 32。へこみが r14.1 になったので�
 //      しかも y 方向の呼び込みがゼロになる。**押し込みで負けているのに入りにくくする**ので却下。
 // ⚠ 以前の注記: 外形を動かすと case_v2 の座（knob_bay_y）へ伝わる、という 🔒 が付いていた。
 //    伝わる先は 2026-08-27 に切ってあり（case_v2 は KNOB_BAY_Y_V2 = 39 で凍結）、
-//    v5 は knob_dish_d() / knob_bay_x() / knob_pad_y0/y1() を読む。ロックは外した（2026-09-09）。
+//    🔴 2026-09-09、ここに私（AI）が「v5 は knob_dish_d() / knob_bay_x() / knob_pad_y0/y1() を読む」と
+//    書いたが**誤り**。case_v5 が呼ぶのは knob_deep() / knob_pcb_rot() / knob_hang_*() と
+//    knob_station_*() だけで、座の外形は誰も読んでいない（同日 grep で確認）。ロックは外した。
 //    🔒 残るのはユーザーの決定の方: **外形は外の都合の数字なので、動かす前に必ず聞く。**
 PAD_Y  = 39.0;             // 35 → 37 → 39。リードの穴は y 14.5〜18.1（入口）
 // 🔒 2026-08-27 ユーザー「この台座部分、なんで四角なんですかね」「配線がシビアなので無駄な肉は落としたい」。
@@ -265,7 +267,7 @@ PAD_R  = 9.0;              // 隅の丸め。r10 にすると最薄が 1.70 → 
 PAD_Y0 = -16.7;            // −Y の端。−16.0 → −16.7（2026-09-08: 吊るす足（y −11.8〜−15.8）のナットのポケット（y −15.95 まで）に肉 0.75 を残すため。世界ではスピーカーの後ろの縁 Y 24.8 まで 0.3。−18.5 にしたらスピーカーに 70mm³ 当たった）
                            //   （旧 −19.5 は、リードで伸ばした +Y に四角を合わせただけの余り）
 // 🔴 板は Y に対称ではなくなった。**端は knob_pad_y0() / knob_pad_y1() で名指しする。**
-//    knob_bay_y() はその 2 つから導く footprint の深さ（35.5）で、もう「端 ×2」ではない。
+//    knob_bay_y() はその 2 つから導く footprint の深さ（いま 36.2）で、もう「端 ×2」ではない。
 //    ⚠ case_v2 の座は当時の 39 で決めてあるので、あちらは KNOB_BAY_Y_V2 で凍結した（v2 は現物が無い）
 DISH_D = GRIP_D + RIB_D + 1.2;   // 28.2（r14.1）
 DISH_T = 2.5;
@@ -535,13 +537,16 @@ SCR_TIP_Z  = (Z_WALL_T - SCR_CB_T) - M25_LEN;   // -12.0 ねじの先（増し�
 
 function knob_deep()   = -Z_PCB_BOT;             // 19.7（v4 と同じ）
 function knob_grip_h() = Z_GRIP_B + GRIP_H;      // 5.5
+// ⚠ 2026-09-09: 下の 5 つ（knob_dish_d / knob_bay_x / knob_pad_y0 / knob_pad_y1 / knob_bay_y）は
+//    **いま呼び手が居ない**。case_v2 が座を自前の KNOB_BAY_Y_V2 = 39 で凍結した時に読み手が消え、
+//    case_v5 は座の外形を読んでいない（同日 grep）。
 function knob_dish_d() = DISH_D;   // 筐体はこれで置き場所を決める（🔒 数字を二重に持たない）
 function knob_bay_x()  = PAD_X;
 // 🔴 板は Y に対称ではない。中身がそうだから（リードの穴は +Y にしか無い）。
 //    だから「深さ」1 つでは端の位置が決まらない。**端は名指しで取る。**
 function knob_pad_y0() = PAD_Y0;       // 板の −Y の端 −16.7（2026-09-08 に −16.0 から。243 行）
 function knob_pad_y1() = PAD_Y / 2;    // 板の +Y の端 +19.5（リード側）
-function knob_bay_y()  = knob_pad_y1() - knob_pad_y0();   // footprint の深さ 35.5（端から導く）
+function knob_bay_y()  = knob_pad_y1() - knob_pad_y0();   // footprint の深さ 36.2（端から導く）
 function knob_pad_h()  = DECK_T + PAD_T;
 
 function post_inner_r() =
