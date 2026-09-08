@@ -80,6 +80,7 @@ module spk_hang_cut() for (h = S_HANDS) spk_at_hand(h) translate([S_R_NUT, 0, Z_
     translate([-S_NUT_T / 2, -S_NUT_AF / 2, Z_FOOT_B - Z_NUT_C - 1]) cube([S_NUT_T, S_NUT_AF, (Z_NUT_C - Z_FOOT_B) + 1]);   // 板の下端へ開く溝。ナットは下から差す（組む時は天板が裏返しなので口は上向き・組んだ後はバスタブ 3 の板が塞ぐ）
     rotate([0, 90, 0]) cylinder(d = S_SCR_D, h = 12, $fn = 24);   // 横ねじの通し（外へ）
 }
+module spk_driver_probe(d = 6.0, len = 45) for (h = S_HANDS) spk_at_hand(h) translate([S_R_W1, 0, Z_NUT_C]) rotate([0, 90, 0]) cylinder(d = d, h = len, $fn = 24);   // ドライバーの軸が要る空間（壁の外の面から外へ）
 module spk_nut_path(len) for (h = S_HANDS) spk_at_hand(h) translate([S_R_NUT - S_NUT_T / 2 - 0.15, -S_NUT_AF / 2 - 0.15, Z_FOOT_B - len]) cube([S_NUT_T + 0.3, S_NUT_AF + 0.3, len]);   // ナットが入る道（case_v5 の nutpath が呼ぶ）
 // ---- 天板側（case_v5 が at_spk() で呼ぶ）----
 module spk_station_add() { spk_rim(); spk_hang_arms(); }   // 後ろの角の R（spk_gussets）は 2026-09-08 に消した: 足 15 のうち 1.1 しか持たず意味が無い（ユーザー）
