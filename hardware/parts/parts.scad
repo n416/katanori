@@ -717,7 +717,8 @@ SPK_MAG_L = 16.0;      // 同・長辺（長軸に沿う）
 SPK_MAG_H = 1.5;       // ✅ 2026-09-08 ユーザー「銀色の部分は 1.5mm 飛び出ている」。枠 4.0 の裏にさらに 1.5（🔴 同日、一度「全厚 4.0 の内訳」と読み違えて枠を 2.5 にした）
 SPK_FRAME_T = SPK_T;               // 枠の厚み 4.0
 SPK_TOTAL_T = SPK_T + SPK_MAG_H;   // 全厚 5.5（磁石の先から面まで）
-// 端子の基板（🔒 2026-09-08 ユーザーの写真・裏から。長辺が横。基板は +X の端の裏面で、**パッキンの外の縁と枠の縁の間の三日月**（端の半円に沿う）。
+// 端子の基板（✅ 2026-09-08 の写真・裏から。長辺が横。基板は +X の端の裏面で、**パッキンの外の縁と枠の縁の間の三日月**（端の半円に沿う）。
+//   端と向きは写真に写っている実物の事実（🔴 2026-09-09 それまで 🔒「ユーザーの写真」＝決定の印で書いていた。決定ではない）。
 //   線 2 本は三日月の上側（−Y 側）のはんだから幅の方向 −Y（前）へ出る。🔴 同日、長辺の側面 → 長辺の裏の縁 → と 2 回読み違えた）。⚠ 角度・幅・厚みは写真読み ±0.5
 SPK_PCB_ANG = 65;      // 三日月の角の広がり（端の半円の中心から ±65°）
 SPK_PCB_IN = 0.7;      // 枠の縁から内へ（三日月の外の縁）
@@ -752,7 +753,7 @@ module speaker_112495() {
     for (a = SPK_PAD_ANG) let (q = spk_solder_xy(a)) color("#c8c8c8") translate([q[0], q[1], SPK_MAG_H - SPK_PCB_T - 0.3]) cylinder(d = 1.4, h = 0.31, $fn = 16);   // パッド 4 つ（銀の点）
     for (a = SPK_SOLDER_ANG) let (q = spk_solder_xy(a)) {
         color("#c8c8c8") translate([q[0], q[1], SPK_MAG_H - SPK_PCB_T - SPK_SOLDER]) cylinder(d = 1.6, h = SPK_SOLDER + 0.01, $fn = 16);   // はんだの盛り（線が付く 2 つ）
-        color(a == SPK_SOLDER_ANG[0] ? "#eeeeee" : "#3355cc") translate([q[0], q[1], SPK_MAG_H - SPK_PCB_T - 0.2]) rotate([90, 0, 0]) cylinder(d = 0.9, h = q[1] + 1.0);   // 線（パッドの上に乗り、裏面に沿って −Y へ、前の縁の 1.0 外まで）
+        color(a == SPK_SOLDER_ANG[0] ? "#eeeeee" : "#3355cc") translate([q[0], q[1], SPK_MAG_H - SPK_PCB_T - 0.2]) rotate([90, 0, 0]) cylinder(d = 0.9, h = 1.2);   // 線の付け根だけ（2026-09-09。前は縁の 1.0 外まで真っすぐ描いていたが、スピーカーの手を突き抜けるので短くした。線の道は case_v5 の w_phout が描く）
     }
 }
 // 三日月の 2D: 枠の外形を SPK_PCB_IN 内へ ∩ 端の半円の中心から ±SPK_PCB_ANG の扇 − パッキンの外形を SPK_PCB_GAP 外へ
