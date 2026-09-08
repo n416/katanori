@@ -33,17 +33,20 @@ u = SPREAD[n % len(SPREAD)]
 q = lambda v: round(v*2)/2
 shift = lambda dx, dy: [dict(p, cx=p['cx']+dx, cy=p['cy']+dy) for p in PL]
 dx, dy = q(u[0]*rx), q(u[1]*ry)
-# 🔒 ヘラが届く所に置く（scraper_reach_mm）。散らしの向きを優先し、駄目なら動かせる範囲で近い所を探す
-if SV.scraper_far(shift(dx, dy)):
-    RX = max(rx, (PLATE_W-(bb[2]-bb[0]))/2 - 3.0); RY = max(ry, (PLATE_H-(bb[3]-bb[1]))/2 - 3.0)   # 規則のためなら板の余白まで使う
+# 🔒 ずらしは **入口を一番浅くする**（＝縁へ寄せる）ことを優先し、その中で散らしの向きに近い所を採る
+#    （2026-09-09 ユーザー「規則ぎりぎりで止めるな」の主旨。散らしは入口が同じ深さの範囲でだけ効く）
+if SV.scraper_reach():
+    RX = max(rx, (PLATE_W-(bb[2]-bb[0]))/2 - 3.0); RY = max(ry, (PLATE_H-(bb[3]-bb[1]))/2 - 3.0)   # 縁へ寄せるときは板の余白まで使う
     grid = lambda r: sorted({q(v/2.0) for v in range(-int(r*2), int(r*2)+1)})
-    cand = [(abs(x-dx)+abs(y-dy), x, y) for x in grid(RX) for y in grid(RY)
-            if not SV.scraper_far(shift(x, y))]
-    if not cand:
-        print('■ 止まった: ヘラ（届く深さ %.0fmm）が寝たまま届く配置にならない。'
-              '部品を減らすか、並べ方を変えてください' % SV.scraper_reach()); sys.exit(1)
-    _, dx, dy = min(cand)
-    print('ずらしをヘラの規則で寄せ直した（散らしの向きは %s）' % (u,))
+    worst = lambda x, y: max(SV.scraper_depth(p) for p in shift(x, y))
+    cand = [(round(worst(x, y)*2)/2, abs(x-dx)+abs(y-dy), x, y) for x in grid(RX) for y in grid(RY)]
+    best = min(cand)
+    if best[0] > SV.scraper_reach():
+        print('■ 止まった: どう置いても入口が %.1fmm 奥になる（ヘラは %.0fmm）。'
+              '部品を減らすか、並べ方を変えてください' % (best[0], SV.scraper_reach())); sys.exit(1)
+    if (best[2], best[3]) != (dx, dy):
+        print('ずらしをヘラの規則で縁へ寄せた（散らしの向きは %s・入口の一番深い所 %.1fmm）' % (u, best[0]))
+    dx, dy = best[2], best[3]
 PL = shift(dx, dy)
 print('ずらし X %.1f / Y %.1f（%d 回目・動かせる範囲 ±%.1f / ±%.1f）' % (dx, dy, n+1, q(rx), q(ry)))
 print('入口（手前の縁）まで: ' + ' / '.join('%s %.1fmm' % (p['name'], SV.scraper_depth(p)) for p in PL)

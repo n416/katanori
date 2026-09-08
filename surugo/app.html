@@ -338,8 +338,8 @@ $('#btnArrange').onclick = async () => {
   const bb = [Math.min(...PLACED.map(p=>p.cx-p.w/2)), Math.min(...PLACED.map(p=>p.cy-p.h/2)),
               Math.max(...PLACED.map(p=>p.cx+p.w/2)), Math.max(...PLACED.map(p=>p.cy+p.h/2))];
   SHIFT = spreadMove(bb, (STATE && STATE.film_terms_since_change) || 0, PLACED, r.scraper_reach);
-  if(SHIFT.stop) msg(`ヘラ（届く深さ ${r.scraper_reach}mm）が寝たまま届く配置にならない。部品を減らすか、並べ方を変えてください`, 'b');
-  else if(SHIFT.moved) msg(`ヘラが届く所へ寄せ直した（散らしの向きより規則が優先）`, 'w');
+  if(SHIFT.stop) msg(`どう置いても入口が ${SHIFT.deep}mm 奥になる（ヘラは ${r.scraper_reach}mm）。部品を減らすか、並べ方を変えてください`, 'b');
+  else if(SHIFT.moved) msg(`ヘラの規則で縁へ寄せた（入口の一番深い所 ${SHIFT.deep}mm・散らしの向きはその中で近い方）`, 'w');
   if(SHIFT.dx || SHIFT.dy)
     PLACED = PLACED.map(p => ({...p, cx: p.cx + SHIFT.dx, cy: p.cy + SHIFT.dy}));
   drawPlate(PLACED);
@@ -408,21 +408,27 @@ function spreadMove(bbox, n, placed, reach){
   const ry = Math.max(0, (PLATE_H - h) / 2 - PLATE_EDGE);
   const u = SPREAD[((n % SPREAD.length) + SPREAD.length) % SPREAD.length];
   const q = v => Math.round(v * 2) / 2;          // 人が打つ数字なので 0.5mm 刻み
-  let dx = q(u[0] * rx), dy = q(u[1] * ry), moved = false;
-  if(placed && placed.length && scraperFar(placed, dx, dy, reach).length){
-    // 規則を満たすためなら、散らしの余白（PLATE_EDGE）ではなく板の余白（3mm）まで使う
+  let dx = q(u[0] * rx), dy = q(u[1] * ry), moved = false, deep = null;
+  // 🔒 ずらしは **入口を一番浅くする**（縁へ寄せる）ことを優先し、その中で散らしの向きに近い所を採る
+  //    ⚠ surugo/_reg_term.py と同じ計算。片方だけ動かさない
+  if(reach && placed && placed.length){
     const RX = Math.max(rx, (PLATE_W - w) / 2 - 3), RY = Math.max(ry, (PLATE_H - h) / 2 - 3);
     const grid = r => { const a = []; for(let v = -Math.round(r*2); v <= Math.round(r*2); v++) a.push(v/2); return a; };
+    const worst = (x, y) => Math.max(...placed.filter(p => p.name !== 'anchor')
+      .map(p => scraperDepth({...p, cx: p.cx + x, cy: p.cy + y})));
     let best = null;
     for(const x of grid(RX)) for(const y of grid(RY)){
-      if(scraperFar(placed, x, y, reach).length) continue;
-      const d = Math.abs(x - dx) + Math.abs(y - dy);
-      if(!best || d < best[0]) best = [d, x, y];
+      const k = [Math.round(worst(x, y) * 2) / 2, Math.abs(x - dx) + Math.abs(y - dy)];
+      if(!best || k[0] < best[0] || (k[0] === best[0] && k[1] < best[1])) best = [k[0], k[1], x, y];
     }
-    if(best){ dx = best[1]; dy = best[2]; moved = true; }
-    else return {dx, dy, i: n, room: [q(rx), q(ry)], stop: true};
+    if(best){
+      deep = best[0];
+      if(best[2] !== dx || best[3] !== dy) moved = true;
+      dx = best[2]; dy = best[3];
+      if(deep > reach) return {dx, dy, i: n, room: [q(rx), q(ry)], stop: true, deep};
+    }
   }
-  return {dx, dy, i: n, room: [q(rx), q(ry)], moved};
+  return {dx, dy, i: n, room: [q(rx), q(ry)], moved, deep};
 }
 
 $('#btnExport').onclick = async () => {

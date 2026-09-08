@@ -119,8 +119,41 @@ def _cands(p):
     return c
 
 
+def _best_entrance(placed):
+    """その並べ方で、ずらしを一番良くしたときの「一番深い入口」（mm）。小さいほど剥がしやすい。"""
+    if not placed:
+        return 1e9
+    w = max(q["cx"] + q["w"] / 2 for q in placed) - min(q["cx"] - q["w"] / 2 for q in placed)
+    h = max(q["cy"] + q["h"] / 2 for q in placed) - min(q["cy"] - q["h"] / 2 for q in placed)
+    rx = max(0.0, (PLATE_X - w) / 2 - MARGIN); ry = max(0.0, (PLATE_Y - h) / 2 - MARGIN)
+    step = lambda r: [v / 2.0 for v in range(-int(r * 2), int(r * 2) + 1)] or [0.0]
+    best = 1e9
+    for dx in step(rx):
+        for dy in step(ry):
+            worst = max(scraper_depth(dict(q, cx=q["cx"] + dx, cy=q["cy"] + dy)) for q in placed)
+            if worst < best:
+                best = worst
+    return best
+
+
 def arrange(parts):
+    """🔒 並べ方は 2 通り作って、**入口（ヘラを入れる所）が浅い方**を採る
+       （2026-09-09 ユーザー「そもそも縦並びにすればいいじゃない」）。横並びに詰め切ると、
+       部品がプレートの真ん中の帯に並んで、どれも入口が深くなる。"""
+    a = _arrange1(parts, stack=False)
+    if scraper_reach() and len(a["placements"]) > 1 and not a.get("stop"):
+        b = _arrange1(parts, stack=True)
+        if b["placements"] and not b.get("stop") and            _best_entrance(b["placements"]) < _best_entrance(a["placements"]) - 0.5:
+            b["warn"] = list(b.get("warn") or []) + [
+                "縦に並べた（横並びだと入口が %.1fmm・縦なら %.1fmm。ヘラの規則）"
+                % (_best_entrance(a["placements"]), _best_entrance(b["placements"]))]
+            return b
+    return a
+
+
+def _arrange1(parts, stack=False):
     """棚に詰める。棚は使い回し、入らなければ 90° 回してもう一度試す。
+       stack=True なら棚を使い回さず 1 段 1 部品（＝縦並び）にする。
        原点はプレート中央（CHITUBOX が bbox の中心をそこへ置くため）。"""
     # 🔒 大きい部品は単独で刷る。同居させると、離れていても隣の寸法が狂う
     #   （PRINT.md 冒頭・45mm 先の小さい板の厚みが +0.9 変わった実測）
@@ -159,15 +192,15 @@ def arrange(parts):
                         % (p["name"], w, h, W, H))
             continue
         spot = None
-        # ① 既にある棚に入るか（棚を伸ばさずに済む向きを優先）
-        for sh in shelves:
+        # ① 既にある棚に入るか（棚を伸ばさずに済む向きを優先）。縦並びのときは使い回さない
+        for sh in (shelves if not stack else []):
             for w, h, rot in cands:
                 if sh["x"] + w <= W and h <= sh["h"]:
                     spot = (sh, w, h, rot); break
             if spot: break
         # ② 棚を高くすれば入るか
         if spot is None:
-            for sh in shelves:
+            for sh in (shelves if not stack else []):
                 for w, h, rot in cands:
                     grow = max(0.0, h - sh["h"])
                     if sh["x"] + w <= W and sh["y"] + h <= H and _room(shelves, sh, grow, H):
