@@ -976,8 +976,10 @@ module w_phout() {   // ハブ PHOUT → スピーカー（X 19・端子は −X
     //   → 後ろの帯 Y 27.2 ／ 27.8（バスタブの止めの壁の裏 26.6 と PowerBoost の前 29.08 の間）を左へ → 切り欠き（X 10.9〜13.56）を前へ抜ける
     //   → 手（X 7.22〜10.02・Y 23.3〜28.96）を避けて内へ寄せてから、基板の裏の切り株の先へ（パッドの 1.2 手前・parts.scad の切り株と端どうしで合う）（🔒 ユーザー 2026-09-09「形は変えず配線で逃がす」）
     ph = ph_mouth("PHOUT"); zl = SPK_LEAD[2];
-    for (i = [0, 1]) let (pw = W_spk([spk_pad_xy(i)[0], spk_pad_xy(i)[1], 0]), d = i == 0 ? -0.6 : 0.6, yp = 20.5 + d, yr = 27.5 + d / 2, xn = 12.23 + d * 0.9)
-        w1([ph + [d, 0, 0.8], [ph[0] + d, ph[1], 14.5], [80.5, ph[1] + d, 14.5], [80.5, ph[1] + d, 8.0], [80.5, yp, 8.0], [83.3, yp, 8.0], [83.3, yp, 31.3], [54.0, yp, 31.3], [54.0, yp, 37.25], [49.0, yp, 37.25], [49.0, yp, zl], [49.0, yr, zl], [xn, yr, zl], [xn, 25.5, zl], [max(pw[0], 10.9), 23.2, zl], [pw[0], pw[1] + 1.2, zl]], "phout", d = 1.0, r = 1.5);
+    for (i = [0, 1]) let (pw = W_spk([spk_pad_xy(i)[0], spk_pad_xy(i)[1], 0]), d = i == 0 ? -0.6 : 0.6, yp = 20.5 + d, yr = 27.5 + d / 2, xn = 15.0 + d)
+        w1(concat([ph + [d, 0, 0.8], [ph[0] + d, ph[1], 14.5], [80.5, ph[1] + d, 14.5], [80.5, ph[1] + d, 8.0], [80.5, yp, 8.0], [83.3, yp, 8.0], [83.3, yp, 31.3], [54.0, yp, 31.3], [54.0, yp, 37.25], [49.0, yp, 37.25], [49.0, yp, zl], [49.0, yr, zl], [xn, yr, zl]],
+              i == 0 ? [[xn, 23.2, zl], [pw[0], 23.2, zl]] : [[xn, 23.6, zl], [11.5, 23.6, zl], [11.5, 21.0, zl]],
+              [[pw[0], pw[1] + 1.2, zl]]), "phout", d = 1.0, r = 1.5);
 }
 module w_bat() {   // 電池 → 電流計 INPUT ±（2 本）。電流計は箱の軸に平行で、INPUT の 1 本目の口は左（X 20.6・Y 28.6・左向き）、2 本目は前（X 38.8・Y 14.6・前向き）。
     //   1 本目: 電池の後ろから左の溝（X 6.6・Z 30.4）を前へ → 皿の左の土手の上を越えて口へ。2 本目: 右（X 52.4・皿の土手 51.4 とつまみの部品 53.2 の間・Z 29）を前へ → Y 15 で皿の上の回廊（Z 36.4）へ上がり左へ → 口の前へ下から入る（会話ボタンが X 64.7 に来て Y 12 の立ち上がりが塞がった・2026-09-08 夜）
@@ -1007,7 +1009,7 @@ if (part == "spklook") spk_look();
 NUT_PATH_L = 5;   // ナットが入るのに要る道の長さ
 module nut_path_world() union() { for (n = UNITS) if (n != "spktub" && n != "knob") one(n); p_top(); p_floor(); p_lwall(); p_rwall(); p_front(); p_hatch(); at_knob() union() { knob_group("knob"); knob_group("wall"); knob_group("pcb"); } }
 module nut_paths() {
-    at_spk() for (n = spk_nut_xy()) translate([n[0] - 0.9 - 0.15, n[1] - 2.15 - 0.15, spk_plate_bottom() - NUT_PATH_L]) cube([1.8 + 0.3, 4.3 + 0.3, NUT_PATH_L]);   // スピーカー: 板の下端から下へ 1.8 × 4.3（+0.3）
+    at_spk() spk_nut_path(NUT_PATH_L);   // スピーカー: 板の下端から下へ（放射方向に倒した手に追従）
     at_knob() rotate([0, 0, knob_hang_rot()]) for (sx = [-1, 1], ay = knob_hang_arm_y()) let (dir = ay > 0 ? 1 : -1)
         translate([sx * knob_hang_nut_x() - 0.9 - 0.15, dir > 0 ? ay + 3 : ay - 3 - NUT_PATH_L, knob_hang_scr_z() - 2.48 - 0.15]) cube([1.8 + 0.3, NUT_PATH_L, 4.96 + 0.3]);   // つまみ: 手の外側の面から外へ 1.8 × 4.96（+0.3）
 }
