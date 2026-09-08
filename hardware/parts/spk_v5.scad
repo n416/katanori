@@ -15,7 +15,7 @@
 
 use <parts.scad>   // speaker_112495() / spk_l() / spk_w() / spk_th() / spk_dia()
 
-part = "deck";
+part = "explode";
 
 S_DECK_T = 2.5;                 // 天板の厚み（case_v5 の TOP_T と同じ値。ここは形だけ）
 Z_IN = -S_DECK_T;               // 天板の内面 −2.5
@@ -60,6 +60,7 @@ S_DECK = [[-15.0, -13.2], [15.0, 13.2]];   // 後ろは縁（y 7.8〜9.3）ま�
 
 // 手の座標系: 端の半円の芯を原点に、+X = 外向き（放射）・+Y = 接線。h = [sx, sy]
 module spk_at_hand(h) translate([h[0] * S_SEAT_CX, 0, 0]) rotate([0, 0, h[0] > 0 ? h[1] * S_NUT_ANG : 180 - h[1] * S_NUT_ANG]) children();
+module spk_obr2d(l, w) hull() for (sx = [w / 2, l - w / 2]) translate([sx, w / 2]) circle(d = w, $fn = 48);
 module spk_obr(l, w, h) hull() for (sx = [w / 2, l - w / 2]) translate([sx, w / 2, 0]) cylinder(d = w, h = h, $fn = 48);
 // ハニカムの穴: 振動板 14 × 8 の範囲に六角を千鳥で並べる（偶数段 nx+1 個・奇数段は 1 個少ない）。平らな辺が左右
 module spk_grille() { pitch = S_HEX_AF + S_HEX_WALL; w = spk_dia()[0]; d = spk_dia()[1]; rh = pitch * 0.866;
@@ -85,9 +86,8 @@ module spk_station_add() { spk_rim(); spk_hang_arms(); }   // 後ろの角の R�
 module spk_station_cut() {
     translate([-spk_l() / 2 - S_CL, -spk_w() / 2 - S_CL, Z_IN - 0.01]) spk_obr(spk_l() + 2 * S_CL, spk_w() + 2 * S_CL, S_LIFT + 0.01);           // 座（内面から 0.9）
     translate([-(spk_dia()[0] + 1) / 2, -(spk_dia()[1] + 1) / 2, Z_IN - 0.01]) spk_obr(spk_dia()[0] + 1, spk_dia()[1] + 1, S_REL + 0.01);   // 振動板の逃げ（小判 15 × 9・内面から 1.3）
-    // 前へ開く溝: 座と振動板の逃げを、それぞれの幅のまま前の縁まで延ばす。スピーカーは前から座の高さで滑り込む
-    translate([-spk_l() / 2 - S_CL, -60, Z_IN - 0.01]) cube([spk_l() + 2 * S_CL, 60, S_LIFT + 0.01]);
-    translate([-(spk_dia()[0] + 1) / 2, -60, Z_IN - 0.01]) cube([spk_dia()[0] + 1, 60, S_REL + 0.01]);
+    // 前へ開く溝は 2026-09-09 に廃止（私の判断）: 手を倒してスピーカーは真下から真っすぐ入るようになり、溝は要らなくなった。
+    //   残しておくと、倒した手の内側の角が溝の空の上に 6.00mm 張り出して刷る（_stl_preflight の 🔴）
     spk_keepout();
 }
 module spk_keepout() { spk_grille(); spk_hang_cut(); }
@@ -98,17 +98,25 @@ function spk_plate_bottom() = Z_FOOT_B;   // 板の下端（口の高さ）   //
 module spk_body() translate([-spk_l() / 2, -spk_w() / 2, Z_BODY_B]) speaker_112495();
 // バスタブ 3 の板の 2D（局所 xy）。壁の外まで、y −7.8（前の壁の裏）〜7.5。左の壁の無い所（y < 3.9）は板の外（x < −16.1）を持たない。前左の角は ReSpeaker の押さえの逃げ
 module spk_tub_floor2d() union() {
-    translate([-(S_SEAT_CX + S_R_I), S_Y[0] - S_CL]) square([2 * (S_SEAT_CX + S_R_I), S_Y[1] - (S_Y[0] - S_CL)]);   // 中央（スピーカーの下）x ±11.8・y −7.8〜7.5
+    translate([-(spk_l() / 2 + S_CL + S_LIP_T), -(spk_w() / 2 + S_CL + S_LIP_T)]) spk_obr2d(spk_l() + 2 * (S_CL + S_LIP_T), spk_w() + 2 * (S_CL + S_LIP_T));   // 中央（スピーカーの下）は小判なり 26.6 × 18.6 ＝ 止めの壁の外の面と同じ輪郭（🔒 ユーザー 2026-09-09「この角も同心円上にあわせると統一感出ます」）
     for (h = S_HANDS) translate([h[0] * S_SEAT_CX, 0]) rotate(h[0] > 0 ? h[1] * S_NUT_ANG : 180 - h[1] * S_NUT_ANG) translate([S_ARM_R0, -S_ARM_W / 2]) square([S_R_W1 - S_ARM_R0, S_ARM_W]);   // 壁の下の腕（放射方向・点対称）
 }
 
 // バスタブ 3（別部品）: 板 ＋ ±X の壁（板の上に立つ）＋ 前の止めの壁（板の前・板の底から）＋ クランプの台（板の上）。横ねじの穴・前の壁の線の切り欠き。
 //   🔒 2026-09-08 面が重ならないように組む（ユーザー「ちゃんと図形をつくらずブーリアンでやってる？表示がガビガビ」）: 壁と台は板の上面から、前の壁は板の前の面から始める
+// 前の止めの壁: 内の面が座の輪郭・肉 S_LIP_T の帯を小判に沿わせ、前半分（y ≤ 0）かつ x ≤ S_LIP_X1 で切る（右端は倒した手と線の道の手前）
+module spk_lip() intersection() {
+    translate([0, 0, Z_TUB_B]) difference() {
+        translate([-(spk_l() / 2 + S_CL + S_LIP_T), -(spk_w() / 2 + S_CL + S_LIP_T), 0]) spk_obr(spk_l() + 2 * (S_CL + S_LIP_T), spk_w() + 2 * (S_CL + S_LIP_T), Z_LIP_T - Z_TUB_B);
+        translate([-(spk_l() / 2 + S_CL), -(spk_w() / 2 + S_CL), -1]) spk_obr(spk_l() + 2 * S_CL, spk_w() + 2 * S_CL, Z_LIP_T - Z_TUB_B + 2);
+    }
+    translate([-60, -60, -60]) cube([60 + S_LIP_X1, 60, 120]);
+}
 module spk_tub() color("#e0a040") difference() {
     union() {
         translate([0, 0, Z_TUB_B]) linear_extrude(S_TUB_T) spk_tub_floor2d();
         for (h = S_HANDS) spk_at_hand(h) translate([S_R_W0, -S_ARM_W / 2, Z_TUB_T]) cube([S_WALL_T, S_ARM_W, Z_WALL_T - Z_TUB_T]);   // 壁（手と同じ向き・同じ幅）
-        translate([-13.3, S_Y[0] - S_CL - S_LIP_T, Z_TUB_B]) cube([S_LIP_X1 + 13.3, S_LIP_T, Z_LIP_T - Z_TUB_B]);   // 前の止めの壁（x −13.3〜4.0・y −9.3〜−7.8）。右端は倒した手の手前で切る（線もこの先から出す）
+        spk_lip();   // 前の止めの壁（🔒 ユーザー 2026-09-09「この板も小判状に沿わせた方が良いのでは」）
         translate([-S_PAD_X, -S_PAD_Y, Z_TUB_T]) cube([2 * S_PAD_X, 2 * S_PAD_Y, Z_PAD_T - Z_TUB_T]);   // クランプの台（磁石＋パッキンの面に当たる）
     }
     for (h = S_HANDS) spk_at_hand(h) translate([S_R_W0 - 1, 0, Z_NUT_C]) rotate([0, 90, 0]) cylinder(d = S_SCR_D, h = S_WALL_T + 2, $fn = 24);   // 横ねじの通し
