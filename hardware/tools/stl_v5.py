@@ -18,6 +18,7 @@ OUT = os.path.join(HW, 'stl', 'v5')
 CASE = os.path.join(HW, 'case_v5.scad')
 KNOB = os.path.join(HW, 'parts', 'knob_v5.scad')
 BTN  = os.path.join(HW, 'parts', 'btn_v3.scad')
+SPK  = os.path.join(HW, 'parts', 'spk_v5.scad')
 # ファイル名 → (元の .scad, part の値)。名前は v5_<キー>.stl になる。
 PARTS = [(k, CASE, 'print_%s' % k) for k in
          ['floor', 'lwall', 'rwall', 'top', 'front', 'hatch', 'bridge', 'brgfront',
@@ -26,6 +27,11 @@ PARTS = [(k, CASE, 'print_%s' % k) for k in
     ('tub',      BTN,  'print_tub'),      # 会話ボタンのバスタブ（底を下）
     ('knob',     KNOB, 'knob'),           # つまみ本体
     ('knobwall', KNOB, 'wall'),           # つまみの島（座金＋タブ）
+    ('knobdeck', KNOB, 'deck'),           # つまみの試し刷り: 天板の切れ端＋台座＋手（皿の支柱とラフト込み・天面を下・2026-09-08）
+    ('knobhangtest', KNOB, 'hangtest'),   # つまみの手だけの試し刷り（手の周りの塊 16×36×4・2026-09-08。バスタブ 2 の調査用）
+    ('knobhang', KNOB, 'hang'),           # つまみのバスタブ 2（板を下・壁が立つ・2026-09-08）
+    ('spktest',  SPK,  'print_deck'),     # スピーカーの吊りの試し刷り（天板の切れ端＋座＋縁＋板＋足・後ろの面を下・2026-09-08）
+    ('spktub',   SPK,  'print_tub'),      # スピーカーのバスタブ 3（板を下・2026-09-08）
 ]
 NAMES = [k for k, _, _ in PARTS]
 

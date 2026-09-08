@@ -38,6 +38,7 @@ use <parts/plug.scad>
 use <parts/wires.scad>    // 線（丸束・曲げ半径で丸めた点列）
 use <parts/btn_v3.scad>    // 会話ボタン v3（🔒 2026-08-30）。原点 = ボタンの芯・z0 = 天板の外面
 use <parts/knob_v5.scad>   // つまみ v5。原点 = 軸・z0 = 天板の外面
+use <parts/spk_v5.scad>    // スピーカー v5（座・縁・グリル・吊り・バスタブ 3）。原点 = スピーカーの中心・z0 = 天板の外面（2026-09-08 分離）
 include <parts/hub_board_parts.scad>   // HUB_HEADERS（口の表・自動生成）。数字はここから読む
 include <icons/icon_wrench_u.scad>   // スパナ（🔒 ユーザーの絵 uuu.svg から）
 include <icons/icon_headphone.scad>  // ヘッドホン（ユーザーの EPS から）
@@ -76,11 +77,11 @@ STRAP_C_POCKET = 0.0;               // 2026-09-05 一度 1.0 にしたが、ユ�
 HDR_POCKET_D = 1.2 + 0.3;           // 電源ヘッダの足の裏出し 1.2 の逃げ（帯 C の天板に掘る・床 0.5 残る）
 INA_DX  = -4.7; INA_DY = 3.0; INA_LIFT = 0.0; INA_THETA = 0;   // 2026-09-06 一度 4.5 にしたが取り消し（ヘッダは表・裏は足の先だけ）。   // INA_LIFT: v4 は 1.0。🔒 ユーザー 2026-09-05「浮いてるでしょ」: 足の逃げは帯に掘って板は帯に直置き（0）   // v4 の値（🔒 2026-08-29 INA_DY 3.0・2026-08-26 0°）
 BOARD_LIFT = 0.5;                   // v4: PowerBoost の蝶番を帯の面から 0.5 浮かせる（🔒 2026-08-25）
-INA_SX  = -4.0 + 5.0 + 0.6 - 2.0 + 1.0 + 4.0 + 5.0;   // →「右に 4mm」: +4 →「右に 5mm」: +5。 🔒 ユーザー 2026-09-05 …→ −4 →「右に 5mm」: +1 →「2mm 左に」: −1 →「1mm 右に」: 0。電池を −0.6 したとき枠が動いたぶんを +0.6 補正（電流計の場所は変えない）
+INA_SX  = -4.0 + 5.0 + 0.6 - 2.0 + 1.0 + 4.0 + 5.0 - 2.0;   // 🔒 ユーザー 2026-09-08「電流計を 2 ミリ左へ」（帯の印刷が増えるのは承知の上）。それまで: // →「右に 4mm」: +4 →「右に 5mm」: +5。 🔒 ユーザー 2026-09-05 …→ −4 →「右に 5mm」: +1 →「2mm 左に」: −1 →「1mm 右に」: 0。電池を −0.6 したとき枠が動いたぶんを +0.6 補正（電流計の場所は変えない）
 INA_SY  = 1.2 - 3.0;                // 🔒 ユーザー 2026-09-05 …→ +1.2 →「手前に 3mm」: −1.8
 INA_RZ  = 180;                      // 🔒 ユーザー 2026-09-05「電流計の Y 軸回転をやめて水平に」（ユーザーの「Y 軸回転」＝上下の軸まわり＝ここでは Z）: 45 右・90 左・10 右で 215 にしていたのを、回す前の 180（板を箱の軸に平行・I2C の口が後ろ・電源の口が前）に戻す
 PB_DY   = -4.0;                     // 🔒 ユーザー 2026-09-05「PowerBoost と電流計を 4mm 前へ」（電流計もこの値を読む）
-PB_DY2  = -2.0;                     // 🔒 ユーザー 2026-09-05「PowerBoost 手前に 4mm」→「2mm くらい奥に」（天井に付けた後・PowerBoost だけ）: −4 → −2
+PB_DY2  = -2.0 + 1.0;               // 🔒 ユーザー 2026-09-08「PowerBoost を 1 ミリ奥へ」: −2 → −1。それまで: 2026-09-05「手前に 4mm」→「2mm くらい奥に」（天井に付けた後・PowerBoost だけ）: −4 → −2
 // （PowerBoost の枠は下の at_pb()。v4 pb_frame() と同じ式）
 PB_TILT = 0;                        // 🔒 ユーザー 2026-09-05「PowerBoost の傾きを無くして」。v4 の 14°（2026-08-29）は電流計を前縁の下へ潜らせるための物で、重ねるなら要らない
 LW_X    = 1.694;                    // 左の壁の内面（v4: ReSpeaker の板の左端 2.024 − 0.33）
@@ -92,9 +93,9 @@ IN_Z    = 48.454 + GROW_Z;          // v4 の内寸 48.454（§1）+ 広げ
 Z_TOP   = IN_Z;                     // 天面の内面
 TOP_T   = 2.5;                      // 天板の厚み。btn_v3（B3_PLATE_T）と knob_v5（DECK_T）が 2.5 で形を持っているので同じ値
 ROW_Y   = 17.3;                     // 会話ボタンとスピーカーの列（🔒 Y は同じ）。22.3 − 0.5 − 7.5 + 3.0（BTN_ROW_DY 3.0・2026-08-29）
-SPK_AT  = [63.2 + 1.5, ROW_Y];      // 🔒 ユーザー 2026-09-05「スピーカーも右に 1.5mm」（つまみの台座と一緒）。§2「SPK4 X 63.204」
+SPK_AT  = [63.2 + 1.5, ROW_Y];      // 🔒 ユーザー 2026-09-05「スピーカーも右に 1.5mm」（つまみの台座と一緒）。§2「SPK4 X 63.204」。2026-09-08 「右へ 3」を試したが、右のバスタブ 3 の壁とねじの頭が右の壁に 1.15 / 2.0 入るので戻した（右側の積み上げ 7.6 に対して余裕 8.15）
 KNOB_AT = [SPK_AT[0], 33.3 + 1.6 - 1.1 + 8];   // 🔒 ユーザー 2026-09-05「つまみの X 中央をスピーカーの X 中央に合わせて」（Y に合わせたのは言い間違い・41.8 に戻す）。X: 63.2 ＋ 右へ 1.5 ＝ 64.7（スピーカーと同じ）。Y: v4 KNOB_YC 33.8 ＋ KNOB_DY 8（🔒 2026-08-29「ノブを後ろに」）＝ 41.8
-BTN_AT  = [19.0 + 1.0 - 2.0 + 2.0, ROW_Y];   // →「2mm 右へ」: 20。 🔒 ユーザー 2026-09-05「右へ 2」→「左へ 4」→「左に 3mm」→「1mm 右へ」→「2mm 左へ」: 24 → 26 → 22 → 19 → 20 → 18
+BTN_AT  = [19.0 + 1.0 - 2.0 + 2.0 - 1.0, ROW_Y];   // 🔒 ユーザー 2026-09-08「会話スイッチを 1mm 左へ」: 20 → 19。   // →「2mm 右へ」: 20。 🔒 ユーザー 2026-09-05「右へ 2」→「左へ 4」→「左に 3mm」→「1mm 右へ」→「2mm 左へ」: 24 → 26 → 22 → 19 → 20 → 18
 TC_AT   = [1.694, IN_Y + 0.4 - 15.0, 0.75];      // §2「X 1.694〜3.294・Y 57.4〜72.4（IN_Y 72）・Z 0.5〜20.5」。Y はハッチに追従
 TGL_AT  = [SPK_AT[0], IN_Y, IN_Z - 7.1];   // 🔒 ユーザー 2026-09-05「トグルの X 中央をスピーカーの X 中央に」（一度「右端をつまみの右端に」で 74.2 にしたが戻した）: 64.7。        // ハッチに付くトグルの軸。天井から 7.1（胴の上端は天井の 0.6 下・胴の下端は蓋の縁の上端 37.5 の 0.45 上）。🔴 8.4 は AI の仮定で、+2 にしたとき蓋の縁に 2.0 入っていた
 
@@ -131,7 +132,7 @@ module at_ina() {
 // PowerBoost の枠（v4 pb_frame() と同じ式・PB_DY と傾きを足したもの）。長辺 36 は X・Z 軸 180°: micro USB が右端・JST は前（−Y）・L 字は後ろの外向き
 module pb_frame0() translate([BAT_X0 + (lipo_size()[1] - pb_size()[0]) / 2 + pb_size()[0], PAIR_Y0 + ina_size()[1] + 0.5 + pb_size()[1] + PB_DY, BAT_TOP + STRAP_T + BOARD_LIFT]) rotate([-PB_TILT, 0, 0]) rotate([0, 0, 180]) children();
 PB_ON_INA_Z = 1.6 + 2.5 + 1.27 + 0.5 + 1.2;   // 電流計の板の裏から PowerBoost の板の裏まで（L 字のハウジングの頭 5.37 ＋ 隙間 0.5 ＋ PowerBoost の足の裏出し 1.2）
-PB_SX = -9.0 + 0.6 + 3.0 + 2.0;     // 🔒 ユーザー 2026-09-05「右に 3mm」（回転 15° の後）→「右に 2mm」（17° の後）。電池を −0.6 したとき枠が動いたぶんを +0.6 補正（PowerBoost の場所は変えない）。🔒 ユーザー 2026-09-05「PowerBoost を 2mm 左へ」→「左に 4mm」(−6)。電池を +3 したとき枠が動いたぶんを −3 補正して −9（PowerBoost の場所は変えない）
+PB_SX = -9.0 + 0.6 + 3.0 + 2.0 - 3.0;   // 🔒 ユーザー 2026-09-08「PowerBoost を 3 ミリ左へ」（上段の中央を広げて線を通す）。それまで: 2026-09-05「右に 3mm」（回転 15° の後）→「右に 2mm」（17° の後）。電池を −0.6 したとき枠が動いたぶんを +0.6 補正（PowerBoost の場所は変えない）。🔒 ユーザー 2026-09-05「PowerBoost を 2mm 左へ」→「左に 4mm」(−6)。電池を +3 したとき枠が動いたぶんを −3 補正して −9（PowerBoost の場所は変えない）
 // 🔒 ユーザー 2026-09-05「PowerBoost は天井につけましょう」: 板の裏を天板の内面に向けて（部品は下向き）座 PB_CEIL_SO で浮かす。
 //   XY の中心は pb_frame0 の場所のまま。
 PB_CEIL_SO = pb_pcb_t() + pb_jst_h() + 0.5;   // 天板の内面 ↔ 板の裏 8.1（板 1.6 ＋ JST 6.0 ＋ 隙間 0.5）。🔴 2026-09-06 実機: JST 5.2 で描いたダボ 5.7 より PH コネクタ（実測 6.0）が高かった → ダボ 6.5。刷った天板（1918）は 5.7 のまま使い、次に刷り直すときにこの形（ユーザー）。🔒 ユーザー 2026-09-05「基板面を下にしなければならない理由はない」: 部品面を上（天井側）に
@@ -143,7 +144,7 @@ module at_bat()  translate([BAT_AT[0] + lipo_size()[1], BAT_AT[1], BAT_AT[2]]) r
 module at_tc()   translate([TC_AT[0], TC_AT[1], TC_AT[2] + tc_size()[0]]) rotate([0, 90, 0]) children();   // 板の裏を左の壁の内面（X 1.694）に。局所 X（20）→ 下向き Z・局所 Y（15・口は +Y）→ 後ろ・部品面 → +X（箱の中）
 module at_knob() translate([KNOB_AT[0], KNOB_AT[1], Z_TOP + TOP_T]) children();             // 天板の外面が z0
 module at_btn()  translate([BTN_AT[0], BTN_AT[1], Z_TOP + TOP_T]) children();               // 天板の外面が z0（btn_v3 の約束）
-module at_spk()  translate([SPK_AT[0] - spk_l() / 2, SPK_AT[1] - spk_w() / 2, Z_TOP - spk_th() - 0.2 + 0.9]) children();   // v4: 天板の座（0.9）に持ち上げ、振動板の上に 0.2
+module at_spk()  translate([SPK_AT[0], SPK_AT[1], Z_TOP + TOP_T]) children();               // 天板の外面が z0（spk_v5 の約束。2026-09-08 まではスピーカーの角が原点だった）
 TGL_RY = 90;                        // 🔒 ユーザー 2026-09-05「トグルスイッチ Y 軸を中心に 90 度回転」: 胴の 13 が縦になる
 module at_tgl()  translate(TGL_AT) rotate([0, TGL_RY, 0]) rotate([-90, 0, 0]) children();   // 軸を +Y（ハッチの外）へ
 
@@ -220,7 +221,7 @@ module knob_plugs() at_knob() translate([0, 0, -knob_deep()]) rotate([0, 0, 90 +
 module plugs() { hub_plugs(); oled_plug(); ina_plug(); ina_pwr_plug(); pb_plug(); xiao_plugs(); knob_plugs(); }
 
 // 単位（基板＋その口を 1 つに数える。ピンはハウジングの中に居るので、別々に数えると自分同士の重なりが出る）
-UNITS = ["oled", "rsp", "hub", "bat", "ina", "pb", "tc", "knob", "btn", "spk", "tgl", "bridge", "front", "straps", "inabar", "shutter", "lock", "hatchplate"];   // pbmount は天板と一体・tcseat は床と一体にした（2026-09-05）   // リードスイッチは 2026-09-05 に一度置いて外した（ユーザー「そんなところについてないだろ」）
+UNITS = ["oled", "rsp", "hub", "bat", "ina", "pb", "tc", "knob", "btn", "spk", "spktub", "tgl", "bridge", "front", "straps", "inabar", "shutter", "lock", "hatchplate"];   // pbmount は天板と一体・tcseat は床と一体にした（2026-09-05）   // リードスイッチは 2026-09-05 に一度置いて外した（ユーザー「そんなところについてないだろ」）
 module one(n) {
     if (n == "oled") { at_oled() oled_242(); oled_plug(); }
     if (n == "rsp")  { at_rsp()  respeaker_lite(); xiao_plugs(); }
@@ -231,7 +232,8 @@ module one(n) {
     if (n == "tc")   { at_tc() typec_115426(pins = false); tc_ra(); tc_plugs(); }   // ピンは L 字（v4 tcb_ra）: 板に沿って前（−Y）へ。ハウジングは X 4.5〜7.1（ハブの左端 6.0 の上に少しかかる・v4 と同じ）
     if (n == "knob") { at_knob() assembly(show_deck = false); knob_plugs(); }   // 台座（knob_station_add/cut）は天板 p_top() の側   // 島・つまみ・柱・基板・E リング・磁石
     if (n == "btn")  at_btn()  { btn3_piston(); btn3_tub(); btn3_switch(); btn3_sw_screws(); btn3_v_screws(); }   // 台座（btn3_station_add/cut）は天板 p_top() の側   // バスタブ込み
-    if (n == "spk")  at_spk()  speaker_112495();
+    if (n == "spk")  at_spk()  spk_body();
+    if (n == "spktub") at_spk() spk_tub_all();   // スピーカーのバスタブ 3 とねじ・ナット（2026-09-08）
     if (n == "tgl")  at_tgl()  mts102();
     if (n == "bridge") bridge();
     if (n == "front")  brg_front();
@@ -368,10 +370,12 @@ HDR_FOOT = let (c = [for (q = [[26.0 - 1.27, 3.6 - 1.27], [26.0 + 1.27, 3.6 - 1.
 //      小帯の穴は φ3.0 のすべり嵌め（ダボ φ2.8）。ダボの先は小帯の上面より 0.2 低く、天板の足はダボではなく小帯に当たる
 //   台座でナットを入れる案は、電流計の一番高い所が PowerBoost の裏の 0.33 下にあり、台座 4.2 で 3.9 食い込む（当たり 113mm³）ので不可（同日検算）
 INA_BAR_H = 3.0; INA_BAR_T = 1.5; INA_BAR_FOOT_D = 6.0; INA_BAR_W = 4.0; INA_BAR_HOLE_D = 3.0;   // 小帯: 足の高さ（板の上から）・橋の厚み・足の径・橋の幅・穴 φ3.0（ダボ φ2.8 のすべり嵌め）
-INA_PEG_D = 2.8; INA_PEG_H = ina_size()[2] + INA_BAR_H - 0.2;   // ダボ φ2.8・高さ 4.4（板 1.6 ＋ 小帯の足 3.0 − 0.2。先は小帯の上面より低い）
-INA_LEG_D = 3.6; INA_LEG_PLAY = 0.1;                      // 天板の足 φ3.6（PowerBoost まで 2.3・つまみの島まで 2.4 の間）。足の肩と板の上の遊び 0.1
+INA_PEG_D = 2.8; INA_PEG_H = ina_size()[2] + INA_BAR_H - 0.2;   // 左のダボ φ2.8・高さ 4.4（板 1.6 ＋ 小帯の足 3.0 − 0.2。先は小帯の上面より低い）
+INA_PEG_IN = 2.0;                                              // 🔒 ユーザー 2026-09-08「帯のダボは小帯を貫通して天井の棒に刺さるイメージ」: 右のダボは小帯を抜けて天板の棒の先の穴に 2.0 入る
+INA_LEG_D = 4.8; INA_LEG_PLAY = 0.1; INA_LEG_HOLE_D = 3.0;   // 天板の棒 φ4.8（先に φ3.0 の穴・肉 0.9。3.6 → 4.8 は 2026-09-08 穴を入れるため）。棒の先と小帯の上の遊び 0.1。⚠ 棒はつまみの台座の壁（x 48.7）に 0.5 重なるが同じ天板なので溶け合うだけ
+INA_PEG_H_R = ina_size()[2] + INA_BAR_H + INA_LEG_PLAY + INA_PEG_IN;   // 右のダボの高さ 6.7（板 1.6 ＋ 小帯 3.0 ＋ 遊び 0.1 ＋ 棒に 2.0）
 INA_TOP_Z = BAT_TOP + STRAP_T + ina_size()[2];             // 板の上面 36.975
-module ina_pegs() for (h = INA_HOLES_W) translate([h[0], h[1], BAT_TOP + STRAP_T - 0.01]) cylinder(d = INA_PEG_D, h = INA_PEG_H + 0.01, $fn = 32);   // ダボ 2 本（左は帯 B の X 33.2・右は X 48.8）
+module ina_pegs() for (i = [0, 1]) let (h = INA_HOLES_W[i]) translate([h[0], h[1], BAT_TOP + STRAP_T - 0.01]) cylinder(d = INA_PEG_D, h = (i == 0 ? INA_PEG_H : INA_PEG_H_R) + 0.01, $fn = 32);   // ダボ 2 本（左は帯 B の X 33.2・高さ 4.4／右は X 48.8・高さ 6.7 で天板の棒に刺さる）
 INA_BAR_Z0 = INA_TOP_Z; INA_BAR_TOP = INA_TOP_Z + INA_BAR_H;   // 小帯の裏（板の上面）と上面
 module ina_bar() let (a = INA_HOLES_W[0], b = INA_HOLES_W[1]) color("#f6ad55") difference() {   // 小帯（組んだ姿勢）: 穴の上に足 2 本・その上面を橋で結ぶ
     union() {
@@ -381,7 +385,10 @@ module ina_bar() let (a = INA_HOLES_W[0], b = INA_HOLES_W[1]) color("#f6ad55") d
     for (h = [a, b]) translate([h[0], h[1], INA_BAR_Z0 - 1]) cylinder(d = INA_BAR_HOLE_D, h = INA_BAR_H + 2, $fn = 48);
 }
 module print_inabar() translate([0, 0, INA_BAR_TOP]) rotate([180, 0, 0]) ina_bar();   // 刷る向き: 上面を下（足は上を向く・張り出し無し）
-module ina_ceiling_leg() let (h = INA_HOLES_W[1], z0 = INA_BAR_TOP + INA_LEG_PLAY) translate([h[0], h[1], z0]) cylinder(d = INA_LEG_D, h = Z_TOP - z0 + 0.01, $fn = 32);   // 天板の裏から小帯の右の足の上へ下ろす足（先は平ら・ダボ無し）
+module ina_ceiling_leg() let (h = INA_HOLES_W[1], z0 = INA_BAR_TOP + INA_LEG_PLAY) translate([h[0], h[1], z0]) difference() {   // 天板の裏から小帯の右の足の上へ下ろす棒。先の穴に右のダボが 2.0 刺さる（位置決め）
+    cylinder(d = INA_LEG_D, h = Z_TOP - z0 + 0.01, $fn = 32);
+    translate([0, 0, -1]) cylinder(d = INA_LEG_HOLE_D, h = 1 + INA_PEG_IN + 0.2, $fn = 32);   // 穴 φ3.0・深さ 2.2（ダボ 2.0 ＋ 底の逃げ 0.2）
+}
 echo(str("INA hold: pegs at ", INA_HOLES_W, " d ", INA_PEG_D, " h ", INA_PEG_H, " (tip Z ", BAT_TOP + STRAP_T + INA_PEG_H, ") / bar Z ", INA_BAR_Z0, "-", INA_BAR_TOP, " foot d ", INA_BAR_FOOT_D, " hole d ", INA_BAR_HOLE_D, " bridge W ", INA_BAR_W, " T ", INA_BAR_T, " / bar top to PB bottom ", Z_TOP - PB_CEIL_SO - INA_BAR_TOP, " / leg at ", INA_HOLES_W[1], " d ", INA_LEG_D, " Z ", INA_BAR_TOP + INA_LEG_PLAY, "-", Z_TOP, " (len ", Z_TOP - INA_BAR_TOP - INA_LEG_PLAY, ")"));
 module straps() color("#ed8936") difference() {
     union() {
@@ -577,19 +584,13 @@ module icon_headphone2d() { sw = max(icon_headphone_sw() * ICON_HP_SW, SVC_MIN_W
 module lwall_icon_cut() translate([LW_X - WALL - 1.0, JACK_ICON_C[0], JACK_ICON_C[1]]) rotate([90, 0, 90]) linear_extrude(ICON_D + 1.0) mirror([1, 0]) icon_headphone2d();
 
 // ---- 天板: つまみの台座と抜き・会話ボタンの台座と口・スピーカーの座とハニカムのグリル ----
-SPK_LIFT = 0.9; SPK_CL = 0.3;       // 座の深さ（天板の内面から）・座の逃げ（片側）
-SPK_REL = 0.4 + SPK_LIFT;           // 振動板の逃げの深さ（内面から 1.3）: 振動板の上の空気の層 0.4 ＋ 座で持ち上げた 0.9。天板の残りは 1.2
-SPK_HEX_AF = 2.2; SPK_HEX_WALL = 0.6;   // ハニカム: 六角の二面幅 2.2・穴どうしの肉 0.6（ピッチ 2.8・開口率 62%）。2026-09-05 まで肉 1.2 で小判に切り抜いていて目が粗く縁の六角が欠けていた（ユーザー指摘）
-SPK_RIM_H = 0.8; SPK_RIM_T = 0.6;   // 位置出しの縁: 天板の裏に立つ小判の囲い（高さ 0.8・肉 0.6・逃げは座と同じ SPK_CL）。両面テープで貼るときにここへ落とし込んで位置を出す
-module spk_obr(l, w, h) hull() for (sx = [w / 2, l - w / 2]) translate([sx, w / 2, 0]) cylinder(d = w, h = h, $fn = 48);
-// ハニカムの穴: 振動板 14 × 8 の範囲に六角を千鳥で並べる（偶数段 nx+1 個・奇数段は半ピッチ狭いので 1 個少ない）。小判で切り抜かず、六角は欠けさせない。平らな辺が左右（X）を向く
-module spk_grille() { pitch = SPK_HEX_AF + SPK_HEX_WALL; w = spk_dia()[0]; d = spk_dia()[1]; rh = pitch * 0.866;
-    nx = floor(w / pitch + 1e-6); nxo = max(0, floor((w - pitch) / pitch + 1e-6)); ny = floor(d / rh + 1e-6);
-    for (j = [0 : ny]) { n = (j % 2) ? nxo : nx;
-        for (i = [0 : n]) translate([SPK_AT[0] - n * pitch / 2 + i * pitch, SPK_AT[1] - ny * rh / 2 + j * rh, Z_TOP - 1]) rotate([0, 0, 30]) cylinder(d = SPK_HEX_AF / cos(30), h = TOP_T + 2, $fn = 6); } }
-module spk_rim() translate([SPK_AT[0] - spk_l() / 2 - SPK_CL - SPK_RIM_T, SPK_AT[1] - spk_w() / 2 - SPK_CL - SPK_RIM_T, Z_TOP - SPK_RIM_H]) difference() {
-    spk_obr(spk_l() + 2 * (SPK_CL + SPK_RIM_T), spk_w() + 2 * (SPK_CL + SPK_RIM_T), SPK_RIM_H + 0.01);
-    translate([SPK_RIM_T, SPK_RIM_T, -1]) spk_obr(spk_l() + 2 * SPK_CL, spk_w() + 2 * SPK_CL, SPK_RIM_H + 3);
+// スピーカーの座・縁・グリル・吊り・バスタブ 3 は parts/spk_v5.scad（2026-09-08 分離）。ここは at_spk() で呼ぶだけ
+// スピーカーの周りだけの組み立て図（🔒 ユーザー 2026-09-08「CAD でスピーカー周りの構造を見られるように」「ゴチャゴチャで分かりません」）: 実体は spk_v5 の切れ端・スピーカー・バスタブ 3、隣は半透明。part="spklook"
+module spk_look_box() translate([40, -6, 30]) cube([86 - 40, 34 + 6, 54 - 30]);
+module spk_look() {
+    color("#9aa5b1") at_spk() spk_deck_test();
+    one("spk"); one("spktub");
+    color("#4a90d9", 0.25) intersection() { spk_look_box(); union() { one("oled"); one("rsp"); rsp_press(); oled_brackets(); at_knob() knob_station_add(); } }
 }
 module p_top() difference() {
     union() {
@@ -601,15 +602,13 @@ module p_top() difference() {
         oled_brackets();   // OLED の上の 2 穴を受ける L の足（天板から下ろす）
         rsp_press();       // ReSpeaker の板の頭を押さえる羊羹とマッチ棒
         tgl_cradle();      // トグルの胴の受け（ハッチの上を留める）
-        spk_rim();    // スピーカーの位置出しの縁
+        at_spk()  spk_station_add();   // スピーカーの縁と吊りの板・足（parts/spk_v5.scad）
     }
+    at_spk()  spk_station_cut();   // スピーカーの座・振動板の逃げ・前へ開く溝・グリル・足のナットのポケット・ねじと線の穴
     at_knob() knob_station_cut();
     tgl_term_notch();   // トグルの端子がつまみの台座の後ろの縁に入る分の欠き（2026-09-05）
     at_btn()  btn3_station_cut();
     top_screw_cuts();
-    translate([SPK_AT[0] - spk_l() / 2 - SPK_CL, SPK_AT[1] - spk_w() / 2 - SPK_CL, Z_TOP - 0.01]) spk_obr(spk_l() + 2 * SPK_CL, spk_w() + 2 * SPK_CL, SPK_LIFT + 0.01);   // 座（内面から 0.9）
-    translate([SPK_AT[0] - (spk_dia()[0] + 1) / 2, SPK_AT[1] - (spk_dia()[1] + 1) / 2, Z_TOP - 0.01]) spk_obr(spk_dia()[0] + 1, spk_dia()[1] + 1, SPK_REL + 0.01);   // 振動板の逃げ（小判 15 × 9・内面から 1.3）
-    spk_grille();   // ハニカムのグリル（天板を貫通）
 }
 // ---- ハッチ: Type-C の口・トグルの穴・電池の口 ----
 TC_PORT_C = [TC_AT[0] + tc_size()[2] + tc_conn()[2] / 2, IN_Y + HATCH_T / 2, TC_AT[2] + tc_size()[0] / 2];   // 板の表 ＋ 胴の高さの半分・板の長さの中央（4.92, ・, 10.75）
@@ -899,7 +898,7 @@ function btn_pin(i) = W_btn(btn3_sw_pin(i));   // マイクロスイッチの端
 function j2_mouth() = let (j = respeaker_spk_j2()) W_rsp([(j[0] + j[1]) / 2, -(j[4] + 3.0), (j[2] + j[3]) / 2]);   // ReSpeaker のスピーカーソケットの PH プラグの頭・軸は世界 +Y
 BAT_LEAD = [BAT_AT[0] + lipo_size()[1] / 2, BAT_AT[1] + lipo_size()[0], BAT_AT[2] + lipo_size()[2] / 2];   // 電池の線の出口: 後ろの面の中央（タブは後ろ・at_bat）。軸 +Y
 SPK_BOT = 45.65;   // スピーカーの模型の下端（測った値）（磁石の出っ張り込み・only_spk の STL から 2026-09-05）。parts.scad に関数が無いので数字
-SPK_LEAD = [SPK_AT[0] + spk_l() / 2 - 1.5, SPK_AT[1], SPK_BOT];   // スピーカーの線の出口: 裏面（磁石側）の端の縁のパッド（✅ DIMENSIONS.md 376 行・2026-08-17 写真「リードは裏面の縁のパッドから出る。外形が対称なので端子の端は貼る向きで選べる」）。端は線が来る右（+X）側に貼る。🔴 それまで長辺の縁・中央より右 4 と仮に置いていた（2026-09-06 直し）。軸 −Z
+SPK_LEAD = [SPK_AT[0] + spk_lead_xy()[0], SPK_AT[1] + spk_lead_xy()[1], Z_TOP + TOP_T + spk_wire_z()];   // 線が前の縁から出る所（x 72.5・y 9.8・z 46.35）。   // 🔒 2026-09-08 ユーザーの絵（裏から）: +X 端から 3.1・前（−Y）の縁から 2.3（parts.scad spk_lead_xy）。それまで「端の縁の中央」   // スピーカーの線の出口: 裏面（磁石側）の端の縁のパッド（✅ DIMENSIONS.md 376 行・2026-08-17 写真「リードは裏面の縁のパッドから出る。外形が対称なので端子の端は貼る向きで選べる」）。端は線が来る右（+X）側に貼る。🔴 それまで長辺の縁・中央より右 4 と仮に置いていた（2026-09-06 直し）。軸 −Z
 
 WIRE_LEN = false;   // true: 束ごとの実長を echo（_asm_manual_v5.py が切る長さの表に使う）
 module bnd(pts, n, nm = "") { if (WIRE_LEN) echo(wlen = [nm, n, wire_len(pts, WIRE_R)]); wire(pts, d = bundle_d(n), r = WIRE_R); }   // 束（n 本）
@@ -962,9 +961,11 @@ module w_phin() {   // ReSpeaker のスピーカーソケット J2 → ハブ PH
     j = j2_mouth(); ph = ph_mouth("PHIN");
     bnd([j + [0, 0.8, 0], j + [0, 3.0, 0], [5.0, 24.5, 17.0], [5.0, 24.5, 11.0], [64.5, 24.5, 11.0], [64.5, 41.0, 11.0], [ph[0], 41.0, 11.0], [ph[0], 41.0, 15.0], [ph[0], ph[1], 15.0], ph + [0, 0, 0.8]], 2, "phin");
 }
-module w_phout() {   // ハブ PHOUT → スピーカー（PH 2 本 → リード）。ソケットから右へ出てハブの右端の上（X 80.5・Z 8）を前へ → 右の壁ぎわ（X 83）を上がって → 天井の下（Z 44）を前へ → スピーカーの裏へ
-    ph = ph_mouth("PHOUT");
-    bnd([ph + [0, 0, 0.8], [ph[0], ph[1], 14.5], [80.5, ph[1], 14.5], [80.5, ph[1], 8.0], [80.5, 31.5, 8.0], [83.0, 31.5, 8.0], [83.0, 31.5, 44.0], [83.0, 22.0, 44.0], [70.0, 22.0, 44.0], SPK_LEAD + [0, 0, -3.0], SPK_LEAD + [0, 0, -0.8]], 2, "phout");
+module w_phout() {   // ハブ PHOUT → スピーカー（PH 2 本 → リード 2 本）。ソケットから右へ出てハブの右端の上（X 80.5・Z 8）を前へ → 右の壁ぎわ（X 83）を上がって Z 39（バスタブ 3 の板 42.75 の下・角の柱 y ≤ 9 の手前で内へ）→ Y 12 で X 70 へ → 前へ Y 6.5（前の壁 8.0 と OLED の腕（x ≥ 73.1）の手前）→ 上がって → 前の壁の切り欠き（X 71〜74）を抜けて、基板の裏の線に沿ってパッドへ（2026-09-08 引き直し）
+    ph = ph_mouth("PHOUT"); zl = SPK_LEAD[2];
+    bnd([ph + [0, 0, 0.8], [ph[0], ph[1], 14.5], [80.5, ph[1], 14.5], [80.5, ph[1], 8.0], [80.5, 31.5, 8.0], [83.0, 31.5, 8.0], [83.0, 31.5, 39.0], [83.0, 12.0, 39.0], [70.0, 12.0, 39.0], [70.0, 6.5, 39.0], [70.0, 6.5, zl]], 2, "phout");   // 束（2 本）はここまで
+    for (i = [0, 1]) let (pw = SPK_AT + spk_pad_xy(i), dx = i == 0 ? -0.6 : 0.6)   // ここから 1 本ずつ（φ1.0）: 切り欠きを抜けて基板の裏をパッドまで
+        w1([[70.0, 6.5, zl], [71.5 + dx, SPK_LEAD[1] - 1.2, zl], [pw[0], SPK_LEAD[1] - 1.2, zl]], "phout", d = 1.0, r = 1.5);   // 切り欠きの中（y 8.6）を右へ寄ってパッドの x へ。OLED の腕（x ≥ 73.1・y ≤ 8.0）の後ろを通る。終点は模型の切り株の先（8.8）の手前
 }
 module w_bat() {   // 電池 → 電流計 INPUT ±（2 本）。電流計は箱の軸に平行で、INPUT の 1 本目の口は左（X 20.6・Y 28.6・左向き）、2 本目は前（X 38.8・Y 14.6・前向き）。
     //   1 本目: 電池の後ろから左の溝（X 6.6・Z 30.4）を前へ → 皿の左の土手の上を越えて口へ。2 本目: 右（X 53.2・Z 29）を前へ → Y 12 で上がり、口の前へ左から入る
@@ -988,6 +989,19 @@ module wires() for (n = WIRE_NAMES) w_one(n);
 module all_solid() { innards(); p_floor(); p_top(); p_lwall(); p_rwall(); p_front(); p_hatch(); }   // 線の当たりの相手（中身＋皮）
 
 if (part == "look")  innards();
+if (part == "spklook") spk_look();
+// ---- ナットの口の道（🔴 2026-09-08 ユーザー「入れられないナット入れが 2 回目」: 静止の当たりは口の前に何があるかを見ない。口から外へ NUT_PATH_L 掃いて世界の全部品に当てる。0 が正）----
+//   つまみの手 4 本（口は手の外側の面・世界 ∓X）、スピーカーの板 2 枚（口は板の下端・下向き）。ナットのポケットを増やしたらここに足す
+NUT_PATH_L = 5;   // ナットが入るのに要る道の長さ
+module nut_path_world() union() { for (n = UNITS) if (n != "spktub" && n != "knob") one(n); p_top(); p_floor(); p_lwall(); p_rwall(); p_front(); p_hatch(); at_knob() union() { knob_group("knob"); knob_group("wall"); knob_group("pcb"); } }
+module nut_paths() {
+    at_spk() for (n = spk_nut_xy()) translate([n[0] - 0.9 - 0.15, n[1] - 2.15 - 0.15, spk_plate_bottom() - NUT_PATH_L]) cube([1.8 + 0.3, 4.3 + 0.3, NUT_PATH_L]);   // スピーカー: 板の下端から下へ 1.8 × 4.3（+0.3）
+    at_knob() rotate([0, 0, knob_hang_rot()]) for (sx = [-1, 1], ay = knob_hang_arm_y()) let (dir = ay > 0 ? 1 : -1)
+        translate([sx * knob_hang_nut_x() - 0.9 - 0.15, dir > 0 ? ay + 3 : ay - 3 - NUT_PATH_L, knob_hang_scr_z() - 2.48 - 0.15]) cube([1.8 + 0.3, NUT_PATH_L, 4.96 + 0.3]);   // つまみ: 手の外側の面から外へ 1.8 × 4.96（+0.3）
+}
+if (part == "nutpath") intersection() { nut_paths(); nut_path_world(); }   // 0 が正
+if (part == "nutpath_show") { color("#ff4040") nut_paths(); color("#9aa5b1", 0.4) nut_path_world(); }
+// スピーカーの試し刷り（print_deck / print_tub）は parts/spk_v5.scad で焼く（stl_v5.py の spktest / spktub）   // スピーカーの周りの組み立て図（天板・右の壁・前板・中身を箱で切る）
 if (part == "wires") { innards(); wires(); }
 if (part == "wiresonly") wires();
 if (part == "ribs") ribs();
@@ -1011,7 +1025,7 @@ module print_front()  translate([0, 0, -OUT_Y0]) rotate([90, 0, 0]) { p_front();
 module print_hatch()  translate([0, 0, OUT_Y1]) rotate([-90, 0, 0]) { p_hatch(); panel_ribs("hatch"); }
 module print_bridge() translate([0, 0, -BRG_ZB]) { bridge(); panel_ribs("bridge"); }
 // 支柱を立ててはいけない体積（keepout。v4 と同じ流儀）: 板を貫く穴・口・軸の穴。tools/props_gen.py が刷る向きで焼き、柱の胴＋逃げ 0.3 が触る候補を落とす
-module keepout_top() { at_knob() { knob_station_shaft_cut(); knob_station_screw_cut(); knob_station_reed_cut(); knob_station_hang_cut(); } at_btn() btn3_station_cut(); top_screw_cuts(); spk_grille(); }   // つまみは軸・ねじ・リードの穴だけ（へこみ全体を入れると柱が全部落ちる）
+module keepout_top() { at_knob() { knob_station_shaft_cut(); knob_station_screw_cut(); knob_station_reed_cut(); knob_station_hang_cut(); } at_btn() btn3_station_cut(); top_screw_cuts(); at_spk() spk_keepout(); }   // つまみは軸・ねじ・リードの穴だけ（へこみ全体を入れると柱が全部落ちる）
 if (part == "keepout_top") translate([0, 0, Z_TOP + TOP_T]) rotate([180, 0, 0]) keepout_top();
 // 前板と蓋の 3 点（v4 と同じ向き・🔒 ユーザー 2026-09-05「v4 と同じ方向でいいよ」）: 前板は前の面を下（フランジと返しは上を向く）、蓋とロックはハッチの外面を下、床の板は溝の床の面を下
 module print_brgfront()  translate([0, 0, -FP_Y0]) rotate([90, 0, 0]) brg_front();

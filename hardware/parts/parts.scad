@@ -708,32 +708,71 @@ module lipo_swap_path(travel = LIPO_L, clear = 0.5) {
 // ============================================================
 SPK_L = 23.0;      // 長辺
 SPK_W = 15.0;      // 短辺（＝両端の半円の直径）
-SPK_T = 4.0;       // ✅ 実測
+SPK_T = 4.0;       // ✅ 実測。**枠（本体）の厚み**。裏の磁石＋パッキンはこの外に 1.5 出る（SPK_MAG_H）。全厚は SPK_TOTAL_T 5.5（✅ 2026-09-08 ユーザー「最も厚い所は 5.5、薄い所で 4」）
 SPK_DIA_L = 14.0;  // ⚠ 振動板（写真読み）
 SPK_DIA_W = 8.0;
+// ⚠ 2026-09-08 ユーザーの写真（裏側）から読んだ物。±0.5。
+SPK_MAG_D = 10.5;      // 裏面の中央に出っ張る部分（銀の磁石＋周りの黒いパッキン）の短辺。✅ 2026-09-08 ユーザー「10.5 × 16」
+SPK_MAG_L = 16.0;      // 同・長辺（長軸に沿う）
+SPK_MAG_H = 1.5;       // ✅ 2026-09-08 ユーザー「銀色の部分は 1.5mm 飛び出ている」。枠 4.0 の裏にさらに 1.5（🔴 同日、一度「全厚 4.0 の内訳」と読み違えて枠を 2.5 にした）
+SPK_FRAME_T = SPK_T;               // 枠の厚み 4.0
+SPK_TOTAL_T = SPK_T + SPK_MAG_H;   // 全厚 5.5（磁石の先から面まで）
+// 端子の基板（🔒 2026-09-08 ユーザーの写真・裏から。長辺が横。基板は +X の端の裏面で、**パッキンの外の縁と枠の縁の間の三日月**（端の半円に沿う）。
+//   線 2 本は三日月の上側（−Y 側）のはんだから幅の方向 −Y（前）へ出る。🔴 同日、長辺の側面 → 長辺の裏の縁 → と 2 回読み違えた）。⚠ 角度・幅・厚みは写真読み ±0.5
+SPK_PCB_ANG = 65;      // 三日月の角の広がり（端の半円の中心から ±65°）
+SPK_PCB_IN = 0.7;      // 枠の縁から内へ（三日月の外の縁）
+SPK_PCB_GAP = 0.5;     // パッキンから外へ（三日月の内の縁）
+SPK_PCB_T = 0.8;       // 基板の厚み（枠の裏から裏へ）
+SPK_SOLDER = 0.6;      // はんだの盛り（基板の裏へ）。基板＋はんだ 1.4 ＜ 磁石の出っ張り 1.5
+SPK_PAD_ANG = [for (i = [0 : 3]) SPK_PCB_ANG * 0.75 - i * SPK_PCB_ANG * 0.5];   // パッド 4 つ: 三日月（±65°）に均等（48.75・16.25・−16.25・−48.75。🔒 ユーザー 2026-09-08「4 つは均等に配置」「全部で 4 つ、そのうち 2 つがはんだ付け」）。+ は −Y 側＝写真の上
+SPK_SOLDER_ANG = [SPK_PAD_ANG[0], SPK_PAD_ANG[1]];   // 線が付いている 2 つ（上側の 2 つ）
 
 function spk_l()  = SPK_L;
 function spk_w()  = SPK_W;
-function spk_th() = SPK_T;
+function spk_th() = SPK_TOTAL_T;   // 全厚 5.5（磁石の先から面まで）。枠だけなら spk_frame_th()
+function spk_frame_th() = SPK_T;
 function spk_dia() = [SPK_DIA_L, SPK_DIA_W];
+function spk_mag() = [SPK_MAG_L, SPK_MAG_D, SPK_MAG_H];   // 長辺・短辺・出っ張り
 
 // 原点は外形の角（左手前・下）。+Z が音の出る側
 module spk_obround(l, w, h) {
     hull() for (s = [w / 2, l - w / 2])
         translate([s, w / 2, 0]) cylinder(d = w, h = h);
 }
+function spk_solder_ang() = SPK_SOLDER_ANG;
+function spk_lead_xy() = [spk_solder_xy(SPK_SOLDER_ANG[0])[0] - SPK_L / 2, -SPK_W / 2];   // 線が外形から出る所（中心からの xy）: 上側（−Y 側）のはんだの x で前の縁spk_v5 と case_v5 はこれを読む（2026-09-08）
 module speaker_112495() {
-    color("#d9d9d9") spk_obround(SPK_L, SPK_W, SPK_T);          // ケーシング
-    color("#c9b083") translate([(SPK_L - SPK_DIA_L) / 2, (SPK_W - SPK_DIA_W) / 2, SPK_T - 0.2])
+    // 局所: 面（振動板）が +Z。裏 z 0（磁石の先）、枠の裏 z SPK_MAG_H 1.5、面 z SPK_TOTAL_T 5.5
+    color("#d9d9d9") translate([0, 0, SPK_MAG_H]) spk_obround(SPK_L, SPK_W, SPK_FRAME_T);   // 枠
+    color("#c9b083") translate([(SPK_L - SPK_DIA_L) / 2, (SPK_W - SPK_DIA_W) / 2, SPK_TOTAL_T - 0.2])
         spk_obround(SPK_DIA_L, SPK_DIA_W, 0.4);                 // 振動板
-    // リード2本（✅ 2026-08-17 現物写真: **裏面のパッドから**。局所 Z=0 の面・
-    //    長辺の縁ぞい・片端寄り。振動板が +Z＝天面向きで貼るので、パッドは箱の中へ垂れる側）
-    // 🔒 **出口を示すだけの 1.5mm の切り株にしてある。** 引き回しは自由（曲げられる線なので、
-    //    長く描くと当たり検査に嘘の当たりが出る）。実際は出てすぐ下へ落とす
-    for (c = [["#3355cc", 3.0], ["#eeeeee", 5.0]])
-        color(c[0]) translate([c[1], SPK_W - 1.2, 0])
-            rotate([180, 0, 0]) cylinder(d = 0.9, h = 1.5);
+    color("#a0a4a8") translate([(SPK_L - SPK_MAG_L) / 2, (SPK_W - SPK_MAG_D) / 2, 0]) spk_obround(SPK_MAG_L, SPK_MAG_D, SPK_MAG_H + 0.01);   // 磁石＋パッキン（裏に 1.5 出っ張る小判 16 × 10.5）
+    // 端子の基板: +X の端の裏面の三日月。端の半円の中心は局所 (SPK_L − SPK_W/2, SPK_W/2) = (15.5, 7.5)
+    color("#2f6f3f") translate([0, 0, SPK_MAG_H - SPK_PCB_T]) linear_extrude(SPK_PCB_T) spk_pcb2d();
+    for (a = SPK_PAD_ANG) let (q = spk_solder_xy(a)) color("#c8c8c8") translate([q[0], q[1], SPK_MAG_H - SPK_PCB_T - 0.3]) cylinder(d = 1.4, h = 0.31, $fn = 16);   // パッド 4 つ（銀の点）
+    for (a = SPK_SOLDER_ANG) let (q = spk_solder_xy(a)) {
+        color("#c8c8c8") translate([q[0], q[1], SPK_MAG_H - SPK_PCB_T - SPK_SOLDER]) cylinder(d = 1.6, h = SPK_SOLDER + 0.01, $fn = 16);   // はんだの盛り（線が付く 2 つ）
+        color(a == SPK_SOLDER_ANG[0] ? "#eeeeee" : "#3355cc") translate([q[0], q[1], SPK_MAG_H - SPK_PCB_T - 0.2]) rotate([90, 0, 0]) cylinder(d = 0.9, h = q[1] + 1.0);   // 線（パッドの上に乗り、裏面に沿って −Y へ、前の縁の 1.0 外まで）
+    }
 }
+// 三日月の 2D: 枠の外形を SPK_PCB_IN 内へ ∩ 端の半円の中心から ±SPK_PCB_ANG の扇 − パッキンの外形を SPK_PCB_GAP 外へ
+module spk_pcb2d() difference() {
+    intersection() {
+        offset(r = -SPK_PCB_IN) translate([SPK_W / 2, SPK_W / 2]) hull() { circle(d = SPK_W, $fn = 48); translate([SPK_L - SPK_W, 0]) circle(d = SPK_W, $fn = 48); }
+        translate([SPK_L - SPK_W / 2, SPK_W / 2]) polygon([[0, 0], [20 * cos(SPK_PCB_ANG), -20 * sin(SPK_PCB_ANG)], [20, 0], [20 * cos(SPK_PCB_ANG), 20 * sin(SPK_PCB_ANG)]]);
+    }
+    offset(r = SPK_PCB_GAP) translate([SPK_L / 2, SPK_W / 2]) hull() for (sx = [-1, 1]) translate([sx * (SPK_MAG_L - SPK_MAG_D) / 2, 0]) circle(d = SPK_MAG_D, $fn = 48);
+}
+// 角 a（端の半円の中心から。+ は −Y 側）でのはんだの xy（三日月の幅の中央）
+function spk_solder_xy(a) = let (cx = SPK_L - SPK_W / 2, cy = SPK_W / 2,
+        r_out = SPK_W / 2 - SPK_PCB_IN,
+        // パッキンの端の半円: 中心 (SPK_L/2 + (MAG_L − MAG_D)/2, cy)・半径 MAG_D/2 + GAP。方向 a のその縁までの距離を、中心のずれ dx を使って解く
+        dx = cx - (SPK_L / 2 + (SPK_MAG_L - SPK_MAG_D) / 2), rg = SPK_MAG_D / 2 + SPK_PCB_GAP,
+        r_in = -dx * cos(a) + sqrt(rg * rg - dx * dx * sin(a) * sin(a)),
+        r = (r_out + r_in) / 2)
+    [cx + r * cos(a), cy - r * sin(a)];
+function spk_pcb_h() = SPK_PCB_T + SPK_SOLDER;   // 端子の基板の裏への高さ（はんだ込み 1.4）
+module spk_pcb_relief2d(gap = 0.5) offset(r = gap) spk_pcb2d();   // 台の逃げ用（三日月を gap 広げた形・局所座標）
 
 // ============================================================
 // INA226 電流・電圧モニタ モジュール（Amazon B0GDX2P81Y・ネジ端子・10mΩ）

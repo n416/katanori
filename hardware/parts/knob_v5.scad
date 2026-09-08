@@ -509,14 +509,17 @@ Z_PCB_BOT  = Z_PCB_TOP - PCB_T;          // -19.7
 //   ねじ M2×15 を板の下から。ナットは台座の裏に開く六角ポケット（天板を裏返して組むので落ちない）。先はポケットの上の肉に入る
 HANG = true;
 PCB_ROT = 90;   // 🔒 ユーザー 2026-09-08「AS5600 だけ Z 軸さらに 90 度回転」（手・バスタブ 2 を 90 にした後）。以前: 基板の Z 回転。2026-09-08 に一度 90 にしたが、実物は「奥の右がダボ（DIR 角）」で 0 の向きと一致するので 0 に戻した（ヘッダの列は奥と手前の縁に X 方向）
-function knob_pcb_rot() = PCB_ROT;   // case_v5 の口と線（knob_plugs / knob_mouth）が同じ角で回す
+function knob_pcb_rot() = PCB_ROT;
+function knob_hang_rot() = HANG_ROT; function knob_hang_arm_y() = HANG_ARM_Y; function knob_hang_nut_x() = HANG_NUT_X0 + HANG_NUT_T / 2; function knob_hang_scr_z() = HANG_SCR_Z;   // case_v5 のナットの口の道の検査が読む   // case_v5 の口と線（knob_plugs / knob_mouth）が同じ角で回す
 // 🔒 ユーザー 2026-09-08（2 回目）: 天板の台座の裏から**短い手 2 本**（±X）を下ろし、手の中にナットのポケット。
 //   バスタブ 2 は ±X の壁でその手を外から掴み、基板の下・ピンヘッダ 2 列（±Y）の間に板を這わせて、反対の壁でもう一方の手を掴む。
 //   ねじは横（軸 X）。壁の外から M2×6 → 壁 1.5 → 手の外の肉 1.2 → ナット。ナットは手の下からポケットへ滑り込ませる。
 //   ナットの座カバーとはまだ繋がない（形の確認が先）。当たり検査は一旦見ない。
 HANG_ARM_X0 = 12.0; HANG_ARM_X1 = 16.0;   // 手の X（内 12.0 = 基板の縁 11.5 から 0.5・外 16.0 = 台座の縁 PAD_X/2）
-HANG_ARM_W  = 8.0;                        // 手の Y 幅（y ±4）
-HANG_ARM_Z0 = Z_PCB_BOT - 0.2;            // 手の下端 −19.9 ＝ バスタブ 2 の板の上面（Z_HANG_TOP。🔒 ユーザー 2026-09-08「手の高さをバスタブ内側の高さに揃えて」）。上端は台座の裏 −9.0 → 長さ 10.9
+HANG_ARM_W  = 6.0;                        // 手の幅 6.0 ＝ ナットの六角の平面 4.3 ＋ 肉 0.85 × 2（平面は手の幅の向き）
+HANG_ARM_Y  = [-5.0, 5.0];                // 🔒 ユーザー 2026-09-08「2 本では不安定。4 本に」: ±Y の壁に手を 2 本ずつ（局所 y の芯 ±5 → 手は y ±2〜8、間 4）。壁 1 枚にねじ 2 本で、首を振らない
+HANG_RECESS_D = 1.0; HANG_RECESS_CL = 0.2;   // 🔒 ユーザー 2026-09-08「バスタブ 2 に位置決めのくぼみを。その分手は長くなる」: 板の上面に手の足跡（＋0.2）のくぼみ 1.0。板 2.5 の下に 1.5 残る
+HANG_ARM_Z0 = Z_PCB_BOT - 0.2 - HANG_RECESS_D;   // 手の下端 −20.9 ＝ くぼみの底 ＝ バスタブ 2 の板の上面（Z_HANG_TOP。🔒 ユーザー 2026-09-08「手の高さをバスタブ内側の高さに揃えて」）。上端は台座の裏 −9.0 → 長さ 10.9
 HANG_SCR_Z  = Z_PCB_BOT - 0.2 + 0.85 + (M25_NUT_AF + 0.3) / 2;   // −16.9 横ねじの芯＝六角の中心。🔒 ユーザー 2026-09-08「ナットポケットを手の一番先、つまり下に下げて」: 六角の下の平面が手の下端 −19.9 から肉 0.85（前は −13.0）
 HANG_SCR_D  = 2.5;
 HANG_NUT_AF = M25_NUT_AF + 0.3; HANG_NUT_T = M25_NUT_T + 0.2;   // M2 ナット 4.3 × 1.8（呼び＋0.3 の実績値）
@@ -527,7 +530,7 @@ HANG_Y = [-1, 1] * (POST_XY_LO + POST_D / 2 + 1.0);   // 板と壁の Y ±10.8�
 Z_HANG_TOP = Z_PCB_BOT - HANG_PLAY; Z_HANG_BOT = Z_HANG_TOP - HANG_PLATE_T;   // 板 −19.9〜−22.4
 Z_HANG_WALL_T = HANG_SCR_Z + HANG_NUT_AF / 2;   // 壁の上端 −14.75 ＝ ナットの六角の上の平面。🔒 ユーザー 2026-09-08「バスタブの開始を手のナットポケットの位置まで下げて」（前は台座の裏から 0.2 の −9.2）。ねじの頭 φ4 の上 −14.9 は壁の中
 HANG_SCR_LEN = M25_LEN;                   // M2×6: 頭は壁の外 17.7、先 11.7
-HANG_WALL_TOPW = HANG_ARM_W / 2;          // 壁の上端の半幅 4.0 ＝ 手の幅（🔒 ユーザー 2026-09-08「手の幅から板まで」。2.5 は私の読み違い）。斜面は上端から板の上面（−19.9）の外の縁へ
+HANG_WALL_TOPW = HANG_ARM_Y[1] + HANG_ARM_W / 2;   // 壁の上端の半幅 8.0 ＝ 手 2 本の外の縁（🔒 ユーザー「手の幅から板まで」の読み替え: 2 本ぶん）（🔒 ユーザー 2026-09-08「手の幅から板まで」。2.5 は私の読み違い）。斜面は上端から板の上面（−19.9）の外の縁へ
 HANG_CB_D = M25_HEAD_D_MAX + 0.4; HANG_CB_T = M25_HEAD_T;   // 板の裏のねじの頭のザグリ φ4.4 × 1.3（🔒 ユーザー 2026-09-08「バスタブにネジのザグリは入れておいて」）。板 2.5 なので残り 1.2
 HANG_ROT = 90;                            // 🔒 ユーザー 2026-09-08「これやるなら Z 軸 90 度回して」: 手・バスタブ 2・ねじを全部 Z で回す（手は ±Y へ）
 // ---- ナットの座カバー（🔒 ユーザー 2026-09-08）: 基板の部品面（上）に載る口の形の板。4 つの穴の上に M2 ナットの座、ナットは ±Y の縁から横に差す ----
@@ -852,7 +855,7 @@ module knob_station_add() difference() {
     if (HANG) knob_station_hang_cut();
 }
 // 短い手 2 本（天板側・台座の裏から下ろす）
-module hang_arms() rotate([0, 0, HANG_ROT]) for (sx = [-1, 1]) difference() {
+module hang_arms() rotate([0, 0, HANG_ROT]) for (sx = [-1, 1], ay = HANG_ARM_Y) translate([0, ay, 0]) difference() {
     translate([sx > 0 ? HANG_ARM_X0 : -HANG_ARM_X1, -HANG_ARM_W / 2, HANG_ARM_Z0]) cube([HANG_ARM_X1 - HANG_ARM_X0, HANG_ARM_W, Z_PAD_BOT - HANG_ARM_Z0 + 0.01]);
     // 🔒 ユーザー 2026-09-08 絵「ここ削って」: 手の外側の面を、壁の上端から台座の裏まで、壁の厚み 1.5 だけ削る（壁に掴まれる下の部分は 4 のまま）
     // 🔒 同日 絵「印刷時に壊さないように」: 段の入隅を 45° の斜面（1.5 × 1.5）にする。太い部分の外の上の縁から、薄い面へ 1.5 上がって着く
@@ -861,12 +864,12 @@ module hang_arms() rotate([0, 0, HANG_ROT]) for (sx = [-1, 1]) difference() {
                  [HANG_ARM_X1 + 1, Z_PAD_BOT - 0.01], [HANG_ARM_X1 - HANG_WALL_T, Z_PAD_BOT - 0.01]]);
 }
 // 手のナットのポケット（六角・軸 X・平面が上下）と、横の面から差し込む溝、横ねじの通し（手を貫通）。天板の keepout にも入れる
-module knob_station_hang_cut() rotate([0, 0, HANG_ROT]) for (sx = [-1, 1]) {
-    translate([sx * (HANG_NUT_X0 + HANG_NUT_T / 2), 0, HANG_SCR_Z]) {
-        rotate([30, 0, 0]) rotate([0, 90, 0]) cylinder(d = HANG_NUT_AF / cos(30), h = HANG_NUT_T, center = true, $fn = 6);   // 平面が上下（z ±2.15）
-        translate([-HANG_NUT_T / 2, 0, -HANG_NUT_AF / 2]) cube([HANG_NUT_T, HANG_ARM_W / 2 + 1, HANG_NUT_AF]);   // 🔒 ユーザー 2026-09-08「ポケットを下ではなく横に」: 手の横の面（局所 +Y）へ開く溝。ナットは横から差す
+module knob_station_hang_cut() rotate([0, 0, HANG_ROT]) for (sx = [-1, 1], ay = HANG_ARM_Y) {
+    translate([sx * (HANG_NUT_X0 + HANG_NUT_T / 2), ay, HANG_SCR_Z]) {
+        rotate([0, 90, 0]) cylinder(d = HANG_NUT_AF / cos(30), h = HANG_NUT_T, center = true, $fn = 6);   // 六角・軸 X・平面が手の幅の向き（y ±2.15）・角が上下（z ±2.48）
+        translate([-HANG_NUT_T / 2, ay > 0 ? 0 : -(HANG_ARM_W / 2 + 1), -(HANG_NUT_AF / cos(30)) / 2]) cube([HANG_NUT_T, HANG_ARM_W / 2 + 1, HANG_NUT_AF / cos(30)]);   // 手の外側の面（2 本のうち外の側）へ開く溝。ナットは横から差す（🔒 ユーザー「ポケットは横に」）
     }
-    translate([sx * (HANG_ARM_X0 + HANG_ARM_X1) / 2, 0, HANG_SCR_Z]) rotate([0, 90, 0]) cylinder(d = HANG_SCR_D, h = HANG_ARM_X1 - HANG_ARM_X0 + 2, center = true, $fn = 24);
+    translate([sx * (HANG_ARM_X0 + HANG_ARM_X1) / 2, ay, HANG_SCR_Z]) rotate([0, 90, 0]) cylinder(d = HANG_SCR_D, h = HANG_ARM_X1 - HANG_ARM_X0 + 2, center = true, $fn = 24);
 }
 // 板の平面（HANG の局所座標）。🔒 ユーザー 2026-09-08「バスタブ 2 はピンヘッダーを避けて。中央を細く」:
 //   ヘッダ 2 列（樹脂＋ピン）の足跡を、列の長さの範囲だけ ±Y から切り欠く（中央の幅 −5.66〜5.06 = 10.7）。両端（壁の側）は HANG_Y の幅のまま
@@ -888,15 +891,22 @@ module hang_part() rotate([0, 0, HANG_ROT]) color("#e0a040") difference() {
         for (sx = [-1, 1]) translate([sx > 0 ? HANG_WALL_X0 : -HANG_WALL_X1, 0, 0]) rotate([90, 0, 90]) linear_extrude(HANG_WALL_T)
             polygon([[HANG_Y[0], Z_HANG_BOT], [HANG_Y[1], Z_HANG_BOT], [HANG_Y[1], Z_HANG_TOP], [HANG_WALL_TOPW, Z_HANG_WALL_T], [-HANG_WALL_TOPW, Z_HANG_WALL_T], [HANG_Y[0], Z_HANG_TOP]]);
     }
-    for (sx = [-1, 1]) translate([sx * (HANG_WALL_X0 + HANG_WALL_X1) / 2, 0, HANG_SCR_Z]) rotate([0, 90, 0]) cylinder(d = HANG_SCR_D, h = HANG_WALL_T + 2, center = true, $fn = 24);
+    for (sx = [-1, 1], ay = HANG_ARM_Y) translate([sx * (HANG_WALL_X0 + HANG_WALL_X1) / 2, ay, HANG_SCR_Z]) rotate([0, 90, 0]) cylinder(d = HANG_SCR_D, h = HANG_WALL_T + 2, center = true, $fn = 24);   // 横ねじ 2 本 × 2 壁
+    // 手 4 本の位置決めのくぼみ（板の上面から 1.0）
+    for (sx = [-1, 1], ay = HANG_ARM_Y) translate([sx > 0 ? HANG_ARM_X0 - HANG_RECESS_CL : -HANG_ARM_X1 - HANG_RECESS_CL, ay - HANG_ARM_W / 2 - HANG_RECESS_CL, Z_HANG_TOP - HANG_RECESS_D])
+        cube([HANG_ARM_X1 - HANG_ARM_X0 + 2 * HANG_RECESS_CL, HANG_ARM_W + 2 * HANG_RECESS_CL, HANG_RECESS_D + 1]);
     // 基板のねじ 4 本の頭のザグリ（板の裏から）
     for (x = [-1, 1], y = [-1, 1]) translate([x * POST_XY_LO, y * POST_XY_LO, Z_HANG_BOT - 0.01]) cylinder(d = HANG_CB_D, h = HANG_CB_T + 0.01, $fn = 32);
 }
 // 基板をバスタブ 2 に留めるねじ 4 本（M2×6・頭はザグリの中）とナット（基板の上に直に）
 module hang_pcb_screws() color("#b8b8b8") for (x = [-1, 1], y = [-1, 1]) translate([x * POST_XY_LO, y * POST_XY_LO, Z_HANG_BOT + HANG_CB_T]) { mirror([0, 0, 1]) cylinder(d = M25_HEAD_D_MAX, h = M25_HEAD_T, $fn = 24); cylinder(d = 2.0, h = M25_LEN, $fn = 16); }
 module hang_pcb_nuts() color("#b8b8b8") for (x = [-1, 1], y = [-1, 1]) translate([x * POST_XY_LO, y * POST_XY_LO, Z_PCB_TOP]) rotate([0, 0, 30]) cylinder(d = M25_NUT_AF / cos(30), h = M25_NUT_T, $fn = 6);
-module hang_screws() rotate([0, 0, HANG_ROT]) color("#b8b8b8") for (sx = [-1, 1]) translate([sx * HANG_WALL_X1, 0, HANG_SCR_Z]) rotate([0, -sx * 90, 0]) { mirror([0, 0, 1]) cylinder(d = M25_HEAD_D_MAX, h = M25_HEAD_T, $fn = 24); cylinder(d = 2.0, h = HANG_SCR_LEN, $fn = 16); }   // M2×6。頭は壁の外、軸は壁の中へ（🔴 2026-09-08 回転の符号が逆で、軸が壁の外へ突き出ていた）
-module hang_nuts() rotate([0, 0, HANG_ROT]) color("#b8b8b8") for (sx = [-1, 1]) translate([sx * (HANG_NUT_X0 + HANG_NUT_T / 2), 0, HANG_SCR_Z]) rotate([0, 90, 0]) cylinder(d = M25_NUT_AF / cos(30), h = M25_NUT_T, center = true, $fn = 6);
+// 手＋バスタブ 2 だけの試し刷り（🔒 ユーザー 2026-09-08「つまみの台座そんなにでっかく必要ない。今回はバスタブ 2 の調査だけ」）: 台座の代わりに手の周りだけの塊 16 × 36 × 4（z −9〜−5）
+HT_BLOCK = [[-9, -18, -9], [9, 18, -7]];   // 手 2 本ずつ（世界 x ±2〜8）を覆う。厚み 4 → 2（🔒 ユーザー 2026-09-08「もっと薄くていい。無駄に印刷時間がかかる」）
+module hang_test() difference() { union() { translate(HT_BLOCK[0]) cube(HT_BLOCK[1] - HT_BLOCK[0]); hang_arms(); } knob_station_hang_cut(); }
+module print_hangtest() translate([0, 0, HT_BLOCK[1][2]]) rotate([180, 0, 0]) hang_test();   // 塊の上面（z −5）を下。手は柱として立つ（段は 45° の斜面）
+module hang_screws() rotate([0, 0, HANG_ROT]) color("#b8b8b8") for (sx = [-1, 1], ay = HANG_ARM_Y) translate([sx * HANG_WALL_X1, ay, HANG_SCR_Z]) rotate([0, -sx * 90, 0]) { mirror([0, 0, 1]) cylinder(d = M25_HEAD_D_MAX, h = M25_HEAD_T, $fn = 24); cylinder(d = 2.0, h = HANG_SCR_LEN, $fn = 16); }   // M2×6。頭は壁の外、軸は壁の中へ（🔴 2026-09-08 回転の符号が逆で、軸が壁の外へ突き出ていた）
+module hang_nuts() rotate([0, 0, HANG_ROT]) color("#b8b8b8") for (sx = [-1, 1], ay = HANG_ARM_Y) translate([sx * (HANG_NUT_X0 + HANG_NUT_T / 2), ay, HANG_SCR_Z]) rotate([0, 90, 0]) cylinder(d = M25_NUT_AF / cos(30), h = M25_NUT_T, center = true, $fn = 6);
 // ナットの座カバー本体（別部品）
 NCV = false;    // 🔒 ユーザー 2026-09-08「ナットの座リングなし」: 基板は机の上でバスタブ 2 に直接ナット止め（ナットは基板の上・ねじは板の下から）。モジュールは残すが描かない
 NCV_ROT = 90;   // 🔒 ユーザー 2026-09-08「基板面上のナットリングを Z 軸で 90 度回転」: ナットの座の口が ±X の縁に向く。はんだの逃げはヘッダの列（PCB_ROT）に付いたまま
@@ -1360,6 +1370,7 @@ else if (part == "knobprop") rotate([180, 0, 0])   // 段のまま＋柱
 else if (part == "kpropcheck") kprop_check();
 else if (part == "deck")    rotate([180, 0, 0]) deck_test();
 else if (part == "wall")    translate([0, 0, Z_WALL_T]) rotate([180, 0, 0]) wall_part();
+else if (part == "hangtest") print_hangtest();   // 手＋塊の試し刷り（2026-09-08）
 else if (part == "hang")    translate([0, 0, -Z_HANG_BOT]) hang_part();   // 吊るす板を刷る向き（板を下・足が上に立つ）
 else if (part == "hangcheck")  hang_check();
 else if (part == "ncov")       translate([0, 0, Z_NCV_TOP]) rotate([180, 0, 0]) nut_cover();   // ナットの座カバーを刷る向き（天井を下・座の口が上に開く）
