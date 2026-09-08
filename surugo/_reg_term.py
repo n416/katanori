@@ -11,7 +11,7 @@ import json, math, os, sys, datetime
 HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 import measure as M, server as SV, store as S
-PATHS = ['hardware/stl/v4/v4_hatch.stl', 'hardware/stl/v4/v4_seat.stl']
+PATHS = ['hardware/stl/v5/v5_spktub.stl', 'hardware/stl/v5/v5_spktest.stl']
 PLATE_W, PLATE_H, PLATE_EDGE = 143, 89, 8.0
 SPREAD = [[0,0],[-1,-1],[1,1],[1,-1],[-1,1],[-1,0],[1,0],[0,1],[0,-1]]
 ANCHOR_STL, ANCHOR_SZ, ANCHOR_OUT = 'surugo/anchor.stl', 6.0, 6.0
@@ -31,9 +31,22 @@ n = st.get('film_terms_since_change') or 0
 rx = max(0.0, (PLATE_W-(bb[2]-bb[0]))/2 - PLATE_EDGE); ry = max(0.0, (PLATE_H-(bb[3]-bb[1]))/2 - PLATE_EDGE)
 u = SPREAD[n % len(SPREAD)]
 q = lambda v: round(v*2)/2
+shift = lambda dx, dy: [dict(p, cx=p['cx']+dx, cy=p['cy']+dy) for p in PL]
 dx, dy = q(u[0]*rx), q(u[1]*ry)
-PL = [dict(p, cx=p['cx']+dx, cy=p['cy']+dy) for p in PL]
+# 🔒 ヘラが届く所に置く（scraper_reach_mm）。散らしの向きを優先し、駄目なら動かせる範囲で近い所を探す
+if SV.scraper_far(shift(dx, dy)):
+    grid = lambda r: sorted({q(v/2.0) for v in range(-int(r*2), int(r*2)+1)})
+    cand = [(abs(x-dx)+abs(y-dy), x, y) for x in grid(rx) for y in grid(ry)
+            if not SV.scraper_far(shift(x, y))]
+    if not cand:
+        print('■ 止まった: ヘラ（届く深さ %.0fmm）が寝たまま届く配置にならない。'
+              '部品を減らすか、並べ方を変えてください' % SV.scraper_reach()); sys.exit(1)
+    _, dx, dy = min(cand)
+    print('ずらしをヘラの規則で寄せ直した（散らしの向きは %s）' % (u,))
+PL = shift(dx, dy)
 print('ずらし X %.1f / Y %.1f（%d 回目・動かせる範囲 ±%.1f / ±%.1f）' % (dx, dy, n+1, q(rx), q(ry)))
+print('ヘラの奥行き: ' + ' / '.join('%s %.1fmm' % (p['name'], SV.scraper_inset(p)) for p in PL)
+      + '（届く %.0fmm）' % SV.scraper_reach())
 for w in r.get('warn', []): print('  ⚠', w)
 for p in parts:
     for w in p['warn']: print('  ⚠ %s ── %s' % (p['name'], w))

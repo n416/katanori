@@ -13,6 +13,7 @@
   POST /api/export   {id,placements,out}  **結合した 1 つの STL** を書く
   POST /api/event    {ev,by}   ログに 1 件足す（by="ai" は term しか書けない）
   GET  /api/log                ログの全行（行番号つき）とバックアップの一覧
+  GET  /api/heat               フィルムの摩耗マップ（刷った結合 STL から、1mm 角ごとの露光層数の累計）
   POST /api/log/edit    {row,ev,by}   その行を書き換える（人だけ。前に必ずバックアップ）
   POST /api/log/delete  {row,by}      その行を消す（人だけ。前に必ずバックアップ）
   POST /api/log/restore {name,by}     バックアップへ戻す（人だけ。戻す前の分も写す）
@@ -29,6 +30,7 @@ sys.path.insert(0, _HERE)
 
 import measure as M     # noqa: E402
 import store as S       # noqa: E402
+import heat as HT       # noqa: E402
 
 import numpy as np      # noqa: E402
 
@@ -68,6 +70,28 @@ def alone_grip():
        ⇒ 見るのは**接地ではなく断面**。しかも**その層に載っている合計**である
        （たわむ原因は剥離力で、力はプレート全体に効く）。"""
     return float(rules().get("alone_grip_mm2", 3855))
+
+
+def scraper_reach():
+    """🔒 小さい部品を中央付近に置かない（2026-09-09 ユーザー）。金属ヘラを寝かせたまま
+       届く深さ＝刃が出ている長さ。これより奥に置くと柄が当たって刃に角度が付き、
+       プレートに傷が入る（＝研ぎ直すまで連続印刷ができない）。0 なら効かない。"""
+    return float(rules().get("scraper_reach_mm") or 0)
+
+
+def scraper_inset(q):
+    """その部品の一番近い縁から、プレートの一番近い縁までの距離（mm）。"""
+    return min(PLATE_X / 2 - (q["cx"] + q["w"] / 2), q["cx"] - q["w"] / 2 + PLATE_X / 2,
+               PLATE_Y / 2 - (q["cy"] + q["h"] / 2), q["cy"] - q["h"] / 2 + PLATE_Y / 2)
+
+
+def scraper_far(placements):
+    """ヘラが届かない所に居る部品 [(名前, 奥行き)]。アンカーは数えない（縁の外）。"""
+    r = scraper_reach()
+    if not r:
+        return []
+    return [(q["name"], scraper_inset(q)) for q in placements
+            if q.get("name") != "anchor" and scraper_inset(q) > r + 1e-6]
 
 
 def pct(mm2):
@@ -172,7 +196,8 @@ def arrange(parts):
             q["cy"] = round(q["y"] + q["h"] / 2 - cy, 3)
 
     return {"placements": placed, "warn": _arrange_warn(placed) + over,
-            "time": _time(placed), "used": _used(placed, W, H)}
+            "time": _time(placed), "used": _used(placed, W, H),
+            "scraper_reach": scraper_reach()}   # 画面の散らしが同じ規則で寄せられるように
 
 
 def _peak_layer(parts):
@@ -238,6 +263,15 @@ def _time(placed):
 
 def export(placements, out):
     """🔒 1 つの STL に結合する。別ファイルでは CHITUBOX が座標を捨てる（PRINT.md §3）。"""
+    far = scraper_far(placements)
+    if far:
+        return {"error": "%s がプレートの縁から %s 奥にある。ヘラ（刃の出ている長さ %.0fmm）が"
+                         "寝たまま届かないので、剥がすときに柄が当たって刃に角度が付き、"
+                         "プレートに傷が入る（研ぎ直すまで連続印刷ができない）。"
+                         "⇒ 縁の方へ寄せてください。rules.json の scraper_reach_mm = %.0f。"
+                         % ("・".join(n for n, _ in far),
+                            "・".join("%.1fmm" % d for _, d in far),
+                            scraper_reach(), scraper_reach())}
     chunks = []
     for q in placements:
         t = M.load_tris(os.path.join(_ROOT, q["path"])).copy()
@@ -298,6 +332,8 @@ class H(BaseHTTPRequestHandler):
                 return self._send(200, S.state())
             if self.path == "/api/log":
                 return self._send(200, {"rows": S.rows(), "backups": S.backups()})
+            if self.path == "/api/heat":
+                return self._send(200, HT.heat())
             if self.path == "/api/stls":
                 out = []
                 for p in sorted(glob.glob(os.path.join(_ROOT, "hardware", "stl", "**", "*.stl"),
