@@ -35,8 +35,9 @@ shift = lambda dx, dy: [dict(p, cx=p['cx']+dx, cy=p['cy']+dy) for p in PL]
 dx, dy = q(u[0]*rx), q(u[1]*ry)
 # 🔒 ヘラが届く所に置く（scraper_reach_mm）。散らしの向きを優先し、駄目なら動かせる範囲で近い所を探す
 if SV.scraper_far(shift(dx, dy)):
+    RX = max(rx, (PLATE_W-(bb[2]-bb[0]))/2 - 3.0); RY = max(ry, (PLATE_H-(bb[3]-bb[1]))/2 - 3.0)   # 規則のためなら板の余白まで使う
     grid = lambda r: sorted({q(v/2.0) for v in range(-int(r*2), int(r*2)+1)})
-    cand = [(abs(x-dx)+abs(y-dy), x, y) for x in grid(rx) for y in grid(ry)
+    cand = [(abs(x-dx)+abs(y-dy), x, y) for x in grid(RX) for y in grid(RY)
             if not SV.scraper_far(shift(x, y))]
     if not cand:
         print('■ 止まった: ヘラ（届く深さ %.0fmm）が寝たまま届く配置にならない。'
@@ -45,7 +46,7 @@ if SV.scraper_far(shift(dx, dy)):
     print('ずらしをヘラの規則で寄せ直した（散らしの向きは %s）' % (u,))
 PL = shift(dx, dy)
 print('ずらし X %.1f / Y %.1f（%d 回目・動かせる範囲 ±%.1f / ±%.1f）' % (dx, dy, n+1, q(rx), q(ry)))
-print('ヘラの奥行き: ' + ' / '.join('%s %.1fmm' % (p['name'], SV.scraper_inset(p)) for p in PL)
+print('入口（手前の縁）まで: ' + ' / '.join('%s %.1fmm' % (p['name'], SV.scraper_depth(p)) for p in PL)
       + '（届く %.0fmm）' % SV.scraper_reach())
 for w in r.get('warn', []): print('  ⚠', w)
 for p in parts:

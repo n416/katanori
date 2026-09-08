@@ -79,19 +79,23 @@ def scraper_reach():
     return float(rules().get("scraper_reach_mm") or 0)
 
 
-def scraper_inset(q):
-    """その部品の一番近い縁から、プレートの一番近い縁までの距離（mm）。"""
+def scraper_depth(q):
+    """プレートの縁から、その部品の**手前の縁**（＝刃が下に入る入口）までの距離（4 辺の最小）。
+       🔒 2026-09-09 ユーザー「正直入口だけ 30mm あればいい。そこだけオルファを使うから」。
+       オルファ（金属・刃の出ている長さ 32mm）を使うのは入口の一噛みだけで、その先は
+       巾木ヘラ（プラ）に持ち替える。入口がこれより奥だと、届く前に柄がプレートに乗って
+       刃が起き、アルミのプレートに傷が入る（＝研ぎ直すまで連続印刷ができない）。"""
     return min(PLATE_X / 2 - (q["cx"] + q["w"] / 2), q["cx"] - q["w"] / 2 + PLATE_X / 2,
                PLATE_Y / 2 - (q["cy"] + q["h"] / 2), q["cy"] - q["h"] / 2 + PLATE_Y / 2)
 
 
 def scraper_far(placements):
-    """ヘラが届かない所に居る部品 [(名前, 奥行き)]。アンカーは数えない（縁の外）。"""
+    """ヘラが届かない所に居る部品 [(名前, 向こう側の縁までの距離)]。アンカーは数えない（縁の外）。"""
     r = scraper_reach()
     if not r:
         return []
-    return [(q["name"], scraper_inset(q)) for q in placements
-            if q.get("name") != "anchor" and scraper_inset(q) > r + 1e-6]
+    return [(q["name"], scraper_depth(q)) for q in placements
+            if q.get("name") != "anchor" and scraper_depth(q) > r + 1e-6]
 
 
 def pct(mm2):
@@ -265,13 +269,13 @@ def export(placements, out):
     """🔒 1 つの STL に結合する。別ファイルでは CHITUBOX が座標を捨てる（PRINT.md §3）。"""
     far = scraper_far(placements)
     if far:
-        return {"error": "%s がプレートの縁から %s 奥にある。ヘラ（刃の出ている長さ %.0fmm）が"
-                         "寝たまま届かないので、剥がすときに柄が当たって刃に角度が付き、"
-                         "プレートに傷が入る（研ぎ直すまで連続印刷ができない）。"
-                         "⇒ 縁の方へ寄せてください。rules.json の scraper_reach_mm = %.0f。"
+        return {"error": "%s は入口（手前の縁）までが %s ある。オルファ（入口の一噛みに使う）が"
+                         "届く前に柄がプレートに乗って刃が起き、"
+                         "プレート（アルミ）に傷が入る（研ぎ直すまで連続印刷ができない）。"
+                         "⇒ 入口が縁から %.0fmm の中に入るように寄せてください。rules.json の scraper_reach_mm = %.0f。"
                          % ("・".join(n for n, _ in far),
                             "・".join("%.1fmm" % d for _, d in far),
-                            scraper_reach(), scraper_reach())}
+                            scraper_reach(), scraper_reach(), scraper_reach())}
     chunks = []
     for q in placements:
         t = M.load_tris(os.path.join(_ROOT, q["path"])).copy()

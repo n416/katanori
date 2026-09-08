@@ -389,16 +389,18 @@ function anchorPlacements(){
     return out;
 }
 
-// 🔒 部品の一番近い縁からプレートの縁までの距離。ヘラ（scraper_reach_mm）が寝たまま届く深さの判定に使う
-//    ⚠ surugo/server.py の scraper_inset / _reg_term.py の寄せ直しと同じ計算。片方だけ動かさない
-function scraperInset(p){
+// 🔒 プレートの縁から、部品の**手前の縁**（＝刃が下に入る入口）までの距離（4 辺の最小）。
+//    オルファを使うのは入口の一噛みだけ（その先は巾木ヘラ）。ここが scraper_reach_mm を越えると
+//    届く前に柄が乗って刃が起き、アルミのプレートに傷が入る
+//    ⚠ surugo/server.py の scraper_depth / _reg_term.py の寄せ直しと同じ計算。片方だけ動かさない
+function scraperDepth(p){
   return Math.min(PLATE_W/2 - (p.cx + p.w/2), p.cx - p.w/2 + PLATE_W/2,
                   PLATE_H/2 - (p.cy + p.h/2), p.cy - p.h/2 + PLATE_H/2);
 }
 function scraperFar(placed, dx, dy, reach){
   if(!reach) return [];
   return placed.filter(p => p.name !== 'anchor' &&
-    scraperInset({...p, cx: p.cx + dx, cy: p.cy + dy}) > reach + 1e-6);
+    scraperDepth({...p, cx: p.cx + dx, cy: p.cy + dy}) > reach + 1e-6);
 }
 function spreadMove(bbox, n, placed, reach){
   const w = bbox[2] - bbox[0], h = bbox[3] - bbox[1];
@@ -408,9 +410,11 @@ function spreadMove(bbox, n, placed, reach){
   const q = v => Math.round(v * 2) / 2;          // 人が打つ数字なので 0.5mm 刻み
   let dx = q(u[0] * rx), dy = q(u[1] * ry), moved = false;
   if(placed && placed.length && scraperFar(placed, dx, dy, reach).length){
+    // 規則を満たすためなら、散らしの余白（PLATE_EDGE）ではなく板の余白（3mm）まで使う
+    const RX = Math.max(rx, (PLATE_W - w) / 2 - 3), RY = Math.max(ry, (PLATE_H - h) / 2 - 3);
     const grid = r => { const a = []; for(let v = -Math.round(r*2); v <= Math.round(r*2); v++) a.push(v/2); return a; };
     let best = null;
-    for(const x of grid(rx)) for(const y of grid(ry)){
+    for(const x of grid(RX)) for(const y of grid(RY)){
       if(scraperFar(placed, x, y, reach).length) continue;
       const d = Math.abs(x - dx) + Math.abs(y - dy);
       if(!best || d < best[0]) best = [d, x, y];
