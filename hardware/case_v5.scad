@@ -329,7 +329,7 @@ module banks() for (right = [false, true]) for (sg = rail_segs(right))
 module tab_solid(y0, w, right, rear)
     translate([foot_x(right), rear ? y0 + w : y0 - TAB_L, tab_z0(rear)]) cube([STRAP_T, TAB_L, TAB_H]);
 module tab_slot(y0, w, right, rear)
-    translate([foot_x(right) - 1, rear ? y0 + w : y0 - TAB_L - TAB_CL, tab_z0(rear) - TAB_CL]) cube([STRAP_T + 2, TAB_L + TAB_CL, TAB_H + 2 * TAB_CL]);   // 逃げは Y の外側と上下に TAB_CL
+    translate([foot_x(right) - 1, rear ? y0 + w - 0.1 : y0 - TAB_L - TAB_CL, tab_z0(rear) - TAB_CL]) cube([STRAP_T + 2, TAB_L + TAB_CL + 0.1, TAB_H + 2 * TAB_CL]);   // 逃げは Y の外側と上下に TAB_CL。🔴 2026-09-09: 溝の端が土手の端と同値だとブーリアンが厚み 0 の膜を残すので、帯の側へ 0.1 伸ばして面を重ねない
 module tab_slots() for (b = STRAP_BANDS) for (right = [false, true]) {
     if (tab_front(b[0], right))         tab_slot(b[0], b[1], right, false);
     if (tab_rear(b[0] + b[1], right))   tab_slot(b[0], b[1], right, true);
