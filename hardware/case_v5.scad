@@ -11,6 +11,8 @@
 //   bridge   … ブリッジ（皿＋土手＋壁への帯）・前板・留め帯 3 本と、それが受ける電池・電流計
 //   explode  … 箱全体の分解（皮 6 枚を外へ、天板は小組ごと上へ、ブリッジ・帯・電池・電流計・PowerBoost は段に分けて上へ。床とハブ・ReSpeaker・OLED・Type-C は置いたまま）
 //   tcfit    … Type-C 基板と、床（受け込み・橙）・左の壁（押さえ込み・青）・ハッチ（緑）だけ
+//   tcfix    … その留まり方だけを見る: 板は実体・床/左の壁/ハッチは 0.25 の透け・ハッチの羊羹（倒れ止め）だけ橙で不透明
+//   tcwall   … 左の壁の半田面の逃げを見る: 壁は実体・掘った形（引き算なので実体が無い）を橙で重ねる・板とヘッダは輪郭だけ
 //   skin     … 皮（板 6 枚・ハッチは蓋の彫り込みと縁込み）。蓋・ロック・床の板は単位 shutter / lock / hatchplate
 //   all      … 皮＋中身＋ブリッジ一式
 //   p_floor / p_top / p_lwall / p_rwall / p_front / p_hatch … 板 1 枚だけ（柱・棚・耳・ダボ・穴込み）
@@ -27,7 +29,7 @@
 //   print_strap_a / print_strap_b / print_strap_c … 帯 1 本を刷る向き（直置き・足の裏が Z 0）＋ 支柱とラフト（parts/props_v5_gen.scad・python hardware/tools/props_gen.py）。素の形は -D PROPS_OFF=true
 //   （皮・板・検査の語は皮を起こすときにここへ足す。既にある語の意味は変えない）
 // ============================================================
-part = "explode";
+part = "bridge";
 PROPS_OFF = false;   // true: 刷る向きの素の形（支柱・ラフト無し）。tools/props_gen.py がこれで焼いて支柱の位置を決める
 
 use <parts/parts.scad>
@@ -150,12 +152,11 @@ module at_spk()  translate([SPK_AT[0], SPK_AT[1], Z_TOP + TOP_T]) rotate([0, 0, 
 TGL_RY = 90;                        // 🔒 ユーザー 2026-09-05「トグルスイッチ Y 軸を中心に 90 度回転」: 胴の 13 が縦になる
 module at_tgl()  translate(TGL_AT) rotate([0, TGL_RY, 0]) rotate([-90, 0, 0]) children();   // 軸を +Y（ハッチの外）へ
 
-// Type-C 基板の L 字ヘッダ（v4 tcb_ra と同じ形）: 板の下辺の 7 穴（局所 y 2.54・x 2.54+2.54i）。樹脂は板の上（X 3.294〜5.8）、ピンは芯 X 5.8 で −Y（前）へ 6。使うのは 0・1・4・5（VBUS・GND・CC1・CC2）
+// Type-C 基板の L 字ヘッダ（v4 tcb_ra と同じ形）: 板の下辺の 7 穴（局所 y 2.54・x 2.54+2.54i）。樹脂は板の上（X 3.294〜5.8）、ピンは芯 X 5.8 で −Y（前）へ 6。立てるのは TC_PINS の 2 本（1 番 VBUS・4 番 GND）だけ
 TC_Y0 = TC_AT[1]; TC_ZT = TC_AT[2] + tc_size()[0];
-TC_PINS = [0, 1, 4, 5];
+TC_PINS = [0, 3];   // 🔒 ユーザー 2026-09-09「1，4 にピンヘッダ立てるよ。5,6,7 は抵抗に使う」: L 字ピンは 1 番 VBUS と 4 番 GND に 1 本ずつ（ピン単位・間の 2 番 +D と 3 番 −D は立てない）。ヘッダも線もこの 1 つの列から出す（tc_ra / tc_plugs / tc_mouth）。🔴 2026-09-09 まで [0,1,4,5] で、並びの読み違い（2 番を GND としていた）と CC への挿し込みが混ざっていた。2026-09-05 の「7 本目は立てない」（樹脂がハブの左後ろの柱 φ7 に 0.3・ピンの先がハブの板の左端に 0.11）はこの形でも守られている
 TC_PIN_XC = TC_AT[0] + tc_size()[2] + 2.5;   // ピンの芯の X 5.79（板の表 3.294 ＋ 樹脂 2.5）
-TC_RA_N = 6;   // L 字ヘッダの本数。板の穴は 7（VBUS GND D+ D− CC1 CC2 GND）だが 7 本目の GND は使わないので 6 本にする（7 本目の樹脂がハブの左後ろの柱 φ7 に 0.3・ピンの先がハブの板の左端に 0.11 かかるため。2026-09-05）
-module tc_ra() for (i = [0 : TC_RA_N - 1]) { z = TC_ZT - (2.54 + i * 2.54);
+module tc_ra() for (i = TC_PINS) { z = TC_ZT - (2.54 + i * 2.54);
     color("#222")    translate([TC_AT[0] + tc_size()[2], TC_Y0 + 2.54 - 1.27, z - 1.27]) cube([2.5, 2.54, 2.54]);            // 樹脂
     color("#c8ccd0") translate([TC_PIN_XC - 0.32, TC_Y0 + 2.54 - 6.0, z - 0.32]) cube([0.64, 6.0 + 0.32, 0.64]); }              // 板に沿うピン（−Y へ 6）
 module tc_plugs() for (i = TC_PINS) { z = TC_ZT - (2.54 + i * 2.54);
@@ -168,10 +169,11 @@ TC4_XF = TC_AT[0] + tc_size()[2];              // 板の表 3.294
 TC4_Y1 = TC_AT[1] + tc_size()[1]; TC4_Y0 = TC_AT[1];   // 後縁 IN_Y+0.4・前縁
 TC4_ZT = TC_AT[2] + tc_size()[0]; TC4_ZB = TC_AT[2];   // 上端 20.75・下端 0.75
 TC4_CL = 0.25; TC4_GX0 = TC4_XF + TC4_CL; TC4_GX1 = 4.25; TC4_BX1 = 4.70;
+TC4_SEAT_X1 = 3.9;   // 底の座（板の下端を受ける台）の右端。板の表 3.294 より 0.6 外へ出ている。⚠ 板の下だけで足りる 0.6 だが、床は 2026-09-07-2140 で刷ってあるので詰めない（詰めると床が刷り直しになる）。この 0.6 のぶんハッチの羊羹は 4.15 から右にしか置けない（左は薄壁になるので 2026-09-09 に廃止）
 TC4_FY1 = TC4_Y0 - TC4_CL; TC4_FY0 = TC4_FY1 - 3.0;   // 前の当ての厚み 1.2 → 3.0（ケーブルを挿す力を受ける・2026-09-05）
 TC4_SEAT_H = 6.0;   // 受けの高さ（🔒 ユーザー 2026-09-05「床からそんな長いの生やすわけ？」: 20.75 → 6.0。板の上は壁の押さえとハッチの穴が持つ）
 module tc_seat() color("#c9d0d8") {
-    translate([LW_X, TC4_FY0, 0]) cube([3.9 - LW_X, IN_Y - TC4_FY0, TC4_ZB]);                          // 底の座（床から板の下端まで）
+    translate([LW_X, TC4_FY0, 0]) cube([TC4_SEAT_X1 - LW_X, IN_Y - TC4_FY0, TC4_ZB]);                          // 底の座（床から板の下端まで）
     translate([LW_X, TC4_FY0, 0]) cube([TC4_GX1 - LW_X, TC4_FY1 - TC4_FY0, TC4_SEAT_H]);                // 前の当て（3.0 厚・高さ 6）
     translate([TC4_GX0, TC4_FY1, 0]) cube([TC4_GX1 - TC4_GX0, (TC4_Y1 - 14.05) - TC4_FY1, TC4_SEAT_H]);   // 前の返し（0.7 厚・高さ 6。DuPont のハウジングが X 4.52 なので厚くできない）
     translate([TC4_GX0, TC4_Y1 - 10.4, 0]) cube([5.2 - TC4_GX0, 3.5, TC4_SEAT_H]);                      // 後ろの控え（X 3.544〜5.2・高さ 6。L 字のピン X 5.47〜 が後ろから滑り込むので 5.9 にはできない）
@@ -306,10 +308,15 @@ STRAP_W = 6.9;    // 帯の太さ（3 本とも同じ）。🔒 ユーザー 202
 STRAP_N = 3;   // 🔒 ユーザー 2026-09-05「帯を 2 個から 3 個に増やし等間隔に」（様子見・調整はまだ）
 STRAP_SP = (lipo_size()[0] - STRAP_N * STRAP_W) / (STRAP_N + 1);   // 電池の長さ 50 の中に帯 3 本を、両端の余白も含めて同じ間隔で並べる（6.9 なら 7.3）
 STRAP_BANDS = [for (i = [0 : STRAP_N - 1]) [BAT_Y0 + STRAP_SP + i * (STRAP_W + STRAP_SP), STRAP_W]];   // 6.9 のとき 21.2〜28.1・35.4〜42.3・49.6〜56.5
-BANK_H = 4.0;
-TAB_L = 1.5; TAB_H = 1.5; TAB_CL = 0.2; TAB_MIN = 3.5;   // 掛かり 2.0 → 1.5・45°（🔒 ユーザー 2026-09-05「細すぎ」: 土手の根元 = 帯の間隔 5.2 − 溝 1.7×2 = 1.8。v4 は 2.0 で根元 0.8）
+TAB_L = 2.0; TAB_H = 1.4; TAB_CL = 0.2; TAB_MIN = 3.5;   // 掛かり 2.0（🔒 ユーザー 2026-09-09「長さと幅をもう少し増やして」）。段違いにしたので土手の根元は 帯の間隔 5.2 − (掛かり + 逃げ 0.2) = 3.0（どの高さでも溝は片側だけ。段違いにする前は両側で引かれて 1.8 だった）
+TAB_WEB = 0.73;                         // 🔒 溝と溝のあいだ・上・下に残す土手の肉（溝で測る）。ユーザー 2026-09-09「右の上の肉が 0.4 でしょ」: ツバではなく溝で測ること
+BANK_H = 3 * TAB_WEB + 2 * (TAB_H + 2 * TAB_CL);   // 5.39 段違いの溝 2 本（各 ツバ 1.2 ＋ 逃げ 0.2×2）と肉 3 枚。帯の天板 33.375 まで 0.61 空く
+// 🔴 2026-09-09 実機: ブリッジが**帯 A と帯 B のあいだの T の所**で割れた（ユーザー）。そこは溝 2 本に挟まれた土手で、根元が上のコメントの 1.8mm。原因は未特定（挿す力か、刷り方か）。刷り直しは 2026-09-09-2040 に載せた
 TAB_TIP = 0.4;   // ツバの先端の平らな高さ。🔒 ユーザー 2026-09-05「足の三角が鋭角すぎて入れるのに苦労した」: 刃（0）→ 0.4 の面で止め、そこから 45°
-TAB_Z0 = BRG_ZB + BRG_T;                // ツバの下面 = 足の裏 = 皿の上
+TAB_RISE = TAB_WEB + TAB_CL;            // 手前のツバの下端（床から）。溝の下に TAB_WEB を残す
+FOOT_Z0 = BRG_ZB + BRG_T;              // 足の裏 ＝ 皿の上
+TAB_STEP = TAB_H + 2 * TAB_CL + TAB_WEB;   // 🔒 ユーザー 2026-09-09「パズルのように、左を上に、右を下に」: 手前と奥のツバの段差（溝 1 本ぶん ＋ 肉）
+function tab_z0(rear) = FOOT_Z0 + TAB_RISE + (rear ? TAB_STEP : 0);   // 手前が下・奥が上。🔴 2026-09-09 に一度この 2 つを入れ替えたが、コマンドを使っていないだけで結果は帯の中心面の鏡像だった（ユーザー指摘）。入れ替えは鏡と同じなので、指示があるまで触らない
 function foot_x(right) = right ? BAT_X0 + lipo_size()[1] + 0.5 : BAT_X0 - 2.5;   // 足の X（電池との隙間 0.5）: 9.0 / 47.0
 function rail_segs(right) = [for (i = [0 : len(STRAP_BANDS)])   // 左右とも皿の前縁から（v4 は左を最初の帯の後ろから始めていた: J2 の欠きのため。v5 は皿が J2 の頭 23.5 より上なので要らない・ユーザー 2026-09-05）
     let (a = (i == 0) ? TRAY_Y0 : STRAP_BANDS[i - 1][0] + STRAP_BANDS[i - 1][1],
@@ -317,26 +324,29 @@ function rail_segs(right) = [for (i = [0 : len(STRAP_BANDS)])   // 左右とも�
 function tab_front(y0, right) = len([for (s = rail_segs(right)) if (abs(s[1] - y0) < 0.01 && s[1] - s[0] >= TAB_MIN) 1]) > 0;
 function tab_rear(y1, right)  = len([for (s = rail_segs(right)) if (abs(s[0] - y1) < 0.01 && s[1] - s[0] >= TAB_MIN) 1]) > 0;
 module banks() for (right = [false, true]) for (sg = rail_segs(right))
-    translate([foot_x(right), sg[0], TAB_Z0]) cube([STRAP_T, sg[1] - sg[0], BANK_H]);
-module tab_solid(y0, w, right, rear) hull() {
-    translate([foot_x(right), rear ? y0 + w - 0.6 : y0 - TAB_L, TAB_Z0]) cube([STRAP_T, TAB_L + 0.6, TAB_TIP]);   // 先端まで高さ 0.6 の面（刃にしない）
-    translate([foot_x(right), rear ? y0 + w - 0.6 : y0, TAB_Z0 + TAB_H - 0.01]) cube([STRAP_T, 0.6, 0.01]);       // 足の側は全高 → 上面が 45°
-}
-module tab_slot(y0, w, right, rear) hull() {
-    x = foot_x(right) - 1;
-    yl = rear ? y0 + w - 0.1 : y0 - TAB_L - TAB_CL;
-    yu = rear ? y0 + w - 0.1 : y0 - TAB_CL;
-    translate([x, yl, TAB_Z0]) cube([STRAP_T + 2, TAB_L + TAB_CL + 0.1, TAB_TIP + TAB_CL]);                        // 奥まで高さ 0.8 の壁
-    translate([x, yu, TAB_Z0 + TAB_H + TAB_CL - 0.01]) cube([STRAP_T + 2, TAB_CL + 0.1, 0.01]);
-}
+    translate([foot_x(right), sg[0], BRG_ZB + BRG_T]) cube([STRAP_T, sg[1] - sg[0], BANK_H]);   // 土手は皿の上から（ツバだけ TAB_RISE 上げる）
+// 🔒 ユーザー 2026-09-09「丸めた部分を角四角にして」: ツバは角の立った四角い舌（45° の斜面も丸も無し）。横からしか入らない
+module tab_solid(y0, w, right, rear)
+    translate([foot_x(right), rear ? y0 + w : y0 - TAB_L, tab_z0(rear)]) cube([STRAP_T, TAB_L, TAB_H]);
+module tab_slot(y0, w, right, rear)
+    translate([foot_x(right) - 1, rear ? y0 + w : y0 - TAB_L - TAB_CL, tab_z0(rear) - TAB_CL]) cube([STRAP_T + 2, TAB_L + TAB_CL, TAB_H + 2 * TAB_CL]);   // 逃げは Y の外側と上下に TAB_CL
 module tab_slots() for (b = STRAP_BANDS) for (right = [false, true]) {
     if (tab_front(b[0], right))         tab_slot(b[0], b[1], right, false);
     if (tab_rear(b[0] + b[1], right))   tab_slot(b[0], b[1], right, true);
 }
 module strap_u(y0, w) {
-    for (right = [false, true]) translate([foot_x(right), y0, TAB_Z0]) cube([STRAP_T, w, lipo_size()[2] + STRAP_T]);   // 足
+    for (right = [false, true]) translate([foot_x(right), y0, FOOT_Z0]) cube([STRAP_T, w, lipo_size()[2] + STRAP_T]);   // 足（裏は皿の上・上は天板とツライチ。ツバだけ TAB_RISE 上げる）
     translate([foot_x(false), y0, BAT_TOP]) cube([foot_x(true) + STRAP_T - foot_x(false), w, STRAP_T]);              // 天板
     for (right = [false, true]) { if (tab_front(y0, right)) tab_solid(y0, w, right, false); if (tab_rear(y0 + w, right)) tab_solid(y0, w, right, true); }
+}
+// 電流計まわりだけの組み立て図（2026-09-09）: 実体は 電流計の板と部品・帯 B・小帯・天板の棒、天板は半透明。part="inalook"
+module ina_look() {
+    at_ina() ina226_module(ra = true, pwr_ra = INA_PWR_L, hous = false, pwr_yaw = INA_PWR_YAW, i2c_yaw = INA_I2C_YAW);
+    color("#ed8936") strap_one(1);
+    color("#b8b8b8") ina_pegs();
+    ina_bar();
+    color("#3b6ea5") ina_ceiling_leg();
+    color("#8a94a0", 0.18) intersection() { p_top(); translate([INA_HOLES_W[0][0] - 14, INA_HOLES_W[0][1] - 16, 0]) cube([INA_HOLES_W[1][0] - INA_HOLES_W[0][0] + 28, 34, 60]); }   // 天板は電流計まわりの切れ端だけ（丸ごと入れると外形が天板になって中身が小さく映る）
 }
 // 電流計の支柱（B の天板の上・v4 2026-09-03「支柱は帯と一体」）: 胴 φ5.8・高さ INA_LIFT、軸 φ2.0 が穴 φ3.0 を通る。E リング（呼び 1.5）の溝はまだ彫っていない
 // 電流計の穴の世界座標: at_ina() の "下_I2C前" と同じ変換を式で（送ると支柱が付いてくる）
@@ -371,27 +381,52 @@ HDR_FOOT = let (c = [for (q = [[26.0 - 1.27, 3.6 - 1.27], [26.0 + 1.27, 3.6 - 1.
 //      2 つの穴に小帯 inabar（足 φ6.0 × 高さ INA_BAR_H・間は橋）を載せる。天板の足（φ3.6・先は平ら）は小帯の右の足の上に降りて押さえる（ina_ceiling_leg・p_top 側）。
 //      小帯の穴は φ3.0 のすべり嵌め（ダボ φ2.8）。ダボの先は小帯の上面より 0.2 低く、天板の足はダボではなく小帯に当たる
 //   台座でナットを入れる案は、電流計の一番高い所が PowerBoost の裏の 0.33 下にあり、台座 4.2 で 3.9 食い込む（当たり 113mm³）ので不可（同日検算）
-INA_BAR_H = 3.0; INA_BAR_T = 1.5; INA_BAR_FOOT_D = 6.0; INA_BAR_W = 4.0; INA_BAR_HOLE_D = 3.0;   // 小帯: 足の高さ（板の上から）・橋の厚み・足の径・橋の幅・穴 φ3.0（ダボ φ2.8 のすべり嵌め）
-INA_PEG_D = 2.8; INA_PEG_H = ina_size()[2] + INA_BAR_H - 0.2;   // 左のダボ φ2.8・高さ 4.4（板 1.6 ＋ 小帯の足 3.0 − 0.2。先は小帯の上面より低い）
+INA_BAR_H = 3.1; INA_BAR_T = 1.5; INA_BAR_FOOT_D = 6.0; INA_BAR_W = 1.25; INA_BAR_HOLE_D = 3.0;   // 小帯: 足の高さ（板の上から）・橋の厚み・足の径・橋の幅・穴 φ3.0（ダボ φ2.8 のすべり嵌め）
+INA_BAR_ARM_W = 2.0; INA_BAR_BACK_Y = 35.2; INA_BAR_BACK_W = 1.5;   // 🔒 ユーザー 2026-09-09「ピンヘッダー側の 2mm 程度は床が平。そこで繋げれば小細工がそもそもいらない」: 橋を足の芯の列から +Y へ逃がして「コ」の字にし、足の裏から上面まで通しで結ぶ（張り出しを作らない）。
+//    板の上の障害物（模型で実測・足と足のあいだ x 34.2〜43.8）: y 23.90〜31.17 高 4.09 ／ 31.65〜38.15 高 1.00 ／ 39.90〜43.10 高 1.10 ／ 51.33〜59.87 高 2.82（I2C ヘッダ）。
+//    ⚠ y 38.15〜39.90 の 1.75 のすき間は模型では空だが、実物は抵抗が載っている（🔒 ユーザー 2026-09-09「抵抗がある」）。通せるのは y 43.5〜51.0 の側だけ
+INA_BAR_POCKET = 1.6;   // 🔒 ユーザー 2026-09-09「天板棒→棒の凹み→小帯ダボ→小帯凹み→帯Bダボ」: 小帯の下面の凹みの深さ（貫通させない。残り肉 1.5）
+// 🔴 2026-09-09 実機: φ2.8 のダボが小帯（穴 φ3.0）にも天板の棒（穴 φ3.0）にも刺さらなかった。この機の嵌め合いは as5600_holder.scad:162〜170 の実測が持っていて、
+//    穴 φ3.35 に対しダボ 3.1 が良い・3.2 は入らない → 一般則「差し込みのほぞ径 = 穴 − 0.25」＋先端の面取り 0.5。ここは差 0.2・面取り無しでその規則を外していた（私が置いた数字）。
+//    直しは**ダボ側だけ**（穴を広げると刷り直したばかりの天板の棒が変わる）: φ2.8 → 2.75（差 0.25）・先に 0.5 の面取り。帯 B だけ刷り直せば済む
+INA_PEG_D = 2.75; INA_PEG_CH = 0.5;   // ダボの径（板の穴 φ3.0 − 嵌め代 0.25）・先の面取り
+INA_PEG_H_R = ina_size()[2] + INA_BAR_POCKET - 0.3;   // 右のダボ 2.9（板 1.6 ＋ 小帯の凹み 1.6 − 0.3）。🔒 ユーザー 2026-09-09「連動ダボと小帯のダボの長さを 0.3 づつ減らせ」: 先に 0.3 の空きを残す
+INA_PEG_H_L = ina_size()[2] + 1.0;              // 左のダボ 2.6（板 1.6 ＋ 凹みへ 1.0）。🔒 ユーザー 2026-09-09「上に棒が無いので柱に入らない。右と連動させるな」: 位置決めだけ。突き当てない
 INA_PEG_IN = 2.0;                                              // 🔒 ユーザー 2026-09-08「帯のダボは小帯を貫通して天井の棒に刺さるイメージ」: 右のダボは小帯を抜けて天板の棒の先の穴に 2.0 入る
-INA_LEG_D = 4.8; INA_LEG_PLAY = 0.1; INA_LEG_HOLE_D = 3.0;   // 天板の棒 φ4.8（先に φ3.0 の穴・肉 0.9。3.6 → 4.8 は 2026-09-08 穴を入れるため）。棒の先と小帯の上の遊び 0.1。⚠ 棒はつまみの台座の壁（x 48.7）に 0.5 重なるが同じ天板なので溶け合うだけ
-INA_PEG_H_R = ina_size()[2] + INA_BAR_H + INA_LEG_PLAY + INA_PEG_IN;   // 右のダボの高さ 6.7（板 1.6 ＋ 小帯 3.0 ＋ 遊び 0.1 ＋ 棒に 2.0）
+INA_LEG_D = 4.8; INA_LEG_PLAY = 0; INA_LEG_HOLE_D = 3.0;   // 天板の棒 φ4.8（先に φ3.0 の穴・肉 0.9。3.6 → 4.8 は 2026-09-08 穴を入れるため）。棒の先と小帯の上の遊び 0.1。⚠ 棒はつまみの台座の壁（x 48.7）に 0.5 重なるが同じ天板なので溶け合うだけ
+INA_BAR_PEG_D = 2.75;   // 小帯の上のダボ（刷った棒の穴 φ3.0 と同軸・嵌め代 0.25）
+INA_BAR_PEG_H = INA_PEG_IN + 0.2 - 0.3;   // 1.9 小帯の上のダボ（刷った棒の穴の深さ 2.2 − 0.3）。同上
 INA_TOP_Z = BAT_TOP + STRAP_T + ina_size()[2];             // 板の上面 36.975
-module ina_pegs() for (i = [0, 1]) let (h = INA_HOLES_W[i]) translate([h[0], h[1], BAT_TOP + STRAP_T - 0.01]) cylinder(d = INA_PEG_D, h = (i == 0 ? INA_PEG_H : INA_PEG_H_R) + 0.01, $fn = 32);   // ダボ 2 本（左は帯 B の X 33.2・高さ 4.4／右は X 48.8・高さ 6.7 で天板の棒に刺さる）
+module ina_pegs() for (i = [0, 1]) let (h = INA_HOLES_W[i], len = (i == 0 ? INA_PEG_H_L : INA_PEG_H_R) + 0.01) translate([h[0], h[1], BAT_TOP + STRAP_T - 0.01]) {
+    cylinder(d = INA_PEG_D, h = len - INA_PEG_CH, $fn = 32);
+    translate([0, 0, len - INA_PEG_CH]) cylinder(d1 = INA_PEG_D, d2 = INA_PEG_D - 2 * INA_PEG_CH, h = INA_PEG_CH, $fn = 32);   // 先の面取り（入口で食い付かせない）
+}   // ダボ 2 本（左は帯 B の X 33.2・高さ 4.4／右は X 48.8・高さ 6.7 で天板の棒に刺さる）
+INA_LEG_AT = INA_HOLES_W[1];
 INA_BAR_Z0 = INA_TOP_Z; INA_BAR_TOP = INA_TOP_Z + INA_BAR_H;   // 小帯の裏（板の上面）と上面
-module ina_bar() let (a = INA_HOLES_W[0], b = INA_HOLES_W[1]) color("#f6ad55") difference() {   // 小帯（組んだ姿勢）: 穴の上に足 2 本・その上面を橋で結ぶ
-    union() {
-        for (h = [a, b]) translate([h[0], h[1], INA_BAR_Z0]) cylinder(d = INA_BAR_FOOT_D, h = INA_BAR_H, $fn = 48);
-        translate([a[0], a[1] - INA_BAR_W / 2, INA_BAR_TOP - INA_BAR_T]) cube([b[0] - a[0], INA_BAR_W, INA_BAR_T]);
+module ina_bar() let (a = INA_HOLES_W[0], b = INA_HOLES_W[1]) color("#f6ad55") union() {   // 小帯（組んだ姿勢）
+    difference() {
+        union() {
+            for (h = [a, b]) translate([h[0], h[1], INA_BAR_Z0]) cylinder(d = INA_BAR_FOOT_D, h = INA_BAR_H, $fn = 48);   // 足 2 本
+            let (y0 = min(INA_BAR_BACK_Y, a[1]), y1 = max(INA_BAR_BACK_Y + INA_BAR_BACK_W, a[1])) {
+                translate([a[0] - INA_BAR_ARM_W / 2, y0, INA_BAR_Z0]) cube([INA_BAR_ARM_W, y1 - y0, INA_BAR_H]);   // 左の腕
+                translate([b[0] - INA_BAR_ARM_W / 2, y0, INA_BAR_Z0]) cube([INA_BAR_ARM_W, y1 - y0, INA_BAR_H]);   // 右の腕
+                translate([a[0] - INA_BAR_ARM_W / 2, INA_BAR_BACK_Y, INA_BAR_Z0]) cube([b[0] - a[0] + INA_BAR_ARM_W, INA_BAR_BACK_W, INA_BAR_H]);   // 橋（平らな帯の中）
+            }
+        }
+        for (h = [a, b]) translate([h[0], h[1], INA_BAR_Z0 - 0.01]) cylinder(d = INA_BAR_HOLE_D, h = INA_BAR_POCKET + 0.01, $fn = 48);   // 下面の凹み（帯 B のダボ・貫通なし）
     }
-    for (h = [a, b]) translate([h[0], h[1], INA_BAR_Z0 - 1]) cylinder(d = INA_BAR_HOLE_D, h = INA_BAR_H + 2, $fn = 48);
+    translate([INA_LEG_AT[0], INA_LEG_AT[1], INA_BAR_TOP - 0.01]) {   // 上のダボ（棒の穴と同軸）
+        cylinder(d = INA_BAR_PEG_D, h = INA_BAR_PEG_H - 0.3 + 0.01, $fn = 32);
+        translate([0, 0, INA_BAR_PEG_H - 0.3]) cylinder(d1 = INA_BAR_PEG_D, d2 = INA_BAR_PEG_D - 0.6, h = 0.3, $fn = 32);
+    }
 }
-module print_inabar() translate([0, 0, INA_BAR_TOP]) rotate([180, 0, 0]) ina_bar();   // 刷る向き: 上面を下（足は上を向く・張り出し無し）
-module ina_ceiling_leg() let (h = INA_HOLES_W[1], z0 = INA_BAR_TOP + INA_LEG_PLAY) translate([h[0], h[1], z0]) difference() {   // 天板の裏から小帯の右の足の上へ下ろす棒。先の穴に右のダボが 2.0 刺さる（位置決め）
+
+module print_inabar() translate([0, 0, -INA_BAR_Z0]) ina_bar();   // 刷る向き: 下面を下（足の裏と橋の裏が同じ面でプレートに付く・張り出し無し）
+module ina_ceiling_leg() let (h = INA_LEG_AT, z0 = INA_BAR_TOP + INA_LEG_PLAY) translate([h[0], h[1], z0]) difference() {   // 天板の裏から小帯の右の足の上へ下ろす棒。先の穴に右のダボが 2.0 刺さる（位置決め）
     cylinder(d = INA_LEG_D, h = Z_TOP - z0 + 0.01, $fn = 32);
     translate([0, 0, -1]) cylinder(d = INA_LEG_HOLE_D, h = 1 + INA_PEG_IN + 0.2, $fn = 32);   // 穴 φ3.0・深さ 2.2（ダボ 2.0 ＋ 底の逃げ 0.2）
-}
-echo(str("INA hold: pegs at ", INA_HOLES_W, " d ", INA_PEG_D, " h ", INA_PEG_H, " (tip Z ", BAT_TOP + STRAP_T + INA_PEG_H, ") / bar Z ", INA_BAR_Z0, "-", INA_BAR_TOP, " foot d ", INA_BAR_FOOT_D, " hole d ", INA_BAR_HOLE_D, " bridge W ", INA_BAR_W, " T ", INA_BAR_T, " / bar top to PB bottom ", Z_TOP - PB_CEIL_SO - INA_BAR_TOP, " / leg at ", INA_HOLES_W[1], " d ", INA_LEG_D, " Z ", INA_BAR_TOP + INA_LEG_PLAY, "-", Z_TOP, " (len ", Z_TOP - INA_BAR_TOP - INA_LEG_PLAY, ")"));
+    }
+echo(str("INA hold: 板の穴 ", INA_HOLES_W, " / 帯 B のダボ ", INA_HOLES_W, " d ", INA_PEG_D, " h 左 ", INA_PEG_H_L, " 右 ", INA_PEG_H_R, " / 小帯 Z ", INA_BAR_Z0, "-", INA_BAR_TOP, " 足 d ", INA_BAR_FOOT_D, " 凹み d ", INA_BAR_HOLE_D, " 深さ ", INA_BAR_POCKET, " / 上のダボ ", INA_LEG_AT, " d ", INA_BAR_PEG_D, " h ", INA_BAR_PEG_H, " / 刷った棒 ", INA_LEG_AT, " 穴 d ", INA_LEG_HOLE_D, " 深さ ", INA_PEG_IN + 0.2, " / 小帯の上面から PB の裏まで ", Z_TOP - PB_CEIL_SO - INA_BAR_TOP));
 module straps() color("#ed8936") difference() {
     union() {
         for (b = STRAP_BANDS) strap_u(b[0], b[1]);
@@ -406,7 +441,7 @@ module straps() color("#ed8936") difference() {
 //   strap_print(k): 直置き（組んだ姿勢のまま・足の裏とツバの裏が Z 0。🔒 ユーザー 2026-09-03「帯については浮かすのも傾けるのもやめましょう。柱を立てる方のパイプラインで」）。
 //     天板の裏（足と足の間 36mm のアーチ）は tools/props_gen.py が立てる柱（props_strap_*）と 0.3 のラフト（raft_strap_*）で受ける。電流計の軸は上を向くので支えは要らない
 module strap_one(k) intersection() { straps(); translate([-100, STRAP_BANDS[k][0] - TAB_L - 0.05, -100]) cube([400, STRAP_BANDS[k][1] + 2 * TAB_L + 0.1, 400]); }
-module strap_print(k) translate([0, 0, -TAB_Z0]) strap_one(k);
+module strap_print(k) translate([0, 0, -FOOT_Z0]) strap_one(k);
 // PowerBoost のダボ（天板の裏から部品面まで下りる胴 φ5.8・高さ 5.7、軸 φ2.0 が板の穴 φ2.4 を下へ貫いて E リング）。天板を描くとき天板に union する
 PB_DOWEL_D = 4.0;   // ダボの胴の径（板のそば）。5.8 だと足元が板の上の小さな部品（0.6〜0.7）に 2.8mm³ 乗る。4.0 で 0（2026-09-05）
 // 🔒 ユーザー 2026-09-07「PowerBoost はネジとナットでいいよ」: E リングの軸（首 1.5）は嵌めると割れた。胴に通し φ2.5、板の裏から M2×8、ナットは胴の上の横穴（上に肉 0.7・天板が続く）。
@@ -515,8 +550,22 @@ JACK_C = [LW_X - WALL / 2, RSP_Y1 + 2.485, RSP_Z + 6.502];   // 筒の軸（resp
 JACK_D = 7.0;                                                 // 口の径（プラグの胴 φ5.5〜6 ＋ 逃げ・AI の値）
 USB1_POCKET = [LW_X - 0.9, RSP_Y1 - 0.2, RSP_Z + 23.0, 0.9 + 0.01, 3.9, 9.7];   // [x0, y0, z0, dx, dy, dz] 壁の内面に 0.9 の盲ポケット（USB1 の殻が 0.6 入る）
 JACK_COVER_POCKET = [LW_X - 0.7, RSP_Y1 + 3.14 - 0.3, RSP_Z + 3.65 - 0.3, 0.7 + 0.01, 7.52 - 3.14 + 0.6, 8.9 - 3.65 + 0.6];   // ジャックの金属カバー（面から 3.14〜7.52・下から 3.65〜8.9・板の端から 0.68 出る）の盲ポケット 0.7
+// Type-C 基板の半田面の逃げ（板の裏が左の壁の内面にベタ付けで、ヘッダと 5.1kΩ の足の出る先が無い）。
+//   ほかの板は逃げを持っている（ReSpeaker 2.5・ハブ 2.5・電流計 1.5・OLED と AS5600 は足の出を模型が持つ）。ここだけ 0 だった。
+//   掘るのは 1 か所だけ: 下辺のピン列のうち **L 字ヘッダを立てる 1 番と 4 番**（世界では Y 65.19 の縦一列・Z 10.59〜18.21）。裏へ出るのはこの 2 本の足だけ。
+//   🔒 ユーザー 2026-09-09「ハンダ面は不要だね。これ表面実装なんだよ。だからピンヘッダだけでいい」:
+//      コネクタ 5077CR は表面実装で、足が板の裏へ出ない。2026-09-09 に一度掘ったコネクタの footprint の逃げ（9.8 × 7.8）は削除した
+//   ⚠ 深さ 1.0 は私が置いた（電流計の実測「足の裏出し 1.2」より浅い）。壁の残りは 1.0。足が 1.0 より長く出たら切ること
+TC_WGRV_D = 1.0; TC_WGRV_MG = 1.5;
+module tc_wall_relief() {
+    x0 = LW_X - TC_WGRV_D;
+    zp0 = TC_ZT - (2.54 + max(TC_PINS) * 2.54) - TC_WGRV_MG;   // 一番下のヘッダ（4 番 GND）の下。🔒 ユーザー 2026-09-09「抵抗は部品面にハンダ付けします」: 5・6・7 番の足は裏へ出ないので、逃げは TC_PINS の 2 本ぶんだけでよい（2026-09-09 に一度パッド 7 つ分 17.8 で掘っていた）
+    zp1 = TC_ZT - (2.54 + min(TC_PINS) * 2.54) + TC_WGRV_MG;   // 一番上のヘッダ（1 番 VBUS）の上
+    translate([x0, TC_Y0 + 2.54 - TC_WGRV_MG, zp0]) cube([TC_WGRV_D + 0.01, TC_WGRV_MG * 2, zp1 - zp0]);           // ピン列だけ
+}
 module p_lwall() difference() {
     union() { slab_lwall(); tc_press(); fasten_lwall(); }   // 押さえ・柱・棚は壁と一体
+    tc_wall_relief();   // Type-C 基板の半田面の逃げ（2 か所）
     translate(JACK_C) rotate([0, 90, 0]) { cylinder(d = JACK_D, h = WALL + 2, center = true, $fn = 48); translate([0, 0, -WALL / 2 - 0.01]) cylinder(d1 = JACK_D + 2 * PORT_BEV, d2 = JACK_D, h = PORT_BEV, $fn = 48); }   // 口＋外のベベル（外面は −X）
     translate([USB1_POCKET[0], USB1_POCKET[1], USB1_POCKET[2]]) cube([USB1_POCKET[3], USB1_POCKET[4], USB1_POCKET[5]]);
     translate([JACK_COVER_POCKET[0], JACK_COVER_POCKET[1], JACK_COVER_POCKET[2]]) cube([JACK_COVER_POCKET[3], JACK_COVER_POCKET[4], JACK_COVER_POCKET[5]]);
@@ -615,12 +664,28 @@ module p_top() difference() {
 // ---- ハッチ: Type-C の口・トグルの穴・電池の口 ----
 TC_PORT_C = [TC_AT[0] + tc_size()[2] + tc_conn()[2] / 2, IN_Y + HATCH_T / 2, TC_AT[2] + tc_size()[0] / 2];   // 板の表 ＋ 胴の高さの半分・板の長さの中央（4.92, ・, 10.75）
 TC_PORT_SZ = [3.86, 9.54];   // [X, Z]（殻 3.26 × 8.94 ＋ 片側 0.3）。基板が縦なので口は縦長（🔴 2026-09-05 まで横長に開けていた・ユーザー指摘）
+// Type-C 基板の倒れ止め（🔒 ユーザー 2026-09-09「ここにハッチ側で羊羹を立てればいいかもよ」「下の羊羹は隣の 6 角ポケットとくっつければ」）
+//   床の受けは板の部品面側に高さ 6.0 の土手が 2 つあるだけで、裏側（壁側）には何も無く、壁を立てるまで板は自立しない。
+//   ハッチの内面から −Y へ羊羹を 2 本立てて、コネクタの上と下で板の部品面を押さえる。下の 1 本は左のハッチの足（六角ポケット）まで X を伸ばして一体にする。
+//   ⚠ 寸法は私が置いた: 板の表からの逃げ 0.25（受けの返し・控えと同じ）・奥行 6.25（床の控え Y 70.75 の 0.25 手前で止まる）・コネクタの上下に 0.4・上の羊羹の幅 3.0
+TC_HB_CL = 0.25; TC_HB_D = 6.25; TC_HB_GAP = 0.4; TC_HB_WU = 3.0;
+module tc_hatch_blocks() {
+    x0  = TC4_XF + TC_HB_CL;
+    y0  = IN_Y - TC_HB_D;
+    zt  = TC_PORT_C[2] + tc_conn()[0] / 2 + TC_HB_GAP;   // コネクタの上 15.22 の 0.4 上
+    xa  = TC4_SEAT_X1 + TC_HB_CL;   // 底の座の右端の 0.25 右 4.15
+    translate([xa, y0, 0])                 cube([HSCR_X[0] + HFOOT_W / 2 - xa, TC_HB_D, HFOOT_H]);   // 下（床に着き、左のハッチの足まで伸ばして一体）。天面は足と同じ HFOOT_H（🔒 ユーザー 2026-09-09「6 角ポケットの高さと揃えて」）
+    //   左端は 4.15 で止める。ここより左（板の表 3.294 まで）は、刷った床の座が 0.6 外へ出ているので Z 0.75 までしか羊羹を置けず、
+    //   幅 0.606 × 高さ 2.4 の独立した薄壁になっていた（🔒 ユーザー 2026-09-09「消してください」）。押さえは 4.15 から右の本体で足りている。
+    translate([x0, y0, zt])     cube([TC_HB_WU, TC_HB_D, TC4_ZT - zt]);                        // 上
+}
 module p_hatch() difference() {
-    union() { slab_hatch(); sw4_hatch_rim(); hatch_ears_top(); hatch_feet(); }   // 縁（溝の床〜内面・つば）・上の耳 2 つ・下の足 2 つはハッチと一体。下の爪 2 つは 2026-09-07 に廃止（床の裏からのねじ 2 本に）。右下の耳も同日廃止（🔒 ユーザー「羽根はいらないね」）
+    union() { slab_hatch(); sw4_hatch_rim(); hatch_ears_top(); hatch_feet(); tc_hatch_blocks(); }   // 縁（溝の床〜内面・つば）・上の耳 2 つ・下の足 2 つはハッチと一体。下の爪 2 つは 2026-09-07 に廃止（床の裏からのねじ 2 本に）。右下の耳も同日廃止（🔒 ユーザー「羽根はいらないね」）
     port_cut(TC_PORT_C, TC_PORT_SZ[0], TC_PORT_SZ[1], HATCH_T, "y");
     battery_port_cut4(); sw4_band_cut(); sw4_lock_cut(); sw4_mag_window();   // 電池の口・蓋の彫り込み・ロックのねじとナット・磁石の窓
     hatch_icon_cut();
     translate([TC_AT[0] - 0.25, IN_Y - 1, TC_AT[2] - 0.25]) cube([tc_size()[2] + 0.5, 1 + (TC4_Y1 - IN_Y) + 0.25, tc_size()[0] + 0.5]);   // Type-C 基板の後縁を受けるスリット（板 1.6 ＋ 片側 0.25・深さ 0.4 ＋ 0.25）
+    hatch_foot_cuts();   // 足のナットの横穴とねじの通し（羊羹に埋められないよう、ハッチ全体から引く）
     at_tgl() translate([0, 0, -1]) mts102_hole(HATCH_T + 2);   // 局所 +z がハッチの外（🔴 2026-09-05 まで −z 側に切っていて穴が内側に居た）
 }
 // ハブ基板の留め（v4 §5: M3×8 ×4・頭は床の裏のザグリ・ナットは基板の上）: 床から柱 φ7.0（高さ = 板の下面 2.5）、通し φ3.2、裏の座ぐり φ6.0 × 2.0
@@ -642,11 +707,13 @@ CLAW_LIP_T = 0.8; CLAW_LIP_L = 3.0; CLAW_LEG_T = 1.0; CLAW_CL = 0.2;         // 
 //   床の爪（バーの下の高さ 1.2 のトンネル）は v4・v5 とも印刷で出なかったので廃止。床の後ろの段（爪のバーの帯）も役が無いので廃止。
 //   ハッチの下の縁の内側に足 2 つ（X 16・70）。足の中に M2 ナットの横差しの六角（口は前・上に肉 1.0・床の肉 0.6）。床の裏から M2×6（座ぐり付き）で上へ。
 //   下の柱と同じ向き: 入れる力でナットは上の肉へ押され、締める力でも上の肉を掴む。ハッチの外にねじの頭は出ない
-module hatch_feet() for (x = HSCR_X) difference() {
-    translate([x - HFOOT_W / 2, IN_Y - HFOOT_D, 0]) cube([HFOOT_W, HFOOT_D + 0.01, HFOOT_H]);
+// 🔴 2026-09-09 ユーザー「USB の抑え羊羹で 6 角穴まで壊すな」: 抜きを足の difference の中に閉じ込めていたので、
+//    あとから union する物（tc_hatch_blocks）がナットの横穴とねじの通し穴を埋めていた。抜きは p_hatch 全体から引く。
+module hatch_foot_cuts() for (x = HSCR_X) {
     translate([x, HFOOT_Y, -1]) cylinder(d = SCR_D, h = HFOOT_H + 2, $fn = 24);                                              // 通し（足を貫く。ねじの先は足の上へ出る）
     hull() for (k = [0, -10]) translate([x, HFOOT_Y + k, HFOOT_FLOOR]) hex_pocket(NUT_AF, NUT_T);                                // ナットの横穴（口は前）
 }
+module hatch_feet() for (x = HSCR_X) translate([x - HFOOT_W / 2, IN_Y - HFOOT_D, 0]) cube([HFOOT_W, HFOOT_D + 0.01, HFOOT_H]);
 module floor_hatch_screw_cuts() for (x = HSCR_X) translate([x, HFOOT_Y, 0]) {
     translate([0, 0, -FLOOR_T - 1]) cylinder(d = SCR_D, h = FLOOR_T + 2, $fn = 24);
     translate([0, 0, -FLOOR_T - 0.01]) cylinder(d = SCR_CB, h = SCR_CBT, $fn = 32);                                              // 座ぐり（床の裏）
@@ -946,7 +1013,7 @@ module w_pwr() {   // ハブ PWR 3（EN・GND・5Vo）↔ PowerBoost の JP2 の
 }
 module w_chg() {   // Type-C 基板の VBUS・GND ↔ PowerBoost の USB・GND2。左の溝（X 9.5）を上がって後ろの帯へ
     m1 = [9.5, 46.0, 17.0]; m2 = [10.0, 73.0, 47.2];   // 後ろの帯 70.5 → 73.0（上と同じ）
-    fan([tc_mouth(0), tc_mouth(1)], [0, -1, 0], m1);
+    fan([tc_mouth(0), tc_mouth(3)], [0, -1, 0], m1);   // 1 番 VBUS と 4 番 GND（🔒 実物のシルク・2026-09-09。それまで 0・1 だった）
     bnd([m1, [9.5, 46.0, 39.0], [9.5, 73.0, 39.0], [9.5, 73.0, 47.2], m2], 2, "chg");
     fan([for (i = pb_ra_chg()) pb_mouth(i)], W_pb_d([0, -1, 0]), m2);
 }
@@ -1009,6 +1076,7 @@ module all_solid() { innards(); p_floor(); p_top(); p_lwall(); p_rwall(); p_fron
 
 if (part == "look")  innards();
 if (part == "spklook") spk_look();
+if (part == "inalook") ina_look();
 // ---- ナットの口の道（🔴 2026-09-08 ユーザー「入れられないナット入れが 2 回目」: 静止の当たりは口の前に何があるかを見ない。口から外へ NUT_PATH_L 掃いて世界の全部品に当てる。0 が正）----
 //   つまみの手 4 本（口は手の外側の面・世界 ∓X）、スピーカーの板 2 枚（口は板の下端・下向き）。ナットのポケットを増やしたらここに足す
 NUT_PATH_L = 5;   // ナットが入るのに要る道の長さ
@@ -1076,6 +1144,8 @@ if (part == "p_front") { color("#9b59b6") p_front(); panel_ribs("front"); }
 if (part == "p_hatch") { color("#27ae60") p_hatch(); panel_ribs("hatch"); }
 if (part == "fasten") { color("#4a90d9") p_lwall(); color("#4a90d9") p_rwall(); color("#e0a040", 0.35) p_floor(); color("#c9d0d8", 0.35) p_top(); color("#9b59b6", 0.35) p_front(); bridge(); brg_front(); straps(); }
 if (part == "tcfit")  { one("tc"); color("#e0a040", 0.9) p_floor(); color("#4a90d9", 0.35) p_lwall(); color("#27ae60", 0.35) p_hatch(); }   // 床（受け込み）＝橙・左の壁（押さえ込み）＝青・ハッチ＝緑
+if (part == "tcfix")  { one("tc"); color("#e0a040", 0.25) p_floor(); color("#4a90d9", 0.25) p_lwall(); color("#27ae60", 0.25) difference() { p_hatch(); tc_hatch_blocks(); } color("#e2622b") tc_hatch_blocks(); }   // 羊羹だけ不透明（ハッチから引いてから重ねる。重ねるだけだと透けに負けて見えない）
+if (part == "tcwall") { color("#4a90d9") p_lwall(); color("#e2622b", 0.6) tc_wall_relief(); at_tc() color("#1a5c2a", 0.3) cube(tc_size()); at_tc() color("#c8ccd0", 0.3) translate([tc_size()[0] / 2 - tc_conn()[0] / 2, tc_size()[1] - tc_conn()[1] + 0.8, tc_size()[2]]) cube(tc_conn()); tc_ra(); }   // 板と殻は輪郭（0.3 の透け）だけ。橙が「掘った形」で、そこにヘッダとコネクタの足の裏出しが収まる
 if (part == "all")    { skin(); innards(); }
 if (part == "explode") {   // 箱全体の分解。🔒 ユーザー 2026-09-05「explode がブリッジだけになっている」
     color("#e0a040") p_floor(); one("hub"); one("rsp"); one("oled"); one("tc");                                       // 置いたまま
