@@ -292,7 +292,8 @@ module bridge() color("#c9a86a") difference() {
         translate([LW_X, ARM_Y[0], BRG_ZB]) cube([IN_X - LW_X, ARM_Y[1] - ARM_Y[0], BRG_T]);                    // 壁〜壁の帯（皿と一体・v4 と同じ Y）
         banks();                                                                                                 // 土手（留め帯の足の区間だけ途切れる）
     }
-    tab_slots();   // 留め帯のツバの溝
+    strap_seat_cut();   // 🔒 ユーザー 2026-09-10「台形で良いね」: 台形の足が入る座（ツバの溝 tab_slots() は使わない）
+    seat_corner_round();   // 🔒 ユーザー 2026-09-10「あまりにも鋭利で作業中に手を切った事がある」: 座の口が土手の天と交わる角を R0.5 で丸める
     for (a = BRG_ANCH) translate([a[0], a[1], 0]) { translate([0, 0, BRG_ZB - 1]) cylinder(d = BRG_ANCH_D, h = BRG_T + 2, $fn = 24); translate([0, 0, BRG_ZB + BRG_T - BRG_ANCH_CBH]) cylinder(d = BRG_ANCH_CB, h = BRG_ANCH_CBH + 0.01, $fn = 32); }   // 壁への留め（通し＋座ぐり）
     for (x = FP_SCR_X) translate([x, FP_SCR_Y, 0]) { translate([0, 0, BRG_ZB - 1]) cylinder(d = FP_SCR_D, h = BRG_T + 2, $fn = 24); translate([0, 0, BRG_ZB + BRG_T - FP_CSK_H]) cylinder(d1 = FP_SCR_D, d2 = FP_CSK_D, h = FP_CSK_H + 0.01, $fn = 32); }   // 前板の平ねじ（通し＋皿もみ）
     translate([LEG_X0 - BRGF_CL, FP_Y0 - 1.0, BRG_ZB - 1]) cube([LEG4W + 2 * BRGF_CL, BRG_T + 1.0 + BRGF_CL, BRG_T + 2]);   // 首を通す抜き（皿を貫通・Y 11.9〜15.1）
@@ -308,15 +309,10 @@ STRAP_W = 6.9;    // 帯の太さ（3 本とも同じ）。🔒 ユーザー 202
 STRAP_N = 3;   // 🔒 ユーザー 2026-09-05「帯を 2 個から 3 個に増やし等間隔に」（様子見・調整はまだ）
 STRAP_SP = (lipo_size()[0] - STRAP_N * STRAP_W) / (STRAP_N + 1);   // 電池の長さ 50 の中に帯 3 本を、両端の余白も含めて同じ間隔で並べる（6.9 なら 7.3）
 STRAP_BANDS = [for (i = [0 : STRAP_N - 1]) [BAT_Y0 + STRAP_SP + i * (STRAP_W + STRAP_SP), STRAP_W]];   // 6.9 のとき 21.2〜28.1・35.4〜42.3・49.6〜56.5
-TAB_L = 2.0; TAB_H = 1.4; TAB_CL = 0.2; TAB_MIN = 3.5;   // 掛かり 2.0（🔒 ユーザー 2026-09-09「長さと幅をもう少し増やして」）。段違いにしたので土手の根元は 帯の間隔 5.2 − (掛かり + 逃げ 0.2) = 3.0（どの高さでも溝は片側だけ。段違いにする前は両側で引かれて 1.8 だった）
-TAB_WEB = 0.73;                         // 🔒 溝と溝のあいだ・上・下に残す土手の肉（溝で測る）。ユーザー 2026-09-09「右の上の肉が 0.4 でしょ」: ツバではなく溝で測ること
-BANK_H = 3 * TAB_WEB + 2 * (TAB_H + 2 * TAB_CL);   // 5.39 段違いの溝 2 本（各 ツバ 1.2 ＋ 逃げ 0.2×2）と肉 3 枚。帯の天板 33.375 まで 0.61 空く
-// 🔴 2026-09-09 実機: ブリッジが**帯 A と帯 B のあいだの T の所**で割れた（ユーザー）。そこは溝 2 本に挟まれた土手で、根元が上のコメントの 1.8mm。原因は未特定（挿す力か、刷り方か）。刷り直しは 2026-09-09-2040 に載せた
+BANK_H = 4.0;
+TAB_L = 1.5; TAB_H = 1.5; TAB_CL = 0.2; TAB_MIN = 3.5;   // 掛かり 2.0 → 1.5・45°（🔒 ユーザー 2026-09-05「細すぎ」: 土手の根元 = 帯の間隔 5.2 − 溝 1.7×2 = 1.8。v4 は 2.0 で根元 0.8）
 TAB_TIP = 0.4;   // ツバの先端の平らな高さ。🔒 ユーザー 2026-09-05「足の三角が鋭角すぎて入れるのに苦労した」: 刃（0）→ 0.4 の面で止め、そこから 45°
-TAB_RISE = TAB_WEB + TAB_CL;            // 手前のツバの下端（床から）。溝の下に TAB_WEB を残す
-FOOT_Z0 = BRG_ZB + BRG_T;              // 足の裏 ＝ 皿の上
-TAB_STEP = TAB_H + 2 * TAB_CL + TAB_WEB;   // 🔒 ユーザー 2026-09-09「パズルのように、左を上に、右を下に」: 手前と奥のツバの段差（溝 1 本ぶん ＋ 肉）
-function tab_z0(rear) = FOOT_Z0 + TAB_RISE + (rear ? TAB_STEP : 0);   // 手前が下・奥が上。🔴 2026-09-09 に一度この 2 つを入れ替えたが、コマンドを使っていないだけで結果は帯の中心面の鏡像だった（ユーザー指摘）。入れ替えは鏡と同じなので、指示があるまで触らない
+TAB_Z0 = BRG_ZB + BRG_T;                // ツバの下面 = 足の裏 = 皿の上
 function foot_x(right) = right ? BAT_X0 + lipo_size()[1] + 0.5 : BAT_X0 - 2.5;   // 足の X（電池との隙間 0.5）: 9.0 / 47.0
 function rail_segs(right) = [for (i = [0 : len(STRAP_BANDS)])   // 左右とも皿の前縁から（v4 は左を最初の帯の後ろから始めていた: J2 の欠きのため。v5 は皿が J2 の頭 23.5 より上なので要らない・ユーザー 2026-09-05）
     let (a = (i == 0) ? TRAY_Y0 : STRAP_BANDS[i - 1][0] + STRAP_BANDS[i - 1][1],
@@ -324,20 +320,66 @@ function rail_segs(right) = [for (i = [0 : len(STRAP_BANDS)])   // 左右とも�
 function tab_front(y0, right) = len([for (s = rail_segs(right)) if (abs(s[1] - y0) < 0.01 && s[1] - s[0] >= TAB_MIN) 1]) > 0;
 function tab_rear(y1, right)  = len([for (s = rail_segs(right)) if (abs(s[0] - y1) < 0.01 && s[1] - s[0] >= TAB_MIN) 1]) > 0;
 module banks() for (right = [false, true]) for (sg = rail_segs(right))
-    translate([foot_x(right), sg[0], BRG_ZB + BRG_T]) cube([STRAP_T, sg[1] - sg[0], BANK_H]);   // 土手は皿の上から（ツバだけ TAB_RISE 上げる）
-// 🔒 ユーザー 2026-09-09「丸めた部分を角四角にして」: ツバは角の立った四角い舌（45° の斜面も丸も無し）。横からしか入らない
-module tab_solid(y0, w, right, rear)
-    translate([foot_x(right), rear ? y0 + w : y0 - TAB_L, tab_z0(rear)]) cube([STRAP_T, TAB_L, TAB_H]);
-module tab_slot(y0, w, right, rear)
-    translate([foot_x(right) - 1, rear ? y0 + w - 0.1 : y0 - TAB_L - TAB_CL, tab_z0(rear) - TAB_CL]) cube([STRAP_T + 2, TAB_L + TAB_CL + 0.1, TAB_H + 2 * TAB_CL]);   // 逃げは Y の外側と上下に TAB_CL。🔴 2026-09-09: 溝の端が土手の端と同値だとブーリアンが厚み 0 の膜を残すので、帯の側へ 0.1 伸ばして面を重ねない
+    translate([foot_x(right), sg[0], TAB_Z0]) cube([STRAP_T, sg[1] - sg[0], BANK_H]);
+module tab_solid(y0, w, right, rear) hull() {
+    translate([foot_x(right), rear ? y0 + w - 0.6 : y0 - TAB_L, TAB_Z0]) cube([STRAP_T, TAB_L + 0.6, TAB_TIP]);   // 先端まで高さ 0.6 の面（刃にしない）
+    translate([foot_x(right), rear ? y0 + w - 0.6 : y0, TAB_Z0 + TAB_H - 0.01]) cube([STRAP_T, 0.6, 0.01]);       // 足の側は全高 → 上面が 45°
+}
+module tab_slot(y0, w, right, rear) hull() {
+    x = foot_x(right) - 1;
+    yl = rear ? y0 + w - 0.1 : y0 - TAB_L - TAB_CL;
+    yu = rear ? y0 + w - 0.1 : y0 - TAB_CL;
+    translate([x, yl, TAB_Z0]) cube([STRAP_T + 2, TAB_L + TAB_CL + 0.1, TAB_TIP + TAB_CL]);                        // 奥まで高さ 0.8 の壁
+    translate([x, yu, TAB_Z0 + TAB_H + TAB_CL - 0.01]) cube([STRAP_T + 2, TAB_CL + 0.1, 0.01]);
+}
 module tab_slots() for (b = STRAP_BANDS) for (right = [false, true]) {
     if (tab_front(b[0], right))         tab_slot(b[0], b[1], right, false);
     if (tab_rear(b[0] + b[1], right))   tab_slot(b[0], b[1], right, true);
 }
+// 🔒 ユーザー 2026-09-10（絵・中央の帯 B）＋「台形で良いね」: 足は下へ行くほど Y へ広がる台形。ツバは廃止。
+//   上端は STRAP_W 6.9・下端は片側 FOOT_FLARE ずつ広い。絵から読んだ数字（帯の間隔 14.2mm を基準に 25 px/mm、上端 6.6・下端 9.4）→ 片側 1.25。
+//   A・C も同じ形（ユーザー「A と C の帯の足は中央 B にあわせて」）。刷る向き（足の裏を下）では上へ行くほど細るので張り出しが無い。
+//   横（X）から差す。下が広いので、差した後は上へ抜けない。柱の根元の肉は 7.325 − (1.25+0.2)×2 = 4.425
+FOOT_FLARE = 1.25;
+FOOT_H = lipo_size()[2] + STRAP_T;   // 足の高さ 8.0（皿の上から天板の上まで）
+// 🔒 ユーザー 2026-09-10「入れやすいように左右の角を削って。帯側。台形の底面もかな」: 足の底のまわりを FOOT_CH だけ落とす。
+//   底面が四方に FOOT_CH 小さくなり、そこから 45° で台形の断面に戻る。削るのは帯だけで、土手の座は角のまま（逃げを帯側に持たせる）
+FOOT_CH = 0.4;
+function flare_at(z) = FOOT_FLARE * (1 - z / FOOT_H);   // 高さ z での片側の広がり
+// 🔒 ユーザー 2026-09-10「入れやすいように左右の角を削って。帯側。台形の底面もかな」→「丸くしてください」: 面取り（45° の平面）をやめて R に。
+//   ① 足の四隅（上下に走る 4 本の角）を R = FOOT_R で丸める（断面が角丸の長方形になる）
+//   ② 底のまわりの辺も同じ R で丸める（底面が四方に FOOT_R 小さくなり、そこから R で側面へつながる）
+//   削るのは帯だけ。土手の座は角のままで、逃げは帯側に持たせる
+FOOT_R = 0.4;
+FOOT_RN = 6;   // 底の R の分割
+module foot_slice(x0, x1, ya, yb, r, z) translate([0, 0, z]) linear_extrude(0.01)
+    translate([x0 + r, ya + r]) offset(r = r, $fn = 48) square([x1 - x0 - 2 * r, yb - ya - 2 * r]);
+module strap_foot(right, y0, w) let (x0 = foot_x(right), x1 = foot_x(right) + STRAP_T) hull() {
+    for (i = [0 : FOOT_RN]) let (a = i * 90 / FOOT_RN, z = FOOT_R * (1 - cos(a)), ins = FOOT_R * (1 - sin(a)), f = flare_at(z))
+        foot_slice(x0 + ins, x1 - ins, y0 - f + ins, y0 + w + f - ins, FOOT_R, TAB_Z0 + z);   // 底の R（i=0 が底面）
+    foot_slice(x0, x1, y0, y0 + w, FOOT_R, TAB_Z0 + FOOT_H - 0.01);                            // 上端
+}
+// 🔒 ユーザー 2026-09-10（絵・赤丸 6 か所）「ブリッジのこの赤丸の所は丸めておいて。あまりにも鋭利で作業中に手を切った事があるから」:
+//   座の斜面が土手の天面と交わる角（X に 2mm 走る辺・左右の土手 × 帯 3 本の前後 = 12 本）を半径 SEAT_R で丸める。
+//   丸めるぶんは座が広がる側なので、帯との嵌まりはゆるくなる方向（きつくならない）
+SEAT_R = 0.5;
+function seat_g(z) = (FOOT_FLARE + TAB_CL) - FOOT_FLARE * z / FOOT_H;   // 高さ z での座の片側の広がり
+module round_edge(x0, xw, ye, zt, s, r) difference() {   // s=-1: 肉が y<ye 側 / s=+1: 肉が y>ye 側
+    translate([x0, s < 0 ? ye - r : ye, zt - r]) cube([xw, r, r + 0.01]);
+    translate([x0, ye + s * r, zt - r]) rotate([0, 90, 0]) cylinder(r = r, h = xw, $fn = 96);   // 中心は肉のある側へ r（🔴 2026-09-10 反対側に置いていて、丸まらず四角い欠きになっていた）
+}
+module seat_corner_round() let (g = seat_g(BANK_H), zt = TAB_Z0 + BANK_H)
+    for (b = STRAP_BANDS) for (right = [false, true]) {
+        round_edge(foot_x(right) - 1, STRAP_T + 2, b[0] - g,        zt, -1, SEAT_R);   // 手前側（肉は前の土手）
+        round_edge(foot_x(right) - 1, STRAP_T + 2, b[0] + b[1] + g, zt, +1, SEAT_R);   // 奥側（肉は次の土手）
+    }
+module strap_seat_cut() for (b = STRAP_BANDS) for (right = [false, true]) hull() {   // 足＋逃げ TAB_CL。X は土手を貫くよう前後 1 ずつ伸ばす
+    translate([foot_x(right) - 1, b[0] - FOOT_FLARE - TAB_CL, TAB_Z0]) cube([STRAP_T + 2, b[1] + 2 * (FOOT_FLARE + TAB_CL), 0.01]);
+    translate([foot_x(right) - 1, b[0] - TAB_CL, TAB_Z0 + FOOT_H - 0.01]) cube([STRAP_T + 2, b[1] + 2 * TAB_CL, 0.01]);
+}
 module strap_u(y0, w) {
-    for (right = [false, true]) translate([foot_x(right), y0, FOOT_Z0]) cube([STRAP_T, w, lipo_size()[2] + STRAP_T]);   // 足（裏は皿の上・上は天板とツライチ。ツバだけ TAB_RISE 上げる）
+    for (right = [false, true]) strap_foot(right, y0, w);                                                          // 足（台形）
     translate([foot_x(false), y0, BAT_TOP]) cube([foot_x(true) + STRAP_T - foot_x(false), w, STRAP_T]);              // 天板
-    for (right = [false, true]) { if (tab_front(y0, right)) tab_solid(y0, w, right, false); if (tab_rear(y0 + w, right)) tab_solid(y0, w, right, true); }
 }
 // 電流計まわりだけの組み立て図（2026-09-09）: 実体は 電流計の板と部品・帯 B・小帯・天板の棒、天板は半透明。part="inalook"
 module ina_look() {
@@ -386,6 +428,16 @@ INA_BAR_ARM_W = 2.0; INA_BAR_BACK_Y = 35.2; INA_BAR_BACK_W = 1.5;   // 🔒 ユ�
 //    板の上の障害物（模型で実測・足と足のあいだ x 34.2〜43.8）: y 23.90〜31.17 高 4.09 ／ 31.65〜38.15 高 1.00 ／ 39.90〜43.10 高 1.10 ／ 51.33〜59.87 高 2.82（I2C ヘッダ）。
 //    ⚠ y 38.15〜39.90 の 1.75 のすき間は模型では空だが、実物は抵抗が載っている（🔒 ユーザー 2026-09-09「抵抗がある」）。通せるのは y 43.5〜51.0 の側だけ
 INA_BAR_POCKET = 1.6;   // 🔒 ユーザー 2026-09-09「天板棒→棒の凹み→小帯ダボ→小帯凹み→帯Bダボ」: 小帯の下面の凹みの深さ（貫通させない。残り肉 1.5）
+INA_BAR_CB_D = 3.6;
+INA_BAR_CB_H = 0.4;
+INA_BAR_WEB = 2.6; INA_BAR_CH = 0.4; INA_BAR_FIL = 0.8; INA_BAR_RND = 0.5;
+// ↑ 見た目だけの値（🔒 ユーザー 2026-09-10「板と円柱をくっつけただけみたいなダサさ」）。腕と橋の高さ 2.6（足 3.1 より低くして段を出す）・
+//   足の上の縁の面取り 0.4（右の足は φ5.2 の平らが残る。天板の棒 φ4.8 より広いので面接触はそのまま）・
+//   入り隅の丸み 0.8（腕↔足・腕↔橋）・外の角の丸み 0.5（橋の幅 1.5 の半分 0.75 より小さくする。これを超えると橋が消える）
+// ↑ 小帯の凹みの口のザグリ（径 3.6・深さ 0.4）。🔴 2026-09-10 実機: 帯 B のダボ φ2.75 がこの凹み（φ3.0）に入らなかった。
+//   同じ差 0.25 でも、小帯の上のダボ φ2.75 → 天板の棒の穴 φ3.0 は入っている（✅ ユーザー 2026-09-10）。違いは向きで、
+//   この凹みだけが print_inabar でプレートに接する面に開いている。docs/PRINT.md §2「プレート側の穴は初層で塞がる。ザグリで浮かせること」を
+//   落としていた（初層 5 層 = 0.25mm）。効く φ3.0 の区間を 0.4 上から始める。ダボが入るのは左 1.0・右 1.3 なので掛かりは足りる
 // 🔴 2026-09-09 実機: φ2.8 のダボが小帯（穴 φ3.0）にも天板の棒（穴 φ3.0）にも刺さらなかった。この機の嵌め合いは as5600_holder.scad:162〜170 の実測が持っていて、
 //    穴 φ3.35 に対しダボ 3.1 が良い・3.2 は入らない → 一般則「差し込みのほぞ径 = 穴 − 0.25」＋先端の面取り 0.5。ここは差 0.2・面取り無しでその規則を外していた（私が置いた数字）。
 //    直しは**ダボ側だけ**（穴を広げると刷り直したばかりの天板の棒が変わる）: φ2.8 → 2.75（差 0.25）・先に 0.5 の面取り。帯 B だけ刷り直せば済む
@@ -403,17 +455,29 @@ module ina_pegs() for (i = [0, 1]) let (h = INA_HOLES_W[i], len = (i == 0 ? INA_
 }   // ダボ 2 本（左は帯 B の X 33.2・高さ 4.4／右は X 48.8・高さ 6.7 で天板の棒に刺さる）
 INA_LEG_AT = INA_HOLES_W[1];
 INA_BAR_Z0 = INA_TOP_Z; INA_BAR_TOP = INA_TOP_Z + INA_BAR_H;   // 小帯の裏（板の上面）と上面
+module ina_bar_plan() let (a = INA_HOLES_W[0], b = INA_HOLES_W[1],
+        y0 = min(INA_BAR_BACK_Y, a[1]), y1 = max(INA_BAR_BACK_Y + INA_BAR_BACK_W, a[1]))
+    offset(r = INA_BAR_RND, $fn = 24) offset(r = -INA_BAR_RND, $fn = 24)          // 外の角を丸める（削るだけ）
+    offset(r = -INA_BAR_FIL, $fn = 24) offset(r = INA_BAR_FIL, $fn = 24)          // 入り隅を埋める（腕が足へ流れ込む）
+    union() {
+        for (h = [a, b]) translate([h[0], h[1]]) circle(d = INA_BAR_FOOT_D, $fn = 48);   // 足 2 つ
+        for (h = [a, b]) translate([h[0] - INA_BAR_ARM_W / 2, y0]) square([INA_BAR_ARM_W, y1 - y0]);   // 腕 2 本
+        translate([a[0] - INA_BAR_ARM_W / 2, INA_BAR_BACK_Y]) square([b[0] - a[0] + INA_BAR_ARM_W, INA_BAR_BACK_W]);   // 橋（平らな帯の中）
+    }
 module ina_bar() let (a = INA_HOLES_W[0], b = INA_HOLES_W[1]) color("#f6ad55") union() {   // 小帯（組んだ姿勢）
     difference() {
         union() {
-            for (h = [a, b]) translate([h[0], h[1], INA_BAR_Z0]) cylinder(d = INA_BAR_FOOT_D, h = INA_BAR_H, $fn = 48);   // 足 2 本
-            let (y0 = min(INA_BAR_BACK_Y, a[1]), y1 = max(INA_BAR_BACK_Y + INA_BAR_BACK_W, a[1])) {
-                translate([a[0] - INA_BAR_ARM_W / 2, y0, INA_BAR_Z0]) cube([INA_BAR_ARM_W, y1 - y0, INA_BAR_H]);   // 左の腕
-                translate([b[0] - INA_BAR_ARM_W / 2, y0, INA_BAR_Z0]) cube([INA_BAR_ARM_W, y1 - y0, INA_BAR_H]);   // 右の腕
-                translate([a[0] - INA_BAR_ARM_W / 2, INA_BAR_BACK_Y, INA_BAR_Z0]) cube([b[0] - a[0] + INA_BAR_ARM_W, INA_BAR_BACK_W, INA_BAR_H]);   // 橋（平らな帯の中）
+            translate([0, 0, INA_BAR_Z0]) linear_extrude(INA_BAR_WEB) ina_bar_plan();   // 腕と橋（低い側）
+            for (h = [a, b]) translate([h[0], h[1], INA_BAR_Z0]) {                      // 足 2 本（高い側・上の縁は面取り）
+                cylinder(d = INA_BAR_FOOT_D, h = INA_BAR_H - INA_BAR_CH, $fn = 48);
+                translate([0, 0, INA_BAR_H - INA_BAR_CH])
+                    cylinder(d1 = INA_BAR_FOOT_D, d2 = INA_BAR_FOOT_D - 2 * INA_BAR_CH, h = INA_BAR_CH, $fn = 48);
             }
         }
-        for (h = [a, b]) translate([h[0], h[1], INA_BAR_Z0 - 0.01]) cylinder(d = INA_BAR_HOLE_D, h = INA_BAR_POCKET + 0.01, $fn = 48);   // 下面の凹み（帯 B のダボ・貫通なし）
+        for (h = [a, b]) translate([h[0], h[1], INA_BAR_Z0 - 0.01]) {
+            cylinder(d = INA_BAR_HOLE_D, h = INA_BAR_POCKET + 0.01, $fn = 48);   // 下面の凹み（帯 B のダボ・貫通なし）
+            cylinder(d = INA_BAR_CB_D, h = INA_BAR_CB_H + 0.01, $fn = 48);       // 口のザグリ（初層で塞がる分を浮かせる）
+        }
     }
     translate([INA_LEG_AT[0], INA_LEG_AT[1], INA_BAR_TOP - 0.01]) {   // 上のダボ（棒の穴と同軸）
         cylinder(d = INA_BAR_PEG_D, h = INA_BAR_PEG_H - 0.3 + 0.01, $fn = 32);
@@ -441,7 +505,7 @@ module straps() color("#ed8936") difference() {
 //   strap_print(k): 直置き（組んだ姿勢のまま・足の裏とツバの裏が Z 0。🔒 ユーザー 2026-09-03「帯については浮かすのも傾けるのもやめましょう。柱を立てる方のパイプラインで」）。
 //     天板の裏（足と足の間 36mm のアーチ）は tools/props_gen.py が立てる柱（props_strap_*）と 0.3 のラフト（raft_strap_*）で受ける。電流計の軸は上を向くので支えは要らない
 module strap_one(k) intersection() { straps(); translate([-100, STRAP_BANDS[k][0] - TAB_L - 0.05, -100]) cube([400, STRAP_BANDS[k][1] + 2 * TAB_L + 0.1, 400]); }
-module strap_print(k) translate([0, 0, -FOOT_Z0]) strap_one(k);
+module strap_print(k) translate([0, 0, -TAB_Z0]) strap_one(k);
 // PowerBoost のダボ（天板の裏から部品面まで下りる胴 φ5.8・高さ 5.7、軸 φ2.0 が板の穴 φ2.4 を下へ貫いて E リング）。天板を描くとき天板に union する
 PB_DOWEL_D = 4.0;   // ダボの胴の径（板のそば）。5.8 だと足元が板の上の小さな部品（0.6〜0.7）に 2.8mm³ 乗る。4.0 で 0（2026-09-05）
 // 🔒 ユーザー 2026-09-07「PowerBoost はネジとナットでいいよ」: E リングの軸（首 1.5）は嵌めると割れた。胴に通し φ2.5、板の裏から M2×8、ナットは胴の上の横穴（上に肉 0.7・天板が続く）。
