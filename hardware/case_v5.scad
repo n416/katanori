@@ -479,7 +479,7 @@ module ina_bar(hole = INA_BAR_HOLE_D, peg = INA_BAR_PEG_D, mark = false)
             cylinder(d = hole, h = INA_BAR_POCKET + 0.01, $fn = 48);   // 下面の凹み（帯 B のダボ・貫通なし）
             cylinder(d = INA_BAR_CB_D, h = INA_BAR_CB_H + 0.01, $fn = 48);       // 口のザグリ（初層で塞がる分を浮かせる）
         }
-        if (mark) translate([INA_HOLES_W[0][0] - 0.5, INA_HOLES_W[0][1] - 2.2, INA_BAR_TOP - 0.3]) cube([1.0, 4.4, 0.4]);   // 見分けの溝（左の足の上・深さ 0.3）。🔴 私が足した。B（凹み 3.35）にだけ入る
+        if (mark) translate([INA_HOLES_W[0][0] - 0.6, INA_HOLES_W[0][1] - 3.1, INA_BAR_TOP - 0.8]) cube([1.2, 6.2, 0.9]);   // 見分けの溝（左の足を横断・幅 1.2・深さ 0.8。残り肉 0.7）。🔴 私が足した。B（凹み 3.35）にだけ入る
     }
     translate([INA_LEG_AT[0], INA_LEG_AT[1], INA_BAR_TOP - 0.01]) {   // 上のダボ（棒の穴と同軸）
         cylinder(d = peg, h = INA_BAR_PEG_H - 0.3 + 0.01, $fn = 32);
