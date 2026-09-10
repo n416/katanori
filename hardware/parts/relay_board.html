@@ -280,7 +280,7 @@ function initialLayout(){ return {
     { id:'REED', label:'リードスイッチへ2本', exit:'down',
       pins:[ {hole:'S9', fn:'GND', net:'GND'},
              {hole:'S8', fn:'EN',  net:'EN'} ] },
-    { id:'INA', label:'INA226 へ4本 ⬜並び要確認', exit:'down',
+    { id:'INA', label:'INA226 へ4本', exit:'down',  /* ✅ 2026-09-11 実機。この並びのまま 0x44 で応答した */
       pins:[ {hole:'S16', fn:'GND', net:'GND'},
              {hole:'S17', fn:'3V3', net:'V33'},
              {hole:'S18', fn:'SCL', net:'SCL'},
