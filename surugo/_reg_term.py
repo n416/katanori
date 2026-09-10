@@ -11,7 +11,7 @@ import json, math, os, sys, datetime
 HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 import measure as M, server as SV, store as S
-PATHS = ['hardware/stl/v5/v5_inabar_c.stl']
+PATHS = ['hardware/stl/v5/v5_inabar_c.stl', 'hardware/stl/v5/v5_inabar_d.stl']
 PLATE_W, PLATE_H, PLATE_EDGE = 143, 89, 8.0
 SPREAD = [[0,0],[-1,-1],[1,1],[1,-1],[-1,1],[-1,0],[1,0],[0,1],[0,-1]]
 ANCHOR_STL, ANCHOR_SZ, ANCHOR_OUT = 'surugo/anchor.stl', 6.0, 6.0

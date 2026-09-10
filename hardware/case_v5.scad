@@ -464,7 +464,7 @@ module ina_bar_plan() let (a = INA_HOLES_W[0], b = INA_HOLES_W[1],
         for (h = [a, b]) translate([h[0] - INA_BAR_ARM_W / 2, y0]) square([INA_BAR_ARM_W, y1 - y0]);   // 腕 2 本
         translate([a[0] - INA_BAR_ARM_W / 2, INA_BAR_BACK_Y]) square([b[0] - a[0] + INA_BAR_ARM_W, INA_BAR_BACK_W]);   // 橋（平らな帯の中）
     }
-module ina_bar(hole = INA_BAR_HOLE_D, peg = INA_BAR_PEG_D, mark = false, vent = 0)
+module ina_bar(hole = INA_BAR_HOLE_D, peg = INA_BAR_PEG_D, mark = false, vent = 0, side = 0)
         let (a = INA_HOLES_W[0], b = INA_HOLES_W[1]) color("#f6ad55") difference() {   // 小帯（組んだ姿勢）。hole/peg/vent は試し刷り用
     union() {
         translate([0, 0, INA_BAR_Z0]) linear_extrude(INA_BAR_WEB) ina_bar_plan();   // 腕と橋（低い側）
@@ -482,6 +482,8 @@ module ina_bar(hole = INA_BAR_HOLE_D, peg = INA_BAR_PEG_D, mark = false, vent = 
         cylinder(d = hole, h = INA_BAR_POCKET + 0.01, $fn = 48);   // 下面の凹み（帯 B のダボ）
         cylinder(d = INA_BAR_CB_D, h = INA_BAR_CB_H + 0.01, $fn = 48);   // 口のザグリ
         if (vent > 0) translate([0, 0, INA_BAR_POCKET - 0.01]) cylinder(d = vent, h = INA_BAR_H + INA_BAR_PEG_H + 1, $fn = 24);   // 抜き穴: 凹みの天井から真上へ。右は上のダボの中を通って先へ抜ける
+        if (side > 0) let (dx = (h == a) ? 1 : -1)   // 横穴: 凹みの壁から足の側面へ。向きはもう片方の足の側（🔒 ユーザー 2026-09-10 の図）。高さ 0.8〜1.5（凹みの天井 1.6 の 0.1 下で止めて膜を作らない）
+            translate([dx > 0 ? 0 : -(INA_BAR_FOOT_D / 2 + 1), -side / 2, 0.8]) cube([INA_BAR_FOOT_D / 2 + 1, side, INA_BAR_POCKET - 0.1 - 0.8]);
     }
     if (mark) translate([INA_HOLES_W[0][0] - 0.6, INA_HOLES_W[0][1] - 3.1, INA_BAR_TOP - 0.8]) cube([1.2, 6.2, 0.9]);   // 見分けの溝（左の足を横断・幅 1.2・深さ 0.8）。🔴 私が足した
 }
@@ -495,6 +497,7 @@ module print_inabar() translate([0, 0, -INA_BAR_Z0]) ina_bar();
 module print_inabar_a() translate([0, 0, -INA_BAR_Z0]) ina_bar(hole = 3.0,  peg = 2.8);                 // A: 凹み 3.0 ・上のダボ 2.8（溝無し）
 module print_inabar_b() translate([0, 0, -INA_BAR_Z0]) ina_bar(hole = 3.35, peg = 2.9, mark = true);   // B: 凹み 3.35・上のダボ 2.9（左の足の上に溝）   // 刷る向き: 下面を下（足の裏と橋の裏が同じ面でプレートに付く・張り出し無し）
 module print_inabar_c() translate([0, 0, -INA_BAR_Z0]) ina_bar(hole = 3.35, peg = 2.9, vent = 1.5);   // C: B に φ1.5 の抜き穴（吸盤をやめる）
+module print_inabar_d() translate([0, 0, -INA_BAR_Z0]) ina_bar(hole = 3.35, peg = 2.9, side = 1.5);   // D: B に幅 1.5 の横穴（上面とダボは触らない）
 module ina_ceiling_leg() let (h = INA_LEG_AT, z0 = INA_BAR_TOP + INA_LEG_PLAY) translate([h[0], h[1], z0]) difference() {   // 天板の裏から小帯の右の足の上へ下ろす棒。先の穴に右のダボが 2.0 刺さる（位置決め）
     cylinder(d = INA_LEG_D, h = Z_TOP - z0 + 0.01, $fn = 32);
     translate([0, 0, -1]) cylinder(d = INA_LEG_HOLE_D, h = 1 + INA_PEG_IN + 0.2, $fn = 32);   // 穴 φ3.0・深さ 2.2（ダボ 2.0 ＋ 底の逃げ 0.2）
@@ -1219,6 +1222,7 @@ if (part == "print_inabar") print_inabar();
 if (part == "print_inabar_a") print_inabar_a();   // 試し刷り A（凹み 3.0・ダボ 2.8）
 if (part == "print_inabar_b") print_inabar_b();   // 試し刷り B（凹み 3.35・ダボ 2.9・溝あり）   // 電流計の小帯（上面を下・支柱不要）
 if (part == "print_inabar_c") print_inabar_c();   // 試し刷り C（凹み 3.35・ダボ 2.9・抜き穴 1.5）
+if (part == "print_inabar_d") print_inabar_d();   // 試し刷り D（凹み 3.35・ダボ 2.9・横穴 1.5）
 if (part == "p_floor") color("#e0a040") p_floor();
 if (part == "p_top")   color("#c9d0d8") p_top();
 if (part == "p_lwall") { color("#4a90d9") p_lwall(); panel_ribs("lwall"); }
