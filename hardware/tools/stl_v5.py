@@ -49,7 +49,7 @@ for k in want:
     if os.path.exists(dst): os.remove(dst)
     t = time.time()
     r = subprocess.run([OPENSCAD, '--backend=manifold', '--export-format=binstl', '-o', dst,
-                        '-D', 'part="%s"' % pname, src], capture_output=True)
+                        '-D', 'part="%s"' % pname, '-D', 'FIT_PRINT=true', src], capture_output=True)   # 🔒 印刷用モデル（parts/fit.scad。初層の太りを先に打ち消した寸法で焼く）
     if not os.path.exists(dst):
         print('%-10s NG 書けなかった\n%s' % (k, r.stderr[-800:].decode('utf-8', 'replace'))); continue
     warn = r.stderr.decode('utf-8', 'replace').count('WARNING')

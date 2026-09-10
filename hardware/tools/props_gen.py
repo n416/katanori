@@ -103,7 +103,7 @@ SKIP = {('floor', 3.5),   # 床: ハッチの爪のバー（幅 8・奥行き 2�
 def bake(part):
     p = os.path.join(TMP, 'bare_%s.stl' % part)
     subprocess.run([OPENSCAD, '--backend=manifold', '--export-format=binstl', '-o', p,
-                    '-D', 'PROPS_OFF=true', '-D', 'part="print_%s"' % part,
+                    '-D', 'PROPS_OFF=true', '-D', 'part="print_%s"' % part, '-D', 'FIT_PRINT=true',
                     SCAD], check=True, capture_output=True)
     return p
 
@@ -114,7 +114,7 @@ def bake_keepout(part):
     p = os.path.join(TMP, 'ko_%s.stl' % part)
     if os.path.exists(p): os.remove(p)
     subprocess.run([OPENSCAD, '--backend=manifold', '--export-format=binstl', '-o', p,
-                    '-D', 'part="keepout_%s"' % part,
+                    '-D', 'part="keepout_%s"' % part, '-D', 'FIT_PRINT=true',
                     SCAD], capture_output=True)   # 空なら OpenSCAD は 1 で終わる（v5 の帯には keepout_strap_* が無い ＝ 軸は上向きで穴が無い）
     return p if os.path.exists(p) else None
 
