@@ -25,6 +25,7 @@ PARTS = [(k, CASE, 'print_%s' % k) for k in
           'strap_a', 'strap_b', 'strap_c', 'inabar', 'shutter', 'lock', 'shutfloor']] + [
     ('inabar_a', CASE, 'print_inabar_a'),   # 試し刷り A: 凹み 3.0・上のダボ 2.8（🔒 ユーザー 2026-09-10）
     ('inabar_b', CASE, 'print_inabar_b'),   # 試し刷り B: 凹み 3.35・上のダボ 2.9・見分けの溝
+    ('inabar_c', CASE, 'print_inabar_c'),   # 試し刷り C: B に φ1.5 の抜き穴（吸盤をやめる、2026-09-10）
 ] + [   # inabar: 電流計の小帯（2026-09-07・上面を下）
     ('piston',   BTN,  'print_piston2'),  # 会話ボタンの押し子 2（根元寄りの線・台形の足。🔒 2026-09-07 決定。天面を下）
     ('tub',      BTN,  'print_tub'),      # 会話ボタンのバスタブ（底を下）

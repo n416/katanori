@@ -446,7 +446,7 @@ INA_PEG_H_R = ina_size()[2] + INA_BAR_POCKET - 0.3;   // 右のダボ 2.9（板 
 INA_PEG_H_L = ina_size()[2] + 1.0;              // 左のダボ 2.6（板 1.6 ＋ 凹みへ 1.0）。🔒 ユーザー 2026-09-09「上に棒が無いので柱に入らない。右と連動させるな」: 位置決めだけ。突き当てない
 INA_PEG_IN = 2.0;                                              // 🔒 ユーザー 2026-09-08「帯のダボは小帯を貫通して天井の棒に刺さるイメージ」: 右のダボは小帯を抜けて天板の棒の先の穴に 2.0 入る
 INA_LEG_D = 4.8; INA_LEG_PLAY = 0; INA_LEG_HOLE_D = 3.0;   // 天板の棒 φ4.8（先に φ3.0 の穴・肉 0.9。3.6 → 4.8 は 2026-09-08 穴を入れるため）。棒の先と小帯の上の遊び 0.1。⚠ 棒はつまみの台座の壁（x 48.7）に 0.5 重なるが同じ天板なので溶け合うだけ
-INA_BAR_PEG_D = 2.75;   // 小帯の上のダボ（刷った棒の穴 φ3.0 と同軸・嵌め代 0.25）
+INA_BAR_PEG_D = 2.9;   // 🔒 ユーザー 2026-09-10「天板との噛み合いは 2.9 ですね」（A/B の試し刷りで 2.8 と 2.9 を比べた。刷った棒の穴 φ3.0 に 2.75 はブラブラ）。小帯の上のダボ（刷った棒の穴 φ3.0 と同軸・嵌め代 0.25）
 INA_BAR_PEG_H = INA_PEG_IN + 0.2 - 0.3;   // 1.9 小帯の上のダボ（刷った棒の穴の深さ 2.2 − 0.3）。同上
 INA_TOP_Z = BAT_TOP + STRAP_T + ina_size()[2];             // 板の上面 36.975
 module ina_pegs() for (i = [0, 1]) let (h = INA_HOLES_W[i], len = (i == 0 ? INA_PEG_H_L : INA_PEG_H_R) + 0.01) translate([h[0], h[1], BAT_TOP + STRAP_T - 0.01]) {
@@ -464,34 +464,37 @@ module ina_bar_plan() let (a = INA_HOLES_W[0], b = INA_HOLES_W[1],
         for (h = [a, b]) translate([h[0] - INA_BAR_ARM_W / 2, y0]) square([INA_BAR_ARM_W, y1 - y0]);   // 腕 2 本
         translate([a[0] - INA_BAR_ARM_W / 2, INA_BAR_BACK_Y]) square([b[0] - a[0] + INA_BAR_ARM_W, INA_BAR_BACK_W]);   // 橋（平らな帯の中）
     }
-module ina_bar(hole = INA_BAR_HOLE_D, peg = INA_BAR_PEG_D, mark = false)
-        let (a = INA_HOLES_W[0], b = INA_HOLES_W[1]) color("#f6ad55") union() {   // 小帯（組んだ姿勢）。hole/peg は試し刷りの 2 種用
-    difference() {
-        union() {
-            translate([0, 0, INA_BAR_Z0]) linear_extrude(INA_BAR_WEB) ina_bar_plan();   // 腕と橋（低い側）
-            for (h = [a, b]) translate([h[0], h[1], INA_BAR_Z0]) {                      // 足 2 本（高い側・上の縁は面取り）
-                cylinder(d = INA_BAR_FOOT_D, h = INA_BAR_H - INA_BAR_CH, $fn = 48);
-                translate([0, 0, INA_BAR_H - INA_BAR_CH])
-                    cylinder(d1 = INA_BAR_FOOT_D, d2 = INA_BAR_FOOT_D - 2 * INA_BAR_CH, h = INA_BAR_CH, $fn = 48);
-            }
+module ina_bar(hole = INA_BAR_HOLE_D, peg = INA_BAR_PEG_D, mark = false, vent = 0)
+        let (a = INA_HOLES_W[0], b = INA_HOLES_W[1]) color("#f6ad55") difference() {   // 小帯（組んだ姿勢）。hole/peg/vent は試し刷り用
+    union() {
+        translate([0, 0, INA_BAR_Z0]) linear_extrude(INA_BAR_WEB) ina_bar_plan();   // 腕と橋（低い側）
+        for (h = [a, b]) translate([h[0], h[1], INA_BAR_Z0]) {                      // 足 2 本（高い側・上の縁は面取り）
+            cylinder(d = INA_BAR_FOOT_D, h = INA_BAR_H - INA_BAR_CH, $fn = 48);
+            translate([0, 0, INA_BAR_H - INA_BAR_CH])
+                cylinder(d1 = INA_BAR_FOOT_D, d2 = INA_BAR_FOOT_D - 2 * INA_BAR_CH, h = INA_BAR_CH, $fn = 48);
         }
-        for (h = [a, b]) translate([h[0], h[1], INA_BAR_Z0 - 0.01]) {
-            cylinder(d = hole, h = INA_BAR_POCKET + 0.01, $fn = 48);   // 下面の凹み（帯 B のダボ・貫通なし）
-            cylinder(d = INA_BAR_CB_D, h = INA_BAR_CB_H + 0.01, $fn = 48);       // 口のザグリ（初層で塞がる分を浮かせる）
+        translate([INA_LEG_AT[0], INA_LEG_AT[1], INA_BAR_TOP - 0.01]) {   // 上のダボ（棒の穴と同軸）
+            cylinder(d = peg, h = INA_BAR_PEG_H - 0.3 + 0.01, $fn = 32);
+            translate([0, 0, INA_BAR_PEG_H - 0.3]) cylinder(d1 = peg, d2 = peg - 0.6, h = 0.3, $fn = 32);
         }
-        if (mark) translate([INA_HOLES_W[0][0] - 0.6, INA_HOLES_W[0][1] - 3.1, INA_BAR_TOP - 0.8]) cube([1.2, 6.2, 0.9]);   // 見分けの溝（左の足を横断・幅 1.2・深さ 0.8。残り肉 0.7）。🔴 私が足した。B（凹み 3.35）にだけ入る
     }
-    translate([INA_LEG_AT[0], INA_LEG_AT[1], INA_BAR_TOP - 0.01]) {   // 上のダボ（棒の穴と同軸）
-        cylinder(d = peg, h = INA_BAR_PEG_H - 0.3 + 0.01, $fn = 32);
-        translate([0, 0, INA_BAR_PEG_H - 0.3]) cylinder(d1 = peg, d2 = peg - 0.6, h = 0.3, $fn = 32);
+    for (h = [a, b]) translate([h[0], h[1], INA_BAR_Z0 - 0.01]) {
+        cylinder(d = hole, h = INA_BAR_POCKET + 0.01, $fn = 48);   // 下面の凹み（帯 B のダボ）
+        cylinder(d = INA_BAR_CB_D, h = INA_BAR_CB_H + 0.01, $fn = 48);   // 口のザグリ
+        if (vent > 0) translate([0, 0, INA_BAR_POCKET - 0.01]) cylinder(d = vent, h = INA_BAR_H + INA_BAR_PEG_H + 1, $fn = 24);   // 抜き穴: 凹みの天井から真上へ。右は上のダボの中を通って先へ抜ける
     }
+    if (mark) translate([INA_HOLES_W[0][0] - 0.6, INA_HOLES_W[0][1] - 3.1, INA_BAR_TOP - 0.8]) cube([1.2, 6.2, 0.9]);   // 見分けの溝（左の足を横断・幅 1.2・深さ 0.8）。🔴 私が足した
 }
+// 🔴 2026-09-10 実機: プレートに口を向けた止まり穴は吸盤になる（ユーザー「吸盤かこれ」）。中のレジンが抜けずに固まり、
+//    凹み φ3.0 でも φ3.35 でも φ2.75 のダボがまったく入らなかった（A/B の試し刷り）。眼鏡の頃の貫通穴は入っていた。
+//    径ではなく「反対側が開いているか」。C は各凹みの天井から φ1.5 を真上へ抜いて空気とレジンの道を作る
 
 module print_inabar() translate([0, 0, -INA_BAR_Z0]) ina_bar();
 // 🔒 ユーザー 2026-09-10「3mm のと 3.35mm のをそれぞれ作って刷る。3mm の方の小帯のダボは 2.8mm、3.35mm のダボは 2.9mm」
 //   上のダボを太くするのは、刷った天板の棒の穴 φ3.0 に φ2.75 がブラブラだったから（実機 2026-09-10）
 module print_inabar_a() translate([0, 0, -INA_BAR_Z0]) ina_bar(hole = 3.0,  peg = 2.8);                 // A: 凹み 3.0 ・上のダボ 2.8（溝無し）
 module print_inabar_b() translate([0, 0, -INA_BAR_Z0]) ina_bar(hole = 3.35, peg = 2.9, mark = true);   // B: 凹み 3.35・上のダボ 2.9（左の足の上に溝）   // 刷る向き: 下面を下（足の裏と橋の裏が同じ面でプレートに付く・張り出し無し）
+module print_inabar_c() translate([0, 0, -INA_BAR_Z0]) ina_bar(hole = 3.35, peg = 2.9, vent = 1.5);   // C: B に φ1.5 の抜き穴（吸盤をやめる）
 module ina_ceiling_leg() let (h = INA_LEG_AT, z0 = INA_BAR_TOP + INA_LEG_PLAY) translate([h[0], h[1], z0]) difference() {   // 天板の裏から小帯の右の足の上へ下ろす棒。先の穴に右のダボが 2.0 刺さる（位置決め）
     cylinder(d = INA_LEG_D, h = Z_TOP - z0 + 0.01, $fn = 32);
     translate([0, 0, -1]) cylinder(d = INA_LEG_HOLE_D, h = 1 + INA_PEG_IN + 0.2, $fn = 32);   // 穴 φ3.0・深さ 2.2（ダボ 2.0 ＋ 底の逃げ 0.2）
@@ -901,9 +904,16 @@ module front_ears() for (p = [POSTS_T[2], POSTS_T[3]]) difference() {
 
 // ---- OLED の L（🔒 v4: 天面から L を下ろして OLED の裏を上の 2 穴の所で受ける・フロントにビスを見せない）----
 //   🔒 2026-09-07 ユーザー「ねじを廃止して抑えるだけに。ダボにしておくといいかも」: OLED は窓に圧入されてフロントと一体になった（縦の隙間 0.15）。
-//   L はねじで引き寄せず、足の前面が OLED の裏（Y 4.4）に当たる止め。足の前面から φ2.8 のダボ（電流計のダボと同じ径・穴 φ3.0 ✅）が上の 2 穴へ入って X を出す
+//   L はねじで引き寄せず、足の前面が OLED の裏（Y 4.4）に当たる止め。足の前面から φ2.8 のダボ（穴 φ3.0 は実測）が上の 2 穴へ入って X を出す
 //   （窓の横の隙間は 1.0 なので窓だけでは X が決まらない）。組む順は 天板 → OLED を嵌めたフロントを前から差す（ダボは前から入る。天板を後にすると穴の上の 0.5 の帯に引っかかる）。
 //   足は幅 6.0（前の上の柱まで 0.3）・厚み 3.6（🔒 2026-08-28 2.0 は「ガビガビ」だった）。足の下端は穴の 5.5 下。ねじ穴と六角は 2026-09-07 に消した
+// 🔴 2026-09-10 実機: 刷った天板のダボ 2 本は、間隔が広くて OLED の上の 2 穴に入らなかった（ユーザー「0.5mm も差が無いけど」）。
+//   効いているのは間隔の描き方ではなく嵌め合いで、φ2.8 と穴 φ3.0 の差 0.2 をダボ 2 本で受けている。ダボが 2 本あると、
+//   この 0.2 がそのまま「間隔に許される誤差の全部」になる（1 本なら遊び、2 本なら 0.1 ずつ寄って突っ張る）。
+//   間隔 66.1 は穴−穴を測った数字ではなく板幅 70.1 − 4.0 の計算値（parts/parts.scad:963）なので、0.2 を超えてずれるのは想定の内だった。
+//   上の行にあった「電流計のダボと同じ径・穴 φ3.0 ✅」は、2026-09-09 に刺さらず φ2.75 ＋ 面取り 0.5 へ直した方の組を根拠にしていた（:441 の掃き残し）ので消した。
+//   🔒 ユーザー決定 2026-09-10「出し直し嫌だから、1 個は切っちゃうよ」: 天板は刷り直さず、刷った物のダボを片方だけ切り落として 1 本で使う。X は残した 1 本が出す。
+//   ⬜ 次に天板を刷るときのモデル（ダボを 1 本にするか、2 本のまま φ2.4 に細らせるか）は未決。この定数はまだ 2.8 のまま。
 OLED_L_W = 6.0; OLED_L_T = 3.6; OLED_L_BELOW = 5.5;
 OLED_PEG_D = 2.8; OLED_PEG_L = 2.0; OLED_PEG_CH = 0.6;   // ダボ: φ2.8・足の前面から 2.0（板 1.6 を抜けて 0.4 出る。フロントの内面 Y 1.0 まで 1.4 残る）・先の面取り 0.6（窓の横の遊び ±1.0 を寄せる）
 function oled_back_y() = OLED_AT[1] - (oled_hous_z_top() + 2.5 + dupont_h());   // OLED の板の裏の世界 Y（4.4。黒枠 2.8 ＋ 板 1.6）
@@ -1208,6 +1218,7 @@ if (part == "print_strap_c") { strap_print(2); if (!PROPS_OFF) { props_strap_c()
 if (part == "print_inabar") print_inabar();
 if (part == "print_inabar_a") print_inabar_a();   // 試し刷り A（凹み 3.0・ダボ 2.8）
 if (part == "print_inabar_b") print_inabar_b();   // 試し刷り B（凹み 3.35・ダボ 2.9・溝あり）   // 電流計の小帯（上面を下・支柱不要）
+if (part == "print_inabar_c") print_inabar_c();   // 試し刷り C（凹み 3.35・ダボ 2.9・抜き穴 1.5）
 if (part == "p_floor") color("#e0a040") p_floor();
 if (part == "p_top")   color("#c9d0d8") p_top();
 if (part == "p_lwall") { color("#4a90d9") p_lwall(); panel_ribs("lwall"); }
