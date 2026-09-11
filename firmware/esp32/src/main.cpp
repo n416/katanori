@@ -2276,13 +2276,18 @@ static void drawMenuScreen() {
         drawMenuCentered("せってい", 28);
         drawMenuCentered("かんりょう!", 50);
     } else if (menuMode == MenuMode::Exit) {
-        // 出口。つまみを 0 へ回せば終わり、100 へ回せばメニューへ戻る。下の棒が今のつまみの位置
+        // 出口。つまみを 0 へ回せば終わり、100 へ回せばメニューへ戻る。
+        // 🔒 ユーザー 2026-09-11「インジケーターは完了に向かって埋まってほしい」: 棒は 0 へ回すほど
+        //    埋まる（100 で空・kMenuExitDonePct で満杯＝完了）
         u8g2.setFont(u8g2_font_b16_t_japanese1);
         drawMenuCentered("0でかんりょう", 18);
         drawMenuCentered("100でメニュー", 38);
         int pct = knobAngleToPercent(knobRelAngle(menuKnobRaw));
         u8g2.drawFrame(4, 48, 120, 12);
-        int fill = pct * 116 / 100;
+        int fill = (100 - pct) * 116 / (100 - kMenuExitDonePct);
+        if (fill > 116) {
+            fill = 116;
+        }
         if (fill > 0) {
             u8g2.drawBox(6, 50, fill, 8);
         }
