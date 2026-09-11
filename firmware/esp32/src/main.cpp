@@ -1871,7 +1871,7 @@ static IdleStage idleStageNow() {
 // katanori.local の設定ページと同じ値を読み書きする。
 //
 // つまみは「位置がそのまま音量」の絶対角のつまみなので、メニューの中だけは回した量で
-// 1 つずつ進める（25 度で 1 つ・端まで行ったら反対の端へ回る）。位置で選ばせると、
+// 1 つずつ進める（25 度で 1 つ・端では止まる）。位置で選ばせると、
 // 値を変え始めた瞬間に値がつまみの位置へ飛ぶ。
 // メニューの間は音量を変えない。抜けるときは必ず「おんりょう」の画面を通り、つまみの今の
 // 位置の音量を見せる。その間も音は出さない（ゲインは入る前のまま・鳴らすものも無い）。
@@ -2023,11 +2023,21 @@ static void menuOnKnob(uint16_t raw) {
     menuAnchorRaw = (uint16_t)((menuAnchorRaw + moved) & 0x0FFF);
     menuLastInputMs = millis();
 
+    // 🔒 ユーザー 2026-09-11「つまみの0位置は1であってほしい」: 端では回り込まずに止める
+    //    （下へ回し切れば 1 つ目・上へ回し切れば最後）。止まったら基準を今の位置へ
+    //    寄せて、逆へ回したらすぐ 1 つ戻るようにする
+    auto clampStep = [&](int cur, int n) {
+        int next = cur + steps;
+        if (next < 0 || next > n - 1) {
+            next = next < 0 ? 0 : n - 1;
+            menuAnchorRaw = raw;
+        }
+        return (uint8_t)next;
+    };
     if (menuMode == MenuMode::Browse) {
-        menuItem = (uint8_t)(((int)menuItem + steps % kMenuItems + kMenuItems) % kMenuItems);
+        menuItem = clampStep(menuItem, kMenuItems);
     } else if (menuMode == MenuMode::Edit) {
-        int n = menuOptionCount(menuItem);
-        menuValue = (uint8_t)(((int)menuValue + steps % n + n) % n);
+        menuValue = clampStep(menuValue, menuOptionCount(menuItem));
         if (menuItem == 0 && !KATANORI_I2C_SILENCE) {
             // あかるさはその場で効かせる（見ながら選べるように）
             u8g2.setContrast(katanori::Settings::contrastFor(menuValue + 1));
