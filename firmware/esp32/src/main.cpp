@@ -2353,6 +2353,16 @@ static void drawMenuScreen() {
 }
 
 /** マイクを読んでDOへ送る。main loop から毎回呼ぶ。 */
+/**
+ * 喋っている最中もマイクを送るか（声で割り込めるか）。シリアル `bargein` で入り切り。
+ *
+ * 🔒 ユーザー 2026-09-12「（声で割り込めるのは）欲しい」。仕様書 2章: ReSpeaker Lite の
+ * ハードウェア AEC（ch0 は AEC 後の音声認識向けの信号）で、喋っている最中の人の声を聞き取る。
+ * AEC が効かないと自分の声で Gemini が「interrupted」を返し、会話が壊れる。実機で確かめるまで
+ * 既定は切り（今までどおりのエコーガード）。再起動で切りに戻る。
+ */
+static bool bargeInEnabled = false;
+
 static void pumpMic() {
     static int16_t buf[512];
 
@@ -2373,7 +2383,8 @@ static void pumpMic() {
     // エコーガード: 再生中はマイクを送らない。
     // 送ると自分の声で Gemini が割り込み判定して会話が破綻する。
     // (ReSpeaker Lite のハードウェアAECが効けば不要になるはずの暫定措置)
-    if (katanori::audioIo.isPlaying()) {
+    // `bargein` で外すと、喋っている最中も送る（声で割り込める・仕様書 2章）。
+    if (katanori::audioIo.isPlaying() && !bargeInEnabled) {
         return;
     }
     katanori::netLink.sendAudio(buf, n);
@@ -3497,7 +3508,8 @@ static void printHelp() {
     Serial.println("   boots : 直近10回の再起動の理由と、落ちる直前の様子（BootLog.h）");
     Serial.println("   ? : このヘルプ");
     Serial.println(" BOOT/Usrボタン: 短押しで会話の開始/終了、長押しでメニュー（明るさ・眠るまで・起動の声・Wi-Fi設定）");
-    Serial.println("   cfg : 設定（明るさ・眠るまで・起動の声）を表示。変えるのはメニューか http://katanori.local/");
+    Serial.println("   cfg : 設定（明るさ・眠るまで・起動の声・おんりょうMAX）を表示。変えるのはメニューか http://katanori.local/");
+    Serial.println("   bargein : 喋っている最中もマイクを送る（声で割り込む）の入り切り。既定は切り・再起動で切り");
     Serial.println("--- ネットワーク ---------------------------");
     Serial.println("   ssid <名前>       : Wi-Fi の SSID を追加（最新5件まで保存）");
     Serial.println("   pass <パスワード> : 直前の ssid のパスワードを保存");
@@ -3854,6 +3866,11 @@ static void handleSerial() {
             katanori::provisioning.begin();
         } else if (strcmp(line, "cfg") == 0) {
             katanori::settings.print();
+        } else if (strcmp(line, "bargein") == 0) {
+            bargeInEnabled = !bargeInEnabled;
+            Serial.printf("[TURN] 喋っている最中のマイク送信を%s\n",
+                          bargeInEnabled ? "有効にしました（声で割り込めます。自分の声で止まるなら AEC が効いていない）"
+                                         : "止めました（今までどおり。再起動でもこちらに戻ります）");
         } else if (strcmp(line, "provoff") == 0) {
             exitProvisioning();
         } else if (strcmp(line, "r") == 0) {
