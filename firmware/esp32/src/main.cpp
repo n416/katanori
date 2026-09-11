@@ -27,6 +27,7 @@
 #include "Provisioning.h"
 #include "VoiceClips.h"
 #include "Battery.h"
+#include "BootLog.h"
 
 #include <qrcode.h>
 #include "Console.h" // 最後に置く（Serial を Wi-Fi モニタへも流す差し替え。Console.h）
@@ -2899,6 +2900,7 @@ static void printHelp() {
     Serial.println("   t : OLED自己診断パターンを表示");
     Serial.println("   bn: 接続状況の表示を順に出す（顔の代わりに出る2行）。大きさの確認用");
     Serial.println("   i : ブート情報を再表示");
+    Serial.println("   boots : 直近10回の再起動の理由と、落ちる直前の様子（BootLog.h）");
     Serial.println("   ? : このヘルプ");
     Serial.println(" BOOT/Usrボタン: 短押しで会話の開始/終了、3秒長押しでWi-Fi設定モード");
     Serial.println("--- ネットワーク ---------------------------");
@@ -3138,6 +3140,8 @@ static void handleSerial() {
             katanori::battery.resetStats();
         } else if (strcmp(line, "batflip") == 0) {
             katanori::battery.toggleSign();
+        } else if (strcmp(line, "boots") == 0) {
+            katanori::bootlog::printHistory();
         } else if (strcmp(line, "sleep") == 0) {
             idleSleepEnabled = !idleSleepEnabled;
             noteActivity("シリアル");
@@ -3451,6 +3455,8 @@ void setup() {
     Serial.println(" katanori firmware - Stage 1 (face only)");
     Serial.println("=============================================");
     printBootInfo();
+    // なぜ再起動したのか（前回のリセットの理由と、落ちる直前の様子）。BootLog.h
+    katanori::bootlog::begin();
 
     pinMode(KATANORI_BOOT_BUTTON, INPUT_PULLUP);
     pinMode(KATANORI_USR_BUTTON, INPUT_PULLUP);
@@ -3581,6 +3587,19 @@ void loop() {
 
     // 電池は眠っている間も読む（眠って何mA減ったかを見るのがこの計器の用途の1つ）
     katanori::battery.loop();
+
+    // 落ちる直前の様子を残す（次の起動で読む。BootLog.h）。early return より前に置く
+    {
+        using namespace katanori::bootlog;
+        Stage stage = katanori::provisioning.active() ? kProvisioning
+                    : knobOff                          ? kKnobOff
+                    : powerIdleAsleep                  ? kAsleep
+                    : powerDimmed                      ? kDim
+                                                       : kAwake;
+        tick(stage, conversationActive(), katanori::netLink.wifiConnected(),
+             katanori::battery.volts(), katanori::battery.milliamps(),
+             katanori::battery.hasReading());
+    }
 
     // OTA待受。疑似電源OFFや設定モードの early return より前に置く
     // (Wi-Fiが生きている限り、どの状態からでも更新を受けられるように)
