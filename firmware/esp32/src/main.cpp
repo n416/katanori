@@ -2354,14 +2354,17 @@ static void drawMenuScreen() {
 
 /** マイクを読んでDOへ送る。main loop から毎回呼ぶ。 */
 /**
- * 喋っている最中もマイクを送るか（声で割り込めるか）。シリアル `bargein` で入り切り。
+ * 喋っている最中はマイクを送らない「エコーガード」を掛けるか。既定は掛けない。
  *
- * 🔒 ユーザー 2026-09-12「（声で割り込めるのは）欲しい」。仕様書 2章: ReSpeaker Lite の
- * ハードウェア AEC（ch0 は AEC 後の音声認識向けの信号）で、喋っている最中の人の声を聞き取る。
- * AEC が効かないと自分の声で Gemini が「interrupted」を返し、会話が壊れる。実機で確かめるまで
- * 既定は切り（今までどおりのエコーガード）。再起動で切りに戻る。
+ * 🔒 ユーザー 2026-09-12「ロボットが喋っている間はマイクを送らない暫定の止め。こんなのあったら
+ *    ダメでしょ。何のために ReSpeaker 選んでここまで来たのか」。仕様書 2章のとおり、ReSpeaker Lite の
+ *    ハードウェア AEC（ch0 は AEC 後の音声認識向けの信号）で、喋っている最中の人の声を聞き取って
+ *    割り込めるのが既定。エコーガードは 2026-07-26（Stage 3・54ad884）に「AEC が効けば不要になる
+ *    はずの暫定措置」として入り、見直されないまま 2026-09-12 まで残っていた。
+ * 自分の声で「interrupted」が返って会話が壊れるときの切り分けにだけ、シリアル `echoguard` で
+ * 一時的に掛けられる（再起動で外れる）。
  */
-static bool bargeInEnabled = false;
+static bool echoGuardEnabled = false;
 
 static void pumpMic() {
     static int16_t buf[512];
@@ -2380,11 +2383,9 @@ static void pumpMic() {
         return;
     }
 
-    // エコーガード: 再生中はマイクを送らない。
-    // 送ると自分の声で Gemini が割り込み判定して会話が破綻する。
-    // (ReSpeaker Lite のハードウェアAECが効けば不要になるはずの暫定措置)
-    // `bargein` で外すと、喋っている最中も送る（声で割り込める・仕様書 2章）。
-    if (katanori::audioIo.isPlaying() && !bargeInEnabled) {
+    // 喋っている最中も送る（声で割り込める・仕様書 2章）。AEC が消した後の信号なので、
+    // 自分の声は Gemini に届かない前提。切り分けのときだけ `echoguard` で止められる
+    if (katanori::audioIo.isPlaying() && echoGuardEnabled) {
         return;
     }
     katanori::netLink.sendAudio(buf, n);
@@ -3509,7 +3510,7 @@ static void printHelp() {
     Serial.println("   ? : このヘルプ");
     Serial.println(" BOOT/Usrボタン: 短押しで会話の開始/終了、長押しでメニュー（明るさ・眠るまで・起動の声・Wi-Fi設定）");
     Serial.println("   cfg : 設定（明るさ・眠るまで・起動の声・おんりょうMAX）を表示。変えるのはメニューか http://katanori.local/");
-    Serial.println("   bargein : 喋っている最中もマイクを送る（声で割り込む）の入り切り。既定は切り・再起動で切り");
+    Serial.println("   echoguard : 喋っている最中はマイクを送らない、を一時的に掛ける（切り分け用・既定は外れ・再起動で外れる）");
     Serial.println("--- ネットワーク ---------------------------");
     Serial.println("   ssid <名前>       : Wi-Fi の SSID を追加（最新5件まで保存）");
     Serial.println("   pass <パスワード> : 直前の ssid のパスワードを保存");
@@ -3866,11 +3867,11 @@ static void handleSerial() {
             katanori::provisioning.begin();
         } else if (strcmp(line, "cfg") == 0) {
             katanori::settings.print();
-        } else if (strcmp(line, "bargein") == 0) {
-            bargeInEnabled = !bargeInEnabled;
-            Serial.printf("[TURN] 喋っている最中のマイク送信を%s\n",
-                          bargeInEnabled ? "有効にしました（声で割り込めます。自分の声で止まるなら AEC が効いていない）"
-                                         : "止めました（今までどおり。再起動でもこちらに戻ります）");
+        } else if (strcmp(line, "echoguard") == 0) {
+            echoGuardEnabled = !echoGuardEnabled;
+            Serial.printf("[TURN] エコーガードを%s\n",
+                          echoGuardEnabled ? "掛けました（喋っている最中はマイクを送らない。切り分け用・再起動で外れる）"
+                                           : "外しました（喋っている最中も送る。声で割り込める）");
         } else if (strcmp(line, "provoff") == 0) {
             exitProvisioning();
         } else if (strcmp(line, "r") == 0) {
