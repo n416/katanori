@@ -907,7 +907,7 @@ static void pumpKnobAs5600(uint32_t now) {
     // メニューの間は、つまみはメニューの入力。音量は変えず、ファームの OFF 判定もしない。
     // 🔒 ユーザー 2026-09-11「設定画面でもOFFになっちゃうのはまずい」: 回して項目を選ぶうちに
     //    OFF閾値（15度）へ入っても、メニューは閉じない。OFF の止まり手前（約5度）でリードが
-    //    電源を切るのはハードなので止められない。手前に入ったら画面で知らせる（drawMenuScreen）
+    //    電源を切るのはハードなので止められない（知らせる表示は置かない・同日ユーザー）
     if (menuActive()) {
         menuOnKnob(as5600Word(buf));
         return;
@@ -2226,15 +2226,9 @@ static void drawMenuScreen() {
                 u8g2.drawVLine(120 + 4 - i, 32 - i, 2 * i + 1); // ▶
             }
         }
-        if (knobRelAngle(menuKnobRaw) <= kKnobOffRaw) {
-            // ファームの OFF 閾値の内側。これ以上回すとリードが電源を切る
-            u8g2.drawBox(0, 47, 128, 17);
-            u8g2.setDrawColor(0);
-            drawMenuCentered("OFFのてまえ", 62);
-            u8g2.setDrawColor(1);
-        } else {
-            drawMenuCentered(editing ? "おす:けってい" : (menuItem == 3 ? "おす:はじめる" : "おす:かえる"), 62);
-        }
+        // 「OFFのてまえ」の表示は 2026-09-11 に外した（ユーザー「そもそもOFFにならないように
+        // なってますよね。それならメッセージ不要では」）。メニューの間はファームの OFF 判定をしない
+        drawMenuCentered(editing ? "おす:けってい" : (menuItem == 3 ? "おす:はじめる" : "おす:かえる"), 62);
     }
 
     u8g2.setFontMode(0);
