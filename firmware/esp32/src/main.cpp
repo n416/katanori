@@ -367,6 +367,15 @@ static bool bannerDemo = false;
 // メニューの画面（定義は「メニュー」の節）。出ている間は顔も音量表示も描かない
 static bool menuActive();
 static void drawMenuScreen();
+/**
+ * 普段の画面で押し始めた時刻（0 = 押していない）。長押しの「せっていへ」の棒に使う。
+ * 🔒 ユーザー 2026-09-11「通常画面から設定画面の長押しの時も『せっていへ』でインジケーターを出したい」
+ */
+static uint32_t normalHoldStartMs = 0;
+/** 普段の画面では、これより短く離したら短押し（会話）。これを過ぎたら棒を出し、途中で離しても何もしない。 */
+static constexpr uint32_t kNormalTapMs = 700;
+/** 長押しの進み具合の画面（定義は「メニュー」の節）。 */
+static void drawHoldScreen(const char* line1, const char* line2, uint32_t held, uint32_t showMs);
 
 class Esp32Hal : public katanori::IHal {
 public:
@@ -415,6 +424,12 @@ public:
         // メニュー（会話ボタン長押し）の間はメニューだけ
         if (menuActive()) {
             drawMenuScreen();
+            return;
+        }
+
+        // 普段の画面で長押し中: 「せっていへ」と進み具合（棒が最後まで行くとメニュー）
+        if (normalHoldStartMs != 0 && ::millis() - normalHoldStartMs >= kNormalTapMs) {
+            drawHoldScreen("せっていへ", nullptr, ::millis() - normalHoldStartMs, kNormalTapMs);
             return;
         }
 
@@ -1870,9 +1885,11 @@ static IdleStage idleStageNow() {
 // 項目は あかるさ／ねむるまで／きどうのこえ／WiFiせってい。値は Settings（NVS）へ入り、
 // katanori.local の設定ページと同じ値を読み書きする。
 //
-// つまみは「位置がそのまま音量」の絶対角のつまみなので、メニューの中だけは回した量で
-// 1 つずつ進める（25 度で 1 つ・端では止まる）。位置で選ばせると、
-// 値を変え始めた瞬間に値がつまみの位置へ飛ぶ。
+// つまみは位置で選ぶ。🔒 ユーザー 2026-09-11「メニューのつまみの0位置は1で、最大はその
+// メニューの最大（今であれば４）で合ってほしい」: 可動範囲（0〜310度）を選択肢の数で等分し、
+// 一番下が 1 つ目・一番上が最後。境目には 3 度の遊びを置く（ちらつかないように）。
+// ただし「値を変える」に入った直後と、決めて一覧へ戻った直後は、つまみが次の区切りへ
+// 動くまで今の値（項目）のままにする（入った瞬間に値が位置へ飛ばないように）。
 // メニューの間は音量を変えない。抜けるときは必ず「おんりょう」の画面を通り、つまみの今の
 // 位置の音量を見せる。その間も音は出さない（ゲインは入る前のまま・鳴らすものも無い）。
 // 短押しで決めると普段に戻り、次の周回でつまみの位置が音量になる。
@@ -1885,9 +1902,11 @@ static uint8_t menuItem = 0;
 /** 値を変えている最中の選択肢の番号と、長押しで取り消したときに戻す番号。 */
 static uint8_t menuValue = 0;
 static uint8_t menuSaved = 0;
-/** 回した量を測る基準の RAW ANGLE。1 つ進むごとに 25 度ぶん送る。 */
-static uint16_t menuAnchorRaw = 0;
-/** つまみの今の RAW ANGLE（おんりょうの画面と、基準の取り直しに使う）。 */
+/**
+ * 切り替わった直後のつまみの区切り。つまみがここを出るまでは今の選択のまま（-1 = 位置どおり）。
+ */
+static int8_t menuPickupZone = -1;
+/** つまみの今の RAW ANGLE（区切りの計算と、おんりょうの画面に使う）。 */
 static uint16_t menuKnobRaw = 0;
 static uint32_t menuLastInputMs = 0;
 /** 「せってい かんりょう!」を消して音量の画面へ進む時刻。 */
@@ -1905,13 +1924,14 @@ static bool menuVolumeAfterProv = false;
  *    最後まで行ったらキャンセル」「戻る場合も同じく『戻る』でインジケーター」。
  */
 static uint32_t menuHoldStartMs = 0;
-/** これより短く離したら短押し（決定）。これ以上で棒の途中なら何もしない。 */
+/** これより短く離したら短押し（決定）。これを過ぎたら棒を出し、途中で離しても何もしない。 */
 static constexpr uint32_t kMenuTapMs = 400;
-/** 押してからこの時間で棒を出し始める（短押しのたびに棒がちらつかないように）。 */
-static constexpr uint32_t kMenuHoldShowMs = 300;
+/** 棒を出し始める時刻。短押しと棒が重ならないよう kMenuTapMs と同じにする。 */
+static constexpr uint32_t kMenuHoldShowMs = kMenuTapMs;
 
 static constexpr uint8_t kMenuItems = 4;
-static constexpr uint16_t kMenuStepRaw = (uint16_t)(25ul * 4096 / 360);
+/** 区切りの境目の遊び（3 度）。 */
+static constexpr uint16_t kMenuZoneHystRaw = (uint16_t)(3ul * 4096 / 360);
 /** 触らないとこの時間で「おんりょう」の画面へ進む（うっかり入った人を置き去りにしない）。 */
 static constexpr uint32_t kMenuTimeoutMs = 30000;
 // 画面の日本語フォント（b16_t_japanese1）には漢字も全角の「：」も無い。かなと ASCII だけ
@@ -1949,6 +1969,22 @@ static void menuRestoreContrast() {
     }
 }
 
+/**
+ * つまみの相対角（0〜可動範囲）を n 個の区切りの番号へ。一番下が 0・一番上が n-1。
+ * cur（今の番号）の隣へ移るときだけ境目を 3 度越えるまで待つ（cur < 0 なら遊び無し）。
+ */
+static uint8_t menuZone(uint16_t rel, int n, int cur) {
+    uint32_t span = (uint32_t)kKnobSpanRaw + 1;
+    int z = (int)((uint32_t)rel * n / span);
+    if (z > n - 1) z = n - 1;
+    if (cur >= 0 && cur < n && (z == cur + 1 || z == cur - 1)) {
+        uint32_t edge = (uint32_t)(z > cur ? z : cur) * span / n; // 越えようとしている境目
+        if (z > cur && rel < edge + kMenuZoneHystRaw) return (uint8_t)cur;
+        if (z < cur && rel + kMenuZoneHystRaw > edge) return (uint8_t)cur;
+    }
+    return (uint8_t)z;
+}
+
 static void menuEnter() {
     if (!knobAs5600Ok) {
         Serial.println("[MENU] つまみ（AS5600）が読めないのでメニューは使えません");
@@ -1962,8 +1998,9 @@ static void menuEnter() {
     if (conversationActive()) {
         endConversation();
     }
-    menuKnobRaw = menuAnchorRaw = as5600Word(buf);
-    menuItem = 0;
+    menuKnobRaw = as5600Word(buf);
+    menuItem = menuZone(knobRelAngle(menuKnobRaw), kMenuItems, -1); // 入ったときは位置どおり
+    menuPickupZone = -1;
     menuMode = MenuMode::Browse;
     menuLastInputMs = millis();
     volOverlayUntilMs = millis(); // 音量表示が出ていたら畳む
@@ -2007,37 +2044,28 @@ static void menuAbort() {
 /** つまみの入力。pumpKnobAs5600() がメニューの間だけ呼ぶ。 */
 static void menuOnKnob(uint16_t raw) {
     menuKnobRaw = raw;
-    // 基準からの差（-2048〜2047）。回して音量が上がる向きを ＋ にそろえる
-    int d = (int)((raw - menuAnchorRaw + 2048) & 0x0FFF) - 2048;
-#if KATANORI_KNOB_DIR_INVERT
-    d = -d;
-#endif
-    int steps = d / (int)kMenuStepRaw;
-    if (steps == 0) {
+    int n = (menuMode == MenuMode::Browse) ? kMenuItems
+          : (menuMode == MenuMode::Edit)   ? menuOptionCount(menuItem)
+                                           : 0;
+    if (n <= 1) {
         return;
     }
-    int moved = steps * (int)kMenuStepRaw;
-#if KATANORI_KNOB_DIR_INVERT
-    moved = -moved;
-#endif
-    menuAnchorRaw = (uint16_t)((menuAnchorRaw + moved) & 0x0FFF);
-    menuLastInputMs = millis();
-
-    // 🔒 ユーザー 2026-09-11「つまみの0位置は1であってほしい」: 端では回り込まずに止める
-    //    （下へ回し切れば 1 つ目・上へ回し切れば最後）。止まったら基準を今の位置へ
-    //    寄せて、逆へ回したらすぐ 1 つ戻るようにする
-    auto clampStep = [&](int cur, int n) {
-        int next = cur + steps;
-        if (next < 0 || next > n - 1) {
-            next = next < 0 ? 0 : n - 1;
-            menuAnchorRaw = raw;
+    uint8_t cur = (menuMode == MenuMode::Browse) ? menuItem : menuValue;
+    uint8_t z = menuZone(knobRelAngle(raw), n, cur);
+    if (menuPickupZone >= 0) {
+        if (z == (uint8_t)menuPickupZone) {
+            return; // 切り替わった直後。つまみが次の区切りへ動くまでは今のまま
         }
-        return (uint8_t)next;
-    };
+        menuPickupZone = -1;
+    }
+    if (z == cur) {
+        return;
+    }
+    menuLastInputMs = millis();
     if (menuMode == MenuMode::Browse) {
-        menuItem = clampStep(menuItem, kMenuItems);
-    } else if (menuMode == MenuMode::Edit) {
-        menuValue = clampStep(menuValue, menuOptionCount(menuItem));
+        menuItem = z;
+    } else {
+        menuValue = z;
         if (menuItem == 0 && !KATANORI_I2C_SILENCE) {
             // あかるさはその場で効かせる（見ながら選べるように）
             u8g2.setContrast(katanori::Settings::contrastFor(menuValue + 1));
@@ -2060,8 +2088,8 @@ static void menuShortPress() {
             return;
         }
         menuValue = menuSaved = menuStoredValue(menuItem);
-        menuAnchorRaw = menuKnobRaw;
         menuMode = MenuMode::Edit;
+        menuPickupZone = (int8_t)menuZone(knobRelAngle(menuKnobRaw), menuOptionCount(menuItem), -1);
         break;
     case MenuMode::Edit:
         switch (menuItem) {
@@ -2069,8 +2097,8 @@ static void menuShortPress() {
         case 1: katanori::settings.setSleepIndex(menuValue); break;
         case 2: katanori::settings.setBootVoice(menuValue == 0); break;
         }
-        menuAnchorRaw = menuKnobRaw;
         menuMode = MenuMode::Browse;
+        menuPickupZone = (int8_t)menuZone(knobRelAngle(menuKnobRaw), kMenuItems, -1);
         break;
     case MenuMode::Done:
         menuToVolume(false); // 押したら待たずに音量の画面へ
@@ -2092,8 +2120,8 @@ static void menuLongPress() {
         if (menuItem == 0) {
             menuRestoreContrast();
         }
-        menuAnchorRaw = menuKnobRaw;
         menuMode = MenuMode::Browse;
+        menuPickupZone = (int8_t)menuZone(knobRelAngle(menuKnobRaw), kMenuItems, -1);
         break;
     case MenuMode::Browse:
         menuToVolume(true);
@@ -2129,6 +2157,31 @@ static void drawMenuCentered(const char* text, int baselineY) {
     u8g2.drawUTF8((128 - w) / 2, baselineY, text);
 }
 
+/**
+ * 長押しの進み具合の画面を 1 枚描いて送る。上に何が起きるか（1〜2 行）、下に棒。
+ * 棒は showMs で空、KATANORI_LONG_PRESS_MS で満ちる（そこで長押しが決まる）。
+ */
+static void drawHoldScreen(const char* line1, const char* line2, uint32_t held, uint32_t showMs) {
+    u8g2.clearBuffer();
+    u8g2.setDrawColor(1);
+    u8g2.setFontMode(1);
+    u8g2.setFont(u8g2_font_b16_t_japanese1);
+    if (line2) {
+        drawMenuCentered(line1, 22);
+        drawMenuCentered(line2, 40);
+    } else {
+        drawMenuCentered(line1, 30);
+    }
+    uint32_t span = KATANORI_LONG_PRESS_MS - showMs;
+    uint32_t fill = held > showMs ? (held - showMs) * 116 / span : 0;
+    u8g2.drawFrame(4, 48, 120, 12);
+    if (fill > 0) {
+        u8g2.drawBox(6, 50, fill > 116 ? 116 : fill, 8);
+    }
+    u8g2.setFontMode(0);
+    u8g2.sendBuffer();
+}
+
 /** メニューの画面を 1 枚描いて送る。見本 docs/img_menu_mock.png と同じ座標。 */
 static void drawMenuScreen() {
     u8g2.clearBuffer();
@@ -2138,20 +2191,13 @@ static void drawMenuScreen() {
     // 長押しの途中: 何が起きるかと進み具合。棒が最後まで行ったら menuLongPress()
     uint32_t held = menuHoldStartMs ? millis() - menuHoldStartMs : 0;
     if (held >= kMenuHoldShowMs && (menuMode == MenuMode::Browse || menuMode == MenuMode::Edit)) {
-        u8g2.setFont(u8g2_font_b16_t_japanese1);
+        u8g2.setFontMode(0);
         if (menuMode == MenuMode::Edit) {
             // 「キャンセルします」は 129px で 1 行に収まらないので 2 行
-            drawMenuCentered("キャンセル", 22);
-            drawMenuCentered("します", 40);
+            drawHoldScreen("キャンセル", "します", held, kMenuHoldShowMs);
         } else {
-            drawMenuCentered("もどる", 30);
+            drawHoldScreen("もどる", nullptr, held, kMenuHoldShowMs);
         }
-        uint32_t span = KATANORI_LONG_PRESS_MS - kMenuHoldShowMs;
-        uint32_t fill = (held - kMenuHoldShowMs) * 116 / span;
-        u8g2.drawFrame(4, 48, 120, 12);
-        u8g2.drawBox(6, 50, fill > 116 ? 116 : fill, 8);
-        u8g2.setFontMode(0);
-        u8g2.sendBuffer();
         return;
     }
 
@@ -3847,6 +3893,8 @@ static void handleButton() {
             // メニューの中で押し始めた長押しだけ、進み具合を画面に出す（drawMenuScreen）。
             // 長押しでメニューに入った直後は、指がまだ乗っていても出さない
             menuHoldStartMs = menuActive() ? now : 0;
+            // 普段の画面で押し始めた長押しは「せっていへ」の棒を出す（設定モード中・つまみOFF中は出さない）
+            normalHoldStartMs = (!menuActive() && !katanori::provisioning.active() && !knobOff) ? now : 0;
         } else if (menuHoldStartMs != 0) {
             // メニューの中の押し。すぐ離せば決定、棒の途中で離せば何もしない
             uint32_t held = now - menuHoldStartMs;
@@ -3858,7 +3906,12 @@ static void handleButton() {
                     Serial.println("[MENU] 長押しを途中でやめました（何もしません）");
                 }
             }
+        } else if (!longFired && normalHoldStartMs != 0 && now - normalHoldStartMs >= kNormalTapMs) {
+            // 「せっていへ」の棒の途中で離した。会話は始めない
+            normalHoldStartMs = 0;
+            Serial.println("[BTN] 長押しを途中でやめました（何もしません）");
         } else if (!longFired) {
+            normalHoldStartMs = 0;
             // 離した時点で短押し確定
             if (katanori::provisioning.active()) {
                 provShowQr = !provShowQr;
@@ -3895,6 +3948,7 @@ static void handleButton() {
             // 🔒 ユーザー 2026-09-11「会話ボタン長押しでメニュー」。
             // Wi-Fi設定モードはメニューの「WiFiせってい」へ移した
             longFired = true;
+            normalHoldStartMs = 0;
             Serial.println("[BTN] 長押し -> メニュー");
             menuEnter();
         }
