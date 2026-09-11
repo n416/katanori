@@ -274,6 +274,51 @@ static uint32_t uiBlankUntilMs = 0;
  * 折返し帯に入ったか」が手の感触では分からないため、回している間はこれだけを見せる。
  * OFFへ倒した瞬間にも直接呼ぶ（ブラウン管アニメの前に「OFF」を見せるため）。
  */
+/**
+ * 音量の画面の右上（上から 10 ドットの空いた帯）に電池の残りを出す。
+ *
+ * 🔒 ユーザー 2026-09-11「Aで」: 見本 docs/img_battery_mock.png の案 A
+ *   （電池の絵 12x7 ＋ 数字。少ないと絵の中が空・充電中は左に稲妻・電池が繋がっていなければ「USB」）。
+ * 顔には重ねない（音量を顔に小さく重ねる案は 2026-08-03 に「読みにくい」で退けている）。
+ * INA226 が居なければ何も出さない。% は Battery::percent() の目安（電池ごとの実測ではない）。
+ */
+static void drawBatteryBadge() {
+    if (!katanori::battery.present() || !katanori::battery.hasReading()) {
+        return;
+    }
+    u8g2.setFont(u8g2_font_6x10_tf);
+    if (!katanori::battery.connected()) {
+        u8g2.drawStr(128 - u8g2.getStrWidth("USB"), 8, "USB");
+        return;
+    }
+    int pct = katanori::battery.percent();
+    char txt[8];
+    snprintf(txt, sizeof(txt), "%d%%", pct);
+    int tx = 128 - u8g2.getStrWidth(txt);
+    u8g2.drawStr(tx, 8, txt);
+
+    // 電池の絵: 12x7 の枠と右の 1x3 の出っ張り。中（10x5）を残りの割合で塗る
+    const int ix = tx - 3 - 13, iy = 1;
+    u8g2.drawFrame(ix, iy, 12, 7);
+    u8g2.drawBox(ix + 12, iy + 2, 1, 3);
+    int inner = (pct * 10 + 50) / 100;
+    if (inner > 0) {
+        u8g2.drawBox(ix + 1, iy + 1, inner, 5);
+    }
+
+    if (katanori::battery.charging()) {
+        // 稲妻 5x7（見本と同じ点）
+        static const char* const kBolt[7] = {"...##", "..##.", ".##..", "#####", "..##.", ".##..", "##..."};
+        for (int r = 0; r < 7; ++r) {
+            for (int c = 0; c < 5; ++c) {
+                if (kBolt[r][c] == '#') {
+                    u8g2.drawPixel(ix - 7 + c, iy + r);
+                }
+            }
+        }
+    }
+}
+
 static void drawVolumeScreen(int pct) {
     if (KATANORI_I2C_SILENCE) {
         return;
@@ -302,6 +347,7 @@ static void drawVolumeScreen(int pct) {
     if (fill > 0) {
         u8g2.drawBox(bx + 2, by + 2, fill, bh - 4);
     }
+    drawBatteryBadge();
     u8g2.sendBuffer();
 }
 /** オーバーレイの表示時間。回している最中は指を止めるたびに延長される。 */
