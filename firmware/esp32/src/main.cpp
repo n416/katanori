@@ -1534,6 +1534,14 @@ static const char* const kEndWords[] = {
 static constexpr uint32_t kEndAfterWordMs = 10000;
 /** 終わりの言葉を聞いた。返事が終わったら（来なければ kEndAfterWordMs で）会話を閉じる。 */
 static bool endAfterReply = false;
+/**
+ * 会話の中で最後に声があった時刻（装着者の発話・ロボットの返事）。
+ * 🔒 ユーザー 2026-09-12「（無音が続いたら閉じるのも）いれてください」: 声で割り込めるように
+ * マイクを送り続けているので、サーバー側の「無音で切る」はもう働かない。kConvSilenceMs 声が
+ * 無ければ、こちらで会話を閉じる（接続を切るので料金も止まる）。
+ */
+static uint32_t convLastVoiceMs = 0;
+static constexpr uint32_t kConvSilenceMs = 60000;
 static uint32_t endAfterReplyMs = 0;
 /** 装着者の発話の直近（空白を抜いたもの）。文字起こしは細切れで届くので、つないで照合する。 */
 static char userHeard[160];
@@ -1550,6 +1558,7 @@ static void noteUserTranscript(const char* json) {
         return;
     }
     p += 8;
+    convLastVoiceMs = millis(); // 装着者が喋った
     for (; *p && *p != '"'; ++p) {
         if (*p == '\\' && p[1]) {
             ++p; // \" などは次の 1 字だけ見る
@@ -1600,6 +1609,7 @@ static void onControl(const char* json) {
     // GeminiのVADをそのまま顔に反映する。ボタンを押さなくても
     // 喋り始め・喋り終わりで表情が変わる。
     if (strstr(json, "\"speechState\":\"SPEECH\"") != nullptr) {
+        convLastVoiceMs = millis(); // Gemini が装着者の声を聞き取り始めた
         if (!speaking) {
             driveTo(katanori::RobotState::LISTEN);
         }
@@ -1648,6 +1658,7 @@ static void startTurn() {
 
     pendingTurn = false;
     streamEndMs = 0;
+    convLastVoiceMs = millis(); // 無音の時計は会話を始めたところから
     katanori::audioIo.startRecording();
     robot.injectEvent(katanori::RobotEvent::WAKE_WORD);
     Serial.println("[TURN] 会話開始（発話の区切りは自動判定。もう一度ボタンで会話終了）");
@@ -2990,6 +3001,18 @@ static void pumpTurnState() {
     if (endAfterReply && !speaking && !katanori::audioIo.isPlaying() &&
         millis() - endAfterReplyMs >= kEndAfterWordMs) {
         Serial.println("[TURN] 終わりの言葉のあと返事が来ないので、会話を閉じます");
+        endConversation();
+        return;
+    }
+    // ロボットが喋っている間は「声がある」
+    if (speaking || katanori::audioIo.isPlaying()) {
+        convLastVoiceMs = millis();
+    }
+    // 誰も喋らないまま kConvSilenceMs 過ぎた
+    // （VAD 計測モードも録音を使うが、あれは会話ではないので閉じない）
+    if (katanori::audioIo.isRecording() && !vadMeasuringActive() &&
+        millis() - convLastVoiceMs >= kConvSilenceMs) {
+        Serial.printf("[TURN] %u秒声が無かったので、会話を閉じます\n", (unsigned)(kConvSilenceMs / 1000));
         endConversation();
     }
 }
