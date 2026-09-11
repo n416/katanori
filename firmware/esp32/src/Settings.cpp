@@ -64,6 +64,13 @@ void handleRoot() {
     h += String("<label><input type=radio name=v value=0") + (settings.bootVoice() ? "" : " checked") +
          ">鳴らさない</label></fieldset>";
 
+    h += F("<fieldset><legend>音量の上限（つまみを回し切ったときの大きさ）</legend>");
+    for (uint8_t lv = 1; lv <= Settings::kMaxVolLevels; ++lv) {
+        h += "<label><input type=radio name=m value=" + String(lv) +
+             (settings.maxVolume() == lv ? " checked" : "") + ">" + String(lv) + "</label>";
+    }
+    h += F("<div style='font-size:13px;color:#666;clear:both'>5 がこれまでの最大。1 つ下げるごとに少し小さくなる（これより上には設定できない）</div></fieldset>");
+
     h += F("<button type=submit>保存</button></form>"
            "<p style='font-size:13px;color:#666'>機体のメニュー（会話ボタンを長押し）からも同じ設定を変えられます。</p>"
            "</body></html>");
@@ -80,6 +87,9 @@ void handleSave() {
     if (settingsHttp.hasArg("v")) {
         settings.setBootVoice(settingsHttp.arg("v").toInt() != 0);
     }
+    if (settingsHttp.hasArg("m")) {
+        settings.setMaxVolume((uint8_t)settingsHttp.arg("m").toInt());
+    }
     Serial.printf("[CFG] 設定ページから保存しました（%s）\n",
                   settingsHttp.client().remoteIP().toString().c_str());
     settingsHttp.sendHeader("Location", "/?saved=1");
@@ -94,6 +104,13 @@ uint8_t Settings::contrastFor(uint8_t level) {
     return kContrast[level - 1];
 }
 
+float Settings::maxVolumeScaleFor(uint8_t level) {
+    if (level < 1) level = 1;
+    if (level > kMaxVolLevels) level = kMaxVolLevels;
+    // 5 → 0dB, 4 → -2dB, 3 → -4dB, 2 → -6dB, 1 → -8dB（聞いた感じで均等に下がるよう dB で刻む）
+    return powf(10.0f, -2.0f * (kMaxVolLevels - level) / 20.0f);
+}
+
 uint16_t Settings::sleepMinutesAt(uint8_t idx) {
     return idx < kSleepOptions ? kSleepMin[idx] : kSleepMin[2];
 }
@@ -104,7 +121,9 @@ void Settings::begin() {
     bright_ = p.getUChar("bright", kBrightLevels);
     sleepIdx_ = p.getUChar("sleep", 2);
     bootVoice_ = p.getUChar("voice", 1) != 0;
+    maxVol_ = p.getUChar("maxvol", kMaxVolLevels);
     p.end();
+    if (maxVol_ < 1 || maxVol_ > kMaxVolLevels) maxVol_ = kMaxVolLevels;
     if (bright_ < 1 || bright_ > kBrightLevels) bright_ = kBrightLevels;
     if (sleepIdx_ >= kSleepOptions) sleepIdx_ = 2;
     print();
@@ -145,11 +164,18 @@ void Settings::setBootVoice(bool on) {
     changed();
 }
 
+void Settings::setMaxVolume(uint8_t level) {
+    if (level < 1 || level > kMaxVolLevels || level == maxVol_) return;
+    maxVol_ = level;
+    save("maxvol", level);
+    changed();
+}
+
 void Settings::print() const {
     uint16_t m = sleepMinutesAt(sleepIdx_);
-    Serial.printf("[CFG] 明るさ %u/5（0x%02X）・眠るまで %s・起動の声 %s\n",
+    Serial.printf("[CFG] 明るさ %u/5（0x%02X）・眠るまで %s・起動の声 %s・おんりょうMAX %u/5（天井の %.2f 倍）\n",
                   bright_, contrast(), m ? (String(m) + "分").c_str() : "眠らない",
-                  bootVoice_ ? "鳴らす" : "鳴らさない");
+                  bootVoice_ ? "鳴らす" : "鳴らさない", maxVol_, maxVolumeScale());
 }
 
 void Settings::webLoop() {

@@ -639,7 +639,8 @@ static void applyKnobVolume(int pct) {
     float g = 0.0f;
     if (pct > 0) {
         float db = (pct - 100) * 0.30f;
-        g = KATANORI_KNOB_MAX_GAIN * powf(10.0f, db / 20.0f);
+        // 天井（KATANORI_KNOB_MAX_GAIN）× 設定のおんりょうMAX（天井から下げる向きだけ）
+        g = KATANORI_KNOB_MAX_GAIN * katanori::settings.maxVolumeScale() * powf(10.0f, db / 20.0f);
     }
     katanori::audioIo.setGain(g);
 }
@@ -1210,6 +1211,10 @@ static void powerNetStop(bool wifiOff, const char* why) {
 static void applySettings() {
     if (!KATANORI_I2C_SILENCE) {
         u8g2.setContrast(powerDimmed ? oledDimContrast() : katanori::settings.contrast());
+    }
+    // おんりょうMAX を今のつまみの位置に掛け直す（鳴っていなければ次に鳴るときから効く）
+    if (knobPercent >= 0) {
+        applyKnobVolume(knobPercent);
     }
     uint32_t ms = katanori::settings.sleepMs();
     idleSleepEnabled = ms != 0;
@@ -1961,13 +1966,16 @@ static constexpr uint32_t kMenuTapMs = 400;
 /** 棒を出し始める時刻。短押しと棒が重ならないよう kMenuTapMs と同じにする。 */
 static constexpr uint32_t kMenuHoldShowMs = kMenuTapMs;
 
-static constexpr uint8_t kMenuItems = 4;
+static constexpr uint8_t kMenuItems = 5;
+/** 「WiFiせってい」の番号（値を持たず、押すと Wi-Fi 設定モードへ入る）。 */
+static constexpr uint8_t kMenuItemWifi = 4;
 /** 区切りの境目の遊び（3 度）。 */
 static constexpr uint16_t kMenuZoneHystRaw = (uint16_t)(3ul * 4096 / 360);
 /** 触らないとこの時間で出口へ進む（うっかり入った人を置き去りにしない）。 */
 static constexpr uint32_t kMenuTimeoutMs = 30000;
 // 画面の日本語フォント（b16_t_japanese1）には漢字も全角の「：」も無い。かなと ASCII だけ
-static const char* const kMenuTitle[kMenuItems] = {"あかるさ", "ねむるまで", "きどうのこえ", "WiFiせってい"};
+// 「おんりょうMAX」は 🔒 ユーザー 2026-09-12「設定追加しておこうよ」（Settings.h）。「さいだいおんりょう」は 145px で入らない
+static const char* const kMenuTitle[kMenuItems] = {"あかるさ", "ねむるまで", "きどうのこえ", "おんりょうMAX", "WiFiせってい"};
 static const char* const kMenuSleepLabel[katanori::Settings::kSleepOptions] = {
     "しない", "1ふん", "3ふん", "5ふん", "10ふん"};
 
@@ -1980,6 +1988,7 @@ static uint8_t menuOptionCount(uint8_t item) {
     case 0: return katanori::Settings::kBrightLevels;
     case 1: return katanori::Settings::kSleepOptions;
     case 2: return 2; // あり／なし
+    case 3: return katanori::Settings::kMaxVolLevels;
     default: return 1;
     }
 }
@@ -1990,6 +1999,7 @@ static uint8_t menuStoredValue(uint8_t item) {
     case 0: return katanori::settings.brightness() - 1;
     case 1: return katanori::settings.sleepIndex();
     case 2: return katanori::settings.bootVoice() ? 0 : 1;
+    case 3: return katanori::settings.maxVolume() - 1;
     default: return 0;
     }
 }
@@ -2129,7 +2139,7 @@ static void menuShortPress() {
     menuLastInputMs = millis();
     switch (menuMode) {
     case MenuMode::Browse:
-        if (menuItem == 3) {
+        if (menuItem == kMenuItemWifi) {
             // Wi-Fi 設定モードへ。抜けたら出口を通す（exitProvisioning）
             menuMode = MenuMode::Off;
             menuVolumeAfterProv = true;
@@ -2148,6 +2158,7 @@ static void menuShortPress() {
         case 0: katanori::settings.setBrightness(menuValue + 1); break;
         case 1: katanori::settings.setSleepIndex(menuValue); break;
         case 2: katanori::settings.setBootVoice(menuValue == 0); break;
+        case 3: katanori::settings.setMaxVolume(menuValue + 1); break;
         }
         menuMode = MenuMode::Browse;
         menuPickupZone = (int8_t)menuZone(knobRelAngle(menuKnobRaw), kMenuItems, -1);
@@ -2311,7 +2322,8 @@ static void drawMenuScreen() {
         u8g2.setFont(u8g2_font_b16_t_japanese1);
         switch (menuItem) {
         case 0:
-            for (int i = 0; i < katanori::Settings::kBrightLevels; ++i) {
+        case 3: // あかるさ・おんりょうMAX は 5 段のブロック
+            for (int i = 0; i < 5; ++i) {
                 int x = 24 + i * 17;
                 if (i <= v) {
                     u8g2.drawBox(x, y - 13, 13, 12);
@@ -2333,7 +2345,7 @@ static void drawMenuScreen() {
         }
         // 「OFFのてまえ」の表示は 2026-09-11 に外した（ユーザー「そもそもOFFにならないように
         // なってますよね。それならメッセージ不要では」）。メニューの間はファームの OFF 判定をしない
-        drawMenuCentered(editing ? "おす:けってい" : (menuItem == 3 ? "おす:はじめる" : "おす:かえる"), 62);
+        drawMenuCentered(editing ? "おす:けってい" : (menuItem == kMenuItemWifi ? "おす:はじめる" : "おす:かえる"), 62);
     }
 
     u8g2.setFontMode(0);
