@@ -374,6 +374,10 @@ static void drawMenuScreen();
 static uint32_t normalHoldStartMs = 0;
 /** 普段の画面では、これより短く離したら短押し（会話）。これを過ぎたら棒を出し、途中で離しても何もしない。 */
 static constexpr uint32_t kNormalTapMs = 700;
+/** 待機スリープの手前で「ねむります」を数えている間か（pumpPowerDown が立てる）。 */
+static bool powerDrowsy = false;
+/** その画面（定義は「メニュー」の節）。 */
+static void drawDrowsyScreen();
 /** 長押しの進み具合の画面（定義は「メニュー」の節）。 */
 static void drawHoldScreen(const char* line1, const char* line2, uint32_t held, uint32_t showMs);
 
@@ -430,6 +434,12 @@ public:
         // 普段の画面で長押し中: 「せっていへ」と進み具合（棒が最後まで行くとメニュー）
         if (normalHoldStartMs != 0 && ::millis() - normalHoldStartMs >= kNormalTapMs) {
             drawHoldScreen("せっていへ", nullptr, ::millis() - normalHoldStartMs, kNormalTapMs);
+            return;
+        }
+
+        // 待機スリープの手前: 「ねむります」と残り秒数（接点はもう開いている・無線はまだ）
+        if (powerDrowsy) {
+            drawDrowsyScreen();
             return;
         }
 
@@ -1080,7 +1090,14 @@ static bool idleSleepEnabled = true;
 /** 無操作で眠るまで。`sleep <秒>` で変えられる（再起動で既定に戻る）。 */
 static uint32_t idleSleepMs = KATANORI_IDLE_SLEEP_SEC * 1000ul;
 
-enum class IdleStage : uint8_t { Awake, Dim, Asleep };
+// Drowsy = 接点だけ開けて「ねむります」を数えている間（無線はまだ生きている）
+enum class IdleStage : uint8_t { Awake, Dim, Drowsy, Asleep };
+/**
+ * 接点を開けてから画面と無線を止めるまで。🔒 ユーザー 2026-09-11「スリープに入る時、リレーを
+ * 落としてからカウントダウンしてからWifi落としてほしい。リレーの音で気が付いて戻した時にWifi
+ * 接続に移るのが嫌」。この間に触れば接点を閉じ直すだけで、繋ぎ直しは起きない。
+ */
+static constexpr uint32_t kIdleDrowsyMs = 10000;
 /** 今の待機の段階。定義は会話制御の後（見ている状態がそこで出揃うため）。 */
 static IdleStage idleStageNow();
 
@@ -1236,7 +1253,22 @@ static void pumpPowerDown() {
     // --- ここから下はつまみON（または疑似電源OFFを無効にしている） ---
     IdleStage idle = idleStageNow();
     bool asleep = (idle == IdleStage::Asleep);
+    bool drowsy = (idle == IdleStage::Drowsy);
 
+    // 1 段目: 接点だけ開けて「ねむります」を数える（画面も無線もまだ止めない）
+    if ((drowsy || asleep) && !powerRelayDown && muteRelayClosed) {
+        // 順序はつまみOFFと同じ: コーデックをミュート -> 接点を開く
+        if (!KATANORI_I2C_SILENCE && !katanori::audioIo.outputMuted()) {
+            katanori::audioIo.setOutputMute(true);
+        }
+        muteRelaySet(false);
+        powerRelayDown = true;
+        Serial.printf("[PWR] 無操作%u秒。接点を開けました。%u秒後に画面と無線を止めます\n",
+                      (unsigned)(idleSleepMs / 1000), (unsigned)(kIdleDrowsyMs / 1000));
+    }
+    powerDrowsy = drowsy;
+
+    // 2 段目: 画面と無線を止める
     if (asleep && !powerIdleAsleep) {
         powerIdleAsleep = true;
         Serial.printf("[PWR] 待機スリープに入ります（無操作%u秒）\n",
@@ -1244,14 +1276,6 @@ static void pumpPowerDown() {
         if (!powerOledDown) {
             powerOledDown = true;
             u8g2.setPowerSave(1);
-        }
-        // 順序はつまみOFFと同じ: コーデックをミュート -> 接点を開く
-        if (!KATANORI_I2C_SILENCE && !katanori::audioIo.outputMuted()) {
-            katanori::audioIo.setOutputMute(true);
-        }
-        if (muteRelayClosed) {
-            muteRelaySet(false);
-            powerRelayDown = true;
         }
         powerNetStop(true, "待機スリープ");
         Serial.println("[PWR] ボタンかつまみで起きます（ボタンはそのまま会話を始めます）");
@@ -1264,6 +1288,10 @@ static void pumpPowerDown() {
     powerSetDim(idle != IdleStage::Awake);
 
     if (asleep) {
+        return;
+    }
+    // 「ねむります」を数えている間は、接点は開けたまま（画面と無線はまだ落としていない）
+    if (drowsy) {
         return;
     }
 
@@ -1867,8 +1895,11 @@ static IdleStage idleStageNow() {
         return IdleStage::Awake;
     }
     uint32_t idle = now - lastActivityMs;
-    if (idle >= idleSleepMs) {
+    if (idle >= idleSleepMs + kIdleDrowsyMs) {
         return IdleStage::Asleep;
+    }
+    if (idle >= idleSleepMs) {
+        return IdleStage::Drowsy;
     }
     if (idle >= idleSleepMs / 3) {
         return IdleStage::Dim;
@@ -2178,6 +2209,23 @@ static void drawHoldScreen(const char* line1, const char* line2, uint32_t held, 
     if (fill > 0) {
         u8g2.drawBox(6, 50, fill > 116 ? 116 : fill, 8);
     }
+    u8g2.setFontMode(0);
+    u8g2.sendBuffer();
+}
+
+/** 待機スリープの手前の画面。「ねむります」と、画面と無線を止めるまでの残り秒数。 */
+static void drawDrowsyScreen() {
+    int32_t left = (int32_t)(lastActivityMs + idleSleepMs + kIdleDrowsyMs - millis());
+    int secs = left <= 0 ? 0 : (int)((left + 999) / 1000);
+    u8g2.clearBuffer();
+    u8g2.setDrawColor(1);
+    u8g2.setFontMode(1);
+    u8g2.setFont(u8g2_font_b16_t_japanese1);
+    drawMenuCentered("ねむります", 20);
+    char buf[4];
+    snprintf(buf, sizeof(buf), "%d", secs);
+    u8g2.setFont(u8g2_font_fub25_tr);
+    u8g2.drawStr((128 - u8g2.getStrWidth(buf)) / 2, 58, buf);
     u8g2.setFontMode(0);
     u8g2.sendBuffer();
 }
