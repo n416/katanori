@@ -1921,13 +1921,14 @@ static IdleStage idleStageNow() {
 // 一番下が 1 つ目・一番上が最後。境目には 3 度の遊びを置く（ちらつかないように）。
 // ただし「値を変える」に入った直後と、決めて一覧へ戻った直後は、つまみが次の区切りへ
 // 動くまで今の値（項目）のままにする（入った瞬間に値が位置へ飛ばないように）。
-// メニューの間は音量を変えない。抜けるときは必ず「おんりょう」の画面を通り、つまみの今の
-// 位置の音量を見せる。その間も音は出さない（ゲインは入る前のまま・鳴らすものも無い）。
-// 短押しで決めると普段に戻り、次の周回でつまみの位置が音量になる。
+// メニューの間は音量を変えない（ゲインは入る前のまま・鳴らすものも無い）。抜けるときは
+// 「0でかんりょう・100でメニュー」の出口を通り、つまみを 0 まで回させる。だから抜けた時点の
+// 音量は必ず一番下で、次の周回からつまみの位置が音量になる（menuToExit）。
 // ---------------------------------------------------------------------------
 
-// Done = 「せってい かんりょう!」を出している 1.5 秒。その後 Volume（音量を合わせる画面）
-enum class MenuMode : uint8_t { Off, Browse, Edit, Done, Volume };
+// Exit = 「0でかんりょう・100でメニュー」でつまみを待っている間。0 へ回すと Done（「せってい
+// かんりょう!」を 1.5 秒）を出して普段へ戻る。100 へ回すとメニュー（Browse）へ戻る
+enum class MenuMode : uint8_t { Off, Browse, Edit, Exit, Done };
 static MenuMode menuMode = MenuMode::Off;
 static uint8_t menuItem = 0;
 /** 値を変えている最中の選択肢の番号と、長押しで取り消したときに戻す番号。 */
@@ -1937,13 +1938,13 @@ static uint8_t menuSaved = 0;
  * 切り替わった直後のつまみの区切り。つまみがここを出るまでは今の選択のまま（-1 = 位置どおり）。
  */
 static int8_t menuPickupZone = -1;
-/** つまみの今の RAW ANGLE（区切りの計算と、おんりょうの画面に使う）。 */
+/** つまみの今の RAW ANGLE（区切りの計算と、出口の棒に使う）。 */
 static uint16_t menuKnobRaw = 0;
 static uint32_t menuLastInputMs = 0;
 /** 「せってい かんりょう!」を消して音量の画面へ進む時刻。 */
 static uint32_t menuDoneUntilMs = 0;
 static constexpr uint32_t kMenuDoneMs = 1500;
-/** メニューから Wi-Fi 設定へ入った。設定モードを抜けたら「おんりょう」の画面を通す。 */
+/** メニューから Wi-Fi 設定へ入った。設定モードを抜けたら出口（0でかんりょう）を通す。 */
 static bool menuVolumeAfterProv = false;
 
 #ifndef KATANORI_LONG_PRESS_MS
@@ -1963,7 +1964,7 @@ static constexpr uint32_t kMenuHoldShowMs = kMenuTapMs;
 static constexpr uint8_t kMenuItems = 4;
 /** 区切りの境目の遊び（3 度）。 */
 static constexpr uint16_t kMenuZoneHystRaw = (uint16_t)(3ul * 4096 / 360);
-/** 触らないとこの時間で「おんりょう」の画面へ進む（うっかり入った人を置き去りにしない）。 */
+/** 触らないとこの時間で出口へ進む（うっかり入った人を置き去りにしない）。 */
 static constexpr uint32_t kMenuTimeoutMs = 30000;
 // 画面の日本語フォント（b16_t_japanese1）には漢字も全角の「：」も無い。かなと ASCII だけ
 static const char* const kMenuTitle[kMenuItems] = {"あかるさ", "ねむるまで", "きどうのこえ", "WiFiせってい"};
@@ -2038,22 +2039,26 @@ static void menuEnter() {
     Serial.println("[MENU] メニューに入りました（つまみで選ぶ・短押しで決定・長押しで戻る）");
 }
 
+/** Exit で「100でメニュー」を受け付けるか。つまみが一度 90% より下へ来てから立てる。 */
+static bool menuExitArmedTop = false;
+/** 「0でかんりょう」と「100でメニュー」の境（音量の % で判定する。0% は OFF の範囲も含む）。 */
+static constexpr int kMenuExitDonePct = 5;
+static constexpr int kMenuExitArmPct = 90;
+static constexpr int kMenuExitBackPct = 95;
+
 /**
- * 最後の「おんりょう」の画面へ進む。showDone なら先に「せってい かんりょう!」を 1.5 秒出す。
- * 🔒 ユーザー 2026-09-11「設定完了！という画面＋終わった後の音量画面」「普通の音量画面と
- *    似てるから意味不明」: 音量の画面は上の帯を白抜きにし、棒をやめて「おす:けってい」を出す
- *    （見本 docs/img_menu_end_mock.png）。時間切れや Wi-Fi 設定の後は「かんりょう」を出さない。
+ * メニューの出口。「0でかんりょう・100でメニュー」を出してつまみを待つ。
+ * 🔒 ユーザー 2026-09-11「設定完了画面の前に、つまみを0の位置に戻させよう」「『0でかんりょう・
+ *    100でメニュー』でつまみ操作させよう。これで音量設定の不可解なUIが無くなる」。
+ *    0 まで回させるので、抜けた時点の音量は必ず一番下（それまでの「音を出さない音量の画面」は廃止）。
+ *    つまみが上の方にあるときに出口へ来ても、すぐメニューへ跳ね返らないよう、100 は一度 90% より
+ *    下へ来てから受け付ける。
  */
-static void menuToVolume(bool showDone) {
+static void menuToExit() {
+    menuMode = MenuMode::Exit;
     menuLastInputMs = millis();
-    if (showDone) {
-        menuMode = MenuMode::Done;
-        menuDoneUntilMs = millis() + kMenuDoneMs;
-        Serial.println("[MENU] せってい かんりょう");
-        return;
-    }
-    menuMode = MenuMode::Volume;
-    Serial.println("[MENU] おんりょうの画面（音は出しません。短押しで決めて戻ります）");
+    menuExitArmedTop = false;
+    Serial.println("[MENU] 出口: つまみを0でかんりょう・100でメニューへ戻る");
 }
 
 static void menuFinish() {
@@ -2062,7 +2067,7 @@ static void menuFinish() {
     Serial.println("[MENU] メニューを終えました。つまみの位置が音量になります");
 }
 
-/** 途中で閉じる（つまみ OFF など）。変えかけの値は捨て、おんりょうの画面も通さない。 */
+/** 途中で閉じる。変えかけの値は捨て、出口も通さない。 */
 static void menuAbort() {
     if (menuMode == MenuMode::Edit && menuItem == 0) {
         menuRestoreContrast();
@@ -2075,6 +2080,22 @@ static void menuAbort() {
 /** つまみの入力。pumpKnobAs5600() がメニューの間だけ呼ぶ。 */
 static void menuOnKnob(uint16_t raw) {
     menuKnobRaw = raw;
+    if (menuMode == MenuMode::Exit) {
+        int pct = knobAngleToPercent(knobRelAngle(raw));
+        if (pct <= kMenuExitDonePct) {
+            menuMode = MenuMode::Done;
+            menuDoneUntilMs = millis() + kMenuDoneMs;
+            Serial.println("[MENU] せってい かんりょう");
+        } else if (pct < kMenuExitArmPct) {
+            menuExitArmedTop = true;
+        } else if (menuExitArmedTop && pct >= kMenuExitBackPct) {
+            menuMode = MenuMode::Browse;
+            menuLastInputMs = millis();
+            menuPickupZone = (int8_t)menuZone(knobRelAngle(raw), kMenuItems, -1);
+            Serial.println("[MENU] メニューへ戻りました");
+        }
+        return;
+    }
     int n = (menuMode == MenuMode::Browse) ? kMenuItems
           : (menuMode == MenuMode::Edit)   ? menuOptionCount(menuItem)
                                            : 0;
@@ -2109,7 +2130,7 @@ static void menuShortPress() {
     switch (menuMode) {
     case MenuMode::Browse:
         if (menuItem == 3) {
-            // Wi-Fi 設定モードへ。抜けたら「おんりょう」の画面を通す（exitProvisioning）
+            // Wi-Fi 設定モードへ。抜けたら出口を通す（exitProvisioning）
             menuMode = MenuMode::Off;
             menuVolumeAfterProv = true;
             Serial.println("[MENU] WiFiせってい -> Wi-Fi設定モードへ");
@@ -2132,11 +2153,9 @@ static void menuShortPress() {
         menuPickupZone = (int8_t)menuZone(knobRelAngle(menuKnobRaw), kMenuItems, -1);
         break;
     case MenuMode::Done:
-        menuToVolume(false); // 押したら待たずに音量の画面へ
+        menuFinish(); // 押したら「かんりょう」を待たずに普段へ
         break;
-    case MenuMode::Volume:
-        menuFinish();
-        break;
+    case MenuMode::Exit: // 出口ではボタンに役目は無い（つまみで選ぶ）
     case MenuMode::Off:
         break;
     }
@@ -2155,19 +2174,19 @@ static void menuLongPress() {
         menuPickupZone = (int8_t)menuZone(knobRelAngle(menuKnobRaw), kMenuItems, -1);
         break;
     case MenuMode::Browse:
-        menuToVolume(true);
+        menuToExit();
         break;
+    case MenuMode::Exit:
     case MenuMode::Done:
-    case MenuMode::Volume:
     case MenuMode::Off:
         break;
     }
 }
 
-/** 触られないまま時間が過ぎたら、おんりょうの画面まで進める。main loop から毎回呼ぶ。 */
+/** 触られないまま時間が過ぎたら出口へ進める。「かんりょう」を出し終えたら普段へ。main loop から毎回呼ぶ。 */
 static void pumpMenu() {
     if (menuMode == MenuMode::Done && (int32_t)(millis() - menuDoneUntilMs) >= 0) {
-        menuToVolume(false);
+        menuFinish();
         return;
     }
     if (menuMode != MenuMode::Browse && menuMode != MenuMode::Edit) {
@@ -2179,8 +2198,8 @@ static void pumpMenu() {
     if (menuMode == MenuMode::Edit && menuItem == 0) {
         menuRestoreContrast();
     }
-    Serial.println("[MENU] 30秒触られなかったので、変えかけの値は捨てて閉じます");
-    menuToVolume(false);
+    Serial.println("[MENU] 30秒触られなかったので、変えかけの値は捨てて出口へ進みます");
+    menuToExit();
 }
 
 static void drawMenuCentered(const char* text, int baselineY) {
@@ -2256,30 +2275,17 @@ static void drawMenuScreen() {
         u8g2.setFont(u8g2_font_b16_t_japanese1);
         drawMenuCentered("せってい", 28);
         drawMenuCentered("かんりょう!", 50);
-    } else if (menuMode == MenuMode::Volume) {
-        // 普段の音量の画面と見分けるため、上の帯を白抜きにし、棒は出さない
-        u8g2.drawBox(0, 0, 128, 18);
-        u8g2.setDrawColor(0);
+    } else if (menuMode == MenuMode::Exit) {
+        // 出口。つまみを 0 へ回せば終わり、100 へ回せばメニューへ戻る。下の棒が今のつまみの位置
         u8g2.setFont(u8g2_font_b16_t_japanese1);
-        u8g2.drawUTF8(3, 15, "おんりょう");
-        // 音を出していない印（スピーカーに ×）
-        const int sx = 104, sy = 4;
-        u8g2.drawBox(sx, sy + 3, 3, 5);
-        for (int i = 0; i < 4; ++i) {
-            u8g2.drawVLine(sx + 3 + i, sy + 3 - i, 5 + 2 * i);
-        }
-        for (int k = 0; k < 6; ++k) {
-            u8g2.drawPixel(sx + 12 + k, sy + 2 + k);
-            u8g2.drawPixel(sx + 17 - k, sy + 2 + k);
-        }
-        u8g2.setDrawColor(1);
+        drawMenuCentered("0でかんりょう", 18);
+        drawMenuCentered("100でメニュー", 38);
         int pct = knobAngleToPercent(knobRelAngle(menuKnobRaw));
-        char buf[8];
-        snprintf(buf, sizeof(buf), pct <= 0 ? "OFF" : "%d%%", pct);
-        u8g2.setFont(u8g2_font_fub25_tr);
-        u8g2.drawStr((128 - u8g2.getStrWidth(buf)) / 2, 45, buf);
-        u8g2.setFont(u8g2_font_b16_t_japanese1);
-        drawMenuCentered("おす:けってい", 63);
+        u8g2.drawFrame(4, 48, 120, 12);
+        int fill = pct * 116 / 100;
+        if (fill > 0) {
+            u8g2.drawBox(6, 50, fill, 8);
+        }
     } else {
         const bool editing = (menuMode == MenuMode::Edit);
         const uint8_t v = editing ? menuValue : menuStoredValue(menuItem);
@@ -3887,10 +3893,10 @@ static void exitProvisioning() {
     if (katanori::netLink.hasCredentials()) {
         katanori::netLink.wifiConnect();
     }
-    // メニューから入った Wi-Fi 設定を抜けた。メニューの終わりと同じく、おんりょうの画面を通す
+    // メニューから入った Wi-Fi 設定を抜けた。メニューの終わりと同じく出口（0でかんりょう）を通す
     if (menuVolumeAfterProv) {
         menuVolumeAfterProv = false;
-        menuToVolume(false);
+        menuToExit();
     }
 }
 
@@ -3948,7 +3954,7 @@ static void handleButton() {
             uint32_t held = now - menuHoldStartMs;
             menuHoldStartMs = 0;
             if (!longFired) {
-                if (menuMode == MenuMode::Volume || menuMode == MenuMode::Done || held < kMenuTapMs) {
+                if (menuMode == MenuMode::Done || held < kMenuTapMs) {
                     menuShortPress();
                 } else {
                     Serial.println("[MENU] 長押しを途中でやめました（何もしません）");
@@ -3979,7 +3985,7 @@ static void handleButton() {
 
     if (pressed && !longFired && (now - pressedAtMs) >= KATANORI_LONG_PRESS_MS) {
         if (menuActive()) {
-            // おんりょうの画面では長押しに役目は無い（離したときに決定する）
+            // 出口と「かんりょう」では長押しに役目は無い
             if ((menuMode == MenuMode::Browse || menuMode == MenuMode::Edit) && menuHoldStartMs != 0) {
                 longFired = true;
                 menuLongPress();
@@ -4196,7 +4202,7 @@ void loop() {
     katanori::console.loop();
     handleSerial();
     handleButton();
-    pumpMenu(); // メニューを 30 秒触らなければ、おんりょうの画面へ進める
+    pumpMenu(); // メニューを 30 秒触らなければ出口へ進める・「かんりょう」を出し終えたら普段へ
 
     // つまみは設定モード中も読む（OFF位置の検知が pumpOutputGate の前提になる）
     pumpVolumeKnob();
