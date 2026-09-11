@@ -28,6 +28,7 @@
 #include "VoiceClips.h"
 #include "Battery.h"
 #include "BootLog.h"
+#include "Settings.h"
 
 #include <qrcode.h>
 #include "Console.h" // 最後に置く（Serial を Wi-Fi モニタへも流す差し替え。Console.h）
@@ -363,6 +364,10 @@ static constexpr uint32_t kVolOverlayMs = 1500;
  */
 static bool bannerDemo = false;
 
+// メニューの画面（定義は「メニュー」の節）。出ている間は顔も音量表示も描かない
+static bool menuActive();
+static void drawMenuScreen();
+
 class Esp32Hal : public katanori::IHal {
 public:
     uint32_t millis() override {
@@ -406,6 +411,12 @@ public:
             return;
         }
         u8g2.clearBuffer();
+
+        // メニュー（会話ボタン長押し）の間はメニューだけ
+        if (menuActive()) {
+            drawMenuScreen();
+            return;
+        }
 
         // つまみを回している間は音量だけ。顔も接続表示も出さない（最優先）
         if (drawVolumeScreenIfActive()) {
@@ -558,6 +569,11 @@ static void noteActivity(const char* why) {
     lastActivityMs = millis();
     lastActivityWhy = why;
 }
+
+// メニュー（会話ボタン長押し）。定義は会話制御の後の「メニュー」の節
+static bool menuActive();
+static void menuOnKnob(uint16_t raw);
+static void menuAbort();
 
 /** つまみがOFF位置か。デバウンス済み。 */
 static bool knobOff = false;
@@ -811,6 +827,10 @@ static void knobSetOffState(bool off) {
         if (conversationActive()) {
             endConversation();
         }
+        // メニューの途中なら、変えかけの値は捨てて閉じる（電池ならこの先でリードが電源を切る）
+        if (menuActive()) {
+            menuAbort();
+        }
         // 順序を守る: コーデックをミュート -> 接点を開く。
         // 逆にすると鳴っている最中に接点が切れてポップが出る。
         // ⚠ pumpOutputGate() も knobOff を見てミュートするが、あちらは次の周回まで
@@ -900,6 +920,15 @@ static void pumpKnobAs5600(uint32_t now) {
             inited = true;
             knobSetOffState(rawOff);
         }
+    }
+
+    // メニューの間は、つまみはメニューの入力。音量は変えない（最後の値のまま）。
+    // OFF 判定だけは上で済ませてある（回し切ればメニューごと閉じて電源が落ちる）
+    if (menuActive()) {
+        if (!knobOff) {
+            menuOnKnob(as5600Word(buf));
+        }
+        return;
     }
 
     // 12bitの角度はADCと違ってほぼ揺れないので、IIRは掛けずそのまま%へ。
@@ -1049,9 +1078,15 @@ static bool powerIdleAsleep = false;
 /** 音声の初期化が通ったか。通っていなければ接点は閉じない（setup の方針と同じ）。 */
 static bool audioReady = false;
 
-/** SSD1306 の明るさ。u8g2 の初期化列の既定（0xCF）と、暗くしたとき。 */
-static constexpr uint8_t kOledContrastNormal = 0xCF;
+/**
+ * 待機スリープで暗くしたときの SSD1306 の明るさ。普段の明るさは設定（Settings・既定は
+ * u8g2 の初期化列と同じ 0xCF）。普段をこれより暗くしてあるときは、そちらに合わせる。
+ */
 static constexpr uint8_t kOledContrastDim = 0x10;
+static uint8_t oledDimContrast() {
+    uint8_t normal = katanori::settings.contrast();
+    return normal < kOledContrastDim ? normal : kOledContrastDim;
+}
 
 /** WIFI_OFF にした後は OTA の待受を張り直す。定義は pumpOta の後。 */
 static void otaSuspend();
@@ -1110,7 +1145,7 @@ static void powerSetDim(bool dim) {
         return;
     }
     powerDimmed = dim;
-    u8g2.setContrast(dim ? kOledContrastDim : kOledContrastNormal);
+    u8g2.setContrast(dim ? oledDimContrast() : katanori::settings.contrast());
     if (dim) {
         Serial.printf("[PWR] 画面を暗くしました（無操作%u秒）\n", (unsigned)(idleSleepMs / 3000));
     }
@@ -1126,6 +1161,7 @@ static void powerNetStop(bool wifiOff, const char* why) {
     if (wifiOff) {
         otaSuspend(); // 無線を落とす前に待受を畳む（戻ったら pumpOta が張り直す）
         katanori::console.suspend(); // Wi-Fi モニタも同じ（戻ったら console.loop が張り直す）
+        katanori::settings.webSuspend(); // 設定ページも同じ（戻ったら settings.webLoop が張り直す）
         katanori::netLink.wifiStop();
     } else {
         katanori::netLink.wifiDisconnect();
@@ -1133,6 +1169,22 @@ static void powerNetStop(bool wifiOff, const char* why) {
     // LEDは「通信中」の表示なので、切り終わってから消す
     digitalWrite(KATANORI_USER_LED, HIGH); // アクティブLOW
     Serial.printf("[PWR] 通信を止めました（%s）\n", why);
+}
+
+/**
+ * 設定（Settings）を機体へ反映する。起動時と、メニュー・設定ページで値が変わったとき。
+ * 眠るまでの時間は、シリアルの `sleep` で一時的に変えた値をここで上書きする。
+ */
+static void applySettings() {
+    if (!KATANORI_I2C_SILENCE) {
+        u8g2.setContrast(powerDimmed ? oledDimContrast() : katanori::settings.contrast());
+    }
+    uint32_t ms = katanori::settings.sleepMs();
+    idleSleepEnabled = ms != 0;
+    if (ms != 0) {
+        idleSleepMs = ms;
+    }
+    noteActivity("設定");
 }
 
 /** 疑似電源OFF・待機スリープの進行。main loop から毎回呼ぶ。 */
@@ -1569,6 +1621,9 @@ static void noteWifiUp() {
             announce(katanori::clips::WIFI_OK,
                      katanori::clips::WIFI_OK_SAMPLES,
                      "ワイファイにつながりました！");
+        } else if (!katanori::settings.bootVoice()) {
+            // 🔒 ユーザー 2026-09-11: 起動の声は設定で切れる（メニュー／katanori.local）
+            Serial.println("[VOICE] 起動の声は鳴らさない設定です");
         } else {
             // ここが「使える状態になった」の合図。シリアルを持たない相手には
             // これが唯一の手がかりになる。
@@ -1581,6 +1636,8 @@ static void noteWifiUp() {
 
 /** Wi-Fi設定モードへ入る。入ったことを声でも伝える。 */
 static bool enterProvisioning() {
+    // 設定ページ（katanori.local）も 80 番を使うので、先に畳む
+    katanori::settings.webSuspend();
     if (!katanori::provisioning.begin()) {
         return false;
     }
@@ -1788,7 +1845,7 @@ static IdleStage idleStageNow() {
     }
     bool busy = conversationActive() || katanori::provisioning.active() ||
                 vadMeasuringActive() || bannerDemo || outputGateOverride ||
-                !wifiEverConnected || katanori::console.remoteActive() ||
+                !wifiEverConnected || katanori::console.remoteActive() || menuActive() ||
                 static_cast<int32_t>(now - selfTestUntilMs) < 0;
     if (busy) {
         noteActivity("会話・設定など");
@@ -1802,6 +1859,339 @@ static IdleStage idleStageNow() {
         return IdleStage::Dim;
     }
     return IdleStage::Awake;
+}
+
+// ---------------------------------------------------------------------------
+// メニュー（会話ボタン長押し）
+//
+// 🔒 ユーザー 2026-09-11「会話ボタン長押しでメニュー。短押しはOK、長押しはキャンセル、
+//    値はつまみで調整」「メニューが終わったときは音量を設定する画面を出して、音を出さない
+//    ようにしないとダメ」。見本 docs/img_menu_mock.png（同日 OK）。
+// 項目は あかるさ／ねむるまで／きどうのこえ／WiFiせってい。値は Settings（NVS）へ入り、
+// katanori.local の設定ページと同じ値を読み書きする。
+//
+// つまみは「位置がそのまま音量」の絶対角のつまみなので、メニューの中だけは回した量で
+// 1 つずつ進める（25 度で 1 つ・端まで行ったら反対の端へ回る）。位置で選ばせると、
+// 値を変え始めた瞬間に値がつまみの位置へ飛ぶ。
+// メニューの間は音量を変えない。抜けるときは必ず「おんりょう」の画面を通り、つまみの今の
+// 位置の音量を見せる。その間も音は出さない（ゲインは入る前のまま・鳴らすものも無い）。
+// 短押しで決めると普段に戻り、次の周回でつまみの位置が音量になる。
+// ---------------------------------------------------------------------------
+
+enum class MenuMode : uint8_t { Off, Browse, Edit, Volume };
+static MenuMode menuMode = MenuMode::Off;
+static uint8_t menuItem = 0;
+/** 値を変えている最中の選択肢の番号と、長押しで取り消したときに戻す番号。 */
+static uint8_t menuValue = 0;
+static uint8_t menuSaved = 0;
+/** 回した量を測る基準の RAW ANGLE。1 つ進むごとに 25 度ぶん送る。 */
+static uint16_t menuAnchorRaw = 0;
+/** つまみの今の RAW ANGLE（おんりょうの画面と、基準の取り直しに使う）。 */
+static uint16_t menuKnobRaw = 0;
+static uint32_t menuLastInputMs = 0;
+/** メニューから Wi-Fi 設定へ入った。設定モードを抜けたら「おんりょう」の画面を通す。 */
+static bool menuVolumeAfterProv = false;
+
+#ifndef KATANORI_LONG_PRESS_MS
+#define KATANORI_LONG_PRESS_MS 2000 // 長押し（メニューに入る・メニューの中で取り消す／戻る）
+#endif
+/**
+ * メニューの中で押し始めた時刻（0 = 押していない）。長押しの進み具合の棒に使う。
+ * 🔒 ユーザー 2026-09-11「キャンセル長押しは『キャンセルします』と出してインジケーターを出し、
+ *    最後まで行ったらキャンセル」「戻る場合も同じく『戻る』でインジケーター」。
+ */
+static uint32_t menuHoldStartMs = 0;
+/** これより短く離したら短押し（決定）。これ以上で棒の途中なら何もしない。 */
+static constexpr uint32_t kMenuTapMs = 400;
+/** 押してからこの時間で棒を出し始める（短押しのたびに棒がちらつかないように）。 */
+static constexpr uint32_t kMenuHoldShowMs = 300;
+
+static constexpr uint8_t kMenuItems = 4;
+static constexpr uint16_t kMenuStepRaw = (uint16_t)(25ul * 4096 / 360);
+/** 触らないとこの時間で「おんりょう」の画面へ進む（うっかり入った人を置き去りにしない）。 */
+static constexpr uint32_t kMenuTimeoutMs = 30000;
+// 画面の日本語フォント（b16_t_japanese1）には漢字も全角の「：」も無い。かなと ASCII だけ
+static const char* const kMenuTitle[kMenuItems] = {"あかるさ", "ねむるまで", "きどうのこえ", "WiFiせってい"};
+static const char* const kMenuSleepLabel[katanori::Settings::kSleepOptions] = {
+    "しない", "1ふん", "3ふん", "5ふん", "10ふん"};
+
+static bool menuActive() {
+    return menuMode != MenuMode::Off;
+}
+
+static uint8_t menuOptionCount(uint8_t item) {
+    switch (item) {
+    case 0: return katanori::Settings::kBrightLevels;
+    case 1: return katanori::Settings::kSleepOptions;
+    case 2: return 2; // あり／なし
+    default: return 1;
+    }
+}
+
+/** 保存されている値を選択肢の番号で。 */
+static uint8_t menuStoredValue(uint8_t item) {
+    switch (item) {
+    case 0: return katanori::settings.brightness() - 1;
+    case 1: return katanori::settings.sleepIndex();
+    case 2: return katanori::settings.bootVoice() ? 0 : 1;
+    default: return 0;
+    }
+}
+
+/** 画面の明るさを保存されている値へ戻す（あかるさを選んでいる最中の下見を取り消す）。 */
+static void menuRestoreContrast() {
+    if (!KATANORI_I2C_SILENCE) {
+        u8g2.setContrast(powerDimmed ? oledDimContrast() : katanori::settings.contrast());
+    }
+}
+
+static void menuEnter() {
+    if (!knobAs5600Ok) {
+        Serial.println("[MENU] つまみ（AS5600）が読めないのでメニューは使えません");
+        return;
+    }
+    uint8_t buf[2];
+    if (!as5600Read(0x0C, buf, 2)) {
+        Serial.println("[MENU] つまみの角度が読めませんでした。もう一度長押ししてください");
+        return;
+    }
+    if (conversationActive()) {
+        endConversation();
+    }
+    menuKnobRaw = menuAnchorRaw = as5600Word(buf);
+    menuItem = 0;
+    menuMode = MenuMode::Browse;
+    menuLastInputMs = millis();
+    volOverlayUntilMs = millis(); // 音量表示が出ていたら畳む
+    Serial.println("[MENU] メニューに入りました（つまみで選ぶ・短押しで決定・長押しで戻る）");
+}
+
+/** 最後の「おんりょう」の画面へ進む。 */
+static void menuToVolume() {
+    menuMode = MenuMode::Volume;
+    menuLastInputMs = millis();
+    Serial.println("[MENU] おんりょうの画面（音は出しません。短押しで決めて戻ります）");
+}
+
+static void menuFinish() {
+    menuMode = MenuMode::Off;
+    noteActivity("メニュー");
+    Serial.println("[MENU] メニューを終えました。つまみの位置が音量になります");
+}
+
+/** 途中で閉じる（つまみ OFF など）。変えかけの値は捨て、おんりょうの画面も通さない。 */
+static void menuAbort() {
+    if (menuMode == MenuMode::Edit && menuItem == 0) {
+        menuRestoreContrast();
+    }
+    menuMode = MenuMode::Off;
+    menuVolumeAfterProv = false;
+    Serial.println("[MENU] メニューを閉じました（変えかけの値は捨てました）");
+}
+
+/** つまみの入力。pumpKnobAs5600() がメニューの間だけ呼ぶ。 */
+static void menuOnKnob(uint16_t raw) {
+    menuKnobRaw = raw;
+    // 基準からの差（-2048〜2047）。回して音量が上がる向きを ＋ にそろえる
+    int d = (int)((raw - menuAnchorRaw + 2048) & 0x0FFF) - 2048;
+#if KATANORI_KNOB_DIR_INVERT
+    d = -d;
+#endif
+    int steps = d / (int)kMenuStepRaw;
+    if (steps == 0) {
+        return;
+    }
+    int moved = steps * (int)kMenuStepRaw;
+#if KATANORI_KNOB_DIR_INVERT
+    moved = -moved;
+#endif
+    menuAnchorRaw = (uint16_t)((menuAnchorRaw + moved) & 0x0FFF);
+    menuLastInputMs = millis();
+
+    if (menuMode == MenuMode::Browse) {
+        menuItem = (uint8_t)(((int)menuItem + steps % kMenuItems + kMenuItems) % kMenuItems);
+    } else if (menuMode == MenuMode::Edit) {
+        int n = menuOptionCount(menuItem);
+        menuValue = (uint8_t)(((int)menuValue + steps % n + n) % n);
+        if (menuItem == 0 && !KATANORI_I2C_SILENCE) {
+            // あかるさはその場で効かせる（見ながら選べるように）
+            u8g2.setContrast(katanori::Settings::contrastFor(menuValue + 1));
+        }
+    }
+}
+
+static void menuShortPress() {
+    menuLastInputMs = millis();
+    switch (menuMode) {
+    case MenuMode::Browse:
+        if (menuItem == 3) {
+            // Wi-Fi 設定モードへ。抜けたら「おんりょう」の画面を通す（exitProvisioning）
+            menuMode = MenuMode::Off;
+            menuVolumeAfterProv = true;
+            Serial.println("[MENU] WiFiせってい -> Wi-Fi設定モードへ");
+            katanori::netLink.wsDisconnect();
+            katanori::audioIo.stopRecording();
+            enterProvisioning();
+            return;
+        }
+        menuValue = menuSaved = menuStoredValue(menuItem);
+        menuAnchorRaw = menuKnobRaw;
+        menuMode = MenuMode::Edit;
+        break;
+    case MenuMode::Edit:
+        switch (menuItem) {
+        case 0: katanori::settings.setBrightness(menuValue + 1); break;
+        case 1: katanori::settings.setSleepIndex(menuValue); break;
+        case 2: katanori::settings.setBootVoice(menuValue == 0); break;
+        }
+        menuAnchorRaw = menuKnobRaw;
+        menuMode = MenuMode::Browse;
+        break;
+    case MenuMode::Volume:
+        menuFinish();
+        break;
+    case MenuMode::Off:
+        break;
+    }
+}
+
+static void menuLongPress() {
+    menuLastInputMs = millis();
+    switch (menuMode) {
+    case MenuMode::Edit:
+        // 取り消し。保存はしない
+        menuValue = menuSaved;
+        if (menuItem == 0) {
+            menuRestoreContrast();
+        }
+        menuAnchorRaw = menuKnobRaw;
+        menuMode = MenuMode::Browse;
+        break;
+    case MenuMode::Browse:
+        menuToVolume();
+        break;
+    case MenuMode::Volume:
+        menuFinish();
+        break;
+    case MenuMode::Off:
+        break;
+    }
+}
+
+/** 触られないまま時間が過ぎたら、おんりょうの画面まで進める。main loop から毎回呼ぶ。 */
+static void pumpMenu() {
+    if (menuMode != MenuMode::Browse && menuMode != MenuMode::Edit) {
+        return;
+    }
+    if (millis() - menuLastInputMs < kMenuTimeoutMs) {
+        return;
+    }
+    if (menuMode == MenuMode::Edit && menuItem == 0) {
+        menuRestoreContrast();
+    }
+    Serial.println("[MENU] 30秒触られなかったので、変えかけの値は捨てて閉じます");
+    menuToVolume();
+}
+
+static void drawMenuCentered(const char* text, int baselineY) {
+    int w = u8g2.getUTF8Width(text);
+    u8g2.drawUTF8((128 - w) / 2, baselineY, text);
+}
+
+/** メニューの画面を 1 枚描いて送る。見本 docs/img_menu_mock.png と同じ座標。 */
+static void drawMenuScreen() {
+    u8g2.clearBuffer();
+    u8g2.setDrawColor(1);
+    u8g2.setFontMode(1); // 透過。白抜きの上に黒で字を書くため
+
+    // 長押しの途中: 何が起きるかと進み具合。棒が最後まで行ったら menuLongPress()
+    uint32_t held = menuHoldStartMs ? millis() - menuHoldStartMs : 0;
+    if (held >= kMenuHoldShowMs && (menuMode == MenuMode::Browse || menuMode == MenuMode::Edit)) {
+        u8g2.setFont(u8g2_font_b16_t_japanese1);
+        if (menuMode == MenuMode::Edit) {
+            // 「キャンセルします」は 129px で 1 行に収まらないので 2 行
+            drawMenuCentered("キャンセル", 22);
+            drawMenuCentered("します", 40);
+        } else {
+            drawMenuCentered("もどる", 30);
+        }
+        uint32_t span = KATANORI_LONG_PRESS_MS - kMenuHoldShowMs;
+        uint32_t fill = (held - kMenuHoldShowMs) * 116 / span;
+        u8g2.drawFrame(4, 48, 120, 12);
+        u8g2.drawBox(6, 50, fill > 116 ? 116 : fill, 8);
+        u8g2.setFontMode(0);
+        u8g2.sendBuffer();
+        return;
+    }
+
+    if (menuMode == MenuMode::Volume) {
+        u8g2.setFont(u8g2_font_b16_t_japanese1);
+        u8g2.drawUTF8(0, 14, "おんりょう");
+        // 音を出していない印（スピーカーに ×）
+        const int sx = 104, sy = 3;
+        u8g2.drawBox(sx, sy + 3, 3, 5);
+        for (int i = 0; i < 4; ++i) {
+            u8g2.drawVLine(sx + 3 + i, sy + 3 - i, 5 + 2 * i);
+        }
+        for (int k = 0; k < 6; ++k) {
+            u8g2.drawPixel(sx + 12 + k, sy + 2 + k);
+            u8g2.drawPixel(sx + 17 - k, sy + 2 + k);
+        }
+        int pct = knobAngleToPercent(knobRelAngle(menuKnobRaw));
+        char buf[8];
+        snprintf(buf, sizeof(buf), pct <= 0 ? "OFF" : "%d%%", pct);
+        u8g2.setFont(u8g2_font_fub25_tr);
+        u8g2.drawStr((128 - u8g2.getStrWidth(buf)) / 2, 44, buf);
+        u8g2.drawFrame(4, 50, 120, 12);
+        int fill = pct * 116 / 100;
+        if (fill > 0) {
+            u8g2.drawBox(6, 52, fill, 8);
+        }
+    } else {
+        const bool editing = (menuMode == MenuMode::Edit);
+        const uint8_t v = editing ? menuValue : menuStoredValue(menuItem);
+
+        u8g2.setFont(u8g2_font_b16_t_japanese1);
+        u8g2.drawUTF8(0, 14, kMenuTitle[menuItem]);
+        char pg[6];
+        snprintf(pg, sizeof(pg), "%u/%u", (unsigned)(menuItem + 1), (unsigned)kMenuItems);
+        u8g2.setFont(u8g2_font_6x10_tf);
+        u8g2.drawStr(128 - u8g2.getStrWidth(pg), 9, pg);
+        u8g2.drawHLine(0, 17, 128);
+
+        if (editing) {
+            u8g2.drawBox(14, 20, 100, 24); // 値を変えている最中は白抜き
+            u8g2.setDrawColor(0);
+        }
+        const int y = 38;
+        u8g2.setFont(u8g2_font_b16_t_japanese1);
+        switch (menuItem) {
+        case 0:
+            for (int i = 0; i < katanori::Settings::kBrightLevels; ++i) {
+                int x = 24 + i * 17;
+                if (i <= v) {
+                    u8g2.drawBox(x, y - 13, 13, 12);
+                } else {
+                    u8g2.drawFrame(x, y - 13, 13, 12);
+                }
+            }
+            break;
+        case 1: drawMenuCentered(kMenuSleepLabel[v], y); break;
+        case 2: drawMenuCentered(v == 0 ? "あり" : "なし", y); break;
+        default: drawMenuCentered("かいし", y); break;
+        }
+        u8g2.setDrawColor(1);
+        if (editing) {
+            for (int i = 0; i < 5; ++i) {
+                u8g2.drawVLine(3 + i, 32 - i, 2 * i + 1);       // ◀
+                u8g2.drawVLine(120 + 4 - i, 32 - i, 2 * i + 1); // ▶
+            }
+        }
+        drawMenuCentered(editing ? "おす:けってい" : (menuItem == 3 ? "おす:はじめる" : "おす:かえる"), 62);
+    }
+
+    u8g2.setFontMode(0);
+    u8g2.sendBuffer();
 }
 
 /** マイクを読んでDOへ送る。main loop から毎回呼ぶ。 */
@@ -2948,11 +3338,12 @@ static void printHelp() {
     Serial.println("   i : ブート情報を再表示");
     Serial.println("   boots : 直近10回の再起動の理由と、落ちる直前の様子（BootLog.h）");
     Serial.println("   ? : このヘルプ");
-    Serial.println(" BOOT/Usrボタン: 短押しで会話の開始/終了、3秒長押しでWi-Fi設定モード");
+    Serial.println(" BOOT/Usrボタン: 短押しで会話の開始/終了、長押しでメニュー（明るさ・眠るまで・起動の声・Wi-Fi設定）");
+    Serial.println("   cfg : 設定（明るさ・眠るまで・起動の声）を表示。変えるのはメニューか http://katanori.local/");
     Serial.println("--- ネットワーク ---------------------------");
     Serial.println("   ssid <名前>       : Wi-Fi の SSID を追加（最新5件まで保存）");
     Serial.println("   pass <パスワード> : 直前の ssid のパスワードを保存");
-    Serial.println("   prov / provoff    : Wi-Fi設定モードの開始/終了（BOOT3秒長押しでも可）");
+    Serial.println("   prov / provoff    : Wi-Fi設定モードの開始/終了（長押しのメニューの WiFiせってい でも可）");
     Serial.println("   forget [名前]     : Wi-Fi設定を消去（名前省略で全消去）");
     Serial.println("   scan              : 周囲のAPを一覧表示");
     Serial.println("   wifi              : Wi-Fiへ接続");
@@ -3301,7 +3692,10 @@ static void handleSerial() {
         } else if (strcmp(line, "prov") == 0) {
             katanori::netLink.wsDisconnect();
             katanori::audioIo.stopRecording();
+            katanori::settings.webSuspend(); // 設定ページも 80 番を使う
             katanori::provisioning.begin();
+        } else if (strcmp(line, "cfg") == 0) {
+            katanori::settings.print();
         } else if (strcmp(line, "provoff") == 0) {
             exitProvisioning();
         } else if (strcmp(line, "r") == 0) {
@@ -3358,13 +3752,20 @@ static void exitProvisioning() {
     if (katanori::netLink.hasCredentials()) {
         katanori::netLink.wifiConnect();
     }
+    // メニューから入った Wi-Fi 設定を抜けた。メニューの終わりと同じく、おんりょうの画面を通す
+    if (menuVolumeAfterProv) {
+        menuVolumeAfterProv = false;
+        menuToVolume();
+    }
 }
 
 /**
  * BOOT / Usr ボタン（役割は同じ）。
- *   短押し   : 会話の開始 / 会話全体の終了 を交互に
- *              （発話ごとの区切りはGeminiの無音検知に任せる。ボタンでは切らない）
- *   3秒長押し: Wi-Fi設定モードへ入る
+ *   短押し : 会話の開始 / 会話全体の終了 を交互に
+ *            （発話ごとの区切りはGeminiの無音検知に任せる。ボタンでは切らない）
+ *   長押し : メニュー（KATANORI_LONG_PRESS_MS。🔒 2026-09-11 ユーザー。それまでの
+ *            「3秒長押しで Wi-Fi設定モード」はメニューの WiFiせってい へ移した）
+ *   メニューの中: 短押しで決定、長押しで取り消し・戻る（進み具合の棒が最後まで行ったら）
  */
 /** BOOTボタンとUsrボタンのどちらかが押されていれば true。役割は同じ。 */
 static bool anyButtonPressed() {
@@ -3402,6 +3803,20 @@ static void handleButton() {
             // 押した瞬間に起こす（離すのを待たない）。眠っていれば無線を戻し始め、
             // 離したときの startTurn() が繋がるのを待って録音を始める
             noteActivity("ボタン");
+            // メニューの中で押し始めた長押しだけ、進み具合を画面に出す（drawMenuScreen）。
+            // 長押しでメニューに入った直後は、指がまだ乗っていても出さない
+            menuHoldStartMs = menuActive() ? now : 0;
+        } else if (menuHoldStartMs != 0) {
+            // メニューの中の押し。すぐ離せば決定、棒の途中で離せば何もしない
+            uint32_t held = now - menuHoldStartMs;
+            menuHoldStartMs = 0;
+            if (!longFired) {
+                if (menuMode == MenuMode::Volume || held < kMenuTapMs) {
+                    menuShortPress();
+                } else {
+                    Serial.println("[MENU] 長押しを途中でやめました（何もしません）");
+                }
+            }
         } else if (!longFired) {
             // 離した時点で短押し確定
             if (katanori::provisioning.active()) {
@@ -3420,17 +3835,27 @@ static void handleButton() {
         }
     }
 
-    if (pressed && !longFired && (now - pressedAtMs) >= 3000) {
-        longFired = true;
-        if (katanori::provisioning.active()) {
+    if (pressed && !longFired && (now - pressedAtMs) >= KATANORI_LONG_PRESS_MS) {
+        if (menuActive()) {
+            // おんりょうの画面では長押しに役目は無い（離したときに決定する）
+            if (menuMode != MenuMode::Volume && menuHoldStartMs != 0) {
+                longFired = true;
+                menuLongPress();
+            }
+        } else if (katanori::provisioning.active()) {
             // 設定モードから抜ける。保存せずに戻りたいときの逃げ道。
-            Serial.println("[BTN] BOOT長押し -> 設定モードを抜けます");
+            longFired = true;
+            Serial.println("[BTN] 長押し -> 設定モードを抜けます");
             exitProvisioning();
+        } else if (knobOff) {
+            longFired = true;
+            Serial.println("[BTN] つまみがOFF位置です。右へ回してから長押ししてください");
         } else {
-            Serial.println("[BTN] BOOT長押し -> Wi-Fi設定モードへ");
-            katanori::netLink.wsDisconnect();
-            katanori::audioIo.stopRecording();
-            enterProvisioning();
+            // 🔒 ユーザー 2026-09-11「会話ボタン長押しでメニュー」。
+            // Wi-Fi設定モードはメニューの「WiFiせってい」へ移した
+            longFired = true;
+            Serial.println("[BTN] 長押し -> メニュー");
+            menuEnter();
         }
     }
 }
@@ -3503,6 +3928,9 @@ void setup() {
     printBootInfo();
     // なぜ再起動したのか（前回のリセットの理由と、落ちる直前の様子）。BootLog.h
     katanori::bootlog::begin();
+    // 利用者の設定（明るさ・眠るまで・起動の声）。反映は OLED の初期化の後（applySettings）
+    katanori::settings.begin();
+    katanori::settings.setOnChange(applySettings);
 
     pinMode(KATANORI_BOOT_BUTTON, INPUT_PULLUP);
     pinMode(KATANORI_USR_BUTTON, INPUT_PULLUP);
@@ -3560,6 +3988,10 @@ void setup() {
         } else {
             Serial.println("[OLED] !! init failed");
         }
+    }
+    // 設定の明るさと眠るまでの時間を反映する（u8g2.begin() が明るさを既定の 0xCF に戻すので、その後）
+    applySettings();
+    if (!KATANORI_I2C_SILENCE) {
         if (!oledOk) {
             Serial.println("[OLED] (I2Cスキャンで見つからなかったため描画されない可能性があります)");
         }
@@ -3621,6 +4053,7 @@ void loop() {
     katanori::console.loop();
     handleSerial();
     handleButton();
+    pumpMenu(); // メニューを 30 秒触らなければ、おんりょうの画面へ進める
 
     // つまみは設定モード中も読む（OFF位置の検知が pumpOutputGate の前提になる）
     pumpVolumeKnob();
@@ -3650,6 +4083,9 @@ void loop() {
     // OTA待受。疑似電源OFFや設定モードの early return より前に置く
     // (Wi-Fiが生きている限り、どの状態からでも更新を受けられるように)
     pumpOta();
+
+    // 設定ページ（http://katanori.local/）。Wi-Fi 設定モードの間は自分で畳む
+    katanori::settings.webLoop();
 
     // Wi-Fi設定モード中は顔も音声も止めて、設定画面だけを回す
     if (katanori::provisioning.active()) {
