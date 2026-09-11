@@ -19,6 +19,7 @@
 #include <U8g2lib.h>
 #include <WiFi.h>
 #include <ArduinoOTA.h>
+#include <esp_task_wdt.h>
 
 #include "IHal.h"
 #include "RobotCore.h"
@@ -188,6 +189,12 @@ static constexpr uint32_t FRAME_INTERVAL_SLOW_MS = 120;
 // 診断用: audioIo.begin() 直後で setup を打ち切り、micだけ回す（-DKATANORI_MIN_BOOT=1）
 #ifndef KATANORI_MIN_BOOT
 #define KATANORI_MIN_BOOT 0
+#endif
+
+// ウォッチドッグ: loop() がこの秒数回らなければ再起動する（クラッシュからの復帰）。
+// Wi-Fi の接続待ちは 1 候補 12 秒・TLS の握手は数秒なので、それより十分長く取る
+#ifndef KATANORI_WDT_SEC
+#define KATANORI_WDT_SEC 30
 #endif
 
 // ---------------------------------------------------------------------------
@@ -1510,8 +1517,71 @@ static void onAudio(const int16_t* pcm, size_t samples) {
     katanori::audioIo.play(pcm, samples);
 }
 
+// ---------------------------------------------------------------------------
+// 会話の終わりの言葉
+//
+// 🔒 ユーザー 2026-09-12「終了っぽいことをユーザーが言ったら会話は終わらせてほしい。API費用的に」。
+// Gemini が返してくる装着者の発話の文字起こし（inputTranscription）に終わりの言葉が入っていたら、
+// ロボットの返事（たいてい挨拶）が終わったところで endConversation() する（接続を切るので料金も止まる）。
+// 返事が来ないまま kEndAfterWordMs 過ぎたらそのまま閉じる。
+// 文字起こしは「ちょっと 待っ て 。」のように語の間に空白が入るので、空白を抜いて照合する。
+// ---------------------------------------------------------------------------
+
+static const char* const kEndWords[] = {
+    "バイバイ", "ばいばい", "さようなら", "さよなら", "またね", "またあとで", "また後で",
+    "じゃあね", "じゃあまた", "おやすみ", "お休み", "おしまい", "おわり", "終わり", "終了",
+};
+static constexpr uint32_t kEndAfterWordMs = 10000;
+/** 終わりの言葉を聞いた。返事が終わったら（来なければ kEndAfterWordMs で）会話を閉じる。 */
+static bool endAfterReply = false;
+static uint32_t endAfterReplyMs = 0;
+/** 装着者の発話の直近（空白を抜いたもの）。文字起こしは細切れで届くので、つないで照合する。 */
+static char userHeard[160];
+static size_t userHeardLen = 0;
+
+/** inputTranscription の text を拾って userHeard へつなぎ、終わりの言葉を探す。 */
+static void noteUserTranscript(const char* json) {
+    const char* p = strstr(json, "\"inputTranscription\"");
+    if (!p) {
+        return;
+    }
+    p = strstr(p, "\"text\":\"");
+    if (!p) {
+        return;
+    }
+    p += 8;
+    for (; *p && *p != '"'; ++p) {
+        if (*p == '\\' && p[1]) {
+            ++p; // \" などは次の 1 字だけ見る
+        }
+        if (*p == ' ') {
+            continue;
+        }
+        if (userHeardLen >= sizeof(userHeard) - 1) {
+            // あふれたら古い半分を捨てる（UTF-8 の途中で切れても照合には効かない部分）
+            size_t half = userHeardLen / 2;
+            memmove(userHeard, userHeard + half, userHeardLen - half);
+            userHeardLen -= half;
+        }
+        userHeard[userHeardLen++] = *p;
+    }
+    userHeard[userHeardLen] = '\0';
+    if (endAfterReply) {
+        return;
+    }
+    for (const char* w : kEndWords) {
+        if (strstr(userHeard, w)) {
+            endAfterReply = true;
+            endAfterReplyMs = millis();
+            Serial.printf("[TURN] 終わりの言葉「%s」を聞きました。返事が終わったら会話を閉じます\n", w);
+            return;
+        }
+    }
+}
+
 /** DOから届いた制御JSON。パーサは積まず、必要な語だけ拾う。 */
 static void onControl(const char* json) {
+    noteUserTranscript(json);
     // 割り込み: マイクがスピーカー音を拾うと Gemini がこれを返す。
     // 未再生ぶんを捨てないと、古い応答が延々と流れ続ける。
     if (strstr(json, "\"interrupted\"") != nullptr) {
@@ -1624,6 +1694,8 @@ static void endConversation() {
     speaking = false;
     turnComplete = false;
     streamEndMs = 0;
+    endAfterReply = false;
+    userHeardLen = 0;
     katanori::netLink.wsDisconnect();
     driveTo(katanori::RobotState::IDLE);
     Serial.println("[TURN] 会話を終了しました");
@@ -1760,6 +1832,7 @@ static void pumpBannerDemo() {
  * 顔が固まる。利用者からは故障と区別がつかない。
  */
 static void wifiWaitTick() {
+    esp_task_wdt_reset(); // 接続待ちの十数秒でウォッチドッグに再起動されないように
     static uint32_t lastMs = 0;
     uint32_t now = millis();
     if ((now - lastMs) < FRAME_INTERVAL_MS) {
@@ -2905,7 +2978,19 @@ static void pumpTurnState() {
         turnComplete = false;
         // 出力を閉じるのは pumpOutputGate()（キューが空になった時点で閉じる）
         driveTo(katanori::RobotState::IDLE);
+        userHeardLen = 0; // 次の発話は新しく照合する
+        if (endAfterReply) {
+            Serial.println("[TURN] 終わりの言葉への返事が済んだので、会話を閉じます");
+            endConversation();
+            return;
+        }
         Serial.println("[TURN] 応答の再生が完了しました（続けて話せます。ボタンで会話終了）");
+    }
+    // 終わりの言葉のあと、返事が来ないまま時間が過ぎた
+    if (endAfterReply && !speaking && !katanori::audioIo.isPlaying() &&
+        millis() - endAfterReplyMs >= kEndAfterWordMs) {
+        Serial.println("[TURN] 終わりの言葉のあと返事が来ないので、会話を閉じます");
+        endConversation();
     }
 }
 
@@ -3405,6 +3490,7 @@ static void pumpOta() {
             renderOtaProgress(0);
         });
         ArduinoOTA.onProgress([](unsigned int done, unsigned int total) {
+            esp_task_wdt_reset(); // 書き込みの 20 秒ほど loop() に戻らないので、ここで合図する
             // OLED全面転送は約29ms。毎回描くと転送を遅くするので5%刻みに間引く
             static unsigned int lastPct = 200;
             unsigned int pct = total ? done * 100u / total : 0;
@@ -3507,6 +3593,7 @@ static void printHelp() {
     Serial.println("   bn: 接続状況の表示を順に出す（顔の代わりに出る2行）。大きさの確認用");
     Serial.println("   i : ブート情報を再表示");
     Serial.println("   boots : 直近10回の再起動の理由と、落ちる直前の様子（BootLog.h）");
+    Serial.println("   lastlog : 前回の起動の最後のログ（約3KB・電源が切れたときは残らない）");
     Serial.println("   ? : このヘルプ");
     Serial.println(" BOOT/Usrボタン: 短押しで会話の開始/終了、長押しでメニュー（明るさ・眠るまで・起動の声・Wi-Fi設定）");
     Serial.println("   cfg : 設定（明るさ・眠るまで・起動の声・おんりょうMAX）を表示。変えるのはメニューか http://katanori.local/");
@@ -3581,7 +3668,7 @@ static void handleSerial() {
         } else if (strcmp(line, "scan") == 0) {
             katanori::netLink.scan();
         } else if (strcmp(line, "wifi") == 0) {
-            katanori::netLink.wifiConnect();
+            katanori::netLink.wifiConnect(20000, wifiWaitTick); // 待ちの間もウォッチドッグへ合図する
         } else if (strcmp(line, "wifioff") == 0) {
             katanori::netLink.wifiDisconnect();
         } else if (strcmp(line, "c") == 0) {
@@ -3750,6 +3837,8 @@ static void handleSerial() {
             katanori::battery.toggleSign();
         } else if (strcmp(line, "boots") == 0) {
             katanori::bootlog::printHistory();
+        } else if (strcmp(line, "lastlog") == 0) {
+            katanori::console.printPreviousLog();
         } else if (strcmp(line, "sleep") == 0) {
             idleSleepEnabled = !idleSleepEnabled;
             noteActivity("シリアル");
@@ -3926,7 +4015,7 @@ static void exitProvisioning() {
     nextWifiTryMs = 0;
     setNetMessage("");
     if (katanori::netLink.hasCredentials()) {
-        katanori::netLink.wifiConnect();
+        katanori::netLink.wifiConnect(20000, wifiWaitTick); // 待ちの間もウォッチドッグへ合図する
     }
     // メニューから入った Wi-Fi 設定を抜けた。メニューの終わりと同じく出口（0でかんりょう）を通す
     if (menuVolumeAfterProv) {
@@ -4116,6 +4205,20 @@ void setup() {
     katanori::settings.begin();
     katanori::settings.setOnChange(applySettings);
 
+    /*
+     * クラッシュからの復帰（TODO A-4）。ループが KATANORI_WDT_SEC 回らなければ ESP32 を再起動する。
+     * それまでは「落ちずに固まる」と止まったままだった（例外で落ちたときは元から再起動する）。
+     * 待ちの「接点がスピーカー線に入るまで」はミュートリレー（2026-09-02 ハブ基板で合格）で満たした:
+     * 再起動の最中はピンが浮き、10kΩ で接点が開くので、起動ログは耳に届かない。
+     * 理由は BootLog に「タスクウォッチドッグ」として残る。長く止まる処理（Wi-Fi の接続待ち・OTA の
+     * 書き込み）は途中で esp_task_wdt_reset() を呼んで、まともに動いているのに落とされないようにする。
+     */
+    if (!KATANORI_MIN_BOOT) {
+        esp_task_wdt_init(KATANORI_WDT_SEC, true); // 既定の 5 秒から延ばす（すでに動いていれば設定し直し）
+        esp_task_wdt_add(nullptr);                 // loop() を回すこのタスクを見張らせる
+        Serial.printf("[WDT] ループが%d秒止まったら再起動します\n", KATANORI_WDT_SEC);
+    }
+
     pinMode(KATANORI_BOOT_BUTTON, INPUT_PULLUP);
     pinMode(KATANORI_USR_BUTTON, INPUT_PULLUP);
 
@@ -4233,6 +4336,9 @@ void loop() {
     delay(10);
     return;
 #endif
+    // ウォッチドッグへの「生きている」の合図（setup の KATANORI_WDT_SEC を参照）
+    esp_task_wdt_reset();
+
     // Wi-Fi モニタ（Console.h）。打たれた行は下の handleSerial() が USB と同じに読む
     katanori::console.loop();
     handleSerial();

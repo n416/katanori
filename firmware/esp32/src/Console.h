@@ -50,6 +50,9 @@ public:
     /** 合言葉を通った相手が繋がっているか（待機スリープはこの間眠らない）。 */
     bool remoteActive() const { return authed_; }
 
+    /** 前回の起動の最後のログ（再起動をまたいで残した約 3KB）を出す。シリアル `lastlog`。 */
+    void printPreviousLog();
+
     /** USB のホストが開いているか（`while (!Serial)` 用）。 */
     explicit operator bool() const;
 
