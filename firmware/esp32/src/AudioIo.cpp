@@ -5,6 +5,7 @@
 #include <freertos/stream_buffer.h>
 #include <esp_heap_caps.h>
 #include <Wire.h>
+#include "Console.h" // 最後に置く（Serial を Wi-Fi モニタへも流す差し替え。Console.h）
 
 namespace katanori {
 

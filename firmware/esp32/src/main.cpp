@@ -26,8 +26,10 @@
 #include "AudioIo.h"
 #include "Provisioning.h"
 #include "VoiceClips.h"
+#include "Battery.h"
 
 #include <qrcode.h>
+#include "Console.h" // 最後に置く（Serial を Wi-Fi モニタへも流す差し替え。Console.h）
 
 // ---------------------------------------------------------------------------
 // ボード設定
@@ -494,6 +496,22 @@ static void endConversation();
 static bool as5600Read(uint8_t reg, uint8_t* out, uint8_t len);
 static uint16_t as5600Word(const uint8_t* p);
 
+/** 画面を消したか（疑似電源OFF・待機スリープ）。ONへ戻したとき「消したものだけ」を戻すために持つ。 */
+static bool powerOledDown = false;
+/** 通信を止めたか（同上）。 */
+static bool powerNetDown = false;
+
+/**
+ * 最後に使われた時刻と、そのきっかけ。待機スリープ（pumpPowerDown）はここからの
+ * 経過で段階を進め、触られたら起きる。ボタン・つまみ・会話が更新する。
+ */
+static uint32_t lastActivityMs = 0;
+static const char* lastActivityWhy = "起動";
+static void noteActivity(const char* why) {
+    lastActivityMs = millis();
+    lastActivityWhy = why;
+}
+
 /** つまみがOFF位置か。デバウンス済み。 */
 static bool knobOff = false;
 /** ならした後のつまみ位置(0-100)。-1 = まだ一度も読めていない。 */
@@ -754,8 +772,9 @@ static void knobSetOffState(bool off) {
             katanori::audioIo.setOutputMute(true);
         }
         muteRelaySet(false);
-        // Wi-Fi設定モード中はQRを消してはいけない（読み取り中の可能性がある）
-        if (animate && !katanori::provisioning.active()) {
+        // Wi-Fi設定モード中はQRを消してはいけない（読み取り中の可能性がある）。
+        // 待機スリープで画面が既に消えているなら、見えない演出で1.2秒止まるだけなので出さない
+        if (animate && !katanori::provisioning.active() && !powerOledDown) {
             // 先に「OFF」を見せる。いきなり消えると、自分がOFFにしたのか
             // 勝手に落ちたのかが分からない（ユーザー要望 2026-08-03）
             drawVolumeScreen(0);
@@ -768,6 +787,7 @@ static void knobSetOffState(bool off) {
         // 何も起きなかったことにするため）
     } else {
         Serial.println("[KNOB] ON位置");
+        noteActivity("つまみON");
         // 上りは逆順。コーデックがミュートされているうちに接点を閉じる（乾いた開閉）。
         // 解除は pumpOutputGate() が、鳴らすものがキューに入った時点でやる。
         muteRelaySet(true);
@@ -786,6 +806,7 @@ static void knobSetPercent(int pct) {
     if (knobPercent < 0 || endstop || abs(pct - knobPercent) >= 2) {
         knobPercent = pct;
         applyKnobVolume(pct);
+        noteActivity("つまみ");
         // 回した本人に見えるように画面へ出す。ただし復帰アニメ直後の1回だけは
         // 捨てる（顔が戻るのを先に見せる。回し続ければ次からは普通に出る）
         if (volOverlaySuppressOnce) {
@@ -928,16 +949,31 @@ static void knobInit() {
 }
 
 // ---------------------------------------------------------------------------
-// 疑似電源OFF（つまみOFF位置）
+// 疑似電源OFF（つまみOFF位置）と待機スリープ（つまみONのまま使われていない）
 //
-// 電源基板が載るまで、本当に電源を切ることはできない（USBでもXMOSごと生きている）。
-// できるのは「切ったように見せて、ESP32側の消費だけ減らす」ところまで。
-// 昇圧ICのEN制御が載ったら、通信を落とした直後（下の netDown のところ）に
-// EN=LOW を足す。ミュート→切断→電源断の順序がそこで揃う。
+// ■ 疑似電源OFF
+// 電池で動いているときは、つまみをOFFへ回し切るとリードスイッチが PowerBoost の EN を
+// GND へ落とし、機体ごと止まる（docs/POWER.md 2章。🔒 ファームは EN に触らない）。
+// ここが働くのは、USB給電のときと、OFF閾値（15度）とリードが閉じる角度のあいだに
+// つまみが止まっているときだけ。「切ったように見せて、ESP32側の消費だけ減らす」。
 //
 // 一気に落とさず、段階を踏む。つまみは回し切る途中で一瞬OFFを通ることがあるし、
 // 「切ったつもりが違った」とすぐ戻すこともある。落とすのが早いほど、戻したときに
 // Wi-Fiの再接続で十数秒待たされる。落とし切る前に戻れば、何も起きなかったことになる。
+//
+// ■ 待機スリープ（2026-09-11 追加）
+// つまみはONのまま、会話もボタンもつまみも触られない時間が続いたら、段階的に眠る。
+//   無操作 1/3 : 画面を暗くする（顔は動いたまま）
+//   無操作 全部 : 画面を消す・スピーカーの接点を開く・無線を止める（WIFI_OFF）
+// ボタンかつまみに触れば起きる。ボタンは起こすだけでなく、そのまま会話を始める
+// （Wi-Fiが繋がり直すまで待ってから録音する。startTurn の pendingTurn）。
+//
+// 眠っても XMOS（ReSpeaker の音声処理）は動いたままで、止められるのは ESP32 の
+// 無線・画面・リレーのコイル（約30mA）だけ。どれだけ減ったかは INA226 で見る（`bat`）。
+// ESP32 の deep sleep は使わない。起きるたびに再起動になり、ROMブートログが
+// I2S の DOUT（GPIO43）へ流れる経路を毎回通るため（リレーは開いているが、踏む回数を
+// 増やす理由が無い）。それに、眠っている間はマイクも聞けなくなる（docs/WAKEUP.md の
+// 「常に聞く」と両立しない）。
 // ---------------------------------------------------------------------------
 
 /** OFF位置になってから画面を消すまで。 */
@@ -945,10 +981,33 @@ static constexpr uint32_t KNOB_OFF_OLED_MS = 2000;
 /** OFF位置になってから通信を止めるまで。 */
 static constexpr uint32_t KNOB_OFF_NET_MS = 5000;
 
-/** 画面を消したか。ONへ戻したとき「消したものだけ」を戻すために持つ。 */
-static bool powerOledDown = false;
-/** 通信を止めたか。 */
-static bool powerNetDown = false;
+#ifndef KATANORI_IDLE_SLEEP_SEC
+#define KATANORI_IDLE_SLEEP_SEC 180 // 無操作でここまで来たら眠る。1/3 で画面を暗くする
+#endif
+/** 待機スリープを働かせるか。シリアル `sleep` でトグルする。 */
+static bool idleSleepEnabled = true;
+/** 無操作で眠るまで。`sleep <秒>` で変えられる（再起動で既定に戻る）。 */
+static uint32_t idleSleepMs = KATANORI_IDLE_SLEEP_SEC * 1000ul;
+
+enum class IdleStage : uint8_t { Awake, Dim, Asleep };
+/** 今の待機の段階。定義は会話制御の後（見ている状態がそこで出揃うため）。 */
+static IdleStage idleStageNow();
+
+/** 画面を暗くしているか。 */
+static bool powerDimmed = false;
+/** 待機スリープでスピーカーの接点を開けたか（起きたら閉じ直す）。 */
+static bool powerRelayDown = false;
+/** 待機スリープで眠っているか（main loop が顔と自動接続を止める条件）。 */
+static bool powerIdleAsleep = false;
+/** 音声の初期化が通ったか。通っていなければ接点は閉じない（setup の方針と同じ）。 */
+static bool audioReady = false;
+
+/** SSD1306 の明るさ。u8g2 の初期化列の既定（0xCF）と、暗くしたとき。 */
+static constexpr uint8_t kOledContrastNormal = 0xCF;
+static constexpr uint8_t kOledContrastDim = 0x10;
+
+/** WIFI_OFF にした後は OTA の待受を張り直す。定義は pumpOta の後。 */
+static void otaSuspend();
 
 /** 消えている画面を先に起こす。ON復帰アニメを見せるために使う。 */
 static void powerWakeOled() {
@@ -998,62 +1057,123 @@ static bool powerDownEnabled = true;
  */
 static bool powerWifiOff = false;
 
-/** 疑似電源OFFの進行。main loop から毎回呼ぶ。 */
+/** 画面の明るさ。変わるときだけ I2C を撃つ。 */
+static void powerSetDim(bool dim) {
+    if (dim == powerDimmed || KATANORI_I2C_SILENCE) {
+        return;
+    }
+    powerDimmed = dim;
+    u8g2.setContrast(dim ? kOledContrastDim : kOledContrastNormal);
+    if (dim) {
+        Serial.printf("[PWR] 画面を暗くしました（無操作%u秒）\n", (unsigned)(idleSleepMs / 3000));
+    }
+}
+
+/** 通信を止める。wifiOff なら無線ごと（WIFI_OFF）、でなければ APから離れるだけ。 */
+static void powerNetStop(bool wifiOff, const char* why) {
+    if (powerNetDown) {
+        return;
+    }
+    powerNetDown = true;
+    katanori::netLink.wsDisconnect();
+    if (wifiOff) {
+        otaSuspend(); // 無線を落とす前に待受を畳む（戻ったら pumpOta が張り直す）
+        katanori::console.suspend(); // Wi-Fi モニタも同じ（戻ったら console.loop が張り直す）
+        katanori::netLink.wifiStop();
+    } else {
+        katanori::netLink.wifiDisconnect();
+    }
+    // LEDは「通信中」の表示なので、切り終わってから消す
+    digitalWrite(KATANORI_USER_LED, HIGH); // アクティブLOW
+    Serial.printf("[PWR] 通信を止めました（%s）\n", why);
+}
+
+/** 疑似電源OFF・待機スリープの進行。main loop から毎回呼ぶ。 */
 static void pumpPowerDown() {
     static bool counting = false;
     static uint32_t offSinceMs = 0;
-
-    if (!knobOff || !powerDownEnabled) {
-        counting = false;
-        // 落としたものだけを戻す。まだ落ちていない段階には触らない。
-        if (powerOledDown) {
-            powerOledDown = false;
-            u8g2.setPowerSave(0);
-            Serial.println("[PWR] 画面を戻しました");
-        }
-        if (powerNetDown) {
-            powerNetDown = false;
-            // 再試行の待ち時間を捨てて即つなぎにいく。つまみを戻した人を
-            // 最大30秒待たせるのは、故障と区別がつかない。
-            nextWifiTryMs = 0;
-            wifiFailures = 0;
-            ssidMissing = false;
-            Serial.println("[PWR] 通信を戻します（自動接続が動きます）");
-        }
-        return;
-    }
-
     uint32_t now = millis();
-    if (!counting) {
-        counting = true;
-        offSinceMs = now;
+
+    // --- つまみOFF（疑似電源OFF）: 落とす方向にだけ進める ---
+    if (knobOff && powerDownEnabled) {
+        powerIdleAsleep = false;
+        if (!counting) {
+            counting = true;
+            offSinceMs = now;
+            return;
+        }
+        uint32_t held = now - offSinceMs;
+        if (!powerOledDown && held >= KNOB_OFF_OLED_MS) {
+            powerOledDown = true;
+            u8g2.setPowerSave(1); // 表示だけ止まる。バッファは残るので戻せば同じ絵が出る
+            Serial.printf("[PWR] 画面を消しました（OFFから%u秒）\n",
+                          (unsigned)(KNOB_OFF_OLED_MS / 1000));
+        }
+        if (!powerNetDown && held >= KNOB_OFF_NET_MS) {
+            // WIFI_OFF まで落とすかどうかは powerWifiOff で切り替わる（既定 false）。
+            // 「WIFI_OFF がコーデックを殺す」と一度は結論づけたが、それは誤りだった
+            // （詳細は powerWifiOff のコメント）。
+            powerNetStop(powerWifiOff, "つまみOFFから5秒");
+        }
         return;
     }
-    uint32_t held = now - offSinceMs;
+    counting = false;
 
-    if (!powerOledDown && held >= KNOB_OFF_OLED_MS) {
-        powerOledDown = true;
-        u8g2.setPowerSave(1); // 表示だけ止まる。バッファは残るので戻せば同じ絵が出る
-        Serial.printf("[PWR] 画面を消しました（OFFから%u秒）\n",
-                      (unsigned)(KNOB_OFF_OLED_MS / 1000));
+    // --- ここから下はつまみON（または疑似電源OFFを無効にしている） ---
+    IdleStage idle = idleStageNow();
+    bool asleep = (idle == IdleStage::Asleep);
+
+    if (asleep && !powerIdleAsleep) {
+        powerIdleAsleep = true;
+        Serial.printf("[PWR] 待機スリープに入ります（無操作%u秒）\n",
+                      (unsigned)(idleSleepMs / 1000));
+        if (!powerOledDown) {
+            powerOledDown = true;
+            u8g2.setPowerSave(1);
+        }
+        // 順序はつまみOFFと同じ: コーデックをミュート -> 接点を開く
+        if (!KATANORI_I2C_SILENCE && !katanori::audioIo.outputMuted()) {
+            katanori::audioIo.setOutputMute(true);
+        }
+        if (muteRelayClosed) {
+            muteRelaySet(false);
+            powerRelayDown = true;
+        }
+        powerNetStop(true, "待機スリープ");
+        Serial.println("[PWR] ボタンかつまみで起きます（ボタンはそのまま会話を始めます）");
+    }
+    if (!asleep && powerIdleAsleep) {
+        powerIdleAsleep = false;
+        Serial.printf("[PWR] 起きます（%s）\n", lastActivityWhy);
     }
 
-    if (!powerNetDown && held >= KNOB_OFF_NET_MS) {
-        powerNetDown = true;
-        katanori::netLink.wsDisconnect();
-        // WIFI_OFF まで落とすかどうかは powerWifiOff で切り替わる（既定 false）。
-        // 「WIFI_OFF がコーデックを殺す」と一度は結論づけたが、それは誤りだった
-        // （詳細は powerWifiOff のコメント）。既定を変えるなら消費電流を実測してから。
-        if (powerWifiOff) {
-            katanori::netLink.wifiStop();
-        } else {
-            katanori::netLink.wifiDisconnect();
+    powerSetDim(idle != IdleStage::Awake);
+
+    if (asleep) {
+        return;
+    }
+
+    // 落としたものだけを戻す。まだ落ちていない段階には触らない。
+    if (powerOledDown) {
+        powerOledDown = false;
+        u8g2.setPowerSave(0);
+        Serial.println("[PWR] 画面を戻しました");
+    }
+    if (powerRelayDown) {
+        powerRelayDown = false;
+        // コーデックはミュートのまま閉じる（乾いた開閉）。解除は pumpOutputGate()。
+        if (!KATANORI_I2C_SILENCE && audioReady && !knobOff) {
+            muteRelaySet(true);
         }
-        // LEDは「通信中」の表示なので、切り終わってから消す
-        digitalWrite(KATANORI_USER_LED, HIGH); // アクティブLOW
-        Serial.printf("[PWR] 通信を止めました（OFFから%u秒）\n",
-                      (unsigned)(KNOB_OFF_NET_MS / 1000));
-        // ここに EN=LOW（電源基板が載ったら）
+    }
+    if (powerNetDown) {
+        powerNetDown = false;
+        // 再試行の待ち時間を捨てて即つなぎにいく。つまみを戻した人を
+        // 最大30秒待たせるのは、故障と区別がつかない。
+        nextWifiTryMs = 0;
+        wifiFailures = 0;
+        ssidMissing = false;
+        Serial.println("[PWR] 通信を戻します（自動接続が動きます）");
     }
 }
 
@@ -1190,6 +1310,8 @@ static void muteBeforeRestart() {
 static bool pendingTurn = false;
 /** その待ち始めた時刻。 */
 static uint32_t pendingTurnMs = 0;
+/** この待ちで wsConnect() を撃ったか。繋がるまで毎周回撃つと「接続処理中です」が流れ続ける。 */
+static bool pendingTurnWsAsked = false;
 /** 接続を待つ上限。TLSハンドシェイクを含めても実測2秒程度で繋がる。 */
 static constexpr uint32_t PENDING_TURN_TIMEOUT_MS = 15000;
 
@@ -1278,8 +1400,15 @@ static void startTurn() {
         return;
     }
     if (!katanori::netLink.wifiConnected()) {
-        // 自動接続が動いている。ここで諦めさせず、繋がったらもう一度押せばよい。
-        Serial.println("[TURN] Wi-Fi未接続です（自動で接続を試みています）");
+        // 自動接続が繋ぎ直している最中。待機スリープから起こした直後は必ずここを通る
+        // （眠るときに無線を止めているため）。押し直させず、繋がり次第サーバーへ張って
+        // 録音を始める（pumpPendingTurn）。上限は PENDING_TURN_TIMEOUT_MS。
+        if (!pendingTurn) {
+            pendingTurn = true;
+            pendingTurnMs = millis();
+            pendingTurnWsAsked = false;
+            Serial.println("[TURN] Wi-Fiに繋がり次第、会話を始めます");
+        }
         return;
     }
 
@@ -1290,11 +1419,13 @@ static void startTurn() {
         if (!pendingTurn) {
             pendingTurn = true;
             pendingTurnMs = millis();
+            pendingTurnWsAsked = false;
             Serial.println("[TURN] サーバーへ接続します。繋がり次第録音を始めます");
         }
-        if (!katanori::netLink.wsConnected()) {
+        if (!katanori::netLink.wsConnected() && !pendingTurnWsAsked) {
             katanori::netLink.wsConnect();
         }
+        pendingTurnWsAsked = true;
         return;
     }
 
@@ -1583,10 +1714,47 @@ static void pumpPendingTurn() {
         startTurn();
         return;
     }
+    // Wi-Fi待ちで始まった場合は、繋がった時点でサーバーへ張る
+    if (!pendingTurnWsAsked && katanori::netLink.wifiConnected()) {
+        pendingTurnWsAsked = true;
+        katanori::netLink.wsConnect();
+    }
     if (millis() - pendingTurnMs > PENDING_TURN_TIMEOUT_MS) {
         pendingTurn = false;
         Serial.println("[TURN] サーバーへ接続できませんでした。もう一度押してください");
     }
+}
+
+/**
+ * 待機スリープの段階。pumpPowerDown() から毎回呼ばれる。
+ *
+ * 「使っている」間は時計を進めない。会話（接続待ち・録音・受信・再生）、Wi-Fi設定モード、
+ * VAD計測、表示の確認（`bn`・自己診断）、手動 `unmute`、Wi-Fi モニタが繋がっている間
+ * （眠ると無線ごと切れて、見ている人の手が止まる）、そして一度もWi-Fiに繋がって
+ * いない間（初回の接続と設定モードへの振り分けを眠りで止めない）。
+ */
+static IdleStage idleStageNow() {
+    uint32_t now = millis();
+    if (!idleSleepEnabled || knobOff) {
+        lastActivityMs = now; // つまみOFFの間は数えない（ONへ戻した直後に眠らないように）
+        return IdleStage::Awake;
+    }
+    bool busy = conversationActive() || katanori::provisioning.active() ||
+                vadMeasuringActive() || bannerDemo || outputGateOverride ||
+                !wifiEverConnected || katanori::console.remoteActive() ||
+                static_cast<int32_t>(now - selfTestUntilMs) < 0;
+    if (busy) {
+        noteActivity("会話・設定など");
+        return IdleStage::Awake;
+    }
+    uint32_t idle = now - lastActivityMs;
+    if (idle >= idleSleepMs) {
+        return IdleStage::Asleep;
+    }
+    if (idle >= idleSleepMs / 3) {
+        return IdleStage::Dim;
+    }
+    return IdleStage::Awake;
 }
 
 /** マイクを読んでDOへ送る。main loop から毎回呼ぶ。 */
@@ -2663,6 +2831,21 @@ static void pumpOta() {
     ArduinoOTA.handle();
 }
 
+/**
+ * OTA の待受を畳む。無線を WIFI_OFF まで落とす直前に呼ぶ。
+ *
+ * WIFI_OFF では esp_wifi_deinit まで走るので、mDNS（katanori.local）と待受の口が
+ * 繋ぎ直した後も生きている保証が無い（確かめていない）。畳んでおけば、
+ * Wi-Fi が戻ったとき pumpOta() が最初から張り直す。
+ */
+static void otaSuspend() {
+    if (!otaBegun) {
+        return;
+    }
+    ArduinoOTA.end();
+    otaBegun = false;
+}
+
 static void printHelp() {
     Serial.println("---------------------------------------------");
     Serial.println(" 会話");
@@ -2675,9 +2858,18 @@ static void printHelp() {
     Serial.println("   knobzero    : 今の位置をゼロ点(OFF位置)としてNVSへ保存");
     Serial.println("   knobsrc     : つまみの読み元を再判定（AS5600が応答すればAS5600、駄目ならADC）");
     Serial.println("   pwr         : 疑似電源OFF(つまみOFF位置の消灯・切断)の有効/無効");
+    Serial.println(" 電池・待機スリープ");
+    Serial.println("   bat         : 電池の電圧・電流・残量の目安・積算mAh（INA226 0x44。居なければ探し直す）");
+    Serial.println("   batlog <秒> : 電池の定期ログの間隔（0で止める。既定60。スリープの効きを見るなら 1）");
+    Serial.println("   batreset    : 積算mAhと最小・最大を0から数え直す");
+    Serial.println("   batflip     : 電流の向きを反転して保存（USBを挿していないのに「充電」と出るとき）");
+    Serial.println("   sleep       : 待機スリープの有効/無効");
+    Serial.println("   sleep <秒>  : 無操作で眠るまでの秒数（画面が暗くなるのはその1/3。既定180）");
+    Serial.println("   sleepnow    : いま眠らせる（画面・無線を止め、スピーカーの接点を開く）");
+    Serial.println("   wake        : 起こす（ボタン・つまみでも起きる）");
     Serial.println("   wifikill    : 疑似電源OFFで無線をWIFI_OFFまで落とすか切替（再検証用）");
     Serial.println("   cpu <MHz>   : CPU周波数を変える(80/160/240)。コーデック死亡の切り分け用");
-    Serial.println("   wifistop    : WIFI_OFFまで落とす ※コーデックが死ぬ。復旧はUSB抜き差し");
+    Serial.println("   wifistop    : WIFI_OFFまで落として15秒保持（単独ではコーデックは死なない。powerWifiOff の注記）");
     Serial.println("   reboot      : ESP32だけ再起動（RSTボタンの代わり。USBは切れない）");
     Serial.println("   creg        : コーデックの主要レジスタをダンプ（正常時と見比べる）");
     Serial.println("   knobdis     : つまみの読み取りを止める/再開（配線を外して切り分ける用）");
@@ -2722,6 +2914,7 @@ static void printHelp() {
     Serial.println("   n                 : ネットワーク状態を表示");
     Serial.println("   ota               : OTA(Wi-Fi書き込み)の状態を表示");
     Serial.println("   otadis            : OTA待受の無効/有効を切替");
+    Serial.println("   （Wi-Fi モニタ: katanori.local の 23番へ TCP で繋ぎ、最初に OTA と同じ合言葉を送る）");
     Serial.println("---------------------------------------------");
 }
 
@@ -2848,8 +3041,10 @@ static void handleSerial() {
                               knobPercent, katanori::audioIo.gain(),
                               knobOff ? "OFF" : "ON");
             }
-            Serial.printf("[PWR]  疑似電源OFF=%s 画面=%s 通信=%s\n",
+            Serial.printf("[PWR]  疑似電源OFF=%s 待機スリープ=%s%s 画面=%s 通信=%s\n",
                           powerDownEnabled ? "有効" : "無効",
+                          idleSleepEnabled ? "有効" : "無効",
+                          powerIdleAsleep ? "(眠っている)" : powerDimmed ? "(暗い)" : "",
                           powerOledDown ? "消灯" : "点灯",
                           powerNetDown ? "停止" : "動作");
         } else if (strcmp(line, "knobzero") == 0) {
@@ -2934,6 +3129,41 @@ static void handleSerial() {
             Serial.printf("[PWR] 疑似電源OFFを%sにしました%s\n",
                           powerDownEnabled ? "有効" : "無効",
                           powerDownEnabled ? "" : "（つまみOFFは会話終了と消音だけになります）");
+        } else if (strcmp(line, "bat") == 0) {
+            katanori::battery.printStatus();
+        } else if (strncmp(line, "batlog ", 7) == 0) {
+            int sec = atoi(line + 7);
+            katanori::battery.setLogInterval(sec < 0 ? 0 : (uint32_t)sec);
+        } else if (strcmp(line, "batreset") == 0) {
+            katanori::battery.resetStats();
+        } else if (strcmp(line, "batflip") == 0) {
+            katanori::battery.toggleSign();
+        } else if (strcmp(line, "sleep") == 0) {
+            idleSleepEnabled = !idleSleepEnabled;
+            noteActivity("シリアル");
+            Serial.printf("[PWR] 待機スリープを%sにしました（無操作%u秒で眠る）\n",
+                          idleSleepEnabled ? "有効" : "無効", (unsigned)(idleSleepMs / 1000));
+        } else if (strncmp(line, "sleep ", 6) == 0) {
+            int sec = atoi(line + 6);
+            if (sec < 15) {
+                Serial.println("[PWR] 15秒以上にしてください（画面が暗くなるのはその1/3）");
+            } else {
+                idleSleepMs = (uint32_t)sec * 1000u;
+                noteActivity("シリアル");
+                Serial.printf("[PWR] 無操作%d秒で眠り、%d秒で画面を暗くします（再起動で%d秒に戻ります）\n",
+                              sec, sec / 3, KATANORI_IDLE_SLEEP_SEC);
+            }
+        } else if (strcmp(line, "sleepnow") == 0) {
+            if (!idleSleepEnabled || knobOff) {
+                Serial.println("[PWR] 待機スリープが無効か、つまみがOFF位置です");
+            } else {
+                // 次の周回で「無操作が上限を超えた」ことにする。会話中などは idleStageNow が
+                // 時計を戻すので眠らない（その場合はそのまま起きている）
+                lastActivityMs = millis() - idleSleepMs;
+                Serial.println("[PWR] いま眠らせます（会話中・設定中なら眠りません）");
+            }
+        } else if (strcmp(line, "wake") == 0) {
+            noteActivity("シリアル");
         } else if (strncmp(line, "cpu ", 4) == 0) {
             /*
              * CPU周波数を変える。コーデックが死ぬ原因の切り分け用。
@@ -3119,6 +3349,9 @@ static void handleButton() {
         if (pressed) {
             pressedAtMs = now;
             longFired = false;
+            // 押した瞬間に起こす（離すのを待たない）。眠っていれば無線を戻し始め、
+            // 離したときの startTurn() が繋がるのを待って録音を始める
+            noteActivity("ボタン");
         } else if (!longFired) {
             // 離した時点で短押し確定
             if (katanori::provisioning.active()) {
@@ -3158,6 +3391,8 @@ static void handleButton() {
 
 void setup() {
     Serial.begin(115200);
+    // Wi-Fi モニタに最初に求める合言葉。OTA と同じものを使う（Console.h）
+    katanori::console.setPassword(KATANORI_OTA_PASSWORD);
 
     // 【最優先】I2Sを真っ先に初期化する。
     //
@@ -3174,6 +3409,7 @@ void setup() {
     Wire.setClock(400000);
 
     bool audioOk = katanori::audioIo.begin();
+    audioReady = audioOk;
 
     // 出力は既定でミュート。この状態が次のリセットまで保持されるので、
     // 起動時にROMブートログが轟音になるのを防げる。喋る直前だけ解除する。
@@ -3245,6 +3481,11 @@ void setup() {
 #endif
 
     knobInit(); // AS5600が応答すれば角度読み、しなければADC（Wireは初期化済み）
+
+    // 電池の電流計（INA226 0x44）。居なくても起動は続ける（USB給電の机上など）
+    if (!KATANORI_I2C_SILENCE) {
+        katanori::battery.begin();
+    }
 
     // ユーザーLEDを消灯 (アクティブLOWなのでHIGHで消える)
     pinMode(KATANORI_USER_LED, OUTPUT);
@@ -3324,6 +3565,8 @@ void loop() {
     delay(10);
     return;
 #endif
+    // Wi-Fi モニタ（Console.h）。打たれた行は下の handleSerial() が USB と同じに読む
+    katanori::console.loop();
     handleSerial();
     handleButton();
 
@@ -3335,6 +3578,9 @@ void loop() {
 
     // 音が出ない原因のうち、これだけは黙って起きるので常に見張る
     pumpCodecWatch();
+
+    // 電池は眠っている間も読む（眠って何mA減ったかを見るのがこの計器の用途の1つ）
+    katanori::battery.loop();
 
     // OTA待受。疑似電源OFFや設定モードの early return より前に置く
     // (Wi-Fiが生きている限り、どの状態からでも更新を受けられるように)
@@ -3356,12 +3602,14 @@ void loop() {
         return;
     }
 
-    // つまみOFF位置は疑似電源OFF。段階的に落とし、戻せば落とした分だけ復帰する。
+    // つまみOFF位置は疑似電源OFF、つまみONのまま放っておかれたら待機スリープ。
+    // どちらも段階的に落とし、戻せば落とした分だけ復帰する。
     // 設定モードは上で return しているので、ここには来ない（設定中は画面もAPも要る）。
     pumpPowerDown();
-    if (knobOff && powerDownEnabled) {
+    if ((knobOff && powerDownEnabled) || powerIdleAsleep) {
         // 通信を落とすまでの数秒はWebSocketを生かしておく。この間に戻されれば
         // 繋ぎ直しが要らない。顔とマイクは止める（OFFに見えなければ意味がない）。
+        // 待機スリープ中は自動接続も止める（回すと無線が戻ってしまう）。
         if (!powerNetDown) {
             katanori::netLink.loop();
         }
