@@ -285,7 +285,7 @@ static uint32_t uiBlankUntilMs = 0;
 /**
  * 音量の画面の右上（上から 10 ドットの空いた帯）に電池の残りを出す。
  *
- * 🔒 ユーザー 2026-09-11「Aで」: 見本 docs/img_battery_mock.png の案 A
+ * 🔒 ユーザー 2026-09-11「Aで」: 見本 docs/_img/battery_mock.png の案 A
  *   （電池の絵 12x7 ＋ 数字。少ないと絵の中が空・充電中は左に稲妻・電池が繋がっていなければ「USB」）。
  * 顔には重ねない（音量を顔に小さく重ねる案は 2026-08-03 に「読みにくい」で退けている）。
  * INA226 が居なければ何も出さない。% は Battery::percent() の目安（電池ごとの実測ではない）。
@@ -2001,7 +2001,7 @@ static IdleStage idleStageNow() {
 //
 // 🔒 ユーザー 2026-09-11「会話ボタン長押しでメニュー。短押しはOK、長押しはキャンセル、
 //    値はつまみで調整」「メニューが終わったときは音量を設定する画面を出して、音を出さない
-//    ようにしないとダメ」。見本 docs/img_menu_mock.png（同日 OK）。
+//    ようにしないとダメ」。見本 docs/_img/menu_mock.png（同日 OK）。
 // 項目は あかるさ／ねむるまで／きどうのこえ／WiFiせってい。値は Settings（NVS）へ入り、
 // katanori.local の設定ページと同じ値を読み書きする。
 //
@@ -2344,7 +2344,7 @@ static void drawDrowsyScreen() {
     u8g2.sendBuffer();
 }
 
-/** メニューの画面を 1 枚描いて送る。見本 docs/img_menu_mock.png と同じ座標。 */
+/** メニューの画面を 1 枚描いて送る。見本 docs/_img/menu_mock.png と同じ座標。 */
 static void drawMenuScreen() {
     u8g2.clearBuffer();
     u8g2.setDrawColor(1);
