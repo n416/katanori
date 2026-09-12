@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>JLCPCB の部品区分とコスト — 調査のまとめ</title>
+<style>
+  @page { size: A4; margin: 16mm 14mm; }
+  html { font-size: 10.5pt; }
+  body {
+    font-family: "Yu Gothic", "YuGothic", "Meiryo", "Hiragino Kaku Gothic ProN", sans-serif;
+    color: #1a1a1a; line-height: 1.72; margin: 0;
+  }
+  h1 { font-size: 19pt; margin: 0 0 2mm; letter-spacing: .02em; }
+  h1 + .sub { color: #666; font-size: 9.5pt; margin: 0 0 8mm; }
+  h2 {
+    font-size: 13pt; margin: 9mm 0 3mm; padding: 0 0 1.5mm;
+    border-bottom: 1.5px solid #1a1a1a; letter-spacing: .02em;
+  }
+  h3 { font-size: 11pt; margin: 6mm 0 2mm; }
+  p { margin: 0 0 3mm; }
+  table { border-collapse: collapse; width: 100%; margin: 3mm 0 4mm; font-size: 9.5pt; }
+  th, td { border: 1px solid #bbb; padding: 1.6mm 2.4mm; text-align: left; vertical-align: top; }
+  th { background: #f0f0f0; font-weight: 600; }
+  td.n, th.n { text-align: right; white-space: nowrap; }
+  tr.total td { background: #f7f7f7; font-weight: 700; }
+  .note { font-size: 9pt; color: #444; margin: 2mm 0 4mm; }
+  .warn { border-left: 3px solid #c33; padding: 2mm 0 2mm 3mm; margin: 4mm 0; font-size: 9.5pt; background: #fdf6f6; }
+  .lead { border-left: 3px solid #1a1a1a; padding: 2mm 0 2mm 3mm; margin: 4mm 0; }
+  code { font-family: "Consolas", monospace; font-size: 9.5pt; background: #f2f2f2; padding: 0 .4em; }
+  ol, ul { margin: 0 0 3mm; padding-left: 6mm; }
+  li { margin-bottom: 1.5mm; }
+  .foot { margin-top: 10mm; padding-top: 3mm; border-top: 1px solid #ccc; font-size: 8.5pt; color: #666; }
+  .pb { page-break-before: always; }
+</style>
+</head>
+<body>
+
+<h1>JLCPCB の部品区分とコスト — 調査のまとめ</h1>
+<p class="sub">2026-09-12 ／ 対象は自作の電源・ハブ基板（<code>hub_power</code>・表面実装 44 個 28 種類）。数字はすべて JLCPCB の部品検索と料金表から取った実測値で、推定は推定と明記した。</p>
+
+<h2>1. 何にお金が掛かるのか — 2 種類に分かれる</h2>
+
+<p>基板実装の費用は、<strong>枚数に比例する分</strong>と<strong>発注の回数に比例する分</strong>に分かれる。ここを混ぜると、枚数を増やせば安くなるはずのものが安くならない、という読み違いが起きる。</p>
+
+<table>
+<tr><th>項目</th><th class="n">額</th><th>何に比例するか</th></tr>
+<tr><td>実装の段取り（Economic）</td><td class="n">$8.18</td><td><strong>発注 1 回につき 1 回</strong></td></tr>
+<tr><td>メタルマスク</td><td class="n">$1.53</td><td><strong>発注 1 回につき 1 回</strong></td></tr>
+<tr><td>Extended の部品</td><td class="n">$3.07 / 種類</td><td><strong>発注 1 回につき、種類ごとに 1 回</strong></td></tr>
+<tr><td>部品代</td><td class="n">約 $10 / 枚</td><td>枚数</td></tr>
+<tr><td>はんだ点</td><td class="n">$0.0016 / 点</td><td>枚数</td></tr>
+</table>
+
+<div class="lead">
+<p style="margin:0"><strong>この基板では、発注のたびに必ず $37.34 が乗る</strong>（段取り $8.18 ＋ メタルマスク $1.53 ＋ Extended 9 種類 $27.63）。枚数に比例するのは 1 枚あたり約 $10.2 なので、<strong>5 枚なら費用の 42% が「枚数と無関係な分」</strong>になる。</p>
+</div>
+
+<h3>Basic と Extended の違い</h3>
+
+<p>JLCPCB は実装に使える部品を <strong>Basic</strong>／<strong>Promotional Extended</strong>／<strong>Extended</strong> の 3 つに分けている。前の 2 つは追加料金がかからない。Extended は<strong>部品の種類ごとに 1 回の発注で $3.07</strong> かかる。これは機械にリールを載せ替える手間の料金なので、同じ発注で 100 枚作っても 1 回である。</p>
+
+<div class="warn">
+<strong>⚠ 逆に言うと、小分けに頼むと回数ぶん掛かる。</strong>5 枚を 5〜6 回に分けて発注する前提なら、Extended 1 種類の実質は $3.07 ではなく <strong>$15〜$18</strong> になる。試作を重ねる案件では、ここが効く。
+</div>
+
+<h2>2. この基板の実際 — 28 種類の内訳</h2>
+
+<table>
+<tr><th>区分</th><th class="n">種類</th><th class="n">追加料金</th></tr>
+<tr><td>Basic</td><td class="n">19</td><td class="n">$0</td></tr>
+<tr><td>Extended</td><td class="n">9</td><td class="n">$27.63 / 発注</td></tr>
+<tr class="total"><td>計</td><td class="n">28</td><td class="n">$27.63 / 発注</td></tr>
+</table>
+
+<h3>Basic に寄せられた 3 種類（$9.21 / 発注ぶん）</h3>
+
+<p>PowerBoost 1000C から写した定数のうち 3 つは、回路の意味をほとんど変えずに Basic の値へ寄せられた。<strong>「E96 の半端な値だから Extended」というだけの部品は、E24 に寄せれば落とせる</strong>ことが多い。</p>
+
+<table>
+<tr><th>元</th><th>先</th><th>電気的に何が変わるか</th></tr>
+<tr><td>340kΩ <code>C17636</code></td><td>330kΩ 0603 <code>C23137</code></td><td>電池切れ警告の閾値が 3.25V → 3.33V。80mV 早く知らせる側</td></tr>
+<tr><td>270kΩ <code>C17589</code><br>（100kΩ も 82kΩ へ）</td><td>220kΩ 0603 <code>C22961</code><br>82kΩ 0603 <code>C23254</code></td><td>USB 入力を見る分圧比が 0.2703 → 0.2715。差 0.45%</td></tr>
+<tr><td>100µF 10V 1210 <code>C23742</code></td><td>47µF 10V 1206 <code>C96123</code> × 2</td><td>耐圧 10V を維持。部品が 1 つ増える</td></tr>
+</table>
+
+<p class="note">最後の 1 つには選択肢が 2 つあった。Basic の 100µF は 6.3V 品しかなく、5.2V が掛かる場所で耐圧を下げるとセラミックコンデンサは容量が大きく落ちる（どれだけ落ちるかはメーカーの曲線が要る）。<strong>その分からない部分を踏まないために、47µF 10V を 2 個に分ける方を採った。</strong></p>
+
+<h2 class="pb">3. 落とせなかった 9 種類と、その理由</h2>
+
+<p>残った 9 種類は、理由が 3 つに分かれる。<strong>「棚に無い」と「代えると回路が変わる」を混ぜないことが大事で</strong>、前者は調べれば決まるが、後者は設計判断になる。</p>
+
+<table>
+<tr><th style="width:26%">部品</th><th style="width:22%">理由の種類</th><th>確かめたこと</th></tr>
+<tr><td>昇圧 TPS61090 <code>C206167</code></td><td rowspan="3">回路そのもの</td><td rowspan="3">代えれば PowerBoost の写しではなくなり、定数から引き直しになる。部品の差し替えではなく再設計</td></tr>
+<tr><td>充電 MCP73871 <code>C5121473</code></td></tr>
+<tr><td>電流計 INA226 <code>C49851</code></td></tr>
+<tr><td>リレー G6S-2F <code>C16707</code></td><td rowspan="5">棚に無い</td><td>リレー 30,930 件に Basic の絞り込み → <strong>0 件</strong>。Promotional Extended も <strong>0 件</strong></td></tr>
+<tr><td>インダクタ 6.8µH <code>C167807</code></td><td>6.8µH で <strong>0 件</strong>。10µH なら Basic 2 件あるが、<code>C1035</code>（0603・<strong>3mA</strong>）と <code>C1046</code>（0805・<strong>15mA</strong>）で信号用。昇圧の 2A には桁が 2 つ足りない</td></tr>
+<tr><td>シャント 10mΩ <code>C105362</code></td><td>「Current Sense Resistors」15,376 件に Basic <strong>0 件</strong>。値で 10mΩ を引いても 0 件</td></tr>
+<tr><td>USB-C の受け口 <code>C165948</code></td><td>USB Type-C 1,345 件に Basic <strong>0 件</strong>（USB 全体 15,834 件でも 0）</td></tr>
+<tr><td>デジトラ MMUN2133 <code>C21714196</code></td><td>Digital Transistors 4,905 件に Basic <strong>0 件</strong>。PNP 単体（MMBT3906）も Extended なので、抵抗 2 本に分ける道も無い</td></tr>
+<tr><td>1.87MΩ <code>C482988</code></td><td>代えると回路が動く</td><td>E96 なので Basic に無い。2MΩ 0603 は Basic に 1 件あるが、この抵抗は出力電圧 <code>0.5V × (1 + R3/R4)</code> と電池切れ警告の両方を決めていて、<strong>2MΩ にすると出力 5.5V・警告 3.53V</strong> になる。相方も振り直す設計変更が要る</td></tr>
+</table>
+
+<h2>4. 調べ方 — 0 件を「無い」と読む前に対照を取る</h2>
+
+<p>この調査でいちばん危なかったのは、<strong>検索で 0 件と出たものを「存在しない」と読んでしまうこと</strong>だった。JLCPCB の検索は部品の説明文への文字列一致なので、書き方が違えば当たらない。実際、この調査では一度これで誤った結論を出しかけた。手順はこうなる。</p>
+
+<ol>
+<li><strong>部品表の品番を 1 つずつ引いて区分を読む。</strong>品番で引けば区分（Basic / Extended）は正しく出る。ここは疑う必要がない。</li>
+<li><strong>Extended の物は、値で検索して Basic の絞り込みをかけ、残り件数を読む。</strong></li>
+<li>🔴 <strong>0 件が出たら、必ず対照を取る。</strong>Basic が在ると分かっている別の検索で同じ操作をして、絞り込みが効いていることを見る。抵抗なら 185 件、10µH のインダクタなら 2 件が残る。ここを飛ばすと、方法の不具合と事実の区別がつかない。</li>
+<li><strong>残り件数が 1 以上でも、件数だけで決めない。</strong>実際に品番を開いて定格と大きさを見る。10µH の Basic 2 件は、開いてみたら 3mA と 15mA の信号用だった。</li>
+</ol>
+
+<p class="note">JLCPCB の Basic 一覧ページ（1,586 点）は検索の引数を受け付けず、カテゴリ一覧も途中で打ち切られるので、一覧を端から数える道は使えなかった。上の 4 手順が現実的な方法になる。</p>
+
+<h2>5. 数量と発注回数でどう効くか</h2>
+
+<p>試作を重ねる案件では、ロットの切り方が部品選定より効く。この基板で 5 枚ずつ作る場合を並べる。</p>
+
+<table>
+<tr><th>発注の回数</th><th class="n">回数に比例する分</th><th class="n">枚数に比例する分</th><th class="n">計</th><th class="n">1 枚あたり</th></tr>
+<tr><td>1 回（5 枚）</td><td class="n">$37.34</td><td class="n">$51</td><td class="n">$88</td><td class="n">$17.6</td></tr>
+<tr><td>3 回（15 枚）</td><td class="n">$112.02</td><td class="n">$153</td><td class="n">$265</td><td class="n">$17.7</td></tr>
+<tr><td>6 回（30 枚）</td><td class="n">$224.04</td><td class="n">$306</td><td class="n">$530</td><td class="n">$17.7</td></tr>
+<tr><td>1 回（30 枚）</td><td class="n">$37.34</td><td class="n">$306</td><td class="n">$343</td><td class="n"><strong>$11.4</strong></td></tr>
+</table>
+
+<p><strong>同じ 30 枚でも、6 回に分ければ $530、1 回にまとめれば $343。</strong>差の $187 はすべて段取り・メタルマスク・Extended の掛かり直しである。板代と送料は別で、そちらも回数ぶん掛かる。</p>
+
+<div class="lead">
+<p style="margin:0">設計を詰める段階では回数が増えるのは避けられない。<strong>そこで効くのは「1 回あたりの固定費を下げておくこと」で、Extended を 12 → 9 種類に減らした効果は、6 回まわすなら $9.21 ではなく $55 になる。</strong></p>
+</div>
+
+<h2>6. この案件で決めたこと</h2>
+
+<ul>
+<li><strong>Extended 9 種類のまま行く。</strong>残りは回路を変える話になるので、$3.07 のために触らない。</li>
+<li><strong>ミュートリレーは表面実装に替えた</strong>（Y14H-1C-5DS → Omron G6S-2F DC5）。手はんだが消え、足形も KiCad 標準の Omron 純正 land pattern になった。Basic のリレーは存在しないので、$3.07 は避けられない。</li>
+<li><strong>スルーホールは 11 個</strong>（ピンヘッダ 8・JST・PH 2）。自分で付けるか、$3.58 ＋ 41 点 × $0.0164 ＝ <strong>$4.25</strong> で頼むかは未決。</li>
+<li><strong>板代・送料・面付けの追加料金は未確定。</strong>発注画面にファイルを上げるまで出ない。</li>
+</ul>
+
+<p class="foot">出どころ: docs/POWER.md（案③）。値段は 2026-09-12 に JLCPCB の部品検索・料金ページで取得。部品には最低数量があるので部品代は上ぶれする。</p>
+
+</body>
+</html>
