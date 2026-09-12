@@ -44,6 +44,7 @@
 
 <table>
 <tr><th>項目</th><th class="n">額</th><th>何に比例するか</th></tr>
+<tr><td colspan="3" style="background:#fafafa"><strong>⚠ この表の額は「1 回ぶん」「1 枚ぶん」であって、総額ではない。総額は 5 節。</strong></td></tr>
 <tr><td>実装の段取り（Economic）</td><td class="n">$8.18</td><td><strong>発注 1 回につき 1 回</strong></td></tr>
 <tr><td>メタルマスク</td><td class="n">$1.53</td><td><strong>発注 1 回につき 1 回</strong></td></tr>
 <tr><td>Extended の部品</td><td class="n">$3.07 / 種類</td><td><strong>発注 1 回につき、種類ごとに 1 回</strong></td></tr>
@@ -52,7 +53,7 @@
 </table>
 
 <div class="lead">
-<p style="margin:0"><strong>この基板では、発注のたびに必ず $37.34 が乗る</strong>（段取り $8.18 ＋ メタルマスク $1.53 ＋ Extended 9 種類 $27.63）。枚数に比例するのは 1 枚あたり約 $10.2 なので、<strong>5 枚なら費用の 42% が「枚数と無関係な分」</strong>になる。</p>
+<p style="margin:0"><strong>この基板では、発注 1 回あたり必ず $37.34 が乗る。</strong>（段取り $8.18 ＋ メタルマスク $1.53 ＋ Extended 9 種類 $27.63）。枚数に比例するのは 1 枚あたり約 $10.2 なので、<strong>5 枚 1 回の発注（総額 約 $88）では、費用の 42% が「枚数と無関係な分」</strong>になる。</p>
 </div>
 
 <h3>Basic と Extended の違い</h3>
@@ -60,7 +61,7 @@
 <p>JLCPCB は実装に使える部品を <strong>Basic</strong>／<strong>Promotional Extended</strong>／<strong>Extended</strong> の 3 つに分けている。前の 2 つは追加料金がかからない。Extended は<strong>部品の種類ごとに 1 回の発注で $3.07</strong> かかる。これは機械にリールを載せ替える手間の料金なので、同じ発注で 100 枚作っても 1 回である。</p>
 
 <div class="warn">
-<strong>⚠ 逆に言うと、小分けに頼むと回数ぶん掛かる。</strong>5 枚を 5〜6 回に分けて発注する前提なら、Extended 1 種類の実質は $3.07 ではなく <strong>$15〜$18</strong> になる。試作を重ねる案件では、ここが効く。
+<strong>⚠ 逆に言うと、小分けに頼むと回数ぶん掛かる。</strong>5 枚を 5〜6 回に分けて発注する前提なら、Extended 1 種類の実質は「発注 1 回あたり $3.07」ではなく <strong>総額で $15〜$18</strong> になる。試作を重ねる案件では、ここが効く。
 </div>
 
 <h2>2. この基板の実際 — 28 種類の内訳</h2>
@@ -72,7 +73,7 @@
 <tr class="total"><td>計</td><td class="n">28</td><td class="n">$27.63 / 発注</td></tr>
 </table>
 
-<h3>Basic に寄せられた 3 種類（$9.21 / 発注ぶん）</h3>
+<h3>Basic に寄せられた 3 種類（発注 1 回あたり $9.21・6 回まわすなら総額 $55）</h3>
 
 <p>PowerBoost 1000C から写した定数のうち 3 つは、回路の意味をほとんど変えずに Basic の値へ寄せられた。<strong>「E96 の半端な値だから Extended」というだけの部品は、E24 に寄せれば落とせる</strong>ことが多い。</p>
 
@@ -91,7 +92,7 @@
 
 <table>
 <tr><th style="width:26%">部品</th><th style="width:22%">理由の種類</th><th>確かめたこと</th></tr>
-<tr><td>昇圧 TPS61090 <code>C206167</code></td><td rowspan="3">回路そのもの</td><td rowspan="3">代えれば PowerBoost の写しではなくなり、定数から引き直しになる。部品の差し替えではなく再設計</td></tr>
+<tr><td>昇圧 TPS61090 <code>C206167</code></td><td rowspan="3">写しであることが価値</td><td rowspan="3"><strong>この 3 つを代えると PowerBoost 1000C の写しではなくなる。</strong>写しであること自体が設計の裏付けで、公開された実証済みの回路をそのまま使い、元の EAGLE の回路図と 1 ピンずつ機械で突き合わせて検証できる。代えればその裏付けを捨てることになる。<strong>手間の問題ではない。</strong></td></tr>
 <tr><td>充電 MCP73871 <code>C5121473</code></td></tr>
 <tr><td>電流計 INA226 <code>C49851</code></td></tr>
 <tr><td>リレー G6S-2F <code>C16707</code></td><td rowspan="5">棚に無い</td><td>リレー 30,930 件に Basic の絞り込み → <strong>0 件</strong>。Promotional Extended も <strong>0 件</strong></td></tr>
@@ -120,25 +121,25 @@
 <p>試作を重ねる案件では、ロットの切り方が部品選定より効く。この基板で 5 枚ずつ作る場合を並べる。</p>
 
 <table>
-<tr><th>発注の回数</th><th class="n">回数に比例する分</th><th class="n">枚数に比例する分</th><th class="n">計</th><th class="n">1 枚あたり</th></tr>
+<tr><th>発注の回数</th><th class="n">回数に比例する分<br>（総額）</th><th class="n">枚数に比例する分<br>（総額）</th><th class="n">総額</th><th class="n">1 枚あたり</th></tr>
 <tr><td>1 回（5 枚）</td><td class="n">$37.34</td><td class="n">$51</td><td class="n">$88</td><td class="n">$17.6</td></tr>
 <tr><td>3 回（15 枚）</td><td class="n">$112.02</td><td class="n">$153</td><td class="n">$265</td><td class="n">$17.7</td></tr>
 <tr><td>6 回（30 枚）</td><td class="n">$224.04</td><td class="n">$306</td><td class="n">$530</td><td class="n">$17.7</td></tr>
 <tr><td>1 回（30 枚）</td><td class="n">$37.34</td><td class="n">$306</td><td class="n">$343</td><td class="n"><strong>$11.4</strong></td></tr>
 </table>
 
-<p><strong>同じ 30 枚でも、6 回に分ければ $530、1 回にまとめれば $343。</strong>差の $187 はすべて段取り・メタルマスク・Extended の掛かり直しである。板代と送料は別で、そちらも回数ぶん掛かる。</p>
+<p><strong>同じ 30 枚でも、総額は 6 回に分ければ $530、1 回にまとめれば $343。</strong>差の $187 はすべて段取り・メタルマスク・Extended の掛かり直しで、1 枚あたりに直すと $17.7 と $11.4 の差になる。板代と送料は別で、そちらも回数ぶん掛かる。</p>
 
 <div class="lead">
-<p style="margin:0">設計を詰める段階では回数が増えるのは避けられない。<strong>そこで効くのは「1 回あたりの固定費を下げておくこと」で、Extended を 12 → 9 種類に減らした効果は、6 回まわすなら $9.21 ではなく $55 になる。</strong></p>
+<p style="margin:0">設計を詰める段階では回数が増えるのは避けられない。<strong>そこで効くのは「1 回あたりの固定費を下げておくこと」で、Extended を 12 → 9 種類に減らした効果は、発注 1 回あたり $9.21、6 回まわすなら総額 $55 になる。</strong></p>
 </div>
 
 <h2>6. この案件で決めたこと</h2>
 
 <ul>
-<li><strong>Extended 9 種類のまま行く。</strong>残りは回路を変える話になるので、$3.07 のために触らない。</li>
-<li><strong>ミュートリレーは表面実装に替えた</strong>（Y14H-1C-5DS → Omron G6S-2F DC5）。手はんだが消え、足形も KiCad 標準の Omron 純正 land pattern になった。Basic のリレーは存在しないので、$3.07 は避けられない。</li>
-<li><strong>スルーホールは 11 個</strong>（ピンヘッダ 8・JST・PH 2）。自分で付けるか、$3.58 ＋ 41 点 × $0.0164 ＝ <strong>$4.25</strong> で頼むかは未決。</li>
+<li><strong>Extended 9 種類のまま行く。</strong>1 種類を落として浮くのは<strong>発注 1 回あたり $3.07</strong>、5 枚を 6 回まわす前提の<strong>総額で $18</strong>。残っている 9 つのうち 5 つは棚に無いので落としようがなく、3 つは<strong>実証済みの回路構成そのもの</strong>、1 つは出力電圧が動く。つまり<strong>総額 $18 と引き換えに差し出すものが、裏付けのある回路か、5V の値そのもの</strong>になる。</li>
+<li><strong>ミュートリレーは表面実装に替えた</strong>（Y14H-1C-5DS → Omron G6S-2F DC5）。手はんだが消え、足形も KiCad 標準の Omron 純正 land pattern になった。Basic のリレーは存在しないので、<strong>発注 1 回あたり $3.07</strong>（6 回で総額 $18）は避けられない。リレー本体は <strong>1 枚あたり $1.47</strong>。</li>
+<li><strong>スルーホールは 11 個</strong>（ピンヘッダ 8・JST・PH 2）。自分で付けるか、$3.58 ＋ 41 点 × $0.0164 ＝ <strong>発注 1 回あたり $4.25</strong>（6 回で総額 $26）で頼むかは未決。</li>
 <li><strong>板代・送料・面付けの追加料金は未確定。</strong>発注画面にファイルを上げるまで出ない。</li>
 </ul>
 
