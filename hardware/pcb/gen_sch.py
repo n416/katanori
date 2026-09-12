@@ -200,6 +200,14 @@ c("C32", "0.1uF", XH + 40, YH + 4, "EN", "GND", note="relay_board C2・リード
 #    会話ボタンは天板のもの 1 つだけになり、口 J8（BTN2）で受ける。
 
 # 口（hub_ports.py の並びのまま = 今の線がそのまま挿さる）
+# 🔒 2026-09-12 ユーザー: OLED を HS154L03W2C01（1.54"・SSD1309・I2C・`C7465999`）に替える前提で、
+#    **J2 だけピンの並びを逆にする**。穴の位置は動かさない（同じ 4 穴のまま、載る信号が逆順になる）。
+#      いまのユニバーサル基板の J2 : 1 SDA・2 SCL・3 3V3・4 GND
+#      HS154L03W2C01 のパネル      : 1 GND・2 VCC・3 SCL・4 SDA（📄 データシート 1.5 Pin Definition）
+#    ⇒ 逆にすると 1 GND・2 3V3・3 SCL・4 SDA で、パネルの並びと 1 対 1 で合う。
+#    ⚠ **いまの OLED の線はこの板に挿せなくなる。**新しいパネルは線も作り直しなので代償は無いが、
+#      OLED を元のままにするなら、この集合を空にすれば前の並びへ戻る。
+PORT_FLIP = {"OLED"}
 NETMAP = {"V5": "V5", "V33": "V33", "GND": "GND", "SDA": "SDA", "SCL": "SCL", "EN": "EN",
           "BTN": "BTN", "IN": "IN", "SPKP": "SPKP", "SPKM": "SPKM", "SPKO": "SPKO"}
 PORT_REF = {"XIAO": "J1", "OLED": "J2", "AS5600": "J3", "PHIN": "J4", "PHOUT": "J5",
@@ -212,7 +220,8 @@ gx = XH + 4
 for p in hub_ports.ports():
     if p.id not in PORT_REF:      # PWR と INA の口は板の中の配線に変わる
         continue
-    nets = {str(i): (NETMAP[net] if net else None) for i, (h, fn, net, x, y) in enumerate(p.pins, 1)}
+    pins = list(reversed(p.pins)) if p.id in PORT_FLIP else p.pins
+    nets = {str(i): (NETMAP[net] if net else None) for i, (h, fn, net, x, y) in enumerate(pins, 1)}
     n = len(p.pins)
     fp = FP_PH if p.id.startswith("PH") else \
         f"Connector_PinHeader_2.54mm:PinHeader_1x{n:02d}_P2.54mm_Vertical"

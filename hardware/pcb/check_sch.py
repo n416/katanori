@@ -22,6 +22,7 @@ import xml.etree.ElementTree as ET
 HERE = pathlib.Path(__file__).parent
 sys.path.insert(0, str(HERE.parent / "parts"))
 import hub_ports  # noqa: E402
+from gen_sch import PORT_FLIP  # noqa: E402   # 並びを逆にした口（2 か所に書かない）
 
 CLI = r"C:\Program Files\KiCad\10.0\bin\kicad-cli.exe"
 SCH = HERE / "hub_power" / "hub_power.kicad_sch"
@@ -183,7 +184,8 @@ def check_hub(k):
     want += [("K31", "*coil", tuple(sorted(coil)))]
     for p in hub_ports.ports():
         if p.id in PORT_REF:
-            for i, (h, fn, net, x, y) in enumerate(p.pins, 1):
+            pins = list(reversed(p.pins)) if p.id in PORT_FLIP else p.pins
+            for i, (h, fn, net, x, y) in enumerate(pins, 1):
                 want.append((PORT_REF[p.id], str(i), net))
     bad = 0
     for ref, pin, net in want:

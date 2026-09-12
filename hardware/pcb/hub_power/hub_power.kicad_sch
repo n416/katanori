@@ -11710,7 +11710,7 @@
 		)
 		(uuid "4b68bb5a-cbf2-5d42-84a4-b9b132264eb3")
 	)
-	(label "SDA"
+	(label "GND"
 		(at 127.00 241.30 180)
 		(effects
 			(font
@@ -11731,7 +11731,7 @@
 		)
 		(uuid "8c299d69-b303-5fe2-a81a-4917bb15199e")
 	)
-	(label "SCL"
+	(label "V33"
 		(at 127.00 243.84 180)
 		(effects
 			(font
@@ -11752,7 +11752,7 @@
 		)
 		(uuid "2aa5db84-7262-50e3-9fb6-7e217762bd67")
 	)
-	(label "V33"
+	(label "SCL"
 		(at 127.00 246.38 180)
 		(effects
 			(font
@@ -11773,7 +11773,7 @@
 		)
 		(uuid "d80bcda7-8bf4-5264-ad50-9099d4167104")
 	)
-	(label "GND"
+	(label "SDA"
 		(at 127.00 248.92 180)
 		(effects
 			(font
