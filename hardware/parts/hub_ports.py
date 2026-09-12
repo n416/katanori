@@ -136,15 +136,6 @@ def _pin_rows(chunk):
     return rows
 
 
-if __name__ == "__main__":
-    import sys
-    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-    for p in sorted(ports(), key=lambda p: (p.pins[0][4], p.pins[0][3])):
-        print(f"{p.bundle:12s} {p.n}本  {p.place:22s} {p.start}から")
-        for i, (h, fn, net, x, y) in enumerate(p.pins, 1):
-            print(f"    {i}本目  {disp(fn, net):5s} ({net})  [{h}]  x{x:6.2f} y{y:6.2f}")
-
-
 # ---- 図（板を上から見た地図）----
 # 🔴 実物のユニバーサル基板には行・列の刻印が無い。数えさせる指示には必ず図を添える。
 #    向きは **OLED を手前**（外から見た向き）。X 小が左、Y 小が下。
@@ -238,3 +229,12 @@ def board_svg(scale=9.0, padx=160.0, pady=92.0, oled_top=False):
                                 " / ".join(disp(q[1], q[2]) for q in p.pins)))
     o.append('</svg>')
     return "".join(o)
+
+
+if __name__ == "__main__":
+    import sys
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    for p in sorted(ports(), key=lambda p: (p.pins[0][4], p.pins[0][3])):
+        print(f"{p.bundle:12s} {p.n}本  {p.place:22s} {p.start}から")
+        for i, (h, fn, net, x, y) in enumerate(p.pins, 1):
+            print(f"    {i}本目  {disp(fn, net):5s} ({net})  [{h}]  x{x:6.2f} y{y:6.2f}")
