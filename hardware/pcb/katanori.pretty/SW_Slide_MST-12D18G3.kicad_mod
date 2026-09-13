@@ -2,7 +2,7 @@
 	(version 20240108)
 	(generator "katanori")
 	(layer "F.Cu")
-	(descr "SHOU HAN MST-12D18G3 横出しのスライドスイッチ（MSK12D 带柱）。SPDT・DC12V 0.1A・10000 回。📄 hardware/ref/slide_switch_mst12d18g3/MST-12D18G3.pdf 1 ページ。板の面から 4.0 高く、レバーは胴から 3.0 出る（局所 -Y 側）。位置決めの柱 2 本は φ0.9 の無メッキ穴。2 番が COM。")
+	(descr "SHOU HAN MST-12D18G3 横出しのスライドスイッチ（MSK12D 带柱）。SPDT・DC12V 0.1A・10000 回・動作力 200gf±30gf。📄 hardware/ref/slide_switch_mst12d18g3/MST-12D18G3.pdf 1 ページ。胴は板の面から 0.5〜4.0・レバーは胴から 3.0 出て（局所 -Y 側）Z は 2.3〜3.8（芯 3.05）。動く量は図面に無く、ベクタの実測で 2.3。位置決めの柱 2 本は φ0.9 の無メッキ穴。2 番が COM。")
 	(tags "slide switch spdt smd right-angle")
 	(attr smd)
 	(property "Reference" "SW"
