@@ -56,12 +56,14 @@ def boxes():
 
 def lib_box(name):
     """KiCad の標準ライブラリの足形 1 つを測る。name は 'ライブラリ:足形' か足形だけ。"""
+    here = pathlib.Path(__file__).parent
     if ":" in name:
         lib, fpn = name.split(":", 1)
-        cands = [FPDIR / (lib + ".pretty") / (fpn + ".kicad_mod")]
+        cands = [here / (lib + ".pretty") / (fpn + ".kicad_mod"),
+                 FPDIR / (lib + ".pretty") / (fpn + ".kicad_mod")]
     else:
         fpn = name
-        cands = list(FPDIR.glob(f"*.pretty/{fpn}.kicad_mod"))
+        cands = list(here.glob(f"*.pretty/{fpn}.kicad_mod")) +             list(FPDIR.glob(f"*.pretty/{fpn}.kicad_mod"))
     for c in cands:
         if c.exists():
             return fpn, _crtyd_box(kisym.parse(c.read_text(encoding="utf-8"))[0])
