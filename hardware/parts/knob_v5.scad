@@ -535,6 +535,7 @@ Z_NCV_BOT = Z_PCB_TOP; Z_NCV_TOP = Z_NCV_BOT + NCV_T;             // −18.1〜�
 //   **箱との当たりは case_v5 の検査で見ること**（ここの文は根拠にしない）
 SCR_TIP_Z  = (Z_WALL_T - SCR_CB_T) - M25_LEN;   // -12.0 ねじの先（増し肉を貫通して下へ出る）
 
+function knob_shaft_bot() = Z_MAG_BOT; function knob_shaft_d() = SHAFT_D;   // v6.1 が読む（軸の下端 −15.9・軸 φ7）。2026-09-14
 function knob_deep()   = -Z_PCB_BOT;             // 19.7（v4 と同じ）
 function knob_grip_h() = Z_GRIP_B + GRIP_H;      // 5.5
 // 🪦 2026-09-09 に削除: knob_dish_d() / knob_bay_x() / knob_pad_y0() / knob_pad_y1() / knob_bay_y() / knob_pad_h()
