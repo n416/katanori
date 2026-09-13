@@ -203,7 +203,7 @@
       (place J10 1010000.0 -955500.0 front 0)
     )
     (component J6
-      (place J6 740000.0 -1112000.0 front 0)
+      (place J6 800000.0 -1181000.0 front 0)
     )
   )
   (library
@@ -505,10 +505,10 @@
       (pin Rect[A]Pad_12000x17500um (rotate 180) 2 -20000.0 0.0)
     )
     (image J6
-      (pin Rect[A]Pad_12000x17500um 1 0.0 -0.0)
-      (pin Rect[A]Pad_12000x17500um 2 20000.0 -0.0)
-      (pin Rect[A]Pad_12000x17500um 3 40000.0 -0.0)
-      (pin Rect[A]Pad_12000x17500um 4 60000.0 -0.0)
+      (pin Rect[A]Pad_12000x17500um (rotate 180) 1 -0.0 0.0)
+      (pin Rect[A]Pad_12000x17500um (rotate 180) 2 -20000.0 0.0)
+      (pin Rect[A]Pad_12000x17500um (rotate 180) 3 -40000.0 0.0)
+      (pin Rect[A]Pad_12000x17500um (rotate 180) 4 -60000.0 0.0)
     )
     (padstack Rect[T]Pad_10250x14000um
       (shape (rect F.Cu -5125 -7000 5125 7000))
