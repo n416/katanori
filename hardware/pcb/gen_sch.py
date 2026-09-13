@@ -48,8 +48,8 @@ PARTS = []
 CUR = ["boost"]
 # 組 → (左上 x, 左上 y, 幅) [mm]。A3 横（420 × 297）
 GROUPS = {"boost": (15, 30, 190), "charge": (15, 120, 190), "ina": (220, 30, 185),
-          "hub": (220, 120, 185), "ports": (15, 240, 390), "flags": (330, 205, 70),
-          "cross": (220, 190, 185)}
+          "hub": (220, 120, 185), "ports": (15, 240, 250), "flags": (330, 240, 70),
+          "knob": (330, 155, 70), "xiao": (220, 190, 185)}
 
 
 def group(name):
@@ -160,14 +160,14 @@ part("J10", "Connector_Generic:Conn_01x02", "BAT (JST-PH)", XI - 20, YI + 8,
 #    線 2 本と手付けの CC 抵抗が消える）。JLCPCB は SMT の流れで付ける（Assembly Type: SMT Assembly）。
 #    ⚠ 板の縁を壁へ持っていくのは筐体 v6 側の仕事。
 part("J13", "Connector:USB_C_Receptacle_USB2.0_16P", "USB-C", XI - 20, YI + 18,
-     {"A1": "GNDP", "B1": "GNDP", "A12": "GNDP", "B12": "GNDP", "SH": "GNDP",
+     {"A1": "GND", "B1": "GND", "A12": "GND", "B12": "GND", "SH": "GND",
       "A4": "VBUS", "A9": "VBUS", "B4": "VBUS", "B9": "VBUS",
       "A5": "CC1", "B5": "CC2",
       "A6": None, "B6": None, "A7": None, "B7": None, "A8": None, "B8": None},
      "katanori:USB_C_HRO_TYPE-C-31-M-12_NoFrontLegs", lcsc="C165948",
      note="充電の口。D+/D− と SBU は使わない")
-r("R44", "5.1k", XI - 16, YI + 22, "CC1", "GNDP", note="CC1 の引き下げ（充電器に 5V を出させる）")
-r("R45", "5.1k", XI - 13, YI + 22, "CC2", "GNDP", note="CC2 の引き下げ")
+r("R44", "5.1k", XI - 16, YI + 22, "CC1", "GND", note="CC1 の引き下げ（充電器に 5V を出させる）")
+r("R45", "5.1k", XI - 13, YI + 22, "CC2", "GND", note="CC2 の引き下げ")
 
 # ======== ハブ: relay_board.html の写し ========
 XH, YH = 10, 62
@@ -199,48 +199,97 @@ c("C32", "0.1uF", XH + 40, YH + 4, "EN", "GND", note="relay_board C2・リード
 # 🔒 2026-09-12 ユーザー「要らないね」: 板の上の直挿しの会話ボタン（relay_board の BUTTON）は載せない。
 #    会話ボタンは天板のもの 1 つだけになり、口 J8（BTN2）で受ける。
 
+# ======== つまみ: AS5600 をチップで載せる（2026-09-13） ========
+# 🔒 ユーザー 2026-09-13「歯車 3 枚」。読み取りの芯が板 X 36.2・Y 7 に決まり、AS5600 は
+#    外付けモジュール（口 J3）ではなく板の上のチップになった。線 4 本が消える。
+# 📄 3.3V 動作の回路は AS5600 データシート 9 ページ Figure 13（hardware/ref/as5600/AS5600_v1-01.pdf）:
+#    「In 3.3V operation, the VDD5V and VDD3V3 pins must be tied together.」＋ 100nF を GND へ。
+#    1µF は 5V 動作の LDO 用・10µF は OTP を焼くときだけなので、どちらも要らない。
+# 結線はいまのモジュールの使い方と同じ（docs/KNOB-ENCODER.md 配線章）:
+#    VDD=3V3 ／ DIR=GND（時計回りで値が増える）／ SCL・SDA ／ OUT は繋がない
+#    🔴 PGO には何も繋がない（OTP・焼くと戻せない）
+XA, YA = 82, 62
+group("knob")
+part("U4", "katanori:AS5600-ASOM", "AS5600-ASOM", XA, YA,
+     {"1": "V33", "2": "V33", "4": "GND", "8": "GND",
+      "6": "SDA", "7": "SCL", "3": None, "5": None},
+     "Package_SO:SOIC-8_3.9x4.9mm_P1.27mm", lcsc="C79815",
+     note="つまみの角度。磁石は真上・板 X 36.2 Y 7。🔴 PGO(5) と OUT(3) は繋がない")
+c("C42", "0.1uF", XA + 12, YA + 8, "V33", "GND", note="AS5600 のパスコン（📄 9 ページ Figure 13）")
+
+# ======== マスタートグル: 板に実装するスライドスイッチ（2026-09-13） ========
+# 🔒 筐体側 2026-09-13。口 J7（トグルへ 2 本）が消えて板の上の部品になる。
+#    SHOU HAN MST-12D18G3（C49023766）・9.1 × 3.5 × 6.5・SMD の横出し・板 X 21.95〜31.05 の上の縁。
+#    1 回路 2 接点のうち片側だけ使う（もう片方は未接続）。リードスイッチと並列で EN⇔GND。
+#    ⚠ この部品の JLCPCB の区分（Basic か Extended か）は未確認（2026-09-13）。
+part("SW1", "Switch:SW_SPDT", "MST-12D18G3", XA, YA + 20,
+     {"2": "EN", "1": "GND", "3": None}, "katanori:SW_Slide_MST-12D18G3",
+     lcsc="C49023766", note="マスタートグル。2=COM を EN へ・1 を GND へ・3 は空き", grp="hub")
+
 # 口（hub_ports.py の並びのまま = 今の線がそのまま挿さる）
+# 🔒 2026-09-13 で口は 7 つになった: XIAO・OLED・スピーカー IN・スピーカー OUT・リード・
+#    会話ボタン・電池。AS5600（J3）とトグル（J7）は板の上の部品になって消えた。
 # 🔒 2026-09-12 ユーザー: OLED を HS154L03W2C01（1.54"・SSD1309・I2C・`C7465999`）に替える前提で、
 #    **J2 だけピンの並びを逆にする**。穴の位置は動かさない（同じ 4 穴のまま、載る信号が逆順になる）。
 #      いまのユニバーサル基板の J2 : 1 SDA・2 SCL・3 3V3・4 GND
 #      HS154L03W2C01 のパネル      : 1 GND・2 VCC・3 SCL・4 SDA（📄 データシート 1.5 Pin Definition）
 #    ⇒ 逆にすると 1 GND・2 3V3・3 SCL・4 SDA で、パネルの並びと 1 対 1 で合う。
-#    ⚠ **いまの OLED の線はこの板に挿せなくなる。**新しいパネルは線も作り直しなので代償は無いが、
-#      OLED を元のままにするなら、この集合を空にすれば前の並びへ戻る。
+#    🔒 2026-09-13 に口そのものを JST PH の 4 ピン横型へ替えたが、**この並びは維持する**。
 PORT_FLIP = {"OLED"}
 NETMAP = {"V5": "V5", "V33": "V33", "GND": "GND", "SDA": "SDA", "SCL": "SCL", "EN": "EN",
           "BTN": "BTN", "IN": "IN", "SPKP": "SPKP", "SPKM": "SPKM", "SPKO": "SPKO"}
-PORT_REF = {"XIAO": "J1", "OLED": "J2", "AS5600": "J3", "PHIN": "J4", "PHOUT": "J5",
-            "REED": "J6", "TOGGLE": "J7", "BTN2": "J8"}
-PORT_NAME = {"XIAO": "XIAO", "OLED": "OLED", "AS5600": "AS5600", "PHIN": "SPK IN",
-             "PHOUT": "SPK OUT", "REED": "REED", "TOGGLE": "TOGGLE", "BTN2": "BTN2"}
-FP_PH = "Connector_JST:JST_PH_B2B-PH-K_1x02_P2.00mm_Vertical"
+PORT_REF = {"OLED": "J2", "PHIN": "J4", "PHOUT": "J5", "REED": "J6", "BTN2": "J8"}
+PORT_NAME = {"OLED": "OLED", "PHIN": "SPK IN", "PHOUT": "SPK OUT", "REED": "REED", "BTN2": "BTN2"}
+# 🔒 2026-09-13 筐体側: 口は全部「線が板の面と平行に抜ける」形にする（外向きだと壁に当たる）。
+#    2 本の口は 2.54 の L 字ソケット・スピーカーと電池と OLED は JST PH の横型。
+FP_PORT = {
+    "OLED": "Connector_JST:JST_PH_S4B-PH-K_1x04_P2.00mm_Horizontal",
+    "PHIN": "Connector_JST:JST_PH_S2B-PH-K_1x02_P2.00mm_Horizontal",
+    "PHOUT": "Connector_JST:JST_PH_S2B-PH-K_1x02_P2.00mm_Horizontal",
+    "REED": "Connector_PinSocket_2.54mm:PinSocket_1x02_P2.54mm_Horizontal",
+    "BTN2": "Connector_PinSocket_2.54mm:PinSocket_1x02_P2.54mm_Horizontal",
+}
 group("ports")
 gx = XH + 4
 for p in hub_ports.ports():
-    if p.id not in PORT_REF:      # PWR と INA の口は板の中の配線に変わる
+    if p.id not in PORT_REF:      # PWR・INA・XIAO・AS5600・TOGGLE は板の中の配線か別の部品になった
         continue
     pins = list(reversed(p.pins)) if p.id in PORT_FLIP else p.pins
     nets = {str(i): (NETMAP[net] if net else None) for i, (h, fn, net, x, y) in enumerate(pins, 1)}
     n = len(p.pins)
-    fp = FP_PH if p.id.startswith("PH") else \
-        f"Connector_PinHeader_2.54mm:PinHeader_1x{n:02d}_P2.54mm_Vertical"
-    part(PORT_REF[p.id], f"Connector_Generic:Conn_01x{n:02d}", PORT_NAME[p.id], gx, YH + 24, nets, fp,
-         note=p.label)
+    part(PORT_REF[p.id], f"Connector_Generic:Conn_01x{n:02d}", PORT_NAME[p.id], gx, YH + 24, nets,
+         FP_PORT[p.id], note=p.label)
     gx += 12
 
-# 板をまたぐ口（2026-09-12）。ハブ側 J11 ↔ 電源側 J12 を 7 本の線で 1 対 1 に結ぶ。
-# 🔴 これを入れ忘れると、割った 2 枚がどこでもつながらない（自動配線が「届かない 6 ネット」で気づいた）。
-# 並びは今の電源の口と同じ考え方で、5V と GND のあいだに空きを 1 本入れる（POWER.md 4 章）。
-# ⚠ POWER.md 案③ は「境界を渡るのは 5 本」と書いているが、それはリードとトグルを電源板側に付ける
-#    前提だった。今の配置ではその 2 つはハブ側の口なので、EN が 1 本増えて 6 本になる。
-CROSS = ["V5", None, "GND", "V33", "SDA", "SCL", "EN"]
-group("cross")
-for ref, nm in (("J11", "→ 電源板"), ("J12", "→ ハブ板")):
-    part(ref, "Connector_Generic:Conn_01x07", nm, 0, 0,
-         {str(i): n for i, n in enumerate(CROSS, 1)},
-         "Connector_PinHeader_2.54mm:PinHeader_1x07_P2.54mm_Vertical",
-         note="板をまたぐ 7 本（2 本目は空き）")
+# ======== XIAO の口 — 2 列 14 本の直挿し（2026-09-13） ========
+# 🔒 筐体側 2026-09-13。ReSpeaker の上に立っている 2×7 のピンヘッダ（XIAO 面から 10 出る）が、
+#    この板のメスソケット 2 本へ真上から挿さる。線が 7 本消える。
+# 🔴 **どちらの列がどちらか**は鏡像事故の温床なので、出どころを 3 つ揃えてから書いた:
+#    ① 筐体側の 3 次元の変換（回転だけ・利き手は変わらない）で 📄 パッド「下から 9.397 と 24.627」が
+#       板の X 9.40 と 24.63 に写る。下の列（9.397）が D0〜D6 側
+#    ② XIAO の標準の上面図は「USB を上」で左列が D0…D6。ここでは USB-C が ReSpeaker の左を向くので
+#       上面図を反時計 90° 回した形になり、左列（D0〜D6）が下へ来る
+#    ③ docs/RESPEAKER-LITE.md 3 章: 外部パッド1 `Mute D3 D2 Usr ⏚ 3V3` が **下辺**・
+#       外部電源パッド（GND・5V）が **上の長辺**。①② と同じ割り当てになる
+# 🔴 板の +Z の面（部品が生える面・ReSpeaker を向いている面）から見た座標である。
+#    KiCad の表面がこの面なので、そのまま入れて合う。
+XX, YX = 15, 200
+group("xiao")
+# 列 X 9.40（D0〜D6 側）／ 列 X 24.63（5V・GND・3V3・D10〜D7 側）。どちらも 1 本目が Y 2.90 側
+XIAO_ROWS = [
+    ("J1", "XIAO D0-D6", 9.40,
+     [(None, "D0"), (None, "D1"), ("BTN", "D2"), ("IN", "D3"),
+      ("SDA", "D4"), ("SCL", "D5"), (None, "D6")]),
+    ("J14", "XIAO PWR", 24.63,
+     [("V5", "5V"), ("GND", "GND"), ("V33", "3V3"), (None, "D10"),
+      (None, "D9"), (None, "D8"), (None, "D7")]),
+]
+for ref, nm, col_x, rows in XIAO_ROWS:
+    part(ref, "Connector_Generic:Conn_01x07", nm, XX, YX,
+         {str(i): net for i, (net, _) in enumerate(rows, 1)},
+         "Connector_PinSocket_2.54mm:PinSocket_1x07_P2.54mm_Vertical",
+         note=f"列 X {col_x}・1 本目が Y 2.90 側: " + " / ".join(lbl for _, lbl in rows))
+    XX += 60
 
 # ---- JLCPCB（LCSC）の部品番号（2026-09-12 に JLCPCB の部品検索で取った） ----
 # 「基」= Basic（種類ごとの取り付け料 $0 ）・「拡」= Extended（種類ごとに $3.07）
@@ -266,6 +315,8 @@ LCSC = {
     "LED1": "C84256", "LED2": "C34499", "LED3": "C2297", "LED4": "C2296",
     "Q31": "C2150", "D31": "C81598", "R44": "C27834", "R45": "C27834",                            # 基: SS8050（SOT-23）・1N4148W（SOD-123）
     "K31": "C16707",                                            # 拡: Omron G6S-2F DC5（表面実装のリレー）
+    "U4": "C79815",                                             # 拡: AS5600-ASOM（SOIC-8・つまみの角度）
+    "SW1": "C49023766",                                         # ⬜ 区分未確認: MST-12D18G3（横出しのスライドスイッチ）
 }
 # 🔴 LED の色は私が替えた（2026-09-12）。PowerBoost は 青（電源）と 橙（充電中）だが、
 #    JLCPCB の無料枠に 0805 の青と橙が無く、拡張枠のものは在庫 0 だった。
@@ -274,17 +325,13 @@ for P in PARTS:
     if P["ref"] in LCSC:
         P["lcsc"] = LCSC[P["ref"]]
 
-# 🔴 板をまたぐネットは、板ごとに別の名前にする（2026-09-12）。
-# 2 枚は銅箔ではつながらず、つながるのは J11 ↔ J12 の線（ハーネス）だけである。
-# 同じ名前のままだと、自動配線が板を越えて引こうとして 6 本が「届かない」で残る。
-PW = {"V5": "V5P", "GND": "GNDP", "V33": "V33P", "SDA": "SDAP", "SCL": "SCLP", "EN": "ENP"}
-for P in PARTS:
-    if P["grp"] in ("boost", "charge", "ina") or P["ref"] == "J12":
-        P["nets"] = {k: PW.get(v, v) for k, v in P["nets"].items()}
+# 🔒 2026-09-13 ユーザー: 電源基板を中継基板へ統合して **板は 1 枚**になった。
+# 板をまたぐ口（J11 ↔ J12・7 本）とミシン目のタブは消え、板ごとにネット名を変える処理
+# （V5P・GNDP・V33P …）も要らなくなった。USB-C の周りに残っていた GNDP も GND に戻す。
 
 # ERC 用の電源の印（コネクタから入ってくる電源）
 group("flags")
-for i, net in enumerate(["GND", "GNDP", "VBUS", "V33", "V33P", "BATP"]):
+for i, net in enumerate(["GND", "VBUS", "V33", "BATP"]):
     part(f"#FLG0{i + 1}", "power:PWR_FLAG", "PWR_FLAG", 120 + i * 6, 10, {"1": net})
 
 

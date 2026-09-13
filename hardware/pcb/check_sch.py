@@ -152,8 +152,9 @@ HUB_PIN = {"Q31": {"B": "1", "C": "3", "E": "2"},   # SOT-23（2026-09-12 に 2S
            #    データシート（en-g6s.pdf 5 ページ・Top View）と KiCad の記号の両方で確かめた
            "K31": {"COM": "4", "コイル+": "1", "コイル-": "12", "NO": "5", "NC": "3"},
            "SW31": {"C": "2", "NO": "1", "NC": "3"}}
-PORT_REF = {"XIAO": "J1", "OLED": "J2", "AS5600": "J3", "PHIN": "J4", "PHOUT": "J5",
-            "REED": "J6", "TOGGLE": "J7", "BTN2": "J8"}
+# 🔒 2026-09-13: AS5600（J3）とトグル（J7）は板の上の部品になって口が消え、XIAO は
+#    hub_ports の 1 列 7 本から直挿しの 2 列 14 本になった（下の check_xiao で別に見る）。
+PORT_REF = {"OLED": "J2", "PHIN": "J4", "PHOUT": "J5", "REED": "J6", "BTN2": "J8"}
 
 
 def check_hub(k):
@@ -206,11 +207,11 @@ def check_hub(k):
 
 
 # ---- 3. 電流計 ----
-# 電源板側のネットは名前を分けてある（gen_sch.py の PW）
-INA = {("U3", "1"): "V33P", ("U3", "2"): "GNDP", ("U3", "6"): "V33P", ("U3", "7"): "GNDP",
-       ("U3", "4"): "SDAP", ("U3", "5"): "SCLP", ("U3", "10"): "BATP", ("U3", "9"): "VLIPO",
+# 🔒 2026-09-13: 板が 1 枚になったので、電源板側の別名（V33P・GNDP …）は無くなった
+INA = {("U3", "1"): "V33", ("U3", "2"): "GND", ("U3", "6"): "V33", ("U3", "7"): "GND",
+       ("U3", "4"): "SDA", ("U3", "5"): "SCL", ("U3", "10"): "BATP", ("U3", "9"): "VLIPO",
        ("U3", "8"): "VLIPO", ("R41", "1"): "BATP", ("R41", "2"): "VLIPO",
-       ("J10", "1"): "GNDP", ("J10", "2"): "BATP"}
+       ("J10", "1"): "GND", ("J10", "2"): "BATP"}
 
 
 def check_ina(k):
@@ -220,27 +221,55 @@ def check_ina(k):
             print(f"  ❌ {ref}.{pin}: {net} のはずが {k.get((ref, pin))}")
             bad += 1
     a1, a0 = k.get(("U3", "1")), k.get(("U3", "2"))
-    addr = 0x40 + {("GNDP", "GNDP"): 0, ("GNDP", "V33P"): 1, ("V33P", "GNDP"): 4,
-                   ("V33P", "V33P"): 5}[(a1, a0)]
+    addr = 0x40 + {("GND", "GND"): 0, ("GND", "V33"): 1, ("V33", "GND"): 4,
+                   ("V33", "V33"): 5}[(a1, a0)]
     print(f"  INA226 のアドレス 0x{addr:02X}（A1={a1}・A0={a0}）")
     if addr != 0x44:
         bad += 1
     return bad
 
 
-def check_cross(k):
-    """板をまたぐ口 J11（ハブ）と J12（電源）が 1 対 1 で同じネットか。"""
+def check_xiao(k):
+    """XIAO の口 2 列 14 本が gen_sch.py の表のとおりか。
+
+    🔴 ここは鏡像事故が起きる場所なので、**gen_sch.py の表を読んで**突き合わせる
+    （数字をここに写すと、片方だけ直る事故が起きる）。
+    """
+    from gen_sch import XIAO_ROWS
     bad = 0
-    want = [("V5", "V5P"), (None, None), ("GND", "GNDP"), ("V33", "V33P"),
-            ("SDA", "SDAP"), ("SCL", "SCLP"), ("EN", "ENP")]
-    for i, (wa, wb) in enumerate(want, 1):
-        a, b = k.get(("J11", str(i))), k.get(("J12", str(i)))
-        a = None if a and a.startswith("unconnected-") else a
-        b = None if b and b.startswith("unconnected-") else b
-        if (a, b) != (wa, wb):
-            print(f"  ❌ {i} 本目: ハブ側 {a}（{wa} のはず）・電源側 {b}（{wb} のはず）")
+    for ref, nm, col_x, rows in XIAO_ROWS:
+        for i, (net, lbl) in enumerate(rows, 1):
+            got = k.get((ref, str(i)))
+            if got and got.startswith("unconnected-"):
+                got = None
+            if got != net:
+                print(f"  ❌ {ref}.{i}（{lbl}）: {net} のはずが {got}")
+                bad += 1
+    if not bad:
+        print("  14 本とも表のとおり（列 X 9.40 が D0〜D6 側・1 本目が Y 2.90 側）")
+    return bad
+
+
+# ---- 5. つまみ（AS5600）とマスタートグル ----
+# 📄 AS5600 データシート 9 ページ Figure 13: 3.3V 動作は VDD5V(1) と VDD3V3(2) をつなぐ。
+#    DIR(8)=GND で時計回りに増える。OUT(3) と PGO(5) は繋がない（🔴 PGO は OTP）。
+KNOB = {("U4", "1"): "V33", ("U4", "2"): "V33", ("U4", "4"): "GND", ("U4", "8"): "GND",
+        ("U4", "6"): "SDA", ("U4", "7"): "SCL", ("U4", "3"): None, ("U4", "5"): None,
+        # マスタートグル: 2=COM を EN へ・1 を GND へ・3 は空き（リードスイッチと並列）
+        ("SW1", "2"): "EN", ("SW1", "1"): "GND", ("SW1", "3"): None}
+
+
+def check_knob(k):
+    bad = 0
+    for (ref, pin), net in KNOB.items():
+        got = k.get((ref, pin))
+        if got and got.startswith("unconnected-"):
+            got = None
+        if got != net:
+            print(f"  ❌ {ref}.{pin}: {net} のはずが {got}")
             bad += 1
-    print("  7 本とも相手が合っている（2 本目は空き・板ごとに名前を分けてある）" if not bad else "")
+    if not bad:
+        print("  AS5600 11 本とトグル 3 本が想定どおり（PGO と OUT は未接続）")
     return bad
 
 
@@ -253,8 +282,10 @@ if __name__ == "__main__":
     b2 = check_hub(k)
     print("3. 電流計")
     b3 = check_ina(k)
-    print("4. 板をまたぐ口")
-    b3 += check_cross(k)
+    print("4. XIAO の口（2 列 14 本）")
+    b3 += check_xiao(k)
+    print("5. つまみ（AS5600）とマスタートグル")
+    b3 += check_knob(k)
     total = b1 + b2 + b3
     print(f"結果: ❌ {total} 件" if total else "結果: 合わない所は 0 件")
     sys.exit(1 if total else 0)

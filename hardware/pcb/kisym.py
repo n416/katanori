@@ -7,6 +7,7 @@ gen_sch.py が回路図を組むのに使う。KiCad 本体の記号をそのま
 import pathlib
 import re
 
+HERE = pathlib.Path(__file__).parent
 SYMDIR = pathlib.Path(r"C:\Program Files\KiCad\10.0\share\kicad\symbols")
 
 
@@ -77,7 +78,11 @@ _libs = {}
 
 def _lib(name):
     if name not in _libs:
-        tree = parse((SYMDIR / f"{name}.kicad_sym").read_text(encoding="utf-8"))
+        # KiCad の標準に無い記号は、このファイルの隣の katanori.kicad_sym に置く
+        f = HERE / f"{name}.kicad_sym"
+        if not f.exists():
+            f = SYMDIR / f"{name}.kicad_sym"
+        tree = parse(f.read_text(encoding="utf-8"))
         root = tree[0]
         _libs[name] = {e[1]: e for e in find(root, "symbol")}
     return _libs[name]
