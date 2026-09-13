@@ -282,22 +282,25 @@ module others(n) for (m = UNITS) if (m != n) one(m);
 //   PCB の左の縁（X 6.0）に横出しのレセプタクル。殻 8.94 × 3.26（v5 の TC_PORT_SZ − 逃げ 0.6）・胴の奥行 7.35（⚠ 一般値）・板の縁から 3.0 出る（v6 の板と同じ数）。Y の位置は私の仮
 // ---- 板の上の部品（🔒 基板担当 2026-09-14 の寸法。板の座標 = 世界 −(2.0, 13.5)）----
 //   口は全部 JST-PH 2.0・背 4.8。プラグの相手が入る通り道は枠の縁から 3.1（PCB_PLUG_PATH）
-//   [名前, x0, x1, y0, y1, 背, 抜く向き(+1: +Y / −1: −Y / 0: 上)]
+//   [名前, x0, x1, y0, y1, 背, 抜く向き, 面]  向き: +1 +Y / −1 −Y / +3 +X / −3 −X / 2 板から離れる向き / 0 通り道なし   面: 1 表・−1 裏
 PCB_PLUG_H = 4.8; PCB_PLUG_PATH = 3.1; PCB_PLUG_UP = 16.0;   // 縦の口の上に要る高さ（⚠ 基板担当の見積り・実測ではない）
 PCB_PARTS = [
-    ["J4  SPK IN",  71.85, 78.75,  6.2, 14.8, PCB_PLUG_H,  1],
-    ["J5  SPK OUT",  6.05, 12.95, 10.7, 19.3, PCB_PLUG_H,  1],
-    ["J6  BTN2",    14.05, 20.95, 22.7, 31.3, PCB_PLUG_H, -1],
-    ["J7  REED+TGL",58.05, 68.95, 30.35, 35.85, 6.0,       2],   // 🔒 基板担当 2026-09-14: 縦の B4B-PH-K へ（横出しはハッチに当たった）。通り道は上へ 16
-    ["J10 BAT",     22.55, 29.45,  3.25,  8.75, 6.0,       2],   // 🔒 同: 縦の B2B-PH-K。線は前の縁の欠きから上がる
-    ["K31 RELAY",   56.30, 71.60, 17.8, 28.5, 9.33,        0],
+    ["J4  SPK IN",  71.85, 78.75,  6.20, 14.80, PCB_PLUG_H,  1,  1],
+    ["J5  SPK OUT",  5.20, 13.80, 11.75, 18.65, PCB_PLUG_H, -3,  1],   // 🔒 基板担当 2026-09-14: 抜く向きを +Y → −X（左の縁）へ。裏の J10 のパッドと板の面で重なっていた
+    ["J6  BTN2",    14.05, 20.95, 22.70, 31.30, PCB_PLUG_H, -1,  1],
+    ["J7  REED+TGL",58.05, 68.95, 30.35, 35.85, 6.0,        2,  1],   // 🔒 縦の B4B-PH-K（横出しはハッチに当たった）。通り道は上へ
+    ["J10 BAT",      1.70, 10.30, 22.10, 29.00, 4.8,        3, -1],   // 🔒 基板担当 2026-09-14: 板の裏のサイド型 S2B-PH-K。📄 ePH.pdf: トップ型は嵌合 8.0 で、板の裏〜床の 8.0 に入らない。サイド型なら背 4.8 で床まで 3.2 残る
+    ["K31 RELAY",   56.30, 71.60, 17.80, 28.50, 9.33,       0,  1],
 ];
 function pcb_w(q) = [HUB_AT[0] + q[1], PCB_Y0 + q[3], HUB_AT[2] + 1.6];   // 板の座標 → 世界（枠の左前の角）
-module pcb_parts61() for (q = PCB_PARTS) color("#333") translate(pcb_w(q)) cube([q[2] - q[1], q[4] - q[3], q[5]]);
+function pcb_z0(q) = (q[7] < 0) ? HUB_AT[2] - q[5] : HUB_AT[2] + 1.6;   // 部品の下端（裏なら板の裏から下へ）
+module pcb_parts61() for (q = PCB_PARTS) let (o = pcb_w(q)) color("#333")
+    translate([o[0], o[1], pcb_z0(q)]) cube([q[2] - q[1], q[4] - q[3], q[5]]);
 // プラグの通り道（枠の縁から 3.1・背と同じ高さ）。0 が正
-module pcb_plug_paths() for (q = PCB_PARTS) let (o = pcb_w(q))
-    if (q[6] == 2) translate([o[0], o[1], o[2] + q[5]]) cube([q[2] - q[1], q[4] - q[3], PCB_PLUG_UP - q[5]]);                      // 縦の口: 胴の上から 16 まで
-    else if (q[6] != 0) translate([o[0], (q[6] > 0) ? o[1] + (q[4] - q[3]) : o[1] - PCB_PLUG_PATH, o[2]]) cube([q[2] - q[1], PCB_PLUG_PATH, q[5]]);
+module pcb_plug_paths() for (q = PCB_PARTS) let (o = pcb_w(q), z = pcb_z0(q), w = q[2] - q[1], d = q[4] - q[3])
+    if (q[6] == 2) translate([o[0], o[1], z + q[5]]) cube([w, d, PCB_PLUG_UP - q[5]]);                                              // 板から離れる向き（縦の口）
+    else if (abs(q[6]) == 3) translate([(q[6] > 0) ? o[0] + w : o[0] - PCB_PLUG_PATH, o[1], z]) cube([PCB_PLUG_PATH, d, q[5]]);     // ±X へ抜く
+    else if (q[6] != 0) translate([o[0], (q[6] > 0) ? o[1] + d : o[1] - PCB_PLUG_PATH, z]) cube([w, PCB_PLUG_PATH, q[5]]);          // ±Y へ抜く
 PCB_NOTCH = 0.5;   // 板と柱の隙間
 PCB_SCR_D = 2.2;   // M2 の通し（板の穴）
 // 板は一度ふさいで、開けるのは次の 2 つだけ（2026-09-14 に開け直した）:
@@ -308,7 +311,7 @@ module pcb61() color("#2b6b3f") difference() {
     for (q = POSTS_B) if (q[1] + post_dy(q) > PCB_Y0)
         translate([q[0] - PCB_NOTCH, q[1] - PCB_NOTCH, HUB_AT[2] - 1]) cube([POST_W + 2 * PCB_NOTCH, post_dy(q) + 2 * PCB_NOTCH, 1.6 + 2]);
     for (h = HUB_HOLES_W) translate([h[0], h[1], HUB_AT[2] - 1]) cylinder(d = PCB_SCR_D, h = 1.6 + 2, $fn = 24);
-    translate([HUB_AT[0] + 21.0, PCB_Y0 - 1, HUB_AT[2] - 1]) cube([10.0, 3.0 + 1, 1.6 + 2]);   // 🔒 基板担当 2026-09-14: 前の縁の欠き（板の座標 X 21〜31・Y 0〜3）。電池の線がここから上がる
+    // 前の縁の欠きは廃止（2026-09-14: 電池の口を板の裏へ回したので要らなくなった）
 }
 module usbc61() color("#c8ccd0") translate([HUB_AT[0] + PCB_L - USBC_SZ[0] + usbc_out(), USBC_Y - USBC_SZ[1] / 2, HUB_AT[2] + 1.6]) cube(USBC_SZ);   // 🔒 ユーザー 2026-09-14「USB 出口を右壁へ」: PCB の右の縁から 3.0 出る
 USBC_PORT_C = [IN_X + WALL / 2, USBC_Y, HUB_AT[2] + 1.6 + USBC_SZ[2] / 2];   // 口の中心（右の壁の厚みの中央）
