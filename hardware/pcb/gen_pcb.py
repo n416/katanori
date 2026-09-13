@@ -48,7 +48,11 @@ BOARD_L, BOARD_W = 44.0, 81.2
 NOTCH = (12.0, 22.0, 73.0)        # x0, x1, この y から上端まで
 MOUNT = [(3.5, 3.5), (40.5, 3.5), (3.5, 69.5), (40.5, 69.5)]   # M2・37 × 66 の格子
 MOUNT_D = 2.2                     # φ2.2（M2）
-MOUNT_KEEP = 0.5                  # 穴のまわりに銅を置かせない幅
+MOUNT_KEEP = 0.5                  # 穴のまわりに **銅** を置かせない幅（部品の背の話ではない）
+# 🔴 2026-09-13 筐体側: ねじの頭は背面・**ナットは板の側**（横差しのポケット）。
+#    ⇒ 取付穴のまわりに M2 の六角ナット（二面幅 4.0 ＝ 対角 4.62・背 1.6）が 4 個立つ。
+#    MOUNT_KEEP は銅の話なので、**部品がナットの下に入っていないかは別に見る**。
+NUT_R = 4.62 / 2 + 0.25           # 対角の半径 ＋ 逃げ
 # 🔴 磁石と歯車の軸が降りてくる柱。ここに置いてよいのは AS5600（U4）だけ
 KEEPOUT_MAGNET = (33.2, 4.0, 39.2, 10.0)
 # 電池の影（天井 4.4）。背の高い物はここへ置かない
@@ -79,16 +83,23 @@ def pwr(x, y, ang=0):
     """旧・電源板（40 × 32・左上原点・y は下向き）の並びを 90° 回して電池の影へ入れる。
 
     旧板で自動配線が通った相対の並びをそのまま持ち込むための写像で、ここで新しく並べ直してはいない。
-      新 X = 1.5 + 旧 y （0〜32 → 1.5〜33.5）   新 Y = 27 + 旧 x （0〜40 → 27〜67）
+      新 X = 1.0 + 旧 y × 1.17 （実際に使う 1.7〜28.5 → 3.0〜34.3）
+      新 Y = 25.0 + 旧 x × 1.20 （実際に使う 4〜36.5 → 29.8〜68.8）
+
+    🔴 倍率は 2026-09-13 に足した。旧板（40 × 32 ＝ 1280mm²）の詰め方のまま電池の影
+    （35 × 50 ＝ 1750mm²）へ入れていて、余っている面積を使っていなかった。そのせいで
+    自動配線が 2 本残った（STAT2 と EN）。部品の大きさは変わらないので、広げた分だけ隙間が増える。
     """
-    return (1.5 + y, 27.0 + x, (ang + 90) % 360)
+    return (1.0 + y * 1.17, 25.0 + x * 1.20, (ang + 90) % 360)
 
 
 PLACE = {
     # ======== 電池の影（X 0〜35・Y 25〜75・天井 4.4）========
     # 電源・充電・電流計。いちばん背が高いのがインダクタの 1.8 なので 4.4 に楽に入る。
     # 🔴 USB-C（J13）・電池の PH（J10）はここへ入れない（背 3.16 と 4.8 で、口が板の外を向く）
-    "R44": pwr(20.0, 1.7), "R45": pwr(24.0, 1.7),
+    # 🔴 CC の引き下げ 2 本は **USB-C の足元**に置く。旧電源板の並びをそのまま写したら
+    #    J13 から 40mm 離れて CC2 が 1 本つながらなかった（2026-09-13）
+    "R44": (35.0, 72.5, 0), "R45": (40.0, 73.5, 0),
     "C8": pwr(12.0, 4.0), "C7": pwr(16.0, 4.0),
     "U2": pwr(12.0, 9.5),
     "R6": pwr(4.0, 17.0, 90), "R7": pwr(4.0, 20.0, 90),
@@ -101,15 +112,18 @@ PLACE = {
     "C1": pwr(19.5, 11.5), "C4": pwr(23.0, 11.5),
     "C2": pwr(26.5, 12.0, 90), "C6": pwr(33.5, 13.0, 90), "C9": pwr(36.5, 13.0, 90),
     "R3": pwr(30.5, 13.0, 90), "R4": pwr(30.5, 17.0, 90),
-    "R1": pwr(19.5, 15.5), "R2": pwr(23.2, 15.5), "R13": pwr(33.0, 6.0, 90),
+    "R1": pwr(19.5, 15.5), "R2": pwr(23.2, 15.5),
+    # R13（EN の引き上げ）は J2 のプラグの通り道（X 0.5〜11.4・Y 62〜73）に入るので外へ出す
+    "R13": (20.0, 68.0, 90),
     "Q1": pwr(22.0, 20.0), "R20": pwr(26.0, 20.0), "LED1": pwr(29.5, 20.0),
     "R5": pwr(26.0, 16.5), "LED2": pwr(29.5, 16.5),
     # ミュートリレーの駆動（どれも 1.5 以下）。🔴 **リレーの隣に置く**。
     # 最初 Y 70.5（電池の影）に置いたら、リレーまで 53mm 離れて COL が 1 本つながらなかった
     "R31": (28.5, 1.5, 0), "R32": (34.0, 1.5, 0), "Q31": (29.0, 5.5, 0),
-    "D31": (29.0, 9.0, 0), "C31": (36.5, 1.5, 0),
+    "D31": (29.0, 9.0, 0), "C31": (25.0, 24.0, 0),   # 🔴 取付穴 (40.5, 3.5) のナットの下だったので K31 の左上へ逃がした
     # C32 は EN の跳ね止め。リレーではなく EN の線（リード J6・トグル SW1）の側に置く
-    "C32": (33.0, 45.0, 0),
+    # C32 は EN の跳ね止め。RC は位置に依らないので、配線が通る所へ置いてよい
+    "C32": (31.0, 70.0, 0),
 
     # ======== 背の高い物（電池の影の外）========
     # 🔒 XIAO の口 2 列。列 X 9.40 が D0〜D6 側・1 本目が Y 2.90 側（gen_sch.py の XIAO_ROWS）
@@ -127,7 +141,7 @@ PLACE = {
     # 口（線が板の面と平行に抜ける形）
     # 🔒 スピーカーは箱の左なので、スピーカーへ出る J5 を左の帯に置く。
     # J4（ReSpeaker から来る側）は右の帯へ回す
-    "J5": (3.0, 12.0, 0),      # スピーカー OUT（左の帯・PH 横）
+    "J5": (3.0, 13.5, 0),      # スピーカー OUT（左の帯・PH 横。取付穴のナットを避けて上げた）
     "J4": (39.0, 32.0, 0),     # スピーカー IN（右の帯・PH 横）
     "J2": (8.5, 74.45, 180),   # OLED（上の縁・PH 横 4 ピン・口は板の内側 −Y を向く）
     # 🔒 2026-09-13: リードと会話ボタンは 1 つの 4 ピン PH（J6）にまとまった。
@@ -314,6 +328,36 @@ def mounting_holes():
     return o
 
 
+def gnd_zone():
+    """🔴 裏面に GND のベタを敷く（2026-09-13）。
+
+    GND は 47 パッドあって全ネットの中で断然いちばん多く、これを自動配線に引かせると
+    板が詰まって別のネットが残る（EN と VSYS が 2 本落ちた）。ベタにすれば自動配線から
+    47 パッドぶんが消え、同時に戻りの経路も良くなる。
+    ⚠ ベタ任せにするとパッドが島に取り残されることがある。**それは KiCad の DRC が
+    unconnected_items で出す**ので、検査で捕まえられる。
+    """
+    nx0, nx1, ny = NOTCH
+    pts = [(0, 0), (BOARD_L, 0), (BOARD_L, BOARD_W),
+           (nx1, BOARD_W), (nx1, ny), (nx0, ny), (nx0, BOARD_W), (0, BOARD_W)]
+    poly = ["polygon", ["pts"] + [["xy", f"{bx(*q)[0]:.3f}", f"{bx(*q)[1]:.3f}"] for q in pts]]
+    # 🔴 **両面に敷く。**裏だけだと、表面実装の GND パッド（この板の GND のほとんど）が
+    #    裏のベタに届かない（2026-09-13・裏だけで試したら 40 パッドが未接続で出た）。
+    return [["zone", ["net", str(NETNUM["GND"])], ["net_name", Str("GND")],
+             ["layer", Str(lay)], ["uuid", Str(uid())], ["name", Str("GND")],
+             ["hatch", "edge", "0.5"],
+             # 🔴 パッドはベタ直結（thermal relief を使わない）。
+             #    足付きの部品だけ thermal にすると、PH や USB-C のシェルのように **幅 1.0mm の
+             #    細いパッド**で spoke が 1 本しか立たず、KiCad が starved_thermal（error）を出す。
+             #    橋の幅を 0.4〜1.2 で振っても 1 件は残った（2026-09-13）。
+             #    ⚠ 代償: 手はんだする足付きの GND（J2・J4・J5・J6・J10・J14 の 7 点）に熱が逃げる。
+             #    2 層 1oz なので実害は小さいと見ているが、組むときに温度が要るなら記録すること。
+             ["connect_pads", "yes", ["clearance", "0.3"]],
+             ["min_thickness", "0.25"], ["filled_areas_thickness", "no"],
+             ["fill", "yes", ["thermal_gap", "0.2"], ["thermal_bridge_width", "0.5"]],
+             [x for x in poly]] for lay in ("F.Cu", "B.Cu")]
+
+
 NETNUM = {}
 INSTS = []
 NPTH = []      # 金属化していない穴のまわり（銅を置かせない四角）
@@ -371,6 +415,23 @@ def relax(placed, boxes, rounds=400):
         cx, cy = bx(*mxy)
         r = MOUNT_D / 2 + MOUNT_KEEP
         blocks.append((cx - r, cy - r, cx + r, cy + r))
+    # 🔴 口の前の「プラグの通り道」も押し出す所に入れる。入れないと、他の部品が後から
+    #    そこへ流れ込む（2026-09-13・電源ブロックを広げたら J2 の通り道に U1 と R13 が入った）。
+    #    位置は PLACE の初期値から作る（口はほとんど動かない）。自分の通り道では押されない
+    exempt = {}
+    for ref, (side, need) in CONN.items():
+        if ref not in PLACE:
+            continue
+        x, y, ang = PLACE[ref]
+        ang = 0 if not isinstance(ang, int) else ang
+        b = boxes[idx[ref]][1]
+        dx, dy = OPEN_DIR[(side, ang)]
+        if dx:
+            r = (b[2], b[1], b[2] + need, b[3]) if dx > 0 else (b[0] - need, b[1], b[0], b[3])
+        else:   # 板の座標の +Y は図面の −Y
+            r = (b[0], b[1] - need, b[2], b[1]) if dy > 0 else (b[0], b[3], b[2], b[3] + need)
+        exempt[len(blocks)] = ref
+        blocks.append(r)
     blocks = [(min(b[0], b[2]), min(b[1], b[3]), max(b[0], b[2]), max(b[1], b[3])) for b in blocks]
     for ref in movable:
         shift(ref, 0.0, 0.0)
@@ -399,7 +460,9 @@ def relax(placed, boxes, rounds=400):
         # 切り欠きと磁石の柱から押し出す
         for ref in movable:
             x0, y0, x1, y1 = boxes[idx[ref]][1]
-            for k in blocks:
+            for ki, k in enumerate(blocks):
+                if exempt.get(ki) == ref:
+                    continue
                 ox = min(x1, k[2]) - max(x0, k[0])
                 oy = min(y1, k[3]) - max(y0, k[1])
                 if ox > 0 and oy > 0:
@@ -475,6 +538,21 @@ def build():
         print(f"  🔴 パッドの位置が違う {key[0]}.{key[1]}: 板 ({gx}, {gy})、{wx}, {wy} のはず")
     if not bad_pad:
         print(f"  パッドの位置の検算 {len(CHECK_PADS)} 点すべて一致")
+
+    # 🔴 取付穴のナットの下。銅ではなく **部品** が入っていないか（MOUNT_KEEP とは別の検査）
+    nut = []
+    for mx, my in MOUNT:
+        for ref, b in boxes:
+            x0, y0 = b[0] - ORG[0], BOARD_W - b[3] + ORG[1]
+            x1, y1 = b[2] - ORG[0], BOARD_W - b[1] + ORG[1]
+            cx, cy = min(max(mx, x0), x1), min(max(my, y0), y1)
+            d = math.hypot(mx - cx, my - cy)
+            if d < NUT_R - 1e-9:
+                nut.append((mx, my, ref, round(NUT_R - d, 2)))
+    for mx, my, ref, over in nut:
+        print(f"  🔴 ナットの下に部品 ({mx}, {my}) ↔ {ref}: {over} mm 食い込む")
+    if not nut:
+        print(f"  取付穴 {len(MOUNT)} か所ともナット（対角 4.62・背 1.6）の下は空いている")
 
     # 🔴 プラグの通り道。口の前に、他の部品・板の縁・電池（背 4.4）が無いか
     box = {ref: (b[0] - ORG[0], BOARD_W - (b[3] - ORG[1]),
@@ -552,7 +630,7 @@ def build():
            ["net", "0", Str("")]]
     for nm, num in sorted(nets.items(), key=lambda kv: kv[1]):
         doc.append(["net", str(num), Str(nm)])
-    doc += outline() + mounting_holes() + placed
+    doc += outline() + mounting_holes() + placed + gnd_zone()
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT / f"{NAME}.kicad_pcb").write_text(kisym.dump(doc) + "\n", encoding="utf-8")
     print(f"{len(placed)} 部品・ネット {len(nets)} 本 → {OUT / (NAME + '.kicad_pcb')}")
@@ -569,6 +647,9 @@ def build():
         X, Y = bx(mx, my)
         r = MOUNT_D / 2 + MOUNT_KEEP
         ko.append((X - r, Y - r, X + r, Y + r))
+    # 🔴 GND は **自動配線にも渡す**。ベタ（gnd_zone()）任せにすると、U3 のような細ピッチの
+    #    GND パッドへベタが入れず、DRC が未接続で出る（2026-09-13 に試した）。
+    #    ベタは銅の足しと戻りの経路として残す。
     netpins = {}
     for (ref, pin), net in pads.items():
         netpins.setdefault(net, []).append((ref, pin))

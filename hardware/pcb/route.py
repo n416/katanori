@@ -75,9 +75,51 @@ def merge():
     print(f"  配線 {n_seg} 本・貫通穴 {len(vias)} 個を入れた")
 
 
+def stitch():
+    """GND のベタを縫うビアを打つ（2026-09-13）。
+
+    GND は自動配線に渡していない（gen_pcb.py の gnd_zone()）。表と裏に GND のベタを敷いているが、
+    **表のベタは配線で島に割れる**ので、島ごとに裏のベタへ落とす穴が要る。
+    空いている所を格子で探して、他のネットの銅から離れている点にだけ打つ。
+    足りているかどうかは KiCad の DRC（unconnected_items）が言う。ここでは判定しない。
+    """
+    import check_pcb
+    import gen_pcb as G
+    pcb = kisym.parse((OUT / f"{NAME}.kicad_pcb").read_text(encoding="utf-8"))[0]
+    allobj = check_pcb.shapes(pcb)
+    nets = {str(e[2]): e[1] for e in find(pcb, "net")}
+    # 🔴 GND の銅からも 0.55 離す。GND なら電気的には触れてよいが、**穴どうしの間隔**は
+    #    ネットに関係なく要る（JLCPCB の規則・DRC の hole_to_hole が 4 件出た）
+    VIA, DRILL, CLR, PITCH = 0.6, 0.3, 0.55, 3.0
+    put = []
+    for i in range(int((G.BOARD_L - 2) / PITCH) + 1):
+        for j in range(int((G.BOARD_W - 2) / PITCH) + 1):
+            u, v = 1.0 + i * PITCH, 1.0 + j * PITCH
+            if G.NOTCH[0] - 1 < u < G.NOTCH[1] + 1 and v > G.NOTCH[2] - 1:
+                continue
+            if any((u - mx) ** 2 + (v - my) ** 2 < (G.MOUNT_D / 2 + G.MOUNT_KEEP + VIA / 2) ** 2
+                   for mx, my in G.MOUNT):
+                continue
+            X, Y = G.bx(u, v)
+            me = ("circle", X, Y, VIA / 2)
+            if all(check_pcb.gap(me, g) > CLR for _, _, g in allobj):
+                put.append((X, Y))
+    body = list(pcb)
+    for X, Y in put:
+        body.append(["via", ["at", f"{X:.4f}", f"{Y:.4f}"], ["size", f"{VIA}"],
+                     ["drill", f"{DRILL}"], ["layers", Str("F.Cu"), Str("B.Cu")],
+                     ["net", nets["GND"]], ["uuid", Str(uid())]])
+    (OUT / f"{NAME}.kicad_pcb").write_text(kisym.dump(body) + chr(10), encoding="utf-8")
+    print(f"  GND を縫うビアを {len(put)} 個打った（格子 {PITCH}mm・φ{VIA}/{DRILL}）")
+
+
 def drc():
     rpt = OUT / "drc.json"
-    subprocess.run([CLI, "pcb", "drc", "--format", "json", "--severity-all", "-o", str(rpt),
+    # 🔴 --refill-zones を付けないと、裏の GND のベタが埋まっていない状態で検査される
+    #    （2026-09-13・GND を自動配線から外してベタに任せたら、45 パッドが未接続で出た）。
+    #    ⚠ --save-board は付けない。KiCad に板を書き直させると、次の merge() が読めなくなる
+    subprocess.run([CLI, "pcb", "drc", "--format", "json", "--severity-all",
+                    "--refill-zones", "-o", str(rpt),
                     str(OUT / f"{NAME}.kicad_pcb")], capture_output=True, text=True,
                    encoding="utf-8", errors="replace")   # ⚠ 既定は cp932 で、日本語の行で落ちる
     import collections
@@ -99,4 +141,5 @@ if __name__ == "__main__":
     if "--ses" not in sys.argv:
         run_freerouting()
     merge()
+    stitch()
     drc()
