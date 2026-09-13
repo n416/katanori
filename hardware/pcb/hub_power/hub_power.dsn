@@ -170,7 +170,7 @@
       (place C42 905000.0 -1103100.0 front 0)
     )
     (component K31
-      (place K31 946500.0 -1038500.0 front 0)
+      (place K31 946500.0 -1023500.0 front 0)
     )
     (component SW1
       (place SW1 865000.0 -450000.0 front 0)
