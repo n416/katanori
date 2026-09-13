@@ -178,23 +178,20 @@
     (component J13
       (place J13 975000.0 -406500.0 front 0)
     )
-    (component J4
-      (place J4 630000.0 -1092000.0 front 0)
-    )
     (component J5
-      (place J5 630000.0 -1002000.0 front 0)
+      (place J5 630000.0 -1092000.0 front 0)
+    )
+    (component J4
+      (place J4 990000.0 -892000.0 front 0)
     )
     (component J2
-      (place J2 740000.0 -1132000.0 front 0)
+      (place J2 689500.0 -472500.0 front 0)
     )
     (component J6
-      (place J6 980000.0 -852000.0 front 0)
-    )
-    (component J8
-      (place J8 980000.0 -702000.0 front 0)
+      (place J6 740000.0 -1132000.0 front 0)
     )
     (component J10
-      (place J10 990000.0 -572000.0 front 0)
+      (place J10 990000.0 -692000.0 front 0)
     )
   )
   (library
@@ -477,27 +474,25 @@
       (pin Rect[A]Pad_10000x21000um (rotate 180) SH 43200.0 -31300.0)
       (pin Rect[A]Pad_10000x21000um (rotate 180) SH -43200.0 -31300.0)
     )
-    (image J4
-      (pin Rect[A]Pad_12000x17500um 1 0.0 -0.0)
-      (pin Rect[A]Pad_12000x17500um 2 20000.0 -0.0)
-    )
     (image J5
       (pin Rect[A]Pad_12000x17500um 1 0.0 -0.0)
       (pin Rect[A]Pad_12000x17500um 2 20000.0 -0.0)
     )
+    (image J4
+      (pin Rect[A]Pad_12000x17500um 1 0.0 -0.0)
+      (pin Rect[A]Pad_12000x17500um 2 20000.0 -0.0)
+    )
     (image J2
+      (pin Rect[A]Pad_12000x17500um (rotate 180) 1 -0.0 0.0)
+      (pin Rect[A]Pad_12000x17500um (rotate 180) 2 -20000.0 0.0)
+      (pin Rect[A]Pad_12000x17500um (rotate 180) 3 -40000.0 0.0)
+      (pin Rect[A]Pad_12000x17500um (rotate 180) 4 -60000.0 0.0)
+    )
+    (image J6
       (pin Rect[A]Pad_12000x17500um 1 0.0 -0.0)
       (pin Rect[A]Pad_12000x17500um 2 20000.0 -0.0)
       (pin Rect[A]Pad_12000x17500um 3 40000.0 -0.0)
       (pin Rect[A]Pad_12000x17500um 4 60000.0 -0.0)
-    )
-    (image J6
-      (pin Rect[A]Pad_17000x17000um 1 0.0 0.0)
-      (pin Round[A]Pad_17000um 2 25400.0 0.0)
-    )
-    (image J8
-      (pin Rect[A]Pad_17000x17000um 1 0.0 0.0)
-      (pin Round[A]Pad_17000um 2 25400.0 0.0)
     )
     (image J10
       (pin Rect[A]Pad_12000x17500um 1 0.0 -0.0)
@@ -625,7 +620,7 @@
       (pins J10-2 R41-1 U3-10)
     )
     (net "BTN"
-      (pins J1-3 J8-2)
+      (pins J1-3 J6-4)
     )
     (net "CC1"
       (pins J13-A5 R44-1)
@@ -637,13 +632,13 @@
       (pins D31-2 K31-12 Q31-3)
     )
     (net "EN"
-      (pins C32-1 J6-2 R13-2 SW1-2 U1-11)
+      (pins C32-1 J6-1 R13-2 SW1-2 U1-11)
     )
     (net "FB"
       (pins R3-2 R4-1 U1-14)
     )
     (net "GND"
-      (pins C1-2 C2-2 C31-2 C32-2 C4-2 C41-2 C42-2 C6-2 C7-2 C8-2 C9-2 J10-1 J13-A1 J13-A12 J13-B1 J13-B12 J13-SH J14-2 J2-1 J6-1 J8-1 LED1-1 LED2-1 Q31-2 R15-1 R16-1 R17-1 R2-2 R32-2 R4-2 R44-2 R45-2 R7-2 SW1-1 U1-10 U1-13 U1-17 U1-5 U1-6 U1-7 U2-10 U2-11 U2-21 U3-2 U3-7 U4-4 U4-8)
+      (pins C1-2 C2-2 C31-2 C32-2 C4-2 C41-2 C42-2 C6-2 C7-2 C8-2 C9-2 J10-1 J13-A1 J13-A12 J13-B1 J13-B12 J13-SH J14-2 J2-1 J6-2 J6-3 LED1-1 LED2-1 Q31-2 R15-1 R16-1 R17-1 R2-2 R32-2 R4-2 R44-2 R45-2 R7-2 SW1-1 U1-10 U1-13 U1-17 U1-5 U1-6 U1-7 U2-10 U2-11 U2-21 U3-2 U3-7 U4-4 U4-8)
     )
     (net "IN"
       (pins J1-4 R31-1)

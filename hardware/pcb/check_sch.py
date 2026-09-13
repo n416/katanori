@@ -154,7 +154,9 @@ HUB_PIN = {"Q31": {"B": "1", "C": "3", "E": "2"},   # SOT-23（2026-09-12 に 2S
            "SW31": {"C": "2", "NO": "1", "NC": "3"}}
 # 🔒 2026-09-13: AS5600（J3）とトグル（J7）は板の上の部品になって口が消え、XIAO は
 #    hub_ports の 1 列 7 本から直挿しの 2 列 14 本になった（下の check_xiao で別に見る）。
-PORT_REF = {"OLED": "J2", "PHIN": "J4", "PHOUT": "J5", "REED": "J6", "BTN2": "J8"}
+# 🔒 2026-09-13 ユーザー「別に線が二股になるのは構わない」: リード（J6）と会話ボタン（J8）を
+#    1 つの 4 ピン PH にまとめたので、この 2 つも hub_ports からは引かない（下の KNOB で見る）
+PORT_REF = {"OLED": "J2", "PHIN": "J4", "PHOUT": "J5"}
 
 
 def check_hub(k):
@@ -256,7 +258,9 @@ def check_xiao(k):
 KNOB = {("U4", "1"): "V33", ("U4", "2"): "V33", ("U4", "4"): "GND", ("U4", "8"): "GND",
         ("U4", "6"): "SDA", ("U4", "7"): "SCL", ("U4", "3"): None, ("U4", "5"): None,
         # マスタートグル: 2=COM を EN へ・1 を GND へ・3 は空き（リードスイッチと並列）
-        ("SW1", "2"): "EN", ("SW1", "1"): "GND", ("SW1", "3"): None}
+        ("SW1", "2"): "EN", ("SW1", "1"): "GND", ("SW1", "3"): None,
+        # リード＋会話ボタンの 4 ピン。1 EN・2 GND がリードへ／3 GND・4 BTN が会話ボタンへ
+        ("J6", "1"): "EN", ("J6", "2"): "GND", ("J6", "3"): "GND", ("J6", "4"): "BTN"}
 
 
 def check_knob(k):
@@ -269,7 +273,7 @@ def check_knob(k):
             print(f"  ❌ {ref}.{pin}: {net} のはずが {got}")
             bad += 1
     if not bad:
-        print("  AS5600 11 本とトグル 3 本が想定どおり（PGO と OUT は未接続）")
+        print("  AS5600 11 本・トグル 3 本・リード＋会話ボタンの 4 本が想定どおり")
     return bad
 
 
@@ -284,7 +288,7 @@ if __name__ == "__main__":
     b3 = check_ina(k)
     print("4. XIAO の口（2 列 14 本）")
     b3 += check_xiao(k)
-    print("5. つまみ（AS5600）とマスタートグル")
+    print("5. つまみ（AS5600）・マスタートグル・リード＋会話ボタン")
     b3 += check_knob(k)
     total = b1 + b2 + b3
     print(f"結果: ❌ {total} 件" if total else "結果: 合わない所は 0 件")

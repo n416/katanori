@@ -238,16 +238,16 @@ part("SW1", "Switch:SW_SPDT", "MST-12D18G3", XA, YA + 20,
 PORT_FLIP = {"OLED"}
 NETMAP = {"V5": "V5", "V33": "V33", "GND": "GND", "SDA": "SDA", "SCL": "SCL", "EN": "EN",
           "BTN": "BTN", "IN": "IN", "SPKP": "SPKP", "SPKM": "SPKM", "SPKO": "SPKO"}
-PORT_REF = {"OLED": "J2", "PHIN": "J4", "PHOUT": "J5", "REED": "J6", "BTN2": "J8"}
-PORT_NAME = {"OLED": "OLED", "PHIN": "SPK IN", "PHOUT": "SPK OUT", "REED": "REED", "BTN2": "BTN2"}
+# 🔒 2026-09-13 ユーザー「別に線が二股になるのは構わない」: リード（REED）と会話ボタン（BTN2）は
+#    hub_ports から引かず、下で 1 つの 4 ピン PH（J6）にまとめる
+PORT_REF = {"OLED": "J2", "PHIN": "J4", "PHOUT": "J5"}
+PORT_NAME = {"OLED": "OLED", "PHIN": "SPK IN", "PHOUT": "SPK OUT"}
 # 🔒 2026-09-13 筐体側: 口は全部「線が板の面と平行に抜ける」形にする（外向きだと壁に当たる）。
 #    2 本の口は 2.54 の L 字ソケット・スピーカーと電池と OLED は JST PH の横型。
 FP_PORT = {
     "OLED": "Connector_JST:JST_PH_S4B-PH-K_1x04_P2.00mm_Horizontal",
     "PHIN": "Connector_JST:JST_PH_S2B-PH-K_1x02_P2.00mm_Horizontal",
     "PHOUT": "Connector_JST:JST_PH_S2B-PH-K_1x02_P2.00mm_Horizontal",
-    "REED": "Connector_PinSocket_2.54mm:PinSocket_1x02_P2.54mm_Horizontal",
-    "BTN2": "Connector_PinSocket_2.54mm:PinSocket_1x02_P2.54mm_Horizontal",
 }
 group("ports")
 gx = XH + 4
@@ -260,6 +260,18 @@ for p in hub_ports.ports():
     part(PORT_REF[p.id], f"Connector_Generic:Conn_01x{n:02d}", PORT_NAME[p.id], gx, YH + 24, nets,
          FP_PORT[p.id], note=p.label)
     gx += 12
+
+# ======== リードと会話ボタンを 1 つの口にまとめる（🔒 ユーザー 2026-09-13）========
+# 口 6 つに対して、プラグの通り道まで取れる場所が板に 5 か所しか無かった（gen_pcb.py の CONN）。
+# ユーザー「別に線が二股になるのは構わないと思います」。
+# 🔴 3 ピン（EN・BTN・GND）ではなく **4 ピン**にする。GND を 2 本にすれば、1 つの端子へ線を
+#    2 本入れる（圧着できない）ことも、線を割って継ぐこともせずに済む。
+#    並びは **隣り合う 2 本ずつで分かれる**ように: 1 EN・2 GND がリードへ、3 GND・4 BTN が会話ボタンへ。
+#    どちらも無極性のスイッチなので、組の中での順は効かない。
+part("J6", "Connector_Generic:Conn_01x04", "REED+BTN2", 0, 0,
+     {"1": "EN", "2": "GND", "3": "GND", "4": "BTN"},
+     "Connector_JST:JST_PH_S4B-PH-K_1x04_P2.00mm_Horizontal",
+     note="1 EN・2 GND → リード ／ 3 GND・4 BTN → 会話ボタン（線は口の所で二股）", grp="ports")
 
 # ======== XIAO の口 — 2 列 14 本の直挿し（2026-09-13） ========
 # 🔒 筐体側 2026-09-13。ReSpeaker の上に立っている 2×7 のピンヘッダ（XIAO 面から 10 出る）が、
