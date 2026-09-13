@@ -100,6 +100,9 @@ def stitch():
             if any((u - mx) ** 2 + (v - my) ** 2 < (G.MOUNT_D / 2 + G.MOUNT_KEEP + VIA / 2) ** 2
                    for mx, my in G.MOUNT):
                 continue
+            if any((u - px) ** 2 + (v - py) ** 2 < (d / 2 + G.POST_KEEP + VIA / 2) ** 2
+                   for px, py, d in G.POSTS):
+                continue
             X, Y = G.bx(u, v)
             me = ("circle", X, Y, VIA / 2)
             if all(check_pcb.gap(me, g) > CLR for _, _, g in allobj):
