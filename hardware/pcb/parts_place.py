@@ -45,13 +45,24 @@ def rows():
 
 # 🔴 線が出る口だけは **筐体の座標（箱）**でも出す。筐体・機構の 2 人が使うのはこちら。
 #    箱 = 板 + G.BOX。ここで変換を 1 か所に閉じておかないと、渡すたびに足し算を間違える
-DIR_NAME = {(0, 1): "−Y（下へ）", (0, -1): "＋Y（上へ）",
+# 🔴 ここに手書きの向きの表を置かない（2026-09-13、gen_pcb.py の OPEN_DIR が 180° 逆で、
+#    その表を写したこちらも間違えた）。**向きは gen_pcb.open_dir() が足形から測る。**
+DIR_NAME = {(0, 1): "＋Y（上へ）", (0, -1): "−Y（下へ）",
             (-1, 0): "−X（左へ）", (1, 0): "＋X（右へ）"}
-BODY = 3.1      # 相手のハウジングが枠の縁から出る量。📄 2 ページ (9.6) − 📄 4 ページ 6 = 3.6、
-                # から courtyard の逃げ 0.5 を引いた値
 
 
-def ports(rs):
+def fps():
+    """ref → 置いてある足形。向きを測るのに要る。"""
+    pcb = kisym.parse(PCB.read_text(encoding="utf-8"))[0]
+    out = {}
+    for f in find(pcb, "footprint"):
+        r = [pr[2] for pr in find(f, "property") if str(pr[1]) == "Reference"]
+        if r:
+            out[str(r[0])] = f
+    return out
+
+
+def ports(rs, fps):
     """線が出る口を、箱の座標・線の向き・プラグの通り道つきで出す。"""
     dx0, dy0 = G.BOX
     r = {x["ref"]: x for x in rs}
@@ -65,7 +76,9 @@ def ports(rs):
         if v is None:
             continue
         side, need = G.CONN[ref]
-        d = G.OPEN_DIR[(side, int(v["ang"]))]
+        fp = fps[ref]
+        at = find1(fp, "at")
+        d = G.open_dir(fp, float(at[1]), float(at[2]), float(at[3]) if len(at) > 3 else 0.0)
         b = (v["x0"] + dx0, v["x1"] + dx0, v["y0"] + dy0, v["y1"] + dy0)
         rows_.append((ref, v, d, b, need))
         o.append(f"| {ref} | {v['val']} | {b[0]:.2f}〜{b[1]:.2f} | {b[2]:.2f}〜{b[3]:.2f} | "
@@ -74,12 +87,12 @@ def ports(rs):
           "🔴 **「相手の実体」は必ず要る。**そこに殻の肉があると挿さらない。",
           "残りは指と線の曲がりのぶんで、板側の検査はこの 10.0 で回している。", "",
           "| ref | 相手の実体（枠の縁から 3.1） | 指と曲げまで（10.0） |", "|---|---|---|"]
-    for ref, v, (dx, dy), b, need in rows_:
+    for ref, v, d, b, need in rows_:
         def band(n):
-            if dx:
-                return (f"X {b[1]:.2f}〜{b[1] + n:.2f}" if dx > 0 else f"X {b[0] - n:.2f}〜{b[0]:.2f}")
-            return (f"Y {b[2] - n:.2f}〜{b[2]:.2f}" if dy > 0 else f"Y {b[3]:.2f}〜{b[3] + n:.2f}")
-        o.append(f"| {ref} | {band(BODY)} | {band(need)} |")
+            # 🔴 向きの計算は gen_pcb.plug_band に閉じてある。ここで書き直さない
+            r = G.plug_band((b[0], b[2], b[1], b[3]), d, n)
+            return (f"X {r[0]:.2f}〜{r[2]:.2f}" if d[0] else f"Y {r[1]:.2f}〜{r[3]:.2f}")
+        o.append(f"| {ref} | {band(G.PLUG_BODY)} | {band(need)} |")
     o.append("")
     o.append("⚠ **板の縁を越える帯がある**（下の縁は箱 Y 3.0・上の縁は箱 Y 84.2）。"
              "板の上に障害物が無いので板側の検査は通るが、**殻の側で空けてもらう必要がある。**")
@@ -99,7 +112,7 @@ def main():
         o.append(f"| {r['ref']} | {r['val']} | {r['x']:.2f} | {r['y']:.2f} | {r['ang']:.0f}° | "
                  f"{r['x0']:.2f}〜{r['x1']:.2f} | {r['y0']:.2f}〜{r['y1']:.2f} | "
                  f"**{r['h']}** | {r['src']} |")
-    o += ["", f"合計 {len(rs)} 部品。"] + ports(rs) + [
+    o += ["", f"合計 {len(rs)} 部品。"] + ports(rs, fps()) + [
           "", "## 板に開いている穴（部品ではない）", "",
           "| 何 | 板の座標 | 径 |", "|---|---|---|"]
     for px, py, d in G.POSTS:

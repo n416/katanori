@@ -30,6 +30,9 @@ def uid():
     return str(uuid.uuid5(uuid.NAMESPACE_URL, f"katanori/route/{_n[0]}"))
 
 
+# 🔴 **必ず gen_pcb.py を回してから回す。**route.py は生成済みの基板へ SES を混ぜるので、
+#    配線が入った基板へ 2 回目を回すと結果が変わる（2026-09-13、未配線 1 本が出たり消えたり
+#    して「自動配線は非決定的だ」と誤判定した。gen → route の順なら結果は毎回同じ）。
 def run_freerouting():
     if not FR.exists():
         sys.exit(f"Freerouting が無い: {FR}")

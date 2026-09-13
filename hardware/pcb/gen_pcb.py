@@ -146,7 +146,11 @@ PLACE = {
     # 最初 Y 70.5（電池の影の上）に置いたらリレーまで 53mm 離れて COL がつながらなかった。
     # 2026-09-13 に柱の抜き (31.58, 2.46) φ4.0 が入って、J14 と柱のあいだが 2.88mm しか
     # 残らなくなったので、K31 の左上の帯（Y 20〜25・天井は電池の影の 4.4）へ移した
-    "C31": (6.0, 22.5, 0), "R32": (10.0, 22.5, 0), "R31": (14.0, 22.5, 0),
+    # 🔴 2026-09-13、Y 22.5 のままだと SCL が J1 へ降りられない（自動配線が 1 本残す）。
+    #    それまで通っていたのは、**向きを間違えた J5 の通り道**が C31 を上へ押していたからで、
+    #    向きを直したら押されなくなり、車線が消えた。⇒ 車線を**わざと**空ける。
+    #    Y 26.5 なら J1 の上端 19.91 との間に 5.6 空く（背はどれも 1.6 以下・電池の影の下）
+    "C31": (6.0, 26.5, 0), "R32": (10.0, 26.5, 0), "R31": (14.0, 26.5, 0),
     "D31": (19.5, 22.5, 0), "Q31": (24.0, 22.5, 0),
     # C32 は EN の跳ね止め。リレーではなく EN の線（リード J6・トグル SW1）の側に置く
     # C32 は EN の跳ね止め。RC は位置に依らないので、配線が通る所へ置いてよい
@@ -173,13 +177,27 @@ PLACE = {
     #    総当たりで探し直したら、PH 4 ピンが入るのは **谷** と **右の帯（口を −X へ向ける）** の
     #    2 つだけ。谷には J6 が居るので、OLED を右の帯へ回す。線は伸びるが、谷へ入れた場合の
     #    65mm より短い（芯どうし約 35mm）
-    "J2": (41.75, 46.0, 90),   # OLED（右の帯・PH 横 4 ピン・口は板の内側 −X を向く）
-    "J4": (39.0, 70.5, 180),   # スピーカー IN（右の帯・PH 横・口は −Y。取付穴を下げたぶん逃げた）
-    "J10": (39.0, 30.0, 0),    # 電池の PH 横（右の帯・口は +Y）
+    # 🔴 2026-09-13、口の向きを実測したら J2 と J4 が**逆を向いていた**（手書きの OPEN_DIR が
+    #    180° ずれていた）。J2 は相手が板の右の縁を 2.6 越えて殻を貫き、J4 は相手が SW1 と J13 に
+    #    ぶつかっていた。⇒ **どちらも 180° 回して、口を板の内側へ向けた。**
+    #    枠は 180° 回しても同じ大きさなので、置き場所は動いていない
+    # ⚠ 角度を 180° 回すと、枠は同じ大きさのまま**パッドの反対側へ移る**（2 ピンで (2.0, 4.9)・
+    #    4 ピンは X 対称なので Y だけ）。⇒ 枠を元の場所に残すため、置き点も同じだけ動かしてある
+    # 🔴 270° に回すとパッドが枠の反対の端（X 36.75 → 41.75）へ移り、柱 (40.70, 38.80) の
+    #    抜き φ6.5（Y 35.55〜42.05）に SCL と SDA が乗った（copper_edge_clearance 0.000）。
+    #    枠は柱を避けていたのにパッドは避けていない ⇒ **+3.3 上げて、いちばん下のパッドを 43.3 に**
+    "J2": (41.75, 49.3, 270),  # OLED（右の帯・PH 横 4 ピン・口は板の内側 −X）
+    "J4": (32.5, 72.9, 0),     # スピーカー IN（右の帯・PH 横・口は板の内側 −Y）
+    "J10": (41.0, 25.65, 180),  # 電池の PH 横（右の帯・口は +Y ＝ 電池の側）
     # 🔒 2026-09-13: リードと会話ボタンは 1 つの 4 ピン PH（J6）にまとまった。
     # 4 ピンの PH は幅 10.90 あり、入るのは「谷」（幅 11.6）と「上の縁」（幅 12）の 2 か所だけ。
     # OLED は前の上へ行くので上の縁、リード＋会話ボタンは谷に置く
-    "J6": (14.0, 8.0, 0),      # リード＋会話ボタン（XIAO の下の谷。天井 8.5〜9.0 に対して 4.8）
+    # 🔴 2026-09-13、調停役が殻の実体に当てて「J6 の相手が壁を 0.85 貫く（44.472mm³）」と出した。
+    #    板の上には何も無いので**板の検査も殻の検査も通る**。挿す相手をどちらも持っていなかった。
+    #    ⇒ +2.0 上げて、**相手（枠の縁から 3.1）が板の縁の内側で終わる**ようにした。
+    #      板の下の縁 Y 0 に対して相手の先端 Y 0.15・殻の内側の面（箱 Y 2.0）に対して 1.15。
+    #      他の 4 口は元から板の上で終わっている（J6 だけが外へ出ていた）
+    "J6": (14.0, 10.0, 0),     # リード＋会話ボタン（XIAO の下の谷。天井 8.5〜9.0 に対して 4.8）
 }
 
 # 🔴 口は「枠が重なっていない」だけでは挿せない。**プラグの通り道**を別に見る。
@@ -192,11 +210,52 @@ CONN = {
     "J2": ("-y", 10.0), "J4": ("-y", 10.0), "J5": ("-y", 10.0),
     "J6": ("-y", 10.0), "J10": ("-y", 10.0),
 }
-# 板の座標での向き。足形を ang 度回したとき、局所の −Y / −X が板のどちらを向くか
-OPEN_DIR = {
-    ("-y", 0): (0, 1), ("-y", 90): (-1, 0), ("-y", 180): (0, -1), ("-y", 270): (1, 0),
-    ("-x", 0): (-1, 0), ("-x", 90): (0, -1), ("-x", 180): (1, 0), ("-x", 270): (0, 1),
-}
+# ⛔⛔ **手書きの OPEN_DIR は捨てた**（2026-09-13）。全ての角度で 180° 逆で、
+#    プラグの通り道の検査は 5 口とも **口の裏側**を見ていた。「5 口すべて空いている」は
+#    「裏側が空いていた」という意味しかなかった。J2 は板の右の縁を 2.60 越えていて、
+#    それを誰も捕まえられなかった（殻の側は「私が左と言ったので左を見た」）。
+#    ⇒ **向きは表で持たない。置いてある足形から測る。**[[mirror-word-needs-proof]]
+#
+# 🔒 測り方: **口は必ずパッドと反対側に開く。**横挿しの口は、足が胴の後ろの端で板へ落ち、
+#    胴がそこから前へ伸びて、その先が開いている（📄 ePH.pdf 3 ページの側面図。
+#    足の (3.4) は胴の片方の端にしかない）。
+#    ⇒ **パッドの重心から枠の中心へ向かう向き＝開いている向き。**
+#      PH 2 ピン横で ±2.45 出る（枠 8.60 の中心とパッドのずれ）。X と Y のどちらが
+#      大きいかで 4 方向に丸める。
+PLUG_BODY = 3.1   # 相手のハウジングが枠の縁から出る量。📄 ePH.pdf 2 ページ (9.6) −
+                  # 📄 4 ページ 6 = 3.6 から、courtyard の逃げ 0.5 を引いた値
+
+
+def plug_band(rect, d, n):
+    """口の枠（**板の座標** x0, y0, x1, y1）の前へ、長さ n の帯を作る。
+
+    🔴 向きの計算をここ 1 か所に閉じる。2026-09-13、同じ式を 3 か所に書いて
+       2 か所で Y の符号を逆にした（gen_pcb の OPEN_DIR と parts_place の band）。
+    """
+    x0, y0, x1, y1 = rect
+    dx, dy = d
+    if dx:
+        return (x1, y0, x1 + n, y1) if dx > 0 else (x0 - n, y0, x0, y1)
+    return (x0, y1, x1, y1 + n) if dy > 0 else (x0, y0 - n, x1, y0)
+
+
+def open_dir(fp, x, y, ang):
+    """置いてある足形の「開いている向き」を測る。返すのは**板の座標**の単位ベクトル。"""
+    a = math.radians(ang)
+    px = py = 0.0
+    n = 0
+    for pd in find(fp, "pad"):
+        q = find1(pd, "at")
+        lx, ly = float(q[1]), float(q[2])
+        px += x + lx * math.cos(a) + ly * math.sin(a)
+        py += y - lx * math.sin(a) + ly * math.cos(a)
+        n += 1
+    px /= n
+    py /= n
+    b = courtyard(fp, x, y, ang)
+    dx = (b[0] + b[2]) / 2 - px
+    dy = -((b[1] + b[3]) / 2 - py)      # 図面の Y は下向き。板の Y へ直す
+    return (1 if dx > 0 else -1, 0) if abs(dx) > abs(dy) else (0, 1 if dy > 0 else -1)
 
 # ---- 板の面からの背の高さ [mm] ----
 # 🔴 筐体側は板を「44 × 81.2 × 4.0 の塊」として持っていた（2026-09-13 に判明）。
@@ -459,7 +518,10 @@ NPTH = []      # 金属化していない穴のまわり（銅を置かせない
 MODEL_VIS = {"J13": ("${KICAD10_3DMODEL_DIR}/Connector_USB.3dshapes/"
                      "USB_C_Receptacle_GCT_USB4105-xx-A_16P_TopMnt_Horizontal.step", (0.0, 0.365, 0.0))}
 # 🔒 筐体側が座標を決めた部品。押し離しの対象にしない（動かすと筐体と合わなくなる）
-FIXED = {"J13", "J1", "J14", "U4", "SW1"}
+# 🔴 口も動かさない（2026-09-13）。押し離しは**動かす前の**枠からプラグの通り道を作るので、
+#    口が動くと通り道だけが取り残され、他の部品がそこへ流れ込む（J2 の通り道に R41 が残った）。
+#    口の位置はどれも総当たりで決めた値なので、動かす理由も無い
+FIXED = {"J13", "J1", "J14", "U4", "SW1", "J2", "J4", "J5", "J6", "J10"}
 MARGIN = 0.5      # 板の縁から部品の枠まで
 
 
@@ -521,11 +583,22 @@ def relax(placed, boxes, rounds=3000):
         x, y, ang = PLACE[ref]
         ang = 0 if not isinstance(ang, int) else ang
         b = boxes[idx[ref]][1]
-        dx, dy = OPEN_DIR[(side, ang)]
+        at = find1(placed[idx[ref]], "at")
+        dx, dy = open_dir(placed[idx[ref]], float(at[1]), float(at[2]), ang)
+        # 🔴 押し離すのは**相手の胴 3.1** だけ。残り（指と曲がり）まで押すと、
+        #    板の真ん中に 10mm の空き地が 5 つできて押し離しが発散した（2026-09-13）。
+        #    指の側は検査で「何が下に居るか」を出すだけにする
+        need = PLUG_BODY
         if dx:
             r = (b[2], b[1], b[2] + need, b[3]) if dx > 0 else (b[0] - need, b[1], b[0], b[3])
         else:   # 板の座標の +Y は図面の −Y
             r = (b[0], b[1] - need, b[2], b[1]) if dy > 0 else (b[0], b[3], b[2], b[3] + need)
+        # 🔴 通り道のうち**板の外**の部分は、板の上の部品を押す理由が無い（そこに部品は置けない）。
+        #    板へ切り詰めてから入れる。2026-09-13、切り詰めずに入れて押し離しが発散した
+        r = (max(min(r[0], r[2]), ORG[0]), max(min(r[1], r[3]), ORG[1]),
+             min(max(r[0], r[2]), ORG[0] + BOARD_L), min(max(r[1], r[3]), ORG[1] + BOARD_W))
+        if r[2] - r[0] < 1e-6 or r[3] - r[1] < 1e-6:
+            continue
         exempt[len(blocks)] = ref
         blocks.append(r)
     blocks = [(min(b[0], b[2]), min(b[1], b[3]), max(b[0], b[2]), max(b[1], b[3])) for b in blocks]
@@ -613,6 +686,7 @@ def build():
         print(f"  板からはみ出し {ref}: {d} mm")
 
     # 🔴 角度の検算。板の座標で「このパッドはここに来るはず」と突き合わせる（鏡像事故はここで止める）
+    fps = {[pr[2] for pr in find(f, "property") if str(pr[1]) == "Reference"][0]: f for f in placed}
     at_of = {find1(f, "uuid")[1]: f for f in placed}
     bad_pad = []
     for f in placed:
@@ -674,27 +748,72 @@ def build():
     if not nut:
         print(f"  取付穴 {len(MOUNT)} か所ともナット（対角 4.62・背 1.6）の下は空いている")
 
+    # 🔴 パッドと「板に開いた穴」の間。枠（courtyard）は柱を避けていても、**パッドは避けていない**。
+    #    2026-09-13、J2 を 180° 回したらパッドが枠の反対の端へ移り、柱の抜きに SCL と SDA が乗った
+    #    （KiCad の copper_edge_clearance 0.000）。配線まで回さないと出ないので、置く段階で見る。
+    holes = [(px, py, d / 2) for px, py, d in POSTS] + [(mx, my, MOUNT_D / 2) for mx, my in MOUNT]
+    CLR_EDGE = 0.3
+    onhole = []
+    for f in placed:
+        ref = [pr[2] for pr in find(f, "property") if str(pr[1]) == "Reference"][0]
+        at = find1(f, "at")
+        fx, fy = float(at[1]), float(at[2])
+        fa = float(at[3]) if len(at) > 3 else 0.0
+        for q in find(f, "pad"):
+            pa = find1(q, "at")
+            ddx, ddy = rot_xy(float(pa[1]), float(pa[2]), fa)
+            pxb, pyb = fx + ddx - ORG[0], BOARD_W - (fy + ddy - ORG[1])
+            sz = find1(q, "size")
+            rad = max(float(sz[1]), float(sz[2])) / 2
+            for hx, hy, hr in holes:
+                gap = math.hypot(pxb - hx, pyb - hy) - hr - rad
+                if gap < CLR_EDGE - 1e-9:
+                    onhole.append((str(ref), str(q[1]), round(hx, 2), round(hy, 2), round(gap, 3)))
+    for ref, pin, hx, hy, gap in onhole:
+        print(f"  🔴 パッドが穴に近すぎる {ref}.{pin} ↔ ({hx}, {hy}): すきま {gap} mm（下限 {CLR_EDGE}）")
+    if not onhole:
+        print(f"  パッドと穴（柱 {len(POSTS)} ＋ 取付穴 {len(MOUNT)}）のすきまは全て {CLR_EDGE} 以上")
+
     # 🔴 プラグの通り道。口の前に、他の部品・板の縁・電池（背 4.4）が無いか
     box = {ref: (b[0] - ORG[0], BOARD_W - (b[3] - ORG[1]),
                  b[2] - ORG[0], BOARD_W - (b[1] - ORG[1])) for ref, b in boxes}
-    blocked, soft = [], []
+    blocked, soft, wall, need_out, finger = [], [], [], [], []
     for ref, (side, need) in CONN.items():
         if ref not in box:
             continue
         x0, y0, x1, y1 = box[ref]
-        dx, dy = OPEN_DIR[(side, PLACE[ref][2] if isinstance(PLACE[ref][2], int) else 0)]
-        if dx:      # 左右へ挿す
-            a = (x1, y0, x1 + need, y1) if dx > 0 else (x0 - need, y0, x0, y1)
-        else:       # 上下へ挿す
-            a = (x0, y1, x1, y1 + need) if dy > 0 else (x0, y0 - need, x1, y0)
-        why = []
-        if a[0] < 0 or a[1] < 0 or a[2] > BOARD_L or a[3] > BOARD_W:
-            why.append("板の外へ出る")
+        fp = fps[ref]
+        at = find1(fp, "at")
+        ang = float(at[3]) if len(at) > 3 else 0.0
+        dx, dy = open_dir(fp, float(at[1]), float(at[2]), ang)
+        a = plug_band((x0, y0, x1, y1), (dx, dy), need)
+        # 🔴 縁の口は、プラグが板の外へ出るのが**普通**（線は板の外へ抜ける）。
+        #    ⇒ 板の外へ出ること自体は間違いではない。分けて数える:
+        #      ① 板の上で他の部品に当たる      → 直せるのは板の側。**間違い**
+        #      ② 相手の胴（3.1）が板の縁を越える → 殻の壁を貫く。**殻に開けてもらう要求**
+        #      ③ 残り（指と曲がり）が縁を越える → 組むときの空き。**殻への注文**
+        body = plug_band((x0, y0, x1, y1), (dx, dy), PLUG_BODY)
+        why, near = [], []
         for r2, b2 in box.items():
             if r2 == ref:
                 continue
-            if a[0] < b2[2] - 1e-6 and b2[0] < a[2] - 1e-6 and a[1] < b2[3] - 1e-6 and b2[1] < a[3] - 1e-6:
+            if (body[0] < b2[2] - 1e-6 and b2[0] < body[2] - 1e-6
+                    and body[1] < b2[3] - 1e-6 and b2[1] < body[3] - 1e-6):
                 why.append(r2)
+            elif a[0] < b2[2] - 1e-6 and b2[0] < a[2] - 1e-6 and a[1] < b2[3] - 1e-6 and b2[1] < a[3] - 1e-6:
+                near.append(f"{r2}({HEIGHT.get(r2, HEIGHT_DEFAULT)[0]})")
+        if near:
+            finger.append((ref, near))
+        over_body = max(-body[0], -body[1], body[2] - BOARD_L, body[3] - BOARD_W)
+        over_all = max(-a[0], -a[1], a[2] - BOARD_L, a[3] - BOARD_W)
+        if over_body > 1e-6:
+            edge = ("左" if -body[0] == over_body else "下" if -body[1] == over_body
+                    else "右" if body[2] - BOARD_L == over_body else "上")
+            wall.append((ref, edge, round(over_body, 2)))
+        if over_all > 1e-6:
+            edge = ("左" if -a[0] == over_all else "下" if -a[1] == over_all
+                    else "右" if a[2] - BOARD_L == over_all else "上")
+            need_out.append((ref, edge, round(over_all, 2)))
         if why:
             blocked.append((ref, tuple(round(v, 2) for v in a), why))
         # ⚠ 電池の影（天井 4.4）は **組むときは邪魔にならない**（電池は線を挿したあとに載る）。
@@ -702,11 +821,20 @@ def build():
         elif a[0] < BATTERY[2] and a[2] > BATTERY[0] and a[1] < BATTERY[3] and a[3] > BATTERY[1]:
             soft.append(ref)
     for ref, a, why in blocked:
-        print(f"  🔴 プラグが入らない {ref}: 通り道 X {a[0]}〜{a[2]}・Y {a[1]}〜{a[3]} … " + "・".join(why))
+        print(f"  🔴 プラグが板の上の部品に当たる {ref}: 通り道 X {a[0]}〜{a[2]}・Y {a[1]}〜{a[3]} … "
+              + "・".join(why))
+    for ref, near in finger:
+        print(f"  ⚠ 指と曲がりの所に低い部品が居る {ref}: " + "・".join(near)
+              + "（相手の胴 3.1 の外なので挿せるが、指は入らない）")
+    for ref, edge, d in wall:
+        print(f"  🔴 相手の胴が板の{edge}の縁を {d} mm 越える {ref}（殻の壁を貫く）")
+    if need_out:
+        print("  ⚠ 殻へ空けてもらう空き（指と曲がりまで）: "
+              + "・".join(f"{r} {e}へ {d}" for r, e, d in need_out))
     if soft:
         print("  ⚠ 通り道が電池の下（挿し直すには電池を外す）: " + "・".join(soft))
-    if not blocked:
-        print(f"  プラグの通り道 {len(CONN)} 口すべて空いている")
+    if not blocked and not wall:
+        print(f"  プラグの通り道 {len(CONN)} 口すべて空いている（相手の胴は板の上で終わる）")
 
     missing = sorted(set(comps) - {b[0] for b in boxes} - {r for r in comps if r.startswith("#")})
     if missing:
