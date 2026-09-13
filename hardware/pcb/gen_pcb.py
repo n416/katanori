@@ -39,30 +39,26 @@ def uid():
     return str(uuid.uuid5(uuid.NAMESPACE_URL, f"katanori/pcb/{_n[0]}"))
 
 
-# ---- パネルの寸法 ----
-HUB_L, HUB_W = hub_ports.BOARD_L, hub_ports.BOARD_W      # 74 × 52
-PWR_L, PWR_W = 40.0, 32.0                                # 電源板（2026-09-12 の当たり検査: 後ろへ伸ばす向きで 40 × 32 まで 0・44 × 32 は当たり 102mm3）
-GAP = 2.0                                                # 板と板のあいだ（JLCPCB の分割）
-PWR_Y0 = HUB_W + GAP                                     # 54
-PWR_X0 = 5.0     # 電源板をパネルの中で右へ寄せる量。USB-C が板の縁から前へ出る分（2.2）が
-                 # パネルの外へはみ出さないようにするため（実装のとき邪魔になる）
-ORG = (60.0, 40.0)                                       # 図面の上でのパネルの左上
-TAB_W = 4.0                                              # ミシン目のタブの幅
-TABS = [10.0, 28.0]                                      # タブの中心 x
+# ---- 板の寸法（🔒 2026-09-13 ユーザー「歯車 3 枚」→ 筐体の幅 48・板 44 × 81.2 で確定）----
+# 座標は **板の左下が原点・X 右・Y 上**。図面（KiCad）の座標へは bx() で移す。
+# ⚠ ここは筐体側（別セッション）が決めた数字をそのまま写す場所で、こちらで動かさない。
+BOARD_L, BOARD_W = 44.0, 81.2
+# 上の縁の切り欠き: ReSpeaker の J2（スピーカーのソケット・トップ型）のプラグが線込み 15 で
+# 降りてきて板を貫くため。プラグの実寸は板 X 13.04〜20.99・Y 73.91〜80.91 で、四方に 0.9〜1.0 の逃げ
+NOTCH = (12.0, 22.0, 73.0)        # x0, x1, この y から上端まで
+MOUNT = [(3.5, 3.5), (40.5, 3.5), (3.5, 69.5), (40.5, 69.5)]   # M2・37 × 66 の格子
+MOUNT_D = 2.2                     # φ2.2（M2）
+MOUNT_KEEP = 0.5                  # 穴のまわりに銅を置かせない幅
+# 🔴 磁石と歯車の軸が降りてくる柱。ここに置いてよいのは AS5600（U4）だけ
+KEEPOUT_MAGNET = (33.2, 4.0, 39.2, 10.0)
+# 電池の影（天井 4.4）。背の高い物はここへ置かない
+BATTERY = (0.0, 25.0, 35.0, 75.0)
+ORG = (60.0, 40.0)                # 図面の上での板の左上
 
 
-def hx(x, y):
-    """ハブ基板の座標（hub_ports・Y 上向き）→ 図面の座標（Y 下向き）。"""
-    return (ORG[0] + x, ORG[1] + (HUB_W - y))
-
-
-def px(x, y):
-    """電源板の座標（左上原点・Y 下向き）→ 図面の座標。"""
-    return (ORG[0] + PWR_X0 + x, ORG[1] + PWR_Y0 + y)
-
-
-def hole(name):
-    return hx(*hub_ports.hole_xy(name))
+def bx(x, y):
+    """板の座標（左下が原点・Y 上向き）→ 図面の座標（Y 下向き）。"""
+    return (ORG[0] + x, ORG[1] + (BOARD_W - y))
 
 
 # ---- 足形の差し替え（KiCad の標準に無い物は katanori.pretty に作る） ----
@@ -77,49 +73,71 @@ FP_OVERRIDE = {
 }
 
 
-# ---- 置き場所 ----
-# ハブ側: 今の基板の穴から。口はピン 1 番の穴に置き、向きは 1 番 → 2 番の向きから決める
-PORT_REF = {"XIAO": "J1", "OLED": "J2", "AS5600": "J3", "PHIN": "J4", "PHOUT": "J5",
-            "REED": "J6", "TOGGLE": "J7", "BTN2": "J8"}
-# ハブの部品: (ref, 置く穴たち)。2 端子は 2 穴の中点・向きは穴の並び
-HUB_PARTS = [("R31", ["C8", "C4"]), ("R32", ["D4", "D8"]), ("D31", ["I4", "I6"]),
-             ("C31", ["F13", "G13"]), ("C32", ["O13", "N13"]), ("Q31", ["G5", "G6", "G7"]),
-             # リレーは表面実装になって穴に縛られないので、**今の基板でリレーが座っていた 6 穴の
-             # 真ん中**に本体の中心を置く（角度は長辺が縦になる 0 で固定）。K5 に原点を合わせると
-             # 本体が下へはみ出して D31 と重なる。
-             ("K31", ["K5", "K7", "O5", "O7"], 0)]   # SW31（板の上の会話ボタン）は 2026-09-12 に外した
+# ---- 置き場所（板の座標・(x, y, 角度)。角度は KiCad の回し方に合わせて後で検算する）----
 
-# 電源板: (ref, x, y, 回転)。板の左上が原点・x は右・y は下
-PLACE_PWR = {
-    # 充電（左上）
-    # USB-C の受け口。🔴 この足形はピン（パッド）が後ろ側（局所 −y）に出る形で、**口は +y 側**。
-    # 口を板の左の縁へ向けるので回転 270。本体の前面（局所 y ＋3.65）を縁 x=0 に合わせて x = 3.65。
-    # 本体の前面（局所 y ＋3.65）を板の縁より 3.0mm 前へ出す（原点は縁から 0.65mm 内側）。
-    # 壁 2.0 ＋ 板と壁の逃げ 0.2 に対して、口は外面より 0.8mm 前に出る
-    "J13": (0.65, 10.0, 270),
-    "R44": (20.0, 1.7, 0), "R45": (24.0, 1.7, 0),   # CC の 5.1kΩ
-    "C8":  (12.0, 4.0, 0), "C7": (16.0, 4.0, 0),
-    "U2":  (12.0, 9.5, 0),       # MCP73871
-    "R6":  (4.0, 17.0, 90), "R7": (4.0, 20.0, 90),   # USB-C の下（左の縁）
-    "R16": (9.0, 18.0, 0), "R17": (12.5, 18.0, 0), "R15": (16.0, 18.0, 0),
-    "LED4": (12.5, 24.0, 0), "R8": (16.0, 24.0, 0),      # 充電中（橙）
-    "LED3": (19.5, 24.0, 0), "R14": (23.0, 24.0, 0),     # 充電が済んだ（緑）
-    # 電池と電流計（下の帯）
-    "J10": (6.0, 27.0, 0),       # 電池の JST-PH
-    "R41": (13.0, 28.5, 0),      # シャント 10mΩ
-    "U3":  (20.0, 28.5, 0),      # INA226
-    "C41": (26.0, 28.5, 0), "R42": (30.0, 28.5, 0), "R43": (33.5, 28.5, 0),
-    # 板をまたぐ口（電源側）: 右の縁に沿って 7 本
-    "J12": (33.5, 3.5, 0),
-    # 昇圧（右上）
-    "U1":  (28.0, 7.0, 0),       # TPS61090
-    "L1":  (21.0, 6.0, 0),
-    "C1":  (19.5, 11.5, 0), "C4": (23.0, 11.5, 0),
-    "C2":  (26.5, 12.0, 90), "C6": (33.5, 13.0, 90), "C9": (36.5, 13.0, 90),
-    "R3":  (30.5, 13.0, 90), "R4": (30.5, 17.0, 90),
-    "R1":  (19.5, 15.5, 0), "R2": (23.2, 15.5, 0), "R13": (33.0, 6.0, 90),
-    "Q1":  (22.0, 20.0, 0), "R20": (26.0, 20.0, 0), "LED1": (29.5, 20.0, 0),
-    "R5":  (26.0, 16.5, 0), "LED2": (29.5, 16.5, 0),
+def pwr(x, y, ang=0):
+    """旧・電源板（40 × 32・左上原点・y は下向き）の並びを 90° 回して電池の影へ入れる。
+
+    旧板で自動配線が通った相対の並びをそのまま持ち込むための写像で、ここで新しく並べ直してはいない。
+      新 X = 1.5 + 旧 y （0〜32 → 1.5〜33.5）   新 Y = 27 + 旧 x （0〜40 → 27〜67）
+    """
+    return (1.5 + y, 27.0 + x, (ang + 90) % 360)
+
+
+PLACE = {
+    # ======== 電池の影（X 0〜35・Y 25〜75・天井 4.4）========
+    # 電源・充電・電流計。いちばん背が高いのがインダクタの 1.8 なので 4.4 に楽に入る。
+    # 🔴 USB-C（J13）・電池の PH（J10）はここへ入れない（背 3.16 と 4.8 で、口が板の外を向く）
+    "R44": pwr(20.0, 1.7), "R45": pwr(24.0, 1.7),
+    "C8": pwr(12.0, 4.0), "C7": pwr(16.0, 4.0),
+    "U2": pwr(12.0, 9.5),
+    "R6": pwr(4.0, 17.0, 90), "R7": pwr(4.0, 20.0, 90),
+    "R16": pwr(9.0, 18.0), "R17": pwr(12.5, 18.0), "R15": pwr(16.0, 18.0),
+    "LED4": pwr(12.5, 24.0), "R8": pwr(16.0, 24.0),
+    "LED3": pwr(19.5, 24.0), "R14": pwr(23.0, 24.0),
+    "R41": pwr(13.0, 28.5), "U3": pwr(20.0, 28.5),
+    "C41": pwr(26.0, 28.5), "R42": pwr(30.0, 28.5), "R43": pwr(33.5, 28.5),
+    "U1": pwr(28.0, 7.0), "L1": pwr(21.0, 6.0),
+    "C1": pwr(19.5, 11.5), "C4": pwr(23.0, 11.5),
+    "C2": pwr(26.5, 12.0, 90), "C6": pwr(33.5, 13.0, 90), "C9": pwr(36.5, 13.0, 90),
+    "R3": pwr(30.5, 13.0, 90), "R4": pwr(30.5, 17.0, 90),
+    "R1": pwr(19.5, 15.5), "R2": pwr(23.2, 15.5), "R13": pwr(33.0, 6.0, 90),
+    "Q1": pwr(22.0, 20.0), "R20": pwr(26.0, 20.0), "LED1": pwr(29.5, 20.0),
+    "R5": pwr(26.0, 16.5), "LED2": pwr(29.5, 16.5),
+    # ミュートリレーの駆動（どれも 1.5 以下）。🔴 **リレーの隣に置く**。
+    # 最初 Y 70.5（電池の影）に置いたら、リレーまで 53mm 離れて COL が 1 本つながらなかった
+    "R31": (28.5, 1.5, 0), "R32": (34.0, 1.5, 0), "Q31": (29.0, 5.5, 0),
+    "D31": (29.0, 9.0, 0), "C31": (36.5, 1.5, 0),
+    # C32 は EN の跳ね止め。リレーではなく EN の線（リード J6・トグル SW1）の側に置く
+    "C32": (33.0, 45.0, 0),
+
+    # ======== 背の高い物（電池の影の外）========
+    # 🔒 XIAO の口 2 列。列 X 9.40 が D0〜D6 側・1 本目が Y 2.90 側（gen_sch.py の XIAO_ROWS）
+    "J1": (9.40, 2.90, "xiao"), "J14": (24.63, 2.90, "xiao"),
+    # 🔒 つまみ。磁石と歯車の軸がこの真上に降りる（KEEPOUT_MAGNET）
+    "U4": (36.2, 7.0, 0), "C42": (30.5, 10.5, 0),
+    # ミュートリレー（背 9.33）。90 度回して Y 12〜22.7 に寝かせる（電池の影 Y>25 に掛けない）
+    "K31": (34.65, 17.35, 90),
+    # 🔒 マスタートグル。胴のレバー側を板の上端 Y 81.2 に揃える → 足形の原点は Y 76.2
+    "SW1": (26.5, 76.2, 0),
+    # 🔒 充電の USB-C。板 X 37.5・口が板の上端から 3.0 出る
+    "J13": (37.5, 80.55, 180),
+    # 口（線が板の面と平行に抜ける形）
+    "J4": (3.0, 12.0, 0),      # スピーカー IN（左・PH 横）
+    "J5": (3.0, 21.0, 0),      # スピーカー OUT（左・PH 横）
+    "J2": (14.0, 8.0, 0),      # OLED（PH 横 4 ピン・XIAO の下の谷。天井 8.5〜9.0 に対して 4.8）
+    # リードと会話ボタンは 2.54 の L 字（12.30 × 6.10・背 8.5）。90 度回して、
+    # 電池の右の帯（X 35〜44・Y 25〜75・天井 14.2）へ縦に並べる
+    "J6": (38.0, 36.0, 90),    # リード
+    "J8": (38.0, 51.0, 90),    # 会話ボタン
+    "J10": (39.0, 64.0, 0),    # 電池の PH 横（右の帯）
+}
+
+# 角度を検算する所。板の座標で「このパッドはここに来るはず」を書いておく。
+# 🔴 鏡像事故はここで止める（[[mirror-accident-ledger]]）。1 本目と 7 本目の Y が入れ替わったら落ちる
+CHECK_PADS = {
+    ("J1", "1"): (9.40, 2.90), ("J1", "7"): (9.40, 18.14),
+    ("J14", "1"): (24.63, 2.90), ("J14", "7"): (24.63, 18.14),
 }
 
 
@@ -250,55 +268,29 @@ def seg(x1, y1, x2, y2, layer="Edge.Cuts", width=0.1):
 
 
 def outline():
-    """2 枚の外形と、そのあいだのミシン目のタブ。タブの中に φ0.6 の穴を並べる。"""
+    """板の外形（44 × 81.2）と、上の縁の切り欠き。"""
     o = []
-    x0, y0 = ORG
-    hub = [(0, 0), (HUB_L, 0), (HUB_L, HUB_W), (0, HUB_W)]
-    # ハブ: 下の辺はタブのところで切れる
-    for i in range(4):
-        a, b = hub[i], hub[(i + 1) % 4]
-        if i != 2:
-            o.append(seg(x0 + a[0], y0 + a[1], x0 + b[0], y0 + b[1]))
-    cuts = sorted([(t - TAB_W / 2, t + TAB_W / 2) for t in TABS])
-    xs = [0.0] + [v for c in cuts for v in c] + [HUB_L]
-    for i in range(0, len(xs) - 1, 2):
-        o.append(seg(x0 + xs[i], y0 + HUB_W, x0 + xs[i + 1], y0 + HUB_W))
-    # 電源板: 上の辺も同じところで切れる
-    pw = [(PWR_X0, PWR_Y0), (PWR_X0 + PWR_L, PWR_Y0), (PWR_X0 + PWR_L, PWR_Y0 + PWR_W),
-          (PWR_X0, PWR_Y0 + PWR_W)]
-    for i in range(4):
-        a, b = pw[i], pw[(i + 1) % 4]
-        if i != 0:
-            o.append(seg(x0 + a[0], y0 + a[1], x0 + b[0], y0 + b[1]))
-    xs2 = [PWR_X0] + [v for c in cuts if PWR_X0 <= c[0] and c[1] <= PWR_X0 + PWR_L for v in c]         + [PWR_X0 + PWR_L]
-    for i in range(0, len(xs2) - 1, 2):
-        o.append(seg(x0 + xs2[i], y0 + PWR_Y0, x0 + xs2[i + 1], y0 + PWR_Y0))
-    # タブの横の辺（2mm の隙間を渡る）とミシン目の穴
-    for t in TABS:
-        if not (PWR_X0 <= t - TAB_W / 2 and t + TAB_W / 2 <= PWR_X0 + PWR_L):
-            continue
-        for sx in (-1, 1):
-            o.append(seg(x0 + t + sx * TAB_W / 2, y0 + HUB_W, x0 + t + sx * TAB_W / 2, y0 + PWR_Y0))
-        for k in range(5):
-            cx = x0 + t - TAB_W / 2 + 0.5 + k * 0.75
-            o.append(["gr_circle", ["center", f"{cx:.3f}", f"{y0 + HUB_W + GAP / 2:.3f}"],
-                      ["end", f"{cx + 0.3:.3f}", f"{y0 + HUB_W + GAP / 2:.3f}"],
-                      ["stroke", ["width", "0.1"], ["type", "default"]], ["fill", "no"],
-                      ["layer", Str("Edge.Cuts")], ["uuid", Str(uid())]])
+    nx0, nx1, ny = NOTCH
+    # 左下 →（右回り）。上の辺は切り欠きで 2 本に割れる
+    pts = [(0, 0), (BOARD_L, 0), (BOARD_L, BOARD_W),
+           (nx1, BOARD_W), (nx1, ny), (nx0, ny), (nx0, BOARD_W),
+           (0, BOARD_W)]
+    for i in range(len(pts)):
+        a, b = pts[i], pts[(i + 1) % len(pts)]
+        o.append(seg(*bx(*a), *bx(*b)))
     return o
 
 
 def mounting_holes():
-    """ハブの 4 隅の φ3.2（今の基板と同じ 68 × 46 間隔）。"""
+    """M2（φ2.2）4 つ。板 X 3.5 と 40.5・Y 3.5 と 69.5（37 × 66 の格子・🔒 筐体側 2026-09-13）。"""
     o = []
-    for sx in (-1, 1):
-        for sy in (-1, 1):
-            x, y = hx(HUB_L / 2 + sx * hub_ports.MOUNT[0] / 2, HUB_W / 2 + sy * hub_ports.MOUNT[1] / 2)
-            o.append(["footprint", Str("MountingHole:MountingHole_3.2mm_M3"), ["layer", Str("F.Cu")],
-                      ["uuid", Str(uid())], ["at", f"{x:.3f}", f"{y:.3f}"], ["attr", "exclude_from_bom"],
-                      ["pad", Str(""), "np_thru_hole", "circle", ["at", "0", "0"],
-                       ["size", "3.2", "3.2"], ["drill", "3.2"],
-                       ["layers", Str("F&B.Cu"), Str("*.Mask")], ["uuid", Str(uid())]]])
+    for mx, my in MOUNT:
+        x, y = bx(mx, my)
+        o.append(["footprint", Str("MountingHole:MountingHole_2.2mm_M2"), ["layer", Str("F.Cu")],
+                  ["uuid", Str(uid())], ["at", f"{x:.3f}", f"{y:.3f}"], ["attr", "exclude_from_bom"],
+                  ["pad", Str(""), "np_thru_hole", "circle", ["at", "0", "0"],
+                   ["size", f"{MOUNT_D}", f"{MOUNT_D}"], ["drill", f"{MOUNT_D}"],
+                   ["layers", Str("F&B.Cu"), Str("*.Mask")], ["uuid", Str(uid())]]])
     return o
 
 
@@ -310,7 +302,8 @@ NPTH = []      # 金属化していない穴のまわり（銅を置かせない
 #    **実際に載る部品は C165948（TYPE-C-31-M-12）のままで、足形も変えていない。**
 MODEL_VIS = {"J13": ("${KICAD10_3DMODEL_DIR}/Connector_USB.3dshapes/"
                      "USB_C_Receptacle_GCT_USB4105-xx-A_16P_TopMnt_Horizontal.step", (0.0, 0.365, 0.0))}
-FIXED = {"J13"}   # 押し離しても動かさない部品（USB-C は板の縁に口を合わせてあるので動かすと引っ込む）
+# 🔒 筐体側が座標を決めた部品。押し離しの対象にしない（動かすと筐体と合わなくなる）
+FIXED = {"J13", "J1", "J14", "U4", "SW1"}
 MARGIN = 0.5      # 板の縁から部品の枠まで
 
 
@@ -325,12 +318,14 @@ def fp_pad(p):
 
 
 def relax(placed, boxes, rounds=400):
-    """電源板の部品だけを少しずつ押し離して、枠の重なりを無くす（ハブ側は今の基板の座標なので動かさない）。
-    置いた位置の狙い（下の PLACE_PWR）は残したいので、動かすのは重なっている分だけにする。"""
+    """枠が重なっている部品を少しずつ押し離す。🔒 FIXED（筐体側が決めた座標）は動かさない。
+
+    置いた位置の狙い（上の PLACE）は残したいので、動かすのは重なっている分だけにする。
+    """
     idx = {b[0]: i for i, b in enumerate(boxes)}
-    movable = set(PLACE_PWR) - FIXED
-    lo = (ORG[0] + PWR_X0 + MARGIN, ORG[1] + PWR_Y0 + MARGIN)
-    hi = (ORG[0] + PWR_X0 + PWR_L - MARGIN, ORG[1] + PWR_Y0 + PWR_W - MARGIN)
+    movable = set(PLACE) - FIXED
+    lo = (ORG[0] + MARGIN, ORG[1] + MARGIN)
+    hi = (ORG[0] + BOARD_L - MARGIN, ORG[1] + BOARD_W - MARGIN)
 
     def shift(ref, dx, dy):
         i = idx[ref]
@@ -347,33 +342,52 @@ def relax(placed, boxes, rounds=400):
                 it["y"] += dy
         return dx, dy
 
-    for ref in movable:      # まず板の中へ入れる（置いた座標が縁を越えていることがある）
-        x0, y0, x1, y1 = boxes[idx[ref]][1]
+    # 板の外へ出ている物と、切り欠き・磁石の柱に掛かっている物を先に押し戻す
+    blocks = [bx(NOTCH[0], NOTCH[2]) + bx(NOTCH[1], BOARD_W),
+              bx(KEEPOUT_MAGNET[0], KEEPOUT_MAGNET[1]) + bx(KEEPOUT_MAGNET[2], KEEPOUT_MAGNET[3])]
+    # 🔴 取付穴（無メッキ）が部品の枠の中に入ると KiCad の DRC が npth_inside_courtyard で落ちる。
+    #    配線まで回してから気づくと遠いので、置く段階で押し出す（2026-09-13 に J4 で踏んだ）
+    for mxy in MOUNT:
+        cx, cy = bx(*mxy)
+        r = MOUNT_D / 2 + MOUNT_KEEP
+        blocks.append((cx - r, cy - r, cx + r, cy + r))
+    blocks = [(min(b[0], b[2]), min(b[1], b[3]), max(b[0], b[2]), max(b[1], b[3])) for b in blocks]
+    for ref in movable:
         shift(ref, 0.0, 0.0)
     for _ in range(rounds):
         moved = False
-        for i, (ra, a) in enumerate(boxes):
-            for j in range(i + 1, len(boxes)):
-                rb, b = boxes[j]
-                ov_x = min(a[2], b[2]) - max(a[0], b[0])
-                ov_y = min(a[3], b[3]) - max(a[1], b[1])
-                if ov_x <= 0 or ov_y <= 0:
-                    continue
-                free = [r for r in (ra, rb) if r in movable]
-                if not free:
-                    continue
-                push = (min(ov_x, ov_y) + 0.15) / len(free)
-                ax = (a[0] + a[2]) / 2 < (b[0] + b[2]) / 2
-                ay = (a[1] + a[3]) / 2 < (b[1] + b[3]) / 2
-                for r in free:
-                    s = (1 if (r == rb) == ax else -1)
-                    if ov_x <= ov_y:
-                        shift(r, s * push, 0)
+        pairs = [(boxes[i], boxes[j]) for i in range(len(boxes)) for j in range(i + 1, len(boxes))]
+        for (ra, a), (rb, b) in pairs:
+            a = boxes[idx[ra]][1]
+            b = boxes[idx[rb]][1]
+            ov_x = min(a[2], b[2]) - max(a[0], b[0])
+            ov_y = min(a[3], b[3]) - max(a[1], b[1])
+            if ov_x <= 0 or ov_y <= 0:
+                continue
+            free = [r for r in (ra, rb) if r in movable]
+            if not free:
+                continue
+            push = (min(ov_x, ov_y) + 0.15) / len(free)
+            ax = (a[0] + a[2]) / 2 < (b[0] + b[2]) / 2
+            ay = (a[1] + a[3]) / 2 < (b[1] + b[3]) / 2
+            for r in free:
+                if ov_x <= ov_y:
+                    shift(r, (1 if (r == rb) == ax else -1) * push, 0)
+                else:
+                    shift(r, 0, (1 if (r == rb) == ay else -1) * push)
+            moved = True
+        # 切り欠きと磁石の柱から押し出す
+        for ref in movable:
+            x0, y0, x1, y1 = boxes[idx[ref]][1]
+            for k in blocks:
+                ox = min(x1, k[2]) - max(x0, k[0])
+                oy = min(y1, k[3]) - max(y0, k[1])
+                if ox > 0 and oy > 0:
+                    if ox <= oy:
+                        shift(ref, (ox + 0.2) * (1 if (x0 + x1) / 2 > (k[0] + k[2]) / 2 else -1), 0)
                     else:
-                        s = (1 if (r == rb) == ay else -1)
-                        shift(r, 0, s * push)
-                a = boxes[i][1]
-                moved = True
+                        shift(ref, 0, (oy + 0.2) * (1 if (y0 + y1) / 2 > (k[1] + k[3]) / 2 else -1))
+                    moved = True
         if not moved:
             return
     print("  ⚠ 押し離しが収束しなかった")
@@ -400,51 +414,48 @@ def build():
             dx, dy = rot_xy(d["at"][0], d["at"][1], ang)
             NPTH.append((ref, dx, dy, max(d["size"]) / 2 + 0.3))
 
-    # 口（ピン 1 番の穴・向きは 1 番 → 2 番）
-    for p in hub_ports.ports():
-        if p.id not in PORT_REF:
-            continue
-        (x1, y1) = hole(p.pins[0][0])
-        (x2, y2) = hole(p.pins[1][0])
-        ang = {(1, 0): 90, (-1, 0): 270, (0, 1): 0, (0, -1): 180}[
-            (round((x2 - x1) / 2.54), round((y2 - y1) / 2.54))]
-        add(PORT_REF[p.id], x1, y1, ang)
-    # 板をまたぐ口（ハブ側）: 無くなった電流計の口の跡から後ろの縁に沿って 7 本
-    x1, y1 = hx(21.76, 48.86)   # 電流計の口の跡（24.3〜31.92）から 1 本ぶん左。右端はトグルの口の 5.08 手前
-    add("J11", x1, y1, 90)
-    # ハブの部品
-    for ent in HUB_PARTS:
-        ref, holes = ent[0], ent[1]
-        fixed_ang = ent[2] if len(ent) > 2 else None       # 3 つ目があれば角度を指定
-        pts = [hole(h) for h in holes]
-        cx = sum(p[0] for p in pts) / len(pts)
-        cy = sum(p[1] for p in pts) / len(pts)
-        if len(pts) == 1:
-            add(ref, pts[0][0], pts[0][1], fixed_ang or 0)
-        else:
-            dx, dy = pts[-1][0] - pts[0][0], pts[-1][1] - pts[0][1]
-            ang = fixed_ang if fixed_ang is not None else (0 if abs(dx) >= abs(dy) else 90)
-            add(ref, cx, cy, ang)
-    # 電源板
-    for ref, (x, y, ang) in PLACE_PWR.items():
-        X, Y = px(x, y)
-        add(ref, X, Y, ang)
+    # 置く（板の座標 → 図面の座標）。"xiao" は 1×7 の縦ソケット。
+    # 🔴 この足形のパッドは**局所 +Y** に並ぶ（+X ではない）。板の +Y へ並べるには 180 度回す。
+    #    最初 90 で書いて CHECK_PADS に捕まえてもらった（2026-09-13）
+    for ref, (x, y, ang) in PLACE.items():
+        X, Y = bx(x, y)
+        add(ref, X, Y, 180 if ang == "xiao" else ang)
 
     relax(placed, boxes)
     out_of_board = []
+    lim = (ORG[0], ORG[1], ORG[0] + BOARD_L, ORG[1] + BOARD_W)
     for ref, b in boxes:
-        if ref in FIXED:      # USB-C はプラグの通り道が板の外へ出るのが正しい
+        if ref in FIXED:      # USB-C とスイッチは口とレバーが板の外へ出るのが正しい
             continue
-        if ref in PLACE_PWR:
-            lim = (ORG[0] + PWR_X0, ORG[1] + PWR_Y0, ORG[0] + PWR_X0 + PWR_L,
-                   ORG[1] + PWR_Y0 + PWR_W)
-        else:
-            lim = (ORG[0], ORG[1], ORG[0] + HUB_L, ORG[1] + HUB_W)
         d = max(lim[0] - b[0], lim[1] - b[1], b[2] - lim[2], b[3] - lim[3])
         if d > 1e-6:
             out_of_board.append((ref, round(d, 2)))
     for ref, d in out_of_board:
         print(f"  板からはみ出し {ref}: {d} mm")
+
+    # 🔴 角度の検算。板の座標で「このパッドはここに来るはず」と突き合わせる（鏡像事故はここで止める）
+    at_of = {find1(f, "uuid")[1]: f for f in placed}
+    bad_pad = []
+    for f in placed:
+        ref = [pr[2] for pr in find(f, "property") if str(pr[1]) == "Reference"][0]
+        at = find1(f, "at")
+        fx, fy = float(at[1]), float(at[2])
+        fa = float(at[3]) if len(at) > 3 else 0.0
+        for q in find(f, "pad"):
+            key = (str(ref), str(q[1]))
+            if key not in CHECK_PADS:
+                continue
+            pa = find1(q, "at")
+            dx, dy = rot_xy(float(pa[1]), float(pa[2]), fa)
+            bxx, byy = fx + dx - ORG[0], BOARD_W - (fy + dy - ORG[1])
+            wx, wy = CHECK_PADS[key]
+            if abs(bxx - wx) > 0.02 or abs(byy - wy) > 0.02:
+                bad_pad.append((key, round(bxx, 2), round(byy, 2), wx, wy))
+    for key, gx, gy, wx, wy in bad_pad:
+        print(f"  🔴 パッドの位置が違う {key[0]}.{key[1]}: 板 ({gx}, {gy})、{wx}, {wy} のはず")
+    if not bad_pad:
+        print(f"  パッドの位置の検算 {len(CHECK_PADS)} 点すべて一致")
+
     missing = sorted(set(comps) - {b[0] for b in boxes} - {r for r in comps if r.startswith("#")})
     if missing:
         sys.exit("置き場所が決まっていない部品: " + ", ".join(missing))
@@ -492,19 +503,18 @@ def build():
     (OUT / f"{NAME}.kicad_pcb").write_text(kisym.dump(doc) + "\n", encoding="utf-8")
     print(f"{len(placed)} 部品・ネット {len(nets)} 本 → {OUT / (NAME + '.kicad_pcb')}")
     # 自動配線に渡す DSN。パネルの外形を囲い、板と板のあいだ・空いている所は銅を置かせない
-    x0, y0 = ORG
-    bnd = [(x0, y0), (x0 + HUB_L, y0), (x0 + HUB_L, y0 + PWR_Y0 + PWR_W), (x0, y0 + PWR_Y0 + PWR_W)]
-    ko = [(x0, y0 + HUB_W, x0 + HUB_L, y0 + PWR_Y0),                      # 割るところ
-          (x0 + PWR_X0 + PWR_L, y0 + PWR_Y0, x0 + HUB_L, y0 + PWR_Y0 + PWR_W),   # 電源板の右の空き
-          (x0, y0 + PWR_Y0, x0 + PWR_X0, y0 + PWR_Y0 + PWR_W)]                   # 左の空き
+    bnd = [bx(0, 0), bx(BOARD_L, 0), bx(BOARD_L, BOARD_W),
+           bx(NOTCH[1], BOARD_W), bx(NOTCH[1], NOTCH[2]), bx(NOTCH[0], NOTCH[2]),
+           bx(NOTCH[0], BOARD_W), bx(0, BOARD_W)]
+    ko = []
     pos = {it["ref"]: (it["x"], it["y"]) for it in INSTS}   # 押し離したあとの位置
     for ref, dx, dy, rr in NPTH:
         cx, cy = pos[ref]
         ko.append((cx + dx - rr, cy + dy - rr, cx + dx + rr, cy + dy + rr))
-    for sx in (-1, 1):
-        for sy in (-1, 1):
-            mx, my = hx(HUB_L / 2 + sx * hub_ports.MOUNT[0] / 2, HUB_W / 2 + sy * hub_ports.MOUNT[1] / 2)
-            ko.append((mx - 2.3, my - 2.3, mx + 2.3, my + 2.3))           # 取付穴（φ3.2 ＋ 逃げ）
+    for mx, my in MOUNT:                                    # 取付穴（φ2.2 ＋ 逃げ 0.5）
+        X, Y = bx(mx, my)
+        r = MOUNT_D / 2 + MOUNT_KEEP
+        ko.append((X - r, Y - r, X + r, Y + r))
     netpins = {}
     for (ref, pin), net in pads.items():
         netpins.setdefault(net, []).append((ref, pin))
