@@ -133,6 +133,22 @@ PLACE = {
     "J10": (39.0, 64.0, 0),    # 電池の PH 横（右の帯）
 }
 
+# 🔴 口は「枠が重なっていない」だけでは挿せない。**プラグの通り道**を別に見る。
+#    2026-09-13 ユーザー「J4J5どうやって挿すんだ」。私は当たりの検査しか書いておらず、
+#    J4・J6・J8 の 3 つで通り道が塞がっていた。[[clearance-is-not-assemblability]]
+#    値: (足形の中でのプラグの向き, 通り道の長さ)
+#      PH の横挿し   … 口は局所 −Y。プラグの胴 7.6 ＋ 指と曲がり 2.4 = 10.0
+#      2.54 の L 字   … 口は局所 −X。DuPont のハウジング 14（hardware/parts/plug.scad）＋ 2 = 16.0
+CONN = {
+    "J2": ("-y", 10.0), "J4": ("-y", 10.0), "J5": ("-y", 10.0), "J10": ("-y", 10.0),
+    "J6": ("-x", 16.0), "J8": ("-x", 16.0),
+}
+# 板の座標での向き。足形を ang 度回したとき、局所の −Y / −X が板のどちらを向くか
+OPEN_DIR = {
+    ("-y", 0): (0, 1), ("-y", 90): (-1, 0), ("-y", 180): (0, -1), ("-y", 270): (1, 0),
+    ("-x", 0): (-1, 0), ("-x", 90): (0, -1), ("-x", 180): (1, 0), ("-x", 270): (0, 1),
+}
+
 # 角度を検算する所。板の座標で「このパッドはここに来るはず」を書いておく。
 # 🔴 鏡像事故はここで止める（[[mirror-accident-ledger]]）。1 本目と 7 本目の Y が入れ替わったら落ちる
 CHECK_PADS = {
@@ -455,6 +471,40 @@ def build():
         print(f"  🔴 パッドの位置が違う {key[0]}.{key[1]}: 板 ({gx}, {gy})、{wx}, {wy} のはず")
     if not bad_pad:
         print(f"  パッドの位置の検算 {len(CHECK_PADS)} 点すべて一致")
+
+    # 🔴 プラグの通り道。口の前に、他の部品・板の縁・電池（背 4.4）が無いか
+    box = {ref: (b[0] - ORG[0], BOARD_W - (b[3] - ORG[1]),
+                 b[2] - ORG[0], BOARD_W - (b[1] - ORG[1])) for ref, b in boxes}
+    blocked, soft = [], []
+    for ref, (side, need) in CONN.items():
+        if ref not in box:
+            continue
+        x0, y0, x1, y1 = box[ref]
+        dx, dy = OPEN_DIR[(side, PLACE[ref][2] if isinstance(PLACE[ref][2], int) else 0)]
+        if dx:      # 左右へ挿す
+            a = (x1, y0, x1 + need, y1) if dx > 0 else (x0 - need, y0, x0, y1)
+        else:       # 上下へ挿す
+            a = (x0, y1, x1, y1 + need) if dy > 0 else (x0, y0 - need, x1, y0)
+        why = []
+        if a[0] < 0 or a[1] < 0 or a[2] > BOARD_L or a[3] > BOARD_W:
+            why.append("板の外へ出る")
+        for r2, b2 in box.items():
+            if r2 == ref:
+                continue
+            if a[0] < b2[2] - 1e-6 and b2[0] < a[2] - 1e-6 and a[1] < b2[3] - 1e-6 and b2[1] < a[3] - 1e-6:
+                why.append(r2)
+        if why:
+            blocked.append((ref, tuple(round(v, 2) for v in a), why))
+        # ⚠ 電池の影（天井 4.4）は **組むときは邪魔にならない**（電池は線を挿したあとに載る）。
+        #    効くのは組んだあとで挿し直すときだけなので、止めずに注意だけ出す
+        elif a[0] < BATTERY[2] and a[2] > BATTERY[0] and a[1] < BATTERY[3] and a[3] > BATTERY[1]:
+            soft.append(ref)
+    for ref, a, why in blocked:
+        print(f"  🔴 プラグが入らない {ref}: 通り道 X {a[0]}〜{a[2]}・Y {a[1]}〜{a[3]} … " + "・".join(why))
+    if soft:
+        print("  ⚠ 通り道が電池の下（挿し直すには電池を外す）: " + "・".join(soft))
+    if not blocked:
+        print(f"  プラグの通り道 {len(CONN)} 口すべて空いている")
 
     missing = sorted(set(comps) - {b[0] for b in boxes} - {r for r in comps if r.startswith("#")})
     if missing:
