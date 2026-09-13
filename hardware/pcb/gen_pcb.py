@@ -110,7 +110,7 @@ PLACE = {
     # 🔴 USB-C（J13）・電池の PH（J10）はここへ入れない（背 3.16 と 4.8 で、口が板の外を向く）
     # 🔴 CC の引き下げ 2 本は **USB-C の足元**に置く。旧電源板の並びをそのまま写したら
     #    J13 から 40mm 離れて CC2 が 1 本つながらなかった（2026-09-13）
-    "R44": (35.0, 72.5, 0), "R45": (31.5, 73.0, 0),
+    "R44": (27.0, 71.0, 0), "R45": (23.5, 71.0, 0),
     "C8": pwr(12.0, 4.0), "C7": pwr(16.0, 4.0),
     "U2": pwr(12.0, 9.5),
     "R6": pwr(4.0, 17.0, 90), "R7": pwr(4.0, 20.0, 90),
@@ -139,7 +139,7 @@ PLACE = {
     "D31": (19.5, 22.5, 0), "Q31": (24.0, 22.5, 0),
     # C32 は EN の跳ね止め。リレーではなく EN の線（リード J6・トグル SW1）の側に置く
     # C32 は EN の跳ね止め。RC は位置に依らないので、配線が通る所へ置いてよい
-    "C32": (31.0, 70.0, 0),
+    "C32": (16.0, 58.0, 0),
 
     # ======== 背の高い物（電池の影の外）========
     # 🔒 XIAO の口 2 列。列 X 9.40 が D0〜D6 側・1 本目が Y 2.90 側（gen_sch.py の XIAO_ROWS）
@@ -353,6 +353,26 @@ def mounting_holes():
                    ["size", f"{MOUNT_D}", f"{MOUNT_D}"], ["drill", f"{MOUNT_D}"],
                    ["layers", Str("F&B.Cu"), Str("*.Mask")], ["uuid", Str(uid())]]])
     return o
+
+
+def vbus_zone():
+    """🔴 USB-C の足元に VBUS の小さなベタを置く（2026-09-13）。
+
+    J13 の VBUS は A4・B4・A9・B9 の 4 パッドあり、真ん中の A4 が両隣の信号に囲まれて
+    自動配線が届かなかった（未配線 1 本がこれだけ残った）。口の足元にベタを敷けば 4 つが
+    まとめてつながる。ふつうの板でも電源はこう引く。
+    """
+    x, y, ang = PLACE["J13"]
+    r = (x - 5.6, y - 5.6, x + 5.6, y - 0.2)      # 板の座標での長方形（口の内側だけ）
+    pts = [(r[0], r[1]), (r[2], r[1]), (r[2], r[3]), (r[0], r[3])]
+    poly = ["polygon", ["pts"] + [["xy", f"{bx(*q)[0]:.3f}", f"{bx(*q)[1]:.3f}"] for q in pts]]
+    return [["zone", ["net", str(NETNUM["VBUS"])], ["net_name", Str("VBUS")],
+             ["layer", Str("F.Cu")], ["uuid", Str(uid())], ["name", Str("VBUS")],
+             ["priority", "1"], ["hatch", "edge", "0.5"],
+             ["connect_pads", "yes", ["clearance", "0.25"]],
+             ["min_thickness", "0.25"], ["filled_areas_thickness", "no"],
+             ["fill", "yes", ["thermal_gap", "0.2"], ["thermal_bridge_width", "0.5"]],
+             poly]]
 
 
 def gnd_zone():
@@ -666,7 +686,7 @@ def build():
            ["net", "0", Str("")]]
     for nm, num in sorted(nets.items(), key=lambda kv: kv[1]):
         doc.append(["net", str(num), Str(nm)])
-    doc += outline() + mounting_holes() + placed + gnd_zone()
+    doc += outline() + mounting_holes() + placed + gnd_zone() + vbus_zone()
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT / f"{NAME}.kicad_pcb").write_text(kisym.dump(doc) + "\n", encoding="utf-8")
     print(f"{len(placed)} 部品・ネット {len(nets)} 本 → {OUT / (NAME + '.kicad_pcb')}")

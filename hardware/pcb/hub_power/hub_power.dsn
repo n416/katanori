@@ -44,10 +44,10 @@
   )
   (placement
     (component R44
-      (place R44 950700.0 -476750.0 front 0)
+      (place R44 857361.4 -502000.0 front 0)
     )
     (component R45
-      (place R45 915000.0 -472739.6 front 0)
+      (place R45 823442.6 -502000.0 front 0)
     )
     (component C8
       (place C8 681175.0 -798600.0 front 0)
@@ -98,7 +98,7 @@
       (place R42 700250.0 -692000.0 front 0)
     )
     (component R43
-      (place R43 940937.5 -514800.0 front 0)
+      (place R43 954480.3 -514800.0 front 0)
     )
     (component U1
       (place U1 689100.0 -587400.0 front 0)
@@ -110,7 +110,7 @@
       (place C1 747875.0 -699600.0 front 0)
     )
     (component C4
-      (place C4 739950.0 -653400.0 front 0)
+      (place C4 739950.0 -656850.0 front 0)
     )
     (component C2
       (place C2 745600.0 -607200.0 front 0)
@@ -131,16 +131,16 @@
       (place R1 790325.0 -699600.0 front 0)
     )
     (component R2
-      (place R2 782681.2 -650760.0 front 0)
+      (place R2 783787.5 -650760.0 front 0)
     )
     (component R13
-      (place R13 800000.0 -522314.1 front 0)
+      (place R13 797104.3 -522314.1 front 0)
     )
     (component Q1
-      (place Q1 810681.2 -647298.4 front 0)
+      (place Q1 811787.5 -647298.4 front 0)
     )
     (component R20
-      (place R20 837787.5 -613800.0 front 0)
+      (place R20 838787.5 -613800.0 front 0)
     )
     (component LED1
       (place LED1 836000.0 -567600.0 front 0)
@@ -167,7 +167,7 @@
       (place Q31 840000.0 -987000.0 front 0)
     )
     (component C32
-      (place C32 907025.0 -493539.6 front 0)
+      (place C32 756787.5 -628550.0 front 0)
     )
     (component J1
       (place J1 694000.0 -1183000.0 front 0)
@@ -197,7 +197,7 @@
       (place J2 967500.0 -752000.0 front 0)
     )
     (component J4
-      (place J4 905437.5 -571079.3 front 0)
+      (place J4 920161.4 -532000.0 front 0)
     )
     (component J10
       (place J10 990000.0 -906500.0 front 0)
