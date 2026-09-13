@@ -90,7 +90,7 @@ def stitch():
     nets = {str(e[2]): e[1] for e in find(pcb, "net")}
     # 🔴 GND の銅からも 0.55 離す。GND なら電気的には触れてよいが、**穴どうしの間隔**は
     #    ネットに関係なく要る（JLCPCB の規則・DRC の hole_to_hole が 4 件出た）
-    VIA, DRILL, CLR, PITCH = 0.6, 0.3, 0.55, 3.0
+    VIA, DRILL, CLR, PITCH = 0.6, 0.3, 0.55, 3.2
     put = []
     for i in range(int((G.BOARD_L - 2) / PITCH) + 1):
         for j in range(int((G.BOARD_W - 2) / PITCH) + 1):

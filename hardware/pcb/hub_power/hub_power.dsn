@@ -37,17 +37,17 @@
     (keepout "ko10b" (rect B.Cu 619000.0 -1193000.0 651000.0 -1161000.0))
     (keepout "ko11" (rect F.Cu 989000.0 -1193000.0 1021000.0 -1161000.0))
     (keepout "ko11b" (rect B.Cu 989000.0 -1193000.0 1021000.0 -1161000.0))
-    (keepout "ko12" (rect F.Cu 619000.0 -533000.0 651000.0 -501000.0))
-    (keepout "ko12b" (rect B.Cu 619000.0 -533000.0 651000.0 -501000.0))
-    (keepout "ko13" (rect F.Cu 989000.0 -533000.0 1021000.0 -501000.0))
-    (keepout "ko13b" (rect B.Cu 989000.0 -533000.0 1021000.0 -501000.0))
+    (keepout "ko12" (rect F.Cu 619000.0 -575500.0 651000.0 -543500.0))
+    (keepout "ko12b" (rect B.Cu 619000.0 -575500.0 651000.0 -543500.0))
+    (keepout "ko13" (rect F.Cu 989000.0 -575500.0 1021000.0 -543500.0))
+    (keepout "ko13b" (rect B.Cu 989000.0 -575500.0 1021000.0 -543500.0))
   )
   (placement
     (component R44
-      (place R44 857361.4 -502000.0 front 0)
+      (place R44 863610.7 -502000.0 front 0)
     )
     (component R45
-      (place R45 823442.6 -502000.0 front 0)
+      (place R45 828510.7 -502000.0 front 0)
     )
     (component C8
       (place C8 681175.0 -798600.0 front 0)
@@ -98,7 +98,7 @@
       (place R42 700250.0 -692000.0 front 0)
     )
     (component R43
-      (place R43 954480.3 -514800.0 front 0)
+      (place R43 890210.5 -514800.0 front 0)
     )
     (component U1
       (place U1 689100.0 -587400.0 front 0)
@@ -134,7 +134,7 @@
       (place R2 783787.5 -650760.0 front 0)
     )
     (component R13
-      (place R13 797104.3 -522314.1 front 0)
+      (place R13 800000.0 -522314.1 front 0)
     )
     (component Q1
       (place Q1 811787.5 -647298.4 front 0)
@@ -197,7 +197,7 @@
       (place J2 967500.0 -752000.0 front 0)
     )
     (component J4
-      (place J4 920161.4 -532000.0 front 0)
+      (place J4 944807.0 -532000.0 front 0)
     )
     (component J10
       (place J10 990000.0 -906500.0 front 0)
