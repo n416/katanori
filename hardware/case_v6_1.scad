@@ -253,7 +253,7 @@ UNITS = ["oled", "rsp", "hub", "riser", "oriser", "bat", "knob", "btn", "spk", "
 module one(n) {
     if (n == "oled") at_oled() oled_242();   // 2026-09-14: DuPont は廃止（ライザーのメスが受ける）
     if (n == "rsp")  at_rsp() respeaker_lite();   // 2026-09-14: XIAO の DuPont は廃止（ライザーのメスが受ける）
-    if (n == "hub")  { pcb61(); usbc61(); }   // v6.1: 1 枚の PCB（四隅の柱の抜き込み）＋ 充電の USB-C
+    if (n == "hub")  { pcb61(); usbc61(); pcb_parts61(); }   // v6.1: 1 枚の PCB ＋ 充電の USB-C ＋ 板の上の部品（基板担当から）
     if (n == "riser") riser61();   // XIAO の 2 列を受けるライザー（2026-09-14）
     if (n == "oriser") oriser61();   // OLED の 4 ピンを受けるライザー（2026-09-14）
     if (n == "bat")  at_bat()  lipo_1000mah();
@@ -280,6 +280,24 @@ module one(n) {
 module others(n) for (m = UNITS) if (m != n) one(m);
 // ---- v6.1 充電の USB-C（🔒 ユーザー 2026-09-14「PCB 基板に USB の充電口を左壁に付けて」）----
 //   PCB の左の縁（X 6.0）に横出しのレセプタクル。殻 8.94 × 3.26（v5 の TC_PORT_SZ − 逃げ 0.6）・胴の奥行 7.35（⚠ 一般値）・板の縁から 3.0 出る（v6 の板と同じ数）。Y の位置は私の仮
+// ---- 板の上の部品（🔒 基板担当 2026-09-14 の寸法。板の座標 = 世界 −(2.0, 13.5)）----
+//   口は全部 JST-PH 2.0・背 4.8。プラグの相手が入る通り道は枠の縁から 3.1（PCB_PLUG_PATH）
+//   [名前, x0, x1, y0, y1, 背, 抜く向き(+1: +Y / −1: −Y / 0: 上)]
+PCB_PLUG_H = 4.8; PCB_PLUG_PATH = 3.1; PCB_PLUG_UP = 16.0;   // 縦の口の上に要る高さ（⚠ 基板担当の見積り・実測ではない）
+PCB_PARTS = [
+    ["J4  SPK IN",  71.85, 78.75,  6.2, 14.8, PCB_PLUG_H,  1],
+    ["J5  SPK OUT",  6.05, 12.95, 10.7, 19.3, PCB_PLUG_H,  1],
+    ["J6  BTN2",    14.05, 20.95, 22.7, 31.3, PCB_PLUG_H, -1],
+    ["J7  REED+TGL",58.05, 68.95, 30.35, 35.85, 6.0,       2],   // 🔒 基板担当 2026-09-14: 縦の B4B-PH-K へ（横出しはハッチに当たった）。通り道は上へ 16
+    ["J10 BAT",     22.55, 29.45,  3.25,  8.75, 6.0,       2],   // 🔒 同: 縦の B2B-PH-K。線は前の縁の欠きから上がる
+    ["K31 RELAY",   56.30, 71.60, 17.8, 28.5, 9.33,        0],
+];
+function pcb_w(q) = [HUB_AT[0] + q[1], PCB_Y0 + q[3], HUB_AT[2] + 1.6];   // 板の座標 → 世界（枠の左前の角）
+module pcb_parts61() for (q = PCB_PARTS) color("#333") translate(pcb_w(q)) cube([q[2] - q[1], q[4] - q[3], q[5]]);
+// プラグの通り道（枠の縁から 3.1・背と同じ高さ）。0 が正
+module pcb_plug_paths() for (q = PCB_PARTS) let (o = pcb_w(q))
+    if (q[6] == 2) translate([o[0], o[1], o[2] + q[5]]) cube([q[2] - q[1], q[4] - q[3], PCB_PLUG_UP - q[5]]);                      // 縦の口: 胴の上から 16 まで
+    else if (q[6] != 0) translate([o[0], (q[6] > 0) ? o[1] + (q[4] - q[3]) : o[1] - PCB_PLUG_PATH, o[2]]) cube([q[2] - q[1], PCB_PLUG_PATH, q[5]]);
 PCB_NOTCH = 0.5;   // 板と柱の隙間
 PCB_SCR_D = 2.2;   // M2 の通し（板の穴）
 // 板は一度ふさいで、開けるのは次の 2 つだけ（2026-09-14 に開け直した）:
@@ -290,6 +308,7 @@ module pcb61() color("#2b6b3f") difference() {
     for (q = POSTS_B) if (q[1] + post_dy(q) > PCB_Y0)
         translate([q[0] - PCB_NOTCH, q[1] - PCB_NOTCH, HUB_AT[2] - 1]) cube([POST_W + 2 * PCB_NOTCH, post_dy(q) + 2 * PCB_NOTCH, 1.6 + 2]);
     for (h = HUB_HOLES_W) translate([h[0], h[1], HUB_AT[2] - 1]) cylinder(d = PCB_SCR_D, h = 1.6 + 2, $fn = 24);
+    translate([HUB_AT[0] + 21.0, PCB_Y0 - 1, HUB_AT[2] - 1]) cube([10.0, 3.0 + 1, 1.6 + 2]);   // 🔒 基板担当 2026-09-14: 前の縁の欠き（板の座標 X 21〜31・Y 0〜3）。電池の線がここから上がる
 }
 module usbc61() color("#c8ccd0") translate([HUB_AT[0] + PCB_L - USBC_SZ[0] + usbc_out(), USBC_Y - USBC_SZ[1] / 2, HUB_AT[2] + 1.6]) cube(USBC_SZ);   // 🔒 ユーザー 2026-09-14「USB 出口を右壁へ」: PCB の右の縁から 3.0 出る
 USBC_PORT_C = [IN_X + WALL / 2, USBC_Y, HUB_AT[2] + 1.6 + USBC_SZ[2] / 2];   // 口の中心（右の壁の厚みの中央）
@@ -304,8 +323,9 @@ function xiao_row_pts(r) = let (used = [[2, 3, 4, 5], [0, 1, 2]][r], zl = [9.397
 function riser_xs() = [for (r = [0, 1], k = [0, 1]) xiao_row_pts(r)[k][0]];
 function riser_y0() = xiao_row_pts(0)[0][1] - SOCK_FWD + SOCK_D;   // 板の前面 ＝ ソケットの奥
 function riser_zs() = [for (r = [0, 1]) xiao_row_pts(r)[0][2]];
+RISER_SOCK_CY = 18.78;   // 🔒 基板担当 2026-09-14: 板に立てる 1x07 のメスソケットの courtyard。板はこれを覆う幅にする
 module riser61() {
-    x0 = min(riser_xs()) - 1.27 - RISER_MARG; x1 = max(riser_xs()) + 1.27 + RISER_MARG;
+    x0 = HUB_AT[0]; x1 = HUB_AT[0] + RISER_SOCK_CY;   // 板の左の縁に揃える（左壁の内面 1.694 まで 0.306）
     zb = HUB_AT[2] + 1.6; zt = max(riser_zs()) + 1.27 + RISER_TOP_CL;
     color("#2b6b3f") difference() {
         translate([x0, riser_y0(), zb]) cube([x1 - x0, RISER_T, zt - zb]);                            // 板
@@ -1286,6 +1306,8 @@ if (part == "chk_rsp_frame") intersection() {
     at_rsp() translate(RSP_PROBE - [0.5, 0.5, 0.5]) cube(1.0);
     translate(W_rsp(RSP_PROBE) - [0.5, 0.5, 0.5]) cube(1.0);
 }
+if (part == "plugpath") intersection() { pcb_plug_paths(); union() { for (n = UNITS) if (n != "hub") one(n); p_floor(); p_top(); p_lwall(); p_rwall(); p_front(); p_hatch(); } }   // 0 が正
+if (part == "plugpath_show") { color("#ff4040") pcb_plug_paths(); color("#9aa5b1", 0.4) union() { for (n = UNITS) one(n); p_hatch(); } }
 if (part == "look")  innards();
 if (part == "spklook") spk_look();
 if (part == "inalook") ina_look();
