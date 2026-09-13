@@ -11702,6 +11702,15 @@
 				(hide yes)
 			)
 		)
+		(property "LCSC" "C49678"
+			(at 368.30 165.10 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(property "Note" "AS5600 のパスコン（📄 9 ページ Figure 13）"
 			(at 368.30 165.10 0)
 			(effects
