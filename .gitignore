@@ -48,3 +48,6 @@ hardware/frozen/v6/chk/*.echo
 
 # 自動配線の実行時に出るログ（2026-09-14）
 en/
+
+# 基板の道具が書き出す途中のファイル（Voice PE のネットリストなど）
+hardware/pcb/build/

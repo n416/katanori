@@ -32,7 +32,7 @@ _n = [0]
 
 def uid():
     _n[0] += 1
-    return str(uuid.uuid5(uuid.NAMESPACE_URL, f"katanori/katanori61/{_n[0]}"))
+    return str(uuid.uuid5(uuid.NAMESPACE_URL, f"katanori/{NAME}/{_n[0]}"))
 
 
 G = 2.54
@@ -340,6 +340,20 @@ for i, net in enumerate(["GND", "VBUS", "V33", "BATP"]):
 
 
 # ---- 書き出し ----
+# 図の見出し・表題・用紙。gen_sch_voice.py はこれと OUT・NAME・ROOT・PARTS・GROUPS を差し替えて build() を呼ぶ
+SHEET = {
+    "paper": "A3",
+    "title": "katanori ハブ＋電源",
+    "comments": ["電源は Adafruit PowerBoost 1000C Rev B（CC BY-SA 3.0）の写し",
+                 "ハブは hardware/parts/relay_board.html の写し・gen_sch.py が生成"],
+    "heads": [("昇圧 — Adafruit PowerBoost 1000C Rev B の写し（CC BY-SA 3.0・Limor Fried / Adafruit）", "boost"),
+              ("充電 — 同じく PowerBoost 1000C Rev B の写し", "charge"),
+              ("電流計 — INA226（シャント 10mΩ・0x44）・電池と USB の口", "ina"),
+              ("ハブ — relay_board.html のミュートリレー・会話ボタン", "hub"),
+              ("口 — hub_ports.py の並びのまま（今の線がそのまま挿さる）", "ports")],
+}
+
+
 def prop(name, val, x, y, hide=False, just=None, ang=0):
     eff = ["effects", ["font", ["size", "1.27", "1.27"]]]
     if just:
@@ -491,22 +505,16 @@ def build():
             items.append(wire(sx, sy, sx + dx, sy + dy))
             items.append(label(net, sx + dx, sy + dy, la))
 
-    heads = [("昇圧 — Adafruit PowerBoost 1000C Rev B の写し（CC BY-SA 3.0・Limor Fried / Adafruit）", "boost"),
-             ("充電 — 同じく PowerBoost 1000C Rev B の写し", "charge"),
-             ("電流計 — INA226（シャント 10mΩ・0x44）・電池と USB の口", "ina"),
-             ("ハブ — relay_board.html のミュートリレー・会話ボタン", "hub"),
-             ("口 — hub_ports.py の並びのまま（今の線がそのまま挿さる）", "ports")]
-    for t, gname in heads:
+    for t, gname in SHEET["heads"]:
         gxx, gyy, _ = GROUPS[gname]
         items.append(["text", Str(t), ["exclude_from_sim", "no"], ["at", f"{gxx:.2f}", f"{gyy - 3:.2f}", "0"],
                       ["effects", ["font", ["size", "2", "2"], ["bold", "yes"]], ["justify", "left", "bottom"]],
                       ["uuid", Str(uid())]])
 
     doc = ["kicad_sch", ["version", "20250114"], ["generator", Str("eeschema")],
-           ["generator_version", Str("9.0")], ["uuid", Str(ROOT)], ["paper", Str("A3")],
-           ["title_block", ["title", Str("katanori ハブ＋電源")], ["rev", Str("0.1")],
-            ["comment", "1", Str("電源は Adafruit PowerBoost 1000C Rev B（CC BY-SA 3.0）の写し")],
-            ["comment", "2", Str("ハブは hardware/parts/relay_board.html の写し・gen_sch.py が生成")]],
+           ["generator_version", Str("9.0")], ["uuid", Str(ROOT)], ["paper", Str(SHEET["paper"])],
+           ["title_block", ["title", Str(SHEET["title"])], ["rev", Str("0.1")],
+            *[["comment", str(i), Str(c)] for i, c in enumerate(SHEET["comments"], 1)]],
            ["lib_symbols", *libs.values()], *items,
            ["sheet_instances", ["path", Str("/"), ["page", Str("1")]]], ["embedded_fonts", "no"]]
     OUT.mkdir(parents=True, exist_ok=True)
