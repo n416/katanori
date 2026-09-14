@@ -260,8 +260,7 @@ KNOB = {("U4", "1"): "V33", ("U4", "2"): "V33", ("U4", "4"): "GND", ("U4", "8"):
         # v6.1: 板のトグル（SW1）は無い。ハッチのトグルとリードは J7 の 4 ピンで受ける
         # 1 EN・2 GND がリードへ／3 EN・4 GND がトグルへ（並列の無極性スイッチ 2 つ）
         ("J7", "1"): "EN", ("J7", "2"): "GND", ("J7", "3"): "EN", ("J7", "4"): "GND",
-        # 会話ボタンは 2 ピンの口
-        ("J6", "1"): "GND", ("J6", "2"): "BTN"}
+        }   # 会話ボタンの口（J6）は 2026-09-14 に廃止（ユーザー「基板に会話ボタン要らないよ」）
 
 
 def check_knob(k):
@@ -274,7 +273,7 @@ def check_knob(k):
             print(f"  ❌ {ref}.{pin}: {net} のはずが {got}")
             bad += 1
     if not bad:
-        print(f"  AS5600 8 本・リード＋トグル 4 本・会話ボタン 2 本の計 {len(KNOB)} 本が想定どおり")
+        print(f"  AS5600 8 本・リード＋トグル 4 本の計 {len(KNOB)} 本が想定どおり")
     return bad
 
 
@@ -289,7 +288,7 @@ if __name__ == "__main__":
     b3 = check_ina(k)
     print("4. XIAO の口（ライザーの 1x07）")
     b3 += check_xiao(k)
-    print("5. つまみ（AS5600）・リード＋トグルの口・会話ボタンの口")
+    print("5. つまみ（AS5600）・リード＋トグルの口")
     b3 += check_knob(k)
     total = b1 + b2 + b3
     print(f"結果: ❌ {total} 件" if total else "結果: 合わない所は 0 件")

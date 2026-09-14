@@ -11968,7 +11968,7 @@
 		(uuid "bdaa1f86-a7f7-5464-baf2-3e2fff84e0f9")
 	)
 	(symbol
-		(lib_id "Connector_Generic:Conn_01x02")
+		(lib_id "Connector_Generic:Conn_01x04")
 		(at 109.22 243.84 0)
 		(unit 1)
 		(exclude_from_sim no)
@@ -11976,7 +11976,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "d212c640-b2fb-5358-8e70-a632f77b2b08")
-		(property "Reference" "J6"
+		(property "Reference" "J7"
 			(at 112.22 243.24 0)
 			(effects
 				(font
@@ -11985,7 +11985,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "BTN2"
+		(property "Value" "REED+TOGGLE"
 			(at 112.22 245.44 0)
 			(effects
 				(font
@@ -11994,7 +11994,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "Connector_JST:JST_PH_S2B-PH-K_1x02_P2.00mm_Horizontal"
+		(property "Footprint" "Connector_JST:JST_PH_B4B-PH-K_1x04_P2.00mm_Vertical"
 			(at 109.22 243.84 0)
 			(effects
 				(font
@@ -12012,7 +12012,7 @@
 				(hide yes)
 			)
 		)
-		(property "Note" "筐体の会話ボタンへ 2 本"
+		(property "Note" "1 EN・2 GND → リード ／ 3 EN・4 GND → マスタートグル（縦の口・上から挿す）"
 			(at 109.22 243.84 0)
 			(effects
 				(font
@@ -12027,122 +12027,11 @@
 		(pin "2"
 			(uuid "5b662767-50ad-5ae2-937c-77ff10df5173")
 		)
-		(instances
-			(project "katanori61"
-				(path "/377120ba-3fb3-530c-9f35-c36cf0274025"
-					(reference "J6")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(wire
-		(pts
-			(xy 104.14 243.84)
-			(xy 101.60 243.84)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "dfe9a702-5b52-5c51-9292-6550e84b5373")
-	)
-	(label "GND"
-		(at 101.60 243.84 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right bottom)
-		)
-		(uuid "9fc70582-008e-5b24-a797-78722e122178")
-	)
-	(wire
-		(pts
-			(xy 104.14 246.38)
-			(xy 101.60 246.38)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "a298186b-34ea-52a8-9f6b-552b7abaae63")
-	)
-	(label "BTN"
-		(at 101.60 246.38 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right bottom)
-		)
-		(uuid "1775229b-1b3e-5f25-ab66-be28947e7c19")
-	)
-	(symbol
-		(lib_id "Connector_Generic:Conn_01x04")
-		(at 132.08 243.84 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(uuid "bc869e0d-acb7-53f3-875d-c98026fef78d")
-		(property "Reference" "J7"
-			(at 135.08 243.24 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Value" "REED+TOGGLE"
-			(at 135.08 245.44 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Footprint" "Connector_JST:JST_PH_B4B-PH-K_1x04_P2.00mm_Vertical"
-			(at 132.08 243.84 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" ""
-			(at 132.08 243.84 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Note" "1 EN・2 GND → リード ／ 3 EN・4 GND → マスタートグル（縦の口・上から挿す）"
-			(at 132.08 243.84 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "c61de09a-44fc-5a48-8989-0ae356316583")
-		)
-		(pin "2"
-			(uuid "47a8df24-5486-58cb-92b0-dfb1f6f3483e")
-		)
 		(pin "3"
-			(uuid "a512844b-5b29-5a0c-a83f-d24c963755ed")
+			(uuid "dfe9a702-5b52-5c51-9292-6550e84b5373")
 		)
 		(pin "4"
-			(uuid "e4648343-e86e-511b-a7a7-b0cc4a9cf41a")
+			(uuid "9fc70582-008e-5b24-a797-78722e122178")
 		)
 		(instances
 			(project "katanori61"
@@ -12155,87 +12044,87 @@
 	)
 	(wire
 		(pts
-			(xy 127.00 241.30)
-			(xy 124.46 241.30)
+			(xy 104.14 241.30)
+			(xy 101.60 241.30)
 		)
 		(stroke
 			(width 0)
 			(type default)
+		)
+		(uuid "a298186b-34ea-52a8-9f6b-552b7abaae63")
+	)
+	(label "EN"
+		(at 101.60 241.30 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "1775229b-1b3e-5f25-ab66-be28947e7c19")
+	)
+	(wire
+		(pts
+			(xy 104.14 243.84)
+			(xy 101.60 243.84)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "bc869e0d-acb7-53f3-875d-c98026fef78d")
+	)
+	(label "GND"
+		(at 101.60 243.84 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "c61de09a-44fc-5a48-8989-0ae356316583")
+	)
+	(wire
+		(pts
+			(xy 104.14 246.38)
+			(xy 101.60 246.38)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "47a8df24-5486-58cb-92b0-dfb1f6f3483e")
+	)
+	(label "EN"
+		(at 101.60 246.38 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "a512844b-5b29-5a0c-a83f-d24c963755ed")
+	)
+	(wire
+		(pts
+			(xy 104.14 248.92)
+			(xy 101.60 248.92)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "e4648343-e86e-511b-a7a7-b0cc4a9cf41a")
+	)
+	(label "GND"
+		(at 101.60 248.92 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
 		)
 		(uuid "d4bdaca1-952e-5190-be12-2e0d806d36b3")
-	)
-	(label "EN"
-		(at 124.46 241.30 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right bottom)
-		)
-		(uuid "53a4ea18-f16e-5b64-84d3-622053859cff")
-	)
-	(wire
-		(pts
-			(xy 127.00 243.84)
-			(xy 124.46 243.84)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "7c65d72b-6bc7-5883-af21-a9a65af1c951")
-	)
-	(label "GND"
-		(at 124.46 243.84 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right bottom)
-		)
-		(uuid "a96745bb-85d7-54e4-ba6d-9d5b6038ca51")
-	)
-	(wire
-		(pts
-			(xy 127.00 246.38)
-			(xy 124.46 246.38)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "3510ad2e-8268-5657-8a8c-d6d4a36b7fad")
-	)
-	(label "EN"
-		(at 124.46 246.38 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right bottom)
-		)
-		(uuid "85386b8e-8127-5b92-b3e6-821bff0aa025")
-	)
-	(wire
-		(pts
-			(xy 127.00 248.92)
-			(xy 124.46 248.92)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "4b90241b-b8bc-5bb7-8ed9-45dc5909c30e")
-	)
-	(label "GND"
-		(at 124.46 248.92 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right bottom)
-		)
-		(uuid "93fc6d91-a599-54ca-9404-8e14711124e0")
 	)
 	(symbol
 		(lib_id "Connector_Generic:Conn_01x07")
@@ -12245,7 +12134,7 @@
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(uuid "1643d497-6836-5015-93e1-db5acd69a28d")
+		(uuid "53a4ea18-f16e-5b64-84d3-622053859cff")
 		(property "Reference" "J1"
 			(at 236.68 197.52 0)
 			(effects
@@ -12292,25 +12181,25 @@
 			)
 		)
 		(pin "1"
-			(uuid "3d14f7fc-57a3-5488-ad34-70db3bf0ca40")
+			(uuid "7c65d72b-6bc7-5883-af21-a9a65af1c951")
 		)
 		(pin "2"
-			(uuid "345f6be6-ccfc-5bba-8b57-49c87787797d")
+			(uuid "a96745bb-85d7-54e4-ba6d-9d5b6038ca51")
 		)
 		(pin "3"
-			(uuid "0dde3e62-0021-52b8-a933-47a4d82cd96b")
+			(uuid "3510ad2e-8268-5657-8a8c-d6d4a36b7fad")
 		)
 		(pin "4"
-			(uuid "a3cd87f6-8ba5-5ba6-9032-3f4fb4ac2f69")
+			(uuid "85386b8e-8127-5b92-b3e6-821bff0aa025")
 		)
 		(pin "5"
-			(uuid "8044f614-c839-5f47-84b9-b012cf50c965")
+			(uuid "4b90241b-b8bc-5bb7-8ed9-45dc5909c30e")
 		)
 		(pin "6"
-			(uuid "a95b55a4-ceae-5b29-89ec-eb5a12d006c3")
+			(uuid "93fc6d91-a599-54ca-9404-8e14711124e0")
 		)
 		(pin "7"
-			(uuid "b9f3fd77-e982-5174-9310-a3a63897a53f")
+			(uuid "1643d497-6836-5015-93e1-db5acd69a28d")
 		)
 		(instances
 			(project "katanori61"
@@ -12330,7 +12219,7 @@
 			(width 0)
 			(type default)
 		)
-		(uuid "fda2f4c5-d3e2-5820-85a3-0cece5cb46f3")
+		(uuid "3d14f7fc-57a3-5488-ad34-70db3bf0ca40")
 	)
 	(label "V5"
 		(at 226.06 190.50 180)
@@ -12340,7 +12229,7 @@
 			)
 			(justify right bottom)
 		)
-		(uuid "9ffe6dc2-f270-511c-93f7-f9b4604e46f0")
+		(uuid "345f6be6-ccfc-5bba-8b57-49c87787797d")
 	)
 	(wire
 		(pts
@@ -12351,7 +12240,7 @@
 			(width 0)
 			(type default)
 		)
-		(uuid "69e53911-ae3f-5b4d-b494-e4f49230bafb")
+		(uuid "0dde3e62-0021-52b8-a933-47a4d82cd96b")
 	)
 	(label "GND"
 		(at 226.06 193.04 180)
@@ -12361,7 +12250,7 @@
 			)
 			(justify right bottom)
 		)
-		(uuid "7ebc4eb9-5d84-5704-9c4a-bedcf3069c31")
+		(uuid "a3cd87f6-8ba5-5ba6-9032-3f4fb4ac2f69")
 	)
 	(wire
 		(pts
@@ -12372,7 +12261,7 @@
 			(width 0)
 			(type default)
 		)
-		(uuid "2e0628af-0776-50b9-b90c-af17112e4a28")
+		(uuid "8044f614-c839-5f47-84b9-b012cf50c965")
 	)
 	(label "V33"
 		(at 226.06 195.58 180)
@@ -12382,7 +12271,7 @@
 			)
 			(justify right bottom)
 		)
-		(uuid "ec3d1a23-dae6-574d-aebc-15297133f601")
+		(uuid "a95b55a4-ceae-5b29-89ec-eb5a12d006c3")
 	)
 	(wire
 		(pts
@@ -12393,7 +12282,7 @@
 			(width 0)
 			(type default)
 		)
-		(uuid "59c20092-e9b4-5edd-ad15-4aa67d6fcbf0")
+		(uuid "b9f3fd77-e982-5174-9310-a3a63897a53f")
 	)
 	(label "SDA"
 		(at 226.06 198.12 180)
@@ -12403,7 +12292,7 @@
 			)
 			(justify right bottom)
 		)
-		(uuid "c90af932-d94f-57e3-8b98-12446a6c62c4")
+		(uuid "fda2f4c5-d3e2-5820-85a3-0cece5cb46f3")
 	)
 	(wire
 		(pts
@@ -12414,7 +12303,7 @@
 			(width 0)
 			(type default)
 		)
-		(uuid "3172295b-f2a0-5938-8db0-0dd9d2f783df")
+		(uuid "9ffe6dc2-f270-511c-93f7-f9b4604e46f0")
 	)
 	(label "SCL"
 		(at 226.06 200.66 180)
@@ -12424,7 +12313,7 @@
 			)
 			(justify right bottom)
 		)
-		(uuid "a3543342-88f8-5906-b40f-ee78627c157a")
+		(uuid "69e53911-ae3f-5b4d-b494-e4f49230bafb")
 	)
 	(wire
 		(pts
@@ -12435,7 +12324,7 @@
 			(width 0)
 			(type default)
 		)
-		(uuid "4ee0c5db-38ae-5d10-a07b-68956d117c1b")
+		(uuid "7ebc4eb9-5d84-5704-9c4a-bedcf3069c31")
 	)
 	(label "BTN"
 		(at 226.06 203.20 180)
@@ -12445,7 +12334,7 @@
 			)
 			(justify right bottom)
 		)
-		(uuid "fe48fb2e-770c-5f10-90f4-dbae43777d63")
+		(uuid "2e0628af-0776-50b9-b90c-af17112e4a28")
 	)
 	(wire
 		(pts
@@ -12456,7 +12345,7 @@
 			(width 0)
 			(type default)
 		)
-		(uuid "94a9f1d0-7164-5442-8774-8eda5a1ce421")
+		(uuid "ec3d1a23-dae6-574d-aebc-15297133f601")
 	)
 	(label "IN"
 		(at 226.06 205.74 180)
@@ -12466,7 +12355,7 @@
 			)
 			(justify right bottom)
 		)
-		(uuid "86a5cf30-dc2c-5d5f-b9fa-3cc2e687fc2a")
+		(uuid "59c20092-e9b4-5edd-ad15-4aa67d6fcbf0")
 	)
 	(symbol
 		(lib_id "power:PWR_FLAG")
@@ -12476,7 +12365,7 @@
 		(in_bom no)
 		(on_board no)
 		(dnp no)
-		(uuid "dfcaf3bd-293c-566e-95bd-832b06226a1c")
+		(uuid "c90af932-d94f-57e3-8b98-12446a6c62c4")
 		(property "Reference" "#FLG01"
 			(at 335.74 243.24 0)
 			(effects
@@ -12516,7 +12405,7 @@
 			)
 		)
 		(pin "1"
-			(uuid "19571e6c-0447-598e-ba41-25f96363f497")
+			(uuid "3172295b-f2a0-5938-8db0-0dd9d2f783df")
 		)
 		(instances
 			(project "katanori61"
@@ -12535,7 +12424,7 @@
 			)
 			(justify left bottom)
 		)
-		(uuid "51aca1bf-f82f-5db6-b093-4a38e4caf828")
+		(uuid "a3543342-88f8-5906-b40f-ee78627c157a")
 	)
 	(symbol
 		(lib_id "power:PWR_FLAG")
@@ -12545,7 +12434,7 @@
 		(in_bom no)
 		(on_board no)
 		(dnp no)
-		(uuid "e9e374f6-815f-529c-97f4-7a147626be1f")
+		(uuid "4ee0c5db-38ae-5d10-a07b-68956d117c1b")
 		(property "Reference" "#FLG02"
 			(at 353.52 243.24 0)
 			(effects
@@ -12585,7 +12474,7 @@
 			)
 		)
 		(pin "1"
-			(uuid "f3dd163e-f17a-5add-ab0c-b71c713bf32d")
+			(uuid "fe48fb2e-770c-5f10-90f4-dbae43777d63")
 		)
 		(instances
 			(project "katanori61"
@@ -12604,7 +12493,7 @@
 			)
 			(justify left bottom)
 		)
-		(uuid "c7eff82a-5cbe-58b7-aaab-0c8a2d9b325c")
+		(uuid "94a9f1d0-7164-5442-8774-8eda5a1ce421")
 	)
 	(symbol
 		(lib_id "power:PWR_FLAG")
@@ -12614,7 +12503,7 @@
 		(in_bom no)
 		(on_board no)
 		(dnp no)
-		(uuid "a83e36cf-f2d3-5453-a3a9-69ac919e8325")
+		(uuid "86a5cf30-dc2c-5d5f-b9fa-3cc2e687fc2a")
 		(property "Reference" "#FLG03"
 			(at 371.30 243.24 0)
 			(effects
@@ -12654,7 +12543,7 @@
 			)
 		)
 		(pin "1"
-			(uuid "29b72f5b-d86b-5bfc-a4cd-9c4eb0160fa9")
+			(uuid "dfcaf3bd-293c-566e-95bd-832b06226a1c")
 		)
 		(instances
 			(project "katanori61"
@@ -12673,7 +12562,7 @@
 			)
 			(justify left bottom)
 		)
-		(uuid "bb400db5-0474-54a1-bbee-029d860972d5")
+		(uuid "19571e6c-0447-598e-ba41-25f96363f497")
 	)
 	(symbol
 		(lib_id "power:PWR_FLAG")
@@ -12683,7 +12572,7 @@
 		(in_bom no)
 		(on_board no)
 		(dnp no)
-		(uuid "4a1045b5-fa9b-5b87-a331-e7bff21a12d0")
+		(uuid "51aca1bf-f82f-5db6-b093-4a38e4caf828")
 		(property "Reference" "#FLG04"
 			(at 389.08 243.24 0)
 			(effects
@@ -12723,7 +12612,7 @@
 			)
 		)
 		(pin "1"
-			(uuid "ea8d46ab-6447-52b3-9233-0a34058fe61b")
+			(uuid "e9e374f6-815f-529c-97f4-7a147626be1f")
 		)
 		(instances
 			(project "katanori61"
@@ -12742,7 +12631,7 @@
 			)
 			(justify left bottom)
 		)
-		(uuid "ed06e291-7671-5357-a0f8-a4d2f9337a07")
+		(uuid "f3dd163e-f17a-5add-ab0c-b71c713bf32d")
 	)
 	(text "昇圧 — Adafruit PowerBoost 1000C Rev B の写し（CC BY-SA 3.0・Limor Fried / Adafruit）"
 		(exclude_from_sim no)
@@ -12754,7 +12643,7 @@
 			)
 			(justify left bottom)
 		)
-		(uuid "a6abf9a7-52fc-5e77-8033-8594f07fe205")
+		(uuid "c7eff82a-5cbe-58b7-aaab-0c8a2d9b325c")
 	)
 	(text "充電 — 同じく PowerBoost 1000C Rev B の写し"
 		(exclude_from_sim no)
@@ -12766,7 +12655,7 @@
 			)
 			(justify left bottom)
 		)
-		(uuid "8c93fd53-250c-554b-bf83-138c85f8b15e")
+		(uuid "a83e36cf-f2d3-5453-a3a9-69ac919e8325")
 	)
 	(text "電流計 — INA226（シャント 10mΩ・0x44）・電池と USB の口"
 		(exclude_from_sim no)
@@ -12778,7 +12667,7 @@
 			)
 			(justify left bottom)
 		)
-		(uuid "2e48da88-5edf-52e2-853b-e2acbe02bcae")
+		(uuid "29b72f5b-d86b-5bfc-a4cd-9c4eb0160fa9")
 	)
 	(text "ハブ — relay_board.html のミュートリレー・会話ボタン"
 		(exclude_from_sim no)
@@ -12790,7 +12679,7 @@
 			)
 			(justify left bottom)
 		)
-		(uuid "bc170b91-7838-5c29-9e5c-74dc6422fc0c")
+		(uuid "bb400db5-0474-54a1-bbee-029d860972d5")
 	)
 	(text "口 — hub_ports.py の並びのまま（今の線がそのまま挿さる）"
 		(exclude_from_sim no)
@@ -12802,7 +12691,7 @@
 			)
 			(justify left bottom)
 		)
-		(uuid "7dde5668-fadc-519d-9391-2168815944a3")
+		(uuid "4a1045b5-fa9b-5b87-a331-e7bff21a12d0")
 	)
 	(sheet_instances
 		(path "/"
