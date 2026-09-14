@@ -41,7 +41,8 @@ use <parts/plug.scad>
 use <parts/wires.scad>    // 線（丸束・曲げ半径で丸めた点列）
 use <parts/btn_v3.scad>    // 会話ボタン v3（🔒 2026-08-30）。原点 = ボタンの芯・z0 = 天板の外面
 use <parts/knob_v5.scad>   // つまみ v5。原点 = 軸・z0 = 天板の外面
-use <parts/spk_v61.scad>   // スピーカー v6.1（parts/spk_v5.scad の写し・違いは手の角度 S_NUT_ANG 57 → 20 だけ）。原点 = スピーカーの中心・z0 = 天板の外面
+use <parts/spk_v61.scad>   // スピーカー v6.1（parts/spk_v5.scad の写し。いまは中身も同じ・v6.1 の直しはこちらへ）。原点 = スピーカーの中心・z0 = 天板の外面
+use <parts/mts102_v61.scad>   // トグル MTS-102（📄 図面から起こした v6.1 用。parts/parts.scad の mts102 は v5 と共用なので触らない）
 include <parts/hub_board_parts.scad>   // HUB_HEADERS（口の表・自動生成）。数字はここから読む
 include <icons/icon_wrench_u.scad>   // スパナ（🔒 ユーザーの絵 uuu.svg から）
 include <icons/icon_headphone.scad>  // ヘッドホン（ユーザーの EPS から）
@@ -127,8 +128,8 @@ BAT_Z = BAT_AT[2];                  // 電池の下面（shutter_v4 が読む）
 // つばの欠き: トグルの胴（X 36〜44・下端 36.85）の真下だけ、蓋の縁の上のつば 1.0 を欠いて帯の縁（36.525）で止める（隙間 0.3・天板を上げずにトグルを入れる・2026-09-05）
 // 蓋の床の板のトグルの逃げ: 胴（幅 mts102_d 8）の左右 0.3・胴の下端の 0.3 下から上を欠く（🔒 ユーザー 2026-09-05「蓋の底をトグルスイッチ分削って」）
 // つまみの台座の後ろの縁の欠き: トグルの端子（幅 1.2・列は Z に 3 つ・先は Y 59.25）の周り 0.5。台座は Y 61.3 まで来ていて端子が 2.0 入っていた
-module tgl_term_notch() translate([TGL_AT[0] - 0.6 - 0.5, tgl_term(0)[1] - 0.5, TGL_AT[2] - mts102_w() / 2 - 0.5]) cube([1.2 + 1.0, 30, mts102_w() + 1.0]);
-module tgl_plate_notch() translate([TGL_AT[0] - mts102_d() / 2 - 0.3, IN_Y - 30, TGL_AT[2] - mts102_w() / 2 - 0.3]) cube([mts102_d() + 0.6, 31, 30]);
+module tgl_term_notch() translate([TGL_AT[0] - 0.6 - 0.5, tgl_term(0)[1] - 0.5, TGL_AT[2] - mts_w61() / 2 - 0.5]) cube([1.2 + 1.0, 30, mts_w61() + 1.0]);
+module tgl_plate_notch() translate([TGL_AT[0] - mts_d61() / 2 - 0.3, IN_Y - 30, TGL_AT[2] - mts_w61() / 2 - 0.3]) cube([mts_d61() + 0.6, 31, 30]);
 
 // ---- 置き道具 ----
 module at_oled() translate(OLED_AT) rotate([90, 0, 0]) children();                          // 模型の +Z（正面）→ −Y（前）
@@ -266,7 +267,7 @@ module one(n) {
     if (n == "btn")  at_btn()  { btn3_piston(); btn3_tub(); btn3_switch(); btn3_sw_screws(); btn3_v_screws(); }   // 台座（btn3_station_add/cut）は天板 p_top() の側   // バスタブ込み
     if (n == "spk")  at_spk()  spk_body();
     if (n == "spktub") at_spk() spk_tub_all();   // スピーカーのバスタブ 3 とねじ・ナット（2026-09-08）
-    if (n == "tgl")  at_tgl()  mts102();
+    if (n == "tgl")  at_tgl()  mts102_61();
     if (n == "bridge") bridge();
     if (n == "front")  brg_front();
     if (n == "straps") straps();
@@ -291,7 +292,7 @@ RISER_SOCK_H = 2.5;      // 板の上に出るオスのヘッダの樹脂。2.54
 PCB_PARTS = [
     ["J4  SPK IN",  71.85, 78.75,  6.20, 14.80, PCB_PLUG_H,  1,  1],
     ["J5  SPK OUT",  5.20, 13.80, 13.65, 20.55, PCB_PLUG_H, -3,  1],   // 🔒 基板担当 2026-09-14: 抜く向きは −X（左の縁）。Y を 1.9 後ろへ（11.75 → 13.65）。ライザーの裏の L 字の胴に 26.21mm³ 食い込んでいたため。L 字の下端 y 13.075 から 0.575 空く
-    ["J6  BTN2",    14.05, 20.95, 22.70, 31.30, PCB_PLUG_H, -1,  1],
+    ["J6  BTN2",    14.05, 20.95, 22.70, 31.30, PCB_PLUG_H, -1,  1],   // 🔒 ユーザー 2026-09-14「会話ボタンを基板に付ける必要はないと言ったんであって、線は必要でしょ」: 会話ボタンは天板のまま・板は線を受ける口だけ持つ（私が 1 度この口を消したのは読み違え）
     ["J7  REED+TGL",58.05, 68.95, 30.35, 35.85, 6.0,        2,  1],   // 🔒 縦の B4B-PH-K（横出しはハッチに当たった）。通り道は上へ
     ["J10 BAT",      1.70, 10.30, 22.10, 29.00, 4.8,        3, -1],   // 🔒 ユーザー 2026-09-14「水平に出す形に」: 板の裏のサイド型 S2B-PH-K（背 4.8）。プラグは +X（電池の側）へ抜く。床まで 3.2 残る
     ["K31 RELAY",   56.30, 71.60, 17.80, 28.50, 9.33,       0,  1],
@@ -915,7 +916,7 @@ module tc_hatch_blocks() {
 module p_hatch() difference() {
     union() { slab_hatch(); hatch_ears_top(); hatch_feet(); }   // v6.1: 蓋の縁・Type-C の羊羹は無い   // 縁（溝の床〜内面・つば）・上の耳 2 つ・下の足 2 つはハッチと一体。下の爪 2 つは 2026-09-07 に廃止（床の裏からのねじ 2 本に）。右下の耳も同日廃止（🔒 ユーザー「羽根はいらないね」）
     hatch_foot_cuts();   // 足のナットの横穴とねじの通し（羊羹に埋められないよう、ハッチ全体から引く）
-    at_tgl() translate([0, 0, -1]) mts102_hole(HATCH_T + 2);   // 局所 +z がハッチの外（🔴 2026-09-05 まで −z 側に切っていて穴が内側に居た）
+    at_tgl() translate([0, 0, -1]) mts102_hole61(HATCH_T + 2);   // 局所 +z がハッチの外（🔴 2026-09-05 まで −z 側に切っていて穴が内側に居た）
 }
 // ハブ基板の留め（v4 §5: M3×8 ×4・頭は床の裏のザグリ・ナットは基板の上）: 床から柱 φ7.0（高さ = 板の下面 2.5）、通し φ3.2、裏の座ぐり φ6.0 × 2.0
 // 🔒 ユーザー 2026-09-14「PCB 基板の穴位置は自由」: 電池（X 33.85〜83.85・Y 9.9〜44.9）の上には柱を立てられないので、
@@ -966,7 +967,7 @@ module hatch_claws() for (cx = CLAW_X) {
 }
 CRADLE_T = 1.6; CRADLE_CL = 0.3; CRADLE_Z0 = 41.0; CRADLE_Y1 = IN_Y - 2.75;   // 受け: 壁の厚み・胴との隙間・下端（胴の下端 36.85 の 4 上・胴の上 8.9 を抱く）・後端（ハッチの内面の縁とリブの手前）
 CRADLE_GAP = 2.2;   // 前の当ての、端子の両脇の切れ目（軸から ±2.2。端子 1.2 と、その両脇を下りる線 2 本が通る）
-module tgl_cradle() { x0 = TGL_AT[0] - mts102_d() / 2 - CRADLE_CL; x1 = TGL_AT[0] + mts102_d() / 2 + CRADLE_CL; yf = IN_Y - mts102_deep() + mts102_pin_h() - CRADLE_CL;   // 胴の前面 65.25 の 0.3 前
+module tgl_cradle() { x0 = TGL_AT[0] - mts_d61() / 2 - CRADLE_CL; x1 = TGL_AT[0] + mts_d61() / 2 + CRADLE_CL; yf = IN_Y - mts_deep61() + mts_pin_h61() - CRADLE_CL;   // 胴の前面 65.25 の 0.3 前
     for (x = [x0 - CRADLE_T, x1]) translate([x, yf - CRADLE_T, CRADLE_Z0]) cube([CRADLE_T, CRADLE_Y1 - (yf - CRADLE_T), Z_TOP + 0.01 - CRADLE_Z0]);   // 両側の壁
     for (r = [[x0 - CRADLE_T, TGL_AT[0] - CRADLE_GAP], [TGL_AT[0] + CRADLE_GAP, x1 + CRADLE_T]]) translate([r[0], yf - CRADLE_T, CRADLE_Z0]) cube([r[1] - r[0], CRADLE_T, Z_TOP + 0.01 - CRADLE_Z0]);   // 前の当て（端子の両脇）
 }
@@ -1130,11 +1131,16 @@ module oled_rib() difference() {
 //   細い空き（幅 3 未満）は消し、縁を 0.4 削る（切れ端・薄片を出さない）。中身が動けばリブが勝手に短くなる＝当たりは構成上 0
 //   外面を下にして刷るのでリブは上を向く。支柱は要らない
 // ============================================================
-RIBS_OFF = true;   // 🔒 ユーザー 2026-09-14「不確定が埋まってから手をつけるべきでは？」: 格子は**最後**に引く。
+RIBS_OFF = false;  // 🔒 ユーザー 2026-09-14「不確定が埋まってから手をつけるべきでは？」: 格子は**最後**に引いた。
+//   2026-09-14 に false。不確定 3 つが片付いたため: ライザーの保持は不要（両端が固定物に噛む筋交い）・線 5 本は承認済み・基板の口は 5 つで確定。
 //   中身が動くたびに引き直しになる。いま動く見込みが 3 つある: ライザー 2 枚の保持が未設計・線 5 本が未承認・
 //   基板側が来月の発注まで口を動かせる。それが済んでから `python hardware/tools/ribs_gen61.py` を回して false にする。
 //   🔴 false にする前に RIB_W の定義位置を直すこと（2026-09-14 に true → false にしたら、rib_2d() が
-//      自分より後ろの RIB_W を読んで警告 432 本・square([undef, …]) になった。前方参照） RIB_H = 2.0; RIB_H_FR = 1.0; RIB_W = 1.6; RIB_P = 8.0; RIB_MARG = 0.4; RIB_CLR = 0.5; RIB_OPEN = 1.5; RIB_THIN = 0.4;   // front は丈 1.0（v4 の値。窓の裏は OLED と ReSpeaker で 2.0 は立たない）。🔒 ユーザー 2026-09-05「壁とハッチとフロントにグリッドを」
+//      自分より後ろの RIB_W を読んで警告 432 本・square([undef, …]) になった。前方参照）
+//   🔴 2026-09-14: その 8 つの代入が**この注の行末に飲まれていて、まるごとコメントだった**（全部 undef）。
+//      1 行に代入を並べた行へコメントを足さない（memory: scad-edit-check-warnings）。以下、独立した行に戻したもの。
+//   front は丈 1.0（v4 の値。窓の裏は OLED と ReSpeaker で 2.0 は立たない）。🔒 ユーザー 2026-09-05「壁とハッチとフロントにグリッドを」
+RIB_H = 2.0; RIB_H_FR = 1.0; RIB_W = 1.6; RIB_P = 8.0; RIB_MARG = 0.4; RIB_CLR = 0.5; RIB_OPEN = 1.5; RIB_THIN = 0.4;
 function rib_h(k) = (k == "front") ? RIB_H_FR : RIB_H;
 module rib_slab(k) { b = rib_h(k) + RIB_CLR;
     if (k == "lwall") translate([LW_X, -200, -200]) cube([b, 400, 400]);
@@ -1163,7 +1169,7 @@ module rib_free2d(k) offset(delta = -RIB_THIN) offset(r = RIB_OPEN) offset(r = -
 //   OpenSCAD の offset で座標を 100 倍に伸ばして篩う方法は精度が壊れて板の上に角が出た（2026-09-05）
 RIB_LMIN = 4.0;   // 🔒 ユーザー 2026-09-05「v4 と同じ 8mm 未満ではなく 4mm 未満にしましょう」
 include <parts/ribs_v61_gen.scad>   // RIB_SEGS（自動生成: python hardware/tools/ribs_gen61.py）
-include <parts/props_v5_gen.scad>  // props_strap_* / raft_strap_*（自動生成・python hardware/tools/props_gen.py）
+include <parts/props_v61_gen.scad>  // props_top / raft_top（自動生成: python hardware/tools/props_gen61.py）。🔒 ユーザー 2026-09-14「天板だけですよね支柱とラフト」: 支柱が要るのは天板だけ。他の板は空の受け口
 module rib_2d(k) for (s = RIB_SEGS) if (s[0] == k) { if (s[1] == 0) translate([s[3], s[2] - RIB_W / 2]) square([s[4] - s[3], RIB_W]); else translate([s[2] - RIB_W / 2, s[3]]) square([RIB_W, s[4] - s[3]]); }
 module panel_ribs(k) if (!RIBS_OFF) color("#8fb8a0") {
     if (k == "lwall") translate([LW_X + RIB_H, 0, 0]) rotate([0, -90, 0]) linear_extrude(RIB_H) rib_2d(k);
@@ -1220,7 +1226,7 @@ function pb_mouth(i) = W_pb([pb_jp2_x0() + i * 2.54, -dupont_h(), 1.6 + 2.5]);  
 function pb_jst_mouth() = W_pb([pb_jst()[0], pb_jst()[1] + pb_jst_sz()[1] / 2 + pb_jst_mate(), 1.6 + 2.6]);   // 電池の JST の頭・軸は世界 −Y
 function knob_mouth(s, i) = let (x = s * (as5600_pcb() / 2 - as5600_edge_in_s(s)), row = (s < 0) ? as5600_row_l() : as5600_row_r()) W_knob(rotz([x, row[i], -2.5 - dupont_h()], 90 + knob_pcb_rot()) + [0, 0, -knob_deep()]);   // 軸は −Z
 function tc_mouth(i) = [TC_PIN_XC, TC_Y0 + 2.54 - 1.27 - dupont_h(), TC_ZT - (2.54 + i * 2.54)];   // 軸は −Y
-function tgl_term(i) = W_tgl([i * 4.7, 0, -mts102_deep()]);   // 端子の先（i = −1/0/+1）・軸は W_tgl_d([0,0,-1])
+function tgl_term(i) = W_tgl([i * mts_pin_p61(), 0, -mts_deep61()]);   // 端子の先（i = −1/0/+1）・軸は W_tgl_d([0,0,-1])
 function btn_pin(i) = W_btn(btn3_sw_pin(i));   // マイクロスイッチの端子の先（i = −1/0/+1）・下向き
 function j2_mouth() = let (j = respeaker_spk_j2()) W_rsp([(j[0] + j[1]) / 2, -(j[4] + 3.0), (j[2] + j[3]) / 2]);   // ReSpeaker のスピーカーソケットの PH プラグの頭・軸は世界 +Y
 BAT_LEAD = [BAT_AT[0] + lipo_size()[1] / 2, BAT_AT[1] + lipo_size()[0], BAT_AT[2] + lipo_size()[2] / 2];   // 電池の線の出口: 後ろの面の中央（タブは後ろ・at_bat）。軸 +Y
@@ -1350,13 +1356,14 @@ module w_btn61() { m = pcb_mouth("J6  BTN2");
 module w_reedtgl61() { m = pcb_mouth("J7  REED+TGL");
     for (i = [0, 1]) let (x = KNOB_AT[0] + (i == 0 ? -7.15 : 7.15), d = i == 0 ? -0.8 : 0.8)
         w1([[x, KNOB_AT[1] + 16.15, 43.9], [x, KNOB_AT[1] + 16.15, 42.0], [m[0] + d, m[1], 42.0], [m[0] + d, m[1], m[2]]], "reed", d = 1.55, r = 2.0);   // 台座の裏（Z 43.954）から下。台座の中の足の道は knob_v5 の縦の溝が持つ
-    for (i = [0, 1]) let (t = tgl_term(i == 0 ? -1 : 1), d = i == 0 ? -2.4 : 2.4)
+    for (i = [0, 1]) let (t = tgl_term(i == 0 ? 0 : -1), d = i == 0 ? -2.4 : 2.4)   // 🔒 ユーザー 2026-09-14「上と真ん中だよ・・・じゃないと上にしたときに ON にならないでしょ」: 使うのは 中（COM・Z 43.354）と 上（Z 48.054）。下（Z 38.654）は空き。
+    // 私は最初 上と下の端 2 本に付けていた（COM を使わないので何も入り切りしない）。その後 中＋下 に直したのも私の思い込みで、正は実物を持っているユーザーの 中＋上
         w1([t + [0, -1.0, 0], [t[0], 32.0, t[2]], [t[0] + d, 32.0, 40.0], [m[0] + d, 32.0, 40.0], [m[0] + d, m[1], 40.0], [m[0] + d, m[1], m[2]]], "tgl", d = 1.55, r = 2.0); }   // 端子は −Y を向く（先が Y 33.4・根元が 39.4）。先から Y 32 まで出してから右へ。つまみの軸（Y 〜30.8）の後ろを通る。Z 40 はつまみの台座の裏 43.954 の下
 // 電池: 電池の左の短辺（タブは左・板の座標 x 16.05 ＝ 世界 18.05）→ J10（板の裏・口は +X・世界 14.6, 39.05, 5.6）
 module w_bat61() { m = pcb_mouth("J10 BAT");
     for (i = [0, 1]) let (d = i == 0 ? -0.8 : 0.8)
         w1([[BAT_C[0] - 25.0 - 0.5, BAT_C[1] + d, 3.0], [16.5, BAT_C[1] + d, 3.0], [16.5, m[1], 3.0], [16.5, m[1], m[2]], [m[0], m[1], m[2]]], "bat", d = 1.55, r = 2.0); }
-WIRE_NAMES = ["spkout", "spkin", "btn2v61", "reedtgl", "batv61"];   // 🔴 v5 の 12 束（xiao / oled / as5600 / pwr / chg / ina / tgl / btn2 / phin / phout / bat / batout）は、
+WIRE_NAMES = ["spkout", "spkin", "btn2v61", "reedtgl", "batv61"];   // 🔒 ユーザー 2026-09-14「5 本の線の経路は良いと思いますよ」＝この 5 本の道は承認済み   // 🔴 v5 の 12 束（xiao / oled / as5600 / pwr / chg / ina / tgl / btn2 / phin / phout / bat / batout）は、
 //   相手がハブ基板・電流計・PowerBoost・Type-C 基板だったので v6.1 では成り立たない。モジュールは残してあるが描かない。
 //   引き直すのは スピーカー IN・会話ボタン・リード＋トグル・電池 の 4 本（口は PCB_PARTS にある）
 module w_one(n) color("#e0b060") {
@@ -1370,7 +1377,7 @@ module w_one(n) color("#e0b060") {
     if (n == "phin") w_phin(); if (n == "phout") w_phout(); if (n == "bat") w_bat(); if (n == "batout") w_batout();
 }
 module wires() for (n = WIRE_NAMES) w_one(n);
-module all_solid() { innards(); p_floor(); p_top(); p_lwall(); p_rwall(); p_front(); p_hatch(); }   // 線の当たりの相手（中身＋皮）
+module all_solid() { innards(); p_floor(); p_top(); p_lwall(); p_rwall(); p_front(); p_hatch(); ribs(); }   // 線の当たりの相手（中身＋皮＋格子。🔴 2026-09-14 に格子を足した）
 
 // ---- 絵と数字が同じ所を指しているかの検査（🔴 2026-09-14: at_rsp だけ回して W_rsp を回し忘れ、ライザーが回す前の位置に立った）----
 //   同じ局所点を ① at_rsp()（絵を描く方）と ② W_rsp()（数字を出す方）で置き、重なるかを見る。
@@ -1388,7 +1395,7 @@ if (part == "chk_rsp_frame") intersection() {
     at_rsp() translate(RSP_PROBE - [0.5, 0.5, 0.5]) cube(1.0);
     translate(W_rsp(RSP_PROBE) - [0.5, 0.5, 0.5]) cube(1.0);
 }
-if (part == "plugpath") intersection() { pcb_plug_paths(); union() { for (n = UNITS) if (n != "hub") one(n); p_floor(); p_top(); p_lwall(); p_rwall(); p_front(); p_hatch(); } }   // 0 が正
+if (part == "plugpath") intersection() { pcb_plug_paths(); union() { for (n = UNITS) if (n != "hub") one(n); p_floor(); p_top(); p_lwall(); p_rwall(); p_front(); p_hatch(); ribs(); } }   // 0 が正   // 🔴 2026-09-14: ribs() が入っていなかった。格子を引いた後は、これが無いと「格子がプラグの道を塞いでいないか」を見ていない（基板担当の依頼はこれ）
 if (part == "plugpath_show") { color("#ff4040") pcb_plug_paths(); color("#9aa5b1", 0.4) union() { for (n = UNITS) one(n); p_hatch(); } }
 if (part == "look")  innards();
 if (part == "spklook") spk_look();
@@ -1423,7 +1430,7 @@ if (part == "skin")   skin();
 // ---- 板 6 枚とブリッジを刷る向き（v4 と同じ）。板は外面を下（柱・棚・耳・格子・台座は全部上を向く）・ブリッジは皿の裏を下。前板（brg_front）と蓋一式（shutter_v4）は未定
 PLATES6 = ["floor", "top", "lwall", "rwall", "front", "hatch"];
 module plate_named(n) { if (n == "floor") p_floor(); if (n == "top") p_top(); if (n == "lwall") p_lwall(); if (n == "rwall") p_rwall(); if (n == "front") p_front(); if (n == "hatch") p_hatch(); }
-module skin_solid() for (n = PLATES6) plate_named(n);
+module skin_solid() { for (n = PLATES6) plate_named(n); ribs(); }   // 🔴 2026-09-14 に格子を足した（sk_<部品> が格子を見ていなかった）
 module print_floor()  translate([0, 0, FLOOR_T]) p_floor();
 module print_top()    translate([0, 0, Z_TOP + TOP_T]) rotate([180, 0, 0]) p_top();   // つまみのへこみの天井の柱とラフトは v4 と同じく生成器（props_top / raft_top）。knob_v5 の deck_props はつまみ単体の試し刷り用で、ここでは使わない（ユーザー 2026-09-05「ラフト無くなってる」「前のと違う」）
 module print_lwall()  translate([0, 0, -OUT_X0]) rotate([0, -90, 0]) { p_lwall(); panel_ribs("lwall"); }
