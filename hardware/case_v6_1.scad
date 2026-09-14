@@ -1130,7 +1130,11 @@ module oled_rib() difference() {
 //   細い空き（幅 3 未満）は消し、縁を 0.4 削る（切れ端・薄片を出さない）。中身が動けばリブが勝手に短くなる＝当たりは構成上 0
 //   外面を下にして刷るのでリブは上を向く。支柱は要らない
 // ============================================================
-RIBS_OFF = true;   // v6.1: リブの区間は v5 の板の物（ribs_v5_gen）なので描かない。板が決まったら tools/ribs_gen.py で作り直す RIB_H = 2.0; RIB_H_FR = 1.0; RIB_W = 1.6; RIB_P = 8.0; RIB_MARG = 0.4; RIB_CLR = 0.5; RIB_OPEN = 1.5; RIB_THIN = 0.4;   // front は丈 1.0（v4 の値。窓の裏は OLED と ReSpeaker で 2.0 は立たない）。🔒 ユーザー 2026-09-05「壁とハッチとフロントにグリッドを」
+RIBS_OFF = true;   // 🔒 ユーザー 2026-09-14「不確定が埋まってから手をつけるべきでは？」: 格子は**最後**に引く。
+//   中身が動くたびに引き直しになる。いま動く見込みが 3 つある: ライザー 2 枚の保持が未設計・線 5 本が未承認・
+//   基板側が来月の発注まで口を動かせる。それが済んでから `python hardware/tools/ribs_gen61.py` を回して false にする。
+//   🔴 false にする前に RIB_W の定義位置を直すこと（2026-09-14 に true → false にしたら、rib_2d() が
+//      自分より後ろの RIB_W を読んで警告 432 本・square([undef, …]) になった。前方参照） RIB_H = 2.0; RIB_H_FR = 1.0; RIB_W = 1.6; RIB_P = 8.0; RIB_MARG = 0.4; RIB_CLR = 0.5; RIB_OPEN = 1.5; RIB_THIN = 0.4;   // front は丈 1.0（v4 の値。窓の裏は OLED と ReSpeaker で 2.0 は立たない）。🔒 ユーザー 2026-09-05「壁とハッチとフロントにグリッドを」
 function rib_h(k) = (k == "front") ? RIB_H_FR : RIB_H;
 module rib_slab(k) { b = rib_h(k) + RIB_CLR;
     if (k == "lwall") translate([LW_X, -200, -200]) cube([b, 400, 400]);
@@ -1158,7 +1162,7 @@ module rib_free2d(k) offset(delta = -RIB_THIN) offset(r = RIB_OPEN) offset(r = -
 //   区間は tools/ribs_gen.py が出す（part="ribfree_<板>" の 2D を SVG に書き出し、格子の線との交わりを取る）。🔴 中身・線・板を動かしたら回し直す
 //   OpenSCAD の offset で座標を 100 倍に伸ばして篩う方法は精度が壊れて板の上に角が出た（2026-09-05）
 RIB_LMIN = 4.0;   // 🔒 ユーザー 2026-09-05「v4 と同じ 8mm 未満ではなく 4mm 未満にしましょう」
-include <parts/ribs_v5_gen.scad>   // RIB_SEGS
+include <parts/ribs_v61_gen.scad>   // RIB_SEGS（自動生成: python hardware/tools/ribs_gen61.py）
 include <parts/props_v5_gen.scad>  // props_strap_* / raft_strap_*（自動生成・python hardware/tools/props_gen.py）
 module rib_2d(k) for (s = RIB_SEGS) if (s[0] == k) { if (s[1] == 0) translate([s[3], s[2] - RIB_W / 2]) square([s[4] - s[3], RIB_W]); else translate([s[2] - RIB_W / 2, s[3]]) square([RIB_W, s[4] - s[3]]); }
 module panel_ribs(k) if (!RIBS_OFF) color("#8fb8a0") {
