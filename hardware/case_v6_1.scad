@@ -715,10 +715,15 @@ module p_hatch() difference() {
 //   ⇒ 板の 4 隅に一番近い 4 点は次のとおり（φ5 の柱の外周で 0.35 以上空く）
 HUB_HOLES_W = [[HUB_AT[0] + 4.0, PCB_Y0 + 3.5], [74.5, PCB_Y0 + 3.5], [12.0, PCB_Y1 - 4.0], [74.5, PCB_Y1 - 4.0]];   // φ7 の柱なので右は 74.5（隅の柱 78.354 まで 0.35）・後ろは板の縁から 4.0（柱の外周 50.4 で、ハッチの内面 51.4 まで 1.0）
 module hub_posts() for (h = HUB_HOLES_W) translate([h[0], h[1], -0.01]) cylinder(d = HUB_POST_D, h = HUB_AT[2] + 0.01, $fn = 32);   // 床から板の裏（Z 8.0）まで
+// 溝の口を開け始める X（柱の芯から）。六角の角（半径 hy）の外に 0.42 の肉が残る限界の点。ここより外は三日月になるので残さない
+function hub_nut_mouth_x() = let (R = HUB_POST_D / 2, hy = (NUT_AF + 0.1) / cos(30) / 2, t = hy + 0.42) (t >= R) ? 0 : sqrt(R * R - t * t);
 module hub_screw_cuts() for (h = HUB_HOLES_W) let (zc = HUB_AT[2] - HUB_NUT_SKIN - NUT_T, sx = (h[0] < IN_X / 2) ? 1 : -1) translate([h[0], h[1], 0]) {
     translate([0, 0, zc - 1.5]) cylinder(d = HUB_SCR_D, h = HUB_AT[2] - zc + 2.5, $fn = 24);                       // 通し（ナットの下 1.5 まで）
     hull() for (k = [0, sx * 10]) translate([k, 0, zc]) hex_pocket(NUT_AF, NUT_T);                                  // ナットの横差しの溝（口は箱の内側へ）
-}   // 床の裏には何も開けない
+    translate([(sx > 0) ? hub_nut_mouth_x() : -(hub_nut_mouth_x() + 10), -(HUB_POST_D / 2 + 0.2), zc])
+        cube([10, HUB_POST_D + 0.4, NUT_T]);   // 🔴 2026-09-14: 溝の口を柱の幅いっぱいに開ける。丸い柱と六角の平らがすれ違う所に
+}   // 厚さ 0.10mm の三日月が残り（実績の下限 0.42 割れ）、刷れば折れて中に落ちていた。残り肉が 0.42 を割る所から外は肉を残さない
+    // 床の裏には何も開けない
 
 // ---- ハッチを箱に留める作り（🔒 v3 2026-08-22 ユーザーの絵「下＝爪、上＝ナット」: 床に掛けてから上を倒し、トグルのねじ部に通してナットで止める）----
 //   下: ハッチの内面の下端から脚が下り、その唇が床の後ろの帯に埋めたバーの下へ −Y に滑り込む（v3/v4 の爪。X 12〜20・66〜74）
