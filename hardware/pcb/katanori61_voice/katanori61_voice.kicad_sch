@@ -33824,7 +33824,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "voicepe:C0603"
+		(property "Footprint" "voicepe:C0603_v2"
 			(at 647.70 165.10 0)
 			(effects
 				(font
@@ -33935,7 +33935,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "voicepe:C0603"
+		(property "Footprint" "voicepe:C0603_v2"
 			(at 660.40 167.64 0)
 			(effects
 				(font
@@ -35255,7 +35255,7 @@
 				)
 			)
 		)
-		(property "Footprint" "voicepe:R0603"
+		(property "Footprint" "voicepe:R0603_v2"
 			(at 571.50 193.04 0)
 			(effects
 				(font
@@ -35364,7 +35364,7 @@
 				)
 			)
 		)
-		(property "Footprint" "voicepe:R0603"
+		(property "Footprint" "voicepe:R0603_v2"
 			(at 612.14 193.04 0)
 			(effects
 				(font

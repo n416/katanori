@@ -9,6 +9,7 @@
 """
 
 import pathlib
+import re
 import subprocess
 import sys
 import xml.etree.ElementTree as ET
@@ -112,6 +113,155 @@ def footprints():
             if ref:
                 _fp[ref] = fp
     return _fp
+
+
+PRETTY = HERE / "voicepe.pretty"
+_KEEP = ("fp_line", "fp_rect", "fp_poly", "fp_circle", "fp_arc", "pad")
+_DROP_IN_PAD = ("uuid", "net", "pinfunction", "pintype")
+
+
+def _mirror_y(node):
+    """局所 Y と向きの符号を反転する（gen_pcb.mirror_y と同じ規則。裏面の足形はこの形で保存されている）。"""
+    if not isinstance(node, list):
+        return node
+    if node and str(node[0]) in ("at", "start", "end", "center", "mid", "xy"):
+        out = list(node)
+        if len(out) > 2:
+            out[2] = f"{(-float(out[2])) + 0.0:g}"      # + 0.0 で -0 を 0 にする
+        if str(node[0]) == "at" and len(out) > 3:
+            out[3] = f"{(-float(out[3])) % 360 + 0.0:g}"
+        return out
+    return [_mirror_y(e) for e in node]
+
+
+def _flip(s):
+    s = str(s)
+    return Str("B." + s[2:]) if s.startswith("F.") else Str("F." + s[2:]) if s.startswith("B.") else Str(s)
+
+
+def _pad_angle(pad):
+    at = find1(pad, "at")
+    return float(at[3]) if len(at) > 3 else 0.0
+
+
+def _set_pad_angle(pad, a):
+    at = find1(pad, "at")
+    new = list(at[:3])
+    a %= 360
+    if abs(a) > 1e-6 and abs(a - 360) > 1e-6:
+        new.append(f"{a:g}")
+    pad[pad.index(at)] = new
+
+
+def to_library(fp):
+    """板の上に置かれた足形 → 表向き・回転 0 のライブラリの足形。
+
+    板のファイルでは、図形とパッドの位置は足形の局所座標で、**パッドの向きだけは板の上での向き**
+    （足形の回転を足した値）で入っている（gen_pcb.place_footprint の注記と同じ）。
+    裏面の足形は局所 Y と向きが反転し、層が B.* になっている。⇒ 反転を戻し、足形の回転を引く。
+    """
+    back = str(find1(fp, "layer")[1]) == "B.Cu"
+    at = find1(fp, "at")
+    ang = float(at[3]) if len(at) > 3 else 0.0
+    name = str(fp[1]).split(":")[-1]
+    out = ["footprint", Str(name), ["version", "20241229"], ["generator", Str("katanori/voicepe.py")],
+           ["layer", Str("F.Cu")],
+           ["descr", Str("Home Assistant Voice PE（CERN-OHL-P v2・© Nabu Casa）の板から写した足形")]]
+    attr = find1(fp, "attr")
+    if attr:
+        out.append(list(attr))
+    for e in fp[2:]:
+        if not isinstance(e, list) or e[0] not in _KEEP:
+            continue
+        body = [x for x in e if not (isinstance(x, list) and x[0] in _DROP_IN_PAD)]
+        if back:
+            a_board = _pad_angle(body) if e[0] == "pad" else 0.0
+            body = _mirror_y(body)
+            for k in ("layer", "layers"):
+                lay = find1(body, k)
+                if lay:
+                    body[body.index(lay)] = [k] + [_flip(s) for s in lay[1:]]
+            if e[0] == "pad":
+                # 置くとき（gen_pcb）は「反転 → 向きに足形の回転を足す」なので、その逆
+                _set_pad_angle(body, ang - a_board)
+        elif e[0] == "pad":
+            _set_pad_angle(body, _pad_angle(body) - ang)
+        out.append(body)
+    return out, back, ang
+
+
+_fpname = {}
+
+
+def fp_names(refs):
+    """部品番号 → voicepe.pretty の足形の名前。
+
+    🔴 Voice PE の中で**同じ名前なのにパッドが違う足形**がある（C0603・R0603 に 0.889 角と 0.7×0.9 の
+    2 種類。2026-09-15）。名前だけで 1 つにまとめると片方のパッドが変わるので、形ごとに名前を分ける
+    （2 つ目は「名前_v2」）。
+    """
+    if not all(r in _fpname for r in refs):
+        fps = footprints()
+        sigs = {}
+        for ref in sorted(refs, key=lambda r: (re.sub(r"\d", "", r), int(re.sub(r"\D", "", r) or 0))):
+            lib, _, _ = to_library(fps[ref])
+            base = str(lib[1])
+            sig = _pads_sig(lib)
+            names = sigs.setdefault(base, [])
+            if sig not in names:
+                names.append(sig)
+            k = names.index(sig)
+            _fpname[ref] = base if k == 0 else f"{base}_v{k + 1}"
+    return {r: _fpname[r] for r in refs}
+
+
+def export_pretty(refs):
+    """refs の部品が使う足形を voicepe.pretty に書き出す。戻り値は 部品番号 → 足形の名前。"""
+    PRETTY.mkdir(exist_ok=True)
+    fps = footprints()
+    names = fp_names(refs)
+    written = set()
+    for ref in refs:
+        name = names[ref]
+        if name in written:
+            continue
+        lib, _, _ = to_library(fps[ref])
+        lib[1] = Str(name)
+        (PRETTY / f"{name}.kicad_mod").write_text(kisym.dump(lib) + "\n", encoding="utf-8")
+        written.add(name)
+    return names
+
+
+def _pads_sig(fp):
+    return sorted((str(p[1]), tuple(f"{float(v):g}" for v in find1(p, "at")[1:3]),
+                   tuple(f"{float(v):g}" for v in find1(p, "size")[1:3]), str(p[3]), _pad_angle(p) % 180)
+                  for p in find(fp, "pad"))
+
+
+def roundtrip(ref):
+    """ライブラリの足形を、元と同じ面・同じ回転で置き直したとき、全パッドが元と一致するか。"""
+    orig = footprints()[ref]
+    lib, back, ang = to_library(orig)
+    if back:
+        lib = _mirror_y(lib)
+    bad = []
+    got = {str(p[1]): p for p in find(lib, "pad")}
+    for p in find(orig, "pad"):
+        q = got[str(p[1])]
+        pa, qa = find1(p, "at"), find1(q, "at")
+        a_orig = _pad_angle(p) % 360
+        a_new = (_pad_angle(q) + ang) % 360
+        same_pos = all(abs(float(pa[i]) - float(qa[i])) < 1e-4 for i in (1, 2))
+        sx, sy = (float(v) for v in find1(p, "size")[1:3])
+        d = (a_orig - a_new) % 360
+        same_rot = min(d, 360 - d) < 1e-3 or (abs(sx - sy) < 1e-6 and min(d % 90, 90 - d % 90) < 1e-3) \
+            or min(abs(d - 180), abs(d + 180)) < 1e-3
+        lp = [str(s) for s in find1(p, "layers")[1:]]
+        lq = [str(s) for s in find1(q, "layers")[1:]]
+        lq = [str(_flip(s)) for s in lq] if back else lq
+        if not (same_pos and same_rot and lp == lq):
+            bad.append((str(p[1]), pa[1:], qa[1:], a_orig, a_new, lp, lq))
+    return bad
 
 
 if __name__ == "__main__":

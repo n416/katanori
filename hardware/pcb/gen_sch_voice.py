@@ -91,6 +91,7 @@ COPY = {
 }
 # 前のライザーに載る物（マイク 2 個・ESD・直列抵抗）
 RISER = "U4 U5 D1 D4 D10 D12 D18 D19 R5 R109 R6 R112 R30 R110"
+FP_NAME = voicepe.fp_names([r for refs in COPY.values() for r in refs.split()] + RISER.split())
 
 # ======== ネットの付け替え（Voice PE の名前 → この板の名前） ========
 RENAME = {
@@ -133,9 +134,10 @@ def vpart(r, grp):
     for num in pins:
         vnet = V.pin_net.get((r, num))
         nets[num] = OVERRIDE.get((r, num), net_name(vnet) if vnet else None)
-    fp = c["footprint"].split(":")[-1]
+    # 足形は Voice PE の板から写した voicepe.pretty（同じ名前で形の違う物は _v2 に分けてある）
+    fp = FP_NAME[r]
     return dict(ref=vref(r), lib=lib, value=clean(c["value"]), x=0.0, y=0.0, nets=nets,
-                fp=f"voicepe:{fp}" if fp else "", lcsc="", dnp=c["dnp"], grp=grp,
+                fp=f"voicepe:{fp}", lcsc="", dnp=c["dnp"], grp=grp,
                 note=f"Voice PE {r}（{c['sheet']}）", src=r)
 
 
