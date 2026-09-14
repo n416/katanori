@@ -38,7 +38,11 @@ COPPER = ["F.Cu", "In1.Cu", "In2.Cu", "B.Cu"]
 # Voice PE の設計規則に寄せた値（線 0.156・間隔 0.125・穴 0.4064/0.2032）。JLCPCB の 4 層で作れる範囲に丸めた
 # 🔴 間隔 0.12: マイクの LDO（U118・X2SON4）の足形はパッド 3–5 の間が 0.123 しかなく、0.127 では
 #    どう引いても違反になる（2026-09-15・Freerouting が最初から数えていた 16 件の一部）。JLCPCB の 4 層は 0.09 まで作れる
-TRACK, CLEAR, VIA = 0.15, 0.12, (0.45, 0.2)
+# 🔒 ユーザー 2026-09-15「ごっちゃごちゃ。簡単にショートしそう」: 線 0.2・すきま 0.15 に緩める
+#    （v6.1 の電源部の受動部品を 0402／0603 にして空けた面積を回す）。0.12・0.09 は JLCPCB で作れる下限寄りだった。
+#    ⚠ パッドどうしは足形そのものが狭い（XU316 0.146・U118 0.123）ので、kicad_dru でパッド間だけ 0.12 を許す
+TRACK, CLEAR, VIA = 0.2, 0.15, (0.45, 0.2)
+PAD_PAD_MIN = 0.12
 
 _load = G.load_fp
 
@@ -62,8 +66,8 @@ BOX["J2"] = (G.SOCK7, 90, VB.RISER_OLED[0] - 0.5, VB.RISER_OLED[2] - VB.RISER_D 
 # 前のマイクのライザーの口は、XIAO のライザーの枠（板の左の縁から）に 1x05 で置く
 BOX["J15"] = ("Connector_PinHeader_2.54mm:PinHeader_1x05_P2.54mm_Vertical", 90,
               -0.01, VB.RISER_XIAO[2] - VB.RISER_D / 2, 13.71, VB.RISER_XIAO[2] + VB.RISER_D / 2)
-BACK_SIDE = {"J10", "J105"}
-FIXED = {"J13", "J2", "J5", "J6", "J7", "J10", "J15", "U4", "U5", "J105"}
+BACK_SIDE = {"J10"}
+FIXED = {"J13", "J2", "J5", "J6", "J7", "J10", "J15", "U4", "U5"}
 
 # ======== まとまりと区画（板の座標 x0, y0, x1, y1） ========
 V61_GROUPS = {
@@ -73,7 +77,7 @@ V61_GROUPS = {
 VPE_GROUPS = {
     "xmos": ((14.0, 0.6, 36.5, 16.4),
              "U2 U3 X1 C2 C3 R3 R4 R1 C1 C6 C55 C56 C57 C60 C143 C43 C44 C45 C46 C47 C48 C49 C50 C51 "
-             "C52 C53 C54 C142 C58 C41 FB6 FB7 FB9 Q3 R29 R63 R31 C92 R32 R33 R59 R41 "
+             "C52 C53 C54 C142 C58 C41 FB6 FB7 FB9 Q3 R29 R63 R31 C92 R59 R41 "
              "R60 R70 R71 R72 R73 R103 R104 R105"),
     "micsup": ((0.6, 0.6, 13.5, 9.4), "R2 R8 R7 C4 C5 C12 C110 R11 U6 U18 R28 Q4 R12 R114"),
     # 🔒 2026-09-15 ユーザー（Freerouting の画面を見て）「右下のほうかなり開いてる」:
@@ -144,12 +148,10 @@ def build_place(comps):
             angs[GV.vref(vr)] = (180 - a) % 360 if back else (180 - a) % 360
         for r, (x, y) in fit(pts, region, mirror_x=True).items():
             place[r] = (x, y, round(angs[r]) % 360)
-    # --- JTAG（DNP）は裏の右の帯 ---
-    fp = load_fp(comps["J105"]["fp"])
-    fp = G.mirror_y(fp)
-    b = G.courtyard(fp, 0, 0, 90)
-    bx0, by0, bw, bh = VB.BACK_BANDS[1]
-    place["J105"] = (bx0 + 1.0 - b[0], by0 + bh - 1.0 + b[1], 90)
+    # --- JTAG のテストパッド（J16）は XU316 の左隣を狙う ---
+    #   🔒 ユーザー 2026-09-15: 20 ピンの J105（裏の右の帯・XU316 から 45mm）をやめ、XU316 のそばのパッドにした
+    ux, uy, _ = place["U102"]
+    place["J16"] = (ux - 8.0, uy, 0)
     missing = sorted(set(r for r in comps if not r.startswith("#")) - set(place))
     if missing:
         sys.exit("置き場所が決まっていない部品: " + " ".join(missing))
@@ -338,6 +340,61 @@ def full_box(fp, X, Y, ang):
             X + max(p[0] for p in pts), Y + max(p[1] for p in pts))
 
 
+def convex_hull(points):
+    """凸包（反時計回り・Andrew の方法）。"""
+    pts = sorted(set((round(x, 5), round(y, 5)) for x, y in points))
+    if len(pts) <= 2:
+        return pts
+
+    def cross(o, a, b):
+        return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+    lower, upper = [], []
+    for p in pts:
+        while len(lower) >= 2 and cross(lower[-2], lower[-1], p) <= 0:
+            lower.pop()
+        lower.append(p)
+    for p in reversed(pts):
+        while len(upper) >= 2 and cross(upper[-2], upper[-1], p) <= 0:
+            upper.pop()
+        upper.append(p)
+    return lower[:-1] + upper[:-1]
+
+
+def dsn_pad(p):
+    """パッド 1 つ → 自動配線に渡す形。多角形のパッドと斜めのパッドは、**実物を囲う長方形**にして渡す。
+
+    🔴 2026-09-15、マイクの LDO（U118・X2SON4）の足元で、線がパッドに 0.044 まで寄った。
+       このパッドは多角形（custom）で、`size` は基準の小さな四角（0.228 × 0.235）しか持っていない。
+       中央のパッドは 45° 回した 0.45 角。どちらも DSN では実物より小さく渡していた。
+    """
+    d = G.fp_pad(p)
+    at = find1(p, "at")
+    pa = float(at[3]) if len(at) > 3 else 0.0
+    pts = []
+    hx, hy = d["size"][0] / 2, d["size"][1] / 2
+    pts += [(-hx, -hy), (hx, -hy), (-hx, hy), (hx, hy)]
+    prim = find1(p, "primitives")
+    if prim:
+        for gp in find(prim, "gr_poly"):
+            for xy in find(find1(gp, "pts"), "xy"):
+                pts.append((float(xy[1]), float(xy[2])))
+    if prim or pa % 90:
+        a = math.radians(pa)
+        if prim:
+            # 多角形はそのまま多角形で渡す（長方形に丸めると隣のパッドに重なる。U118 の足で 0.534 まで膨らんだ）
+            poly = [(float(xy[1]), float(xy[2])) for gp in find(prim, "gr_poly") for xy in find(find1(gp, "pts"), "xy")]
+            if not poly:
+                poly = pts[:4]
+        else:
+            poly = [(-hx, -hy), (hx, -hy), (hx, hy), (-hx, hy)]
+        # 足形の座標（パッドの向きを入れた後）の多角形。多角形が複数あるパッド（X2SON4 は 2 つ）もあるので、
+        # 全部の点の凸包 1 つにする（点を並べてつなぐと形がねじれる）
+        d["poly"] = convex_hull([(x * math.cos(a) + y * math.sin(a), -x * math.sin(a) + y * math.cos(a))
+                                 for x, y in poly + pts[:4]])
+        d["rot"] = 0.0
+    return d
+
+
 def board_box(fp, x, y, ang):
     """足形の枠を板の座標（Y 上向き）で。x, y は板の座標の原点。"""
     X, Y = G.bx(x, y)
@@ -452,7 +509,7 @@ def build():
         for p in find(f, "pad"):
             if not str(p[1]) or str(p[2]) == "np_thru_hole":
                 continue
-            d = G.fp_pad(p)
+            d = dsn_pad(p)
             d["side"] = "B.Cu" if back else "F.Cu"
             pl.append(d)
         insts.append(dict(ref=r, fp=comps[r]["fp"], x=X, y=Y, ang=a, pads=pl))
@@ -504,12 +561,19 @@ def build():
     d["board"]["design_settings"]["rules"].update(
         # 最小線幅 0.09: Freerouting は細いピッチのパッドの手前で線を 0.112・0.09 へ細くする（ネックダウン）。
         #   JLCPCB の 4 層は 0.09mm（3.5mil）まで作れるので、規則をそこに合わせる（2026-09-15・237 本）
-        {"min_clearance": CLEAR, "min_track_width": 0.09, "min_via_diameter": VIA[0],
+        {"min_clearance": PAD_PAD_MIN, "min_track_width": 0.15, "min_via_diameter": VIA[0],
          "min_through_hole_diameter": VIA[1], "min_via_annular_width": 0.1, "min_hole_clearance": 0.2,
          "min_hole_to_hole": 0.25, "min_copper_edge_clearance": 0.3})
     d["net_settings"]["classes"][0].update({"clearance": CLEAR, "track_width": TRACK,
                                             "via_diameter": VIA[0], "via_drill": VIA[1]})
     pro.write_text(json.dumps(d, indent=2), encoding="utf-8")
+    # 規則: 板の下限は PAD_PAD_MIN（パッドどうしのため）。それ以外（線・穴・ベタ）は CLEAR を守らせる
+    NL = chr(10)
+    (G.OUT / f"{NAME}.kicad_dru").write_text(NL.join([
+        "(version 1)",
+        f'(rule "track_zone_{CLEAR}"',
+        f"  (constraint clearance (min {CLEAR}mm))",
+        "  (condition \"A.Type != 'Pad' || B.Type != 'Pad'\"))", ""]), encoding="utf-8")
     print(f"{len(placed)} 部品・ネット {len(nets)} 本 → {G.OUT / (NAME + '.kicad_pcb')}")
     # DSN
     bnd = [G.bx(*q) for q in G.outline_pts()]

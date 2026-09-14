@@ -78,12 +78,15 @@ COPY = {
            "R15 R16 R17 R23 R24 FB8 R75 R82 "
            "U9 C22 C23 C24 C27 C28 FB4 FB5 R20 R21 R22 C19 C20 C21 R99 R100 R39 "
            "R25 R35 C29 R36",
-    # XMOS: XU316 一式・リセット・JTAG（J5 は Voice PE でも DNP。書き込みのときだけ挿す）・マイクの電源とバッファ。
+    # XMOS: XU316 一式・リセット・マイクの電源とバッファ。
     #   写さない: SW1・R10・R66・C9・U14（ミュートスイッチ）／D13・D20・R52・R98・R138・R139（ミュートの検出）／
-    #             Q10・R58（USB の VBUS 検出）／R142・R143（ESP32 との予備線）
+    #             Q10・R58（USB の VBUS 検出）／R142・R143（ESP32 との予備線）／
+    #             🔒 J5（XSYS2 の 20 ピン）と R32・R33（xLink の 22Ω）: JTAG は XU316 のそばのテストパッド J16 にする
+    #             （ユーザー 2026-09-15。20 ピンは裏の右の帯にしか置けず、XU316 から 45mm 離れて配線が 4 本残った。
+    #              xLink は xSCOPE のデバッグ用で、書き込み xflash には要らない）
     "XMOS": "U2 U3 X1 C2 C3 R3 R4 R1 "
             "C1 C6 C55 C56 C57 C60 C143 C43 C44 C45 C46 C47 C48 C49 C50 C51 C52 C53 C54 C142 C58 C41 "
-            "FB6 FB7 FB9 Q3 R29 R63 R31 C92 J5 R32 R33 R59 "
+            "FB6 FB7 FB9 Q3 R29 R63 R31 C92 R59 "
             "R2 R8 R7 C4 C5 C12 C110 R11 U6 U18 R28 Q4 R12 R114 "
             "R41 R60 R70 R71 R72 R73 R103 R104 R105",
     # ESP32 シートから、XU316 とのあいだの直列抵抗（0Ω）と I2C の引き上げだけ
@@ -151,8 +154,23 @@ DROP_V61 = {"K31", "Q31", "D31", "R31", "R32", "C31",   # ミュートリレー�
             "J4",                                        # SPK IN（アンプが板に載る）
             "J1"}                                        # XIAO の受け（ESP32 が板に載る）
 MAIN = [copy.deepcopy(P) for P in gs.PARTS if P["ref"] not in DROP_V61]
+# 🔒 ユーザー 2026-09-15（「ごっちゃごちゃ。簡単にショートしそう」）: v6.1 の電源部の受動部品を小さくして、
+#    空いた面積を配線の余裕（すきま 0.15・線 0.2）に回す。0805 は v6.1 が手はんだを前提にしていた名残。
+#    10µF・2.2µF は 5V・VBUS に付くので、0402 では耐圧が足りない ⇒ 0603。47µF と 10mΩ（1206）はそのまま。
+#    ⚠ 大きさを変えた部品の LCSC 番号は 0805 の物なので消す（発注の前に在庫と一緒に引き直す・fab.py が止める）
+SHRINK = {"Resistor_SMD:R_0805_2012Metric": "Resistor_SMD:R_0402_1005Metric",
+          "LED_SMD:LED_0805_2012Metric": "LED_SMD:LED_0603_1608Metric"}
 for P in MAIN:
     P.setdefault("src", None)
+    old = P["fp"]
+    if old == "Capacitor_SMD:C_0805_2012Metric":
+        big = P["value"] in ("10uF", "2.2uF")
+        P["fp"] = "Capacitor_SMD:C_0603_1608Metric" if big else "Capacitor_SMD:C_0402_1005Metric"
+    elif old in SHRINK:
+        P["fp"] = SHRINK[old]
+    if P["fp"] != old:
+        P["lcsc"] = ""
+        P["note"] = (P["note"] + "・" if P["note"] else "") + f"統合基板で {old.split(':')[1].split('_')[1]} → {P['fp'].split(':')[1].split('_')[1]}（LCSC 番号は引き直し）"
     if P["ref"] == "J13":
         # 🔒 ユーザー 2026-09-15: USB-C を 1 つにして充電と書き込みを兼ねる
         P["nets"].update({"A6": "USB_DP", "B6": "USB_DP", "A7": "USB_DN", "B7": "USB_DN"})
@@ -207,6 +225,12 @@ MAIN += [
     #   先は KiCad から「電源が来ていない」に見える（回路の誤りではない）。Q1 の B の警告は v6.1 から同じ
     *[part(f"#FLG{i:02d}", "power:PWR_FLAG", "PWR_FLAG", {"1": n}, grp="flags")
       for i, n in enumerate(["VDD", "VDDIO", "V18", "N_U102_PLL_AVDD"], 5)],
+    # XU316 の JTAG はテストパッド（2 列 × 4・2.54mm）。ポゴピンの治具を当てて XTAG4 から最初の 1 回だけ書く。
+    #   1 番の V18 は XTAG4 が相手の電圧を知る基準（Voice PE の J5 の 1 番と同じ）。8 番は空き（治具の向きの目印）
+    part("J16", "Connector_Generic:Conn_02x04_Odd_Even", "XU316 JTAG",
+         {"1": "V18", "2": "TMS", "3": "TCK", "4": "TDI", "5": "TDO", "6": "RST_N", "7": "GND", "8": None},
+         "katanori:JTAG_TP_2x4_P2.54mm", grp="xmos", dnp=True,
+         note="部品は付けない（パッドだけ）。1 V18・2 TMS・3 TCK・4 TDI・5 TDO・6 RST_N・7 GND・8 空き"),
     part("J15", "Connector_Generic:Conn_01x05", "MIC RISER",
          {"1": "GND", "2": "MIC_CLK_M", "3": "GND", "4": "MIC_DATA_M", "5": "VDD_MIC"},
          "Connector_PinHeader_2.54mm:PinHeader_1x05_P2.54mm_Vertical", grp="esp",

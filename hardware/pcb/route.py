@@ -42,20 +42,63 @@ def uid():
 def run_freerouting():
     if not FR.exists():
         sys.exit(f"Freerouting が無い: {FR}")
-    extra = []
-    if NAME != "katanori61":
-        # 🔴 2026-09-15 統合基板: 配線の段は「一番良い版（未接続 2 本）に戻す」と言いながら、
-        #    続く最適化の段が未接続 9 本の別の版から始まり、その版が SES に書き出された（Freerouting 2.4.1）。
-        #    ⇒ 最適化の段を回さない。v6.1 は今の結果を変えないため、そのまま
-        extra = ["--router.optimizer.enabled=false"]
+    # 🔴 コマンドで渡した設定は Freerouting の共通の設定ファイル（%APPDATA%\freerouting\freerouting.json）に
+    #    **保存されて次の回にも残る**（2026-09-15、統合基板で切った最適化が v6.1 にも効く状態になっていた）。
+    #    ⇒ どちらの板でも、使う設定は毎回ぜんぶ明示する
+    if NAME == "katanori61":
+        passes, extra = "40", ["--router.optimizer.enabled=true", "--router.automatic_neckdown=true"]
+    else:
+        # 統合基板:
+        #  ・最適化の段を回さない。配線の段は「一番良い版（未接続 2 本）に戻す」と言いながら、続く最適化の段が
+        #    未接続 9 本の別の版から始まり、その版が SES に書き出された（Freerouting 2.4.1）
+        #  ・ネックダウン（細いピッチの手前で線を細くする）を切る。0.075 まで細くなり、後から太らせると隣に寄った
+        #  ・パスは 15 まで。3・4 回目はどちらもパス 8〜11 で改善が止まり、残りは待つだけだった（ユーザー「遅すぎる」）
+        passes = "15"
+        extra = ["--router.optimizer.enabled=false", "--router.automatic_neckdown=false"]
+    if "--incremental" in sys.argv:
+        passes = "10"
     r = subprocess.run([str(FR), "-de", str(OUT / f"{NAME}.dsn"), "-do", str(OUT / f"{NAME}.ses"),
-                        "-l", "en", "-mt", "1", "-mp", "40"] + extra, capture_output=True, text=True,
+                        "-l", "en", "-mt", "1", "-mp", passes] + extra, capture_output=True, text=True,
                        encoding="utf-8", errors="replace")
     for line in (r.stdout + r.stderr).splitlines():
         if "stage completed" in line or "stage interrupted" in line:
             print("  " + line.split("INFO")[-1].strip())
     if not (OUT / f"{NAME}.ses").exists():
         sys.exit("SES が出てこなかった:\n" + (r.stdout + r.stderr)[-2000:])
+
+
+def seed_wiring():
+    """--incremental: 今の板の配線と穴を DSN の wiring に入れて、未接続の分だけを自動配線に引かせる。
+
+    2026-09-15、ユーザー「遅すぎる」。全部を最初から引き直すと 15〜30 分かかり、残りは数本だけだった。
+    GND を縫うビア（stitch() が打つ φ0.6）は入れない（merge の後に打ち直す）。
+    """
+    pcb = kisym.parse((OUT / f"{NAME}.kicad_pcb").read_text(encoding="utf-8"))[0]
+    names = {str(e[1]): str(e[2]) for e in find(pcb, "net")}
+    txt = (OUT / f"{NAME}.dsn").read_text(encoding="utf-8")
+    m = re.search(r"\(via (Via\[0-\d\]_\d+:\d+_um)\)", txt)
+    vianame = m.group(1)
+    rows = []
+    for s in find(pcb, "segment"):
+        a, b = find1(s, "start"), find1(s, "end")
+        net = names.get(str(find1(s, "net")[1]), "")
+        if not net:
+            continue
+        w = float(find1(s, "width")[1])
+        rows.append(f'    (wire (path {find1(s, "layer")[1]} {round(w * dsn.SCALE)} '
+                    f'{dsn._x(float(a[1]))} {dsn._y(float(a[2]))} {dsn._x(float(b[1]))} {dsn._y(float(b[2]))})'
+                    f' (net "{net}") (type route))')
+    nv = 0
+    for v in find(pcb, "via"):
+        if float(find1(v, "size")[1]) >= 0.59:       # 縫いのビア
+            continue
+        at = find1(v, "at")
+        net = names.get(str(find1(v, "net")[1]), "")
+        rows.append(f'    (via {vianame} {dsn._x(float(at[1]))} {dsn._y(float(at[2]))} (net "{net}") (type route))')
+        nv += 1
+    txt = txt.replace("  (wiring\n  )", "  (wiring\n" + "\n".join(rows) + "\n  )")
+    (OUT / f"{NAME}.dsn").write_text(txt, encoding="utf-8")
+    print(f"  引けている配線 {len(rows) - nv} 本・穴 {nv} 個を DSN に入れた（残りだけを引かせる）")
 
 
 def merge():
@@ -79,8 +122,11 @@ def merge():
             sa, sb = (f"{a[0]:.4f}", f"{a[1]:.4f}"), (f"{b[0]:.4f}", f"{b[1]:.4f}")
             if sa == sb:
                 continue
+            # 統合基板: Freerouting は細いピッチの手前で線を 0.15 の半分（0.075）まで細くする。
+            #   JLCPCB の 4 層の下限 0.09 に揃える（2026-09-15・5 本。太らせた後の間隔は DRC が見る）
+            ww = max(w, 0.09) if NAME != "katanori61" else w
             body.append(["segment", ["start", sa[0], sa[1]],
-                         ["end", sb[0], sb[1]], ["width", f"{w:.3f}"],
+                         ["end", sb[0], sb[1]], ["width", f"{ww:.3f}"],
                          ["layer", Str(layer)], ["net", nets[net]], ["uuid", Str(uid())]])
             n_seg += 1
     # 穴の大きさは DSN に書いた物（v6.1 は Via[0-1]_800:400_um・統合基板は Via[0-3]_450:200_um）
@@ -159,6 +205,8 @@ def drc():
 
 if __name__ == "__main__":
     sys.stdout.reconfigure(encoding="utf-8")
+    if "--incremental" in sys.argv:
+        seed_wiring()
     if "--ses" not in sys.argv:
         run_freerouting()
     merge()

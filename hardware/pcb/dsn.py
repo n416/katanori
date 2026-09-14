@@ -12,6 +12,7 @@ KiCad のコマンドライン版には Specctra の DSN 書き出しも SES 取
 
 import math
 import re
+import zlib
 
 # 単位は KiCad の DSN 書き出しに合わせる: (resolution um 10) ＝ 0.1µm 刻み。
 # 🔴 ここを µm にしていたら、戻ってきた座標が 10 倍になった（2026-09-12）
@@ -38,6 +39,12 @@ def padstack_of(pad, copper=("F.Cu", "B.Cu")):
     side = pad.get("side", "F.Cu")
     layers = list(copper) if kind != "smd" else [side]
     tag = ("A" if kind != "smd" else "T") + ("" if side == "F.Cu" or kind != "smd" else "B")
+    if pad.get("poly"):
+        # 多角形のパッド（点は部品の回転まで入れた、パッドの基準点からの座標 mm）
+        coords = " ".join(f"{round(x * SCALE)} {round(-y * SCALE)}" for x, y in pad["poly"])
+        name = "Poly[%s]Pad_%08x" % (tag, zlib.crc32(coords.encode()))   # hash() は回すたびに変わる
+        body = [f"(shape (polygon {ly} 0 {coords}))" for ly in layers]
+        return name, body
     if shape == "circle":
         name = "Round[%s]Pad_%dum" % (tag, round(sx * SCALE))
         body = [f"(shape (circle {ly} {round(sx * SCALE)}))" for ly in layers]
@@ -79,7 +86,12 @@ def write_dsn(path, name, insts, nets, boundary, keepouts=(), copper=("F.Cu", "B
             elif a == 270:
                 q["at"] = (-y, x)
             q["rot"] = (p.get("rot", 0) + a) % 360
-            if q["rot"] % 180 == 90:      # 形の縦横を入れ替える（90°・270°）
+            if p.get("poly"):             # 多角形は点を部品の向きで回す（KiCad と同じ回し方）
+                ra = math.radians(a)
+                q["poly"] = [(x * math.cos(ra) + y * math.sin(ra), -x * math.sin(ra) + y * math.cos(ra))
+                             for x, y in p["poly"]]
+                q["rot"] = 0
+            elif q["rot"] % 180 == 90:    # 形の縦横を入れ替える（90°・270°）
                 q["size"] = (p["size"][1], p["size"][0])
                 q["rot"] = 0
             nm, body = padstack_of(q, copper)

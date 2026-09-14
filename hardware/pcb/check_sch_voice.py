@@ -193,6 +193,17 @@ for fn, (ref, pin, why) in ESP_CHANGED.items():
     if a is None or a != b:
         err(f"U5 の {fn} が {ref}.{pin} と同じネットにいない（{why}）")
 print(f"  変えたピン {len(ESP_CHANGED)} 本を確かめた")
+# XU316 の JTAG はテストパッド J16（Voice PE の J5 の代わり）。XU316 のピンの名前で突き合わせる
+JTAG = {"2": "TMS", "3": "TCK", "4": "TDI", "5": "TDO", "6": "RST_N", "1": "VDDIOB18", "7": "GND"}
+u2_pin = {pinname(fn, pin): pin for (ref, pin), fn in main_fn.items() if ref == "U102"}
+for jp, sig in JTAG.items():
+    a = net_of("main", "J16", jp)
+    b = net_of("main", "U102", u2_pin.get(sig, "?"))
+    if a is None or a != b:
+        err(f"JTAG のパッド J16.{jp} が XU316 の {sig} と同じネットにいない")
+if net_of("main", "J16", "8") not in (None, "missing"):
+    err("JTAG のパッド J16.8 は空きのはず")
+print(f"  JTAG のテストパッド {len(JTAG)} 個を XU316 のピンと確かめた")
 
 # ======== 3. 爆音の穴 ========
 print("3. 爆音の穴")

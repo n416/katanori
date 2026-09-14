@@ -78,25 +78,25 @@
       (place C41 475772.7 -521863.2 front 0)
     )
     (component R44
-      (place R44 751578.3 -564345.9 front 0)
+      (place R44 829529.8 -627065.0 front 0)
     )
     (component R45
-      (place R45 710429.6 -600930.3 front 0)
+      (place R45 791030.3 -676231.5 front 0)
     )
     (component C8
       (place C8 614734.0 -449150.7 front 0)
     )
     (component C7
-      (place C7 652134.7 -448690.3 front 0)
+      (place C7 636215.1 -427118.3 front 0)
     )
     (component U2
-      (place U2 643308.9 -557049.7 front 0)
+      (place U2 696541.0 -560362.0 front 0)
     )
     (component R6
-      (place R6 543087.0 -440993.9 front 0)
+      (place R6 502643.9 -693552.0 front 0)
     )
     (component R7
-      (place R7 501993.6 -693559.9 front 0)
+      (place R7 480059.1 -692876.7 front 0)
     )
     (component R16
       (place R16 430024.1 -552043.6 front 0)
@@ -105,79 +105,79 @@
       (place R17 627343.8 -725398.0 front 0)
     )
     (component R15
-      (place R15 576985.8 -449343.3 front 0)
+      (place R15 521073.1 -532844.9 front 0)
     )
     (component LED4
       (place LED4 664836.9 -724130.0 front 0)
     )
     (component R8
-      (place R8 520290.0 -522599.0 front 0)
+      (place R8 520027.3 -556333.2 front 0)
     )
     (component LED3
-      (place LED3 573163.6 -424825.7 front 0)
+      (place LED3 725041.2 -669582.1 front 0)
     )
     (component R14
-      (place R14 519412.8 -545549.3 front 0)
+      (place R14 761683.5 -668398.2 front 0)
     )
     (component R42
-      (place R42 725192.3 -662532.4 front 0)
+      (place R42 797358.7 -646361.9 front 0)
     )
     (component R43
-      (place R43 724992.8 -638997.5 front 0)
+      (place R43 725500.0 -622985.1 front 0)
     )
     (component U1
-      (place U1 695646.6 -492469.4 front 0)
+      (place U1 697646.6 -492469.4 front 0)
     )
     (component L1
-      (place L1 638933.5 -487979.6 front 0)
+      (place L1 640933.5 -487979.6 front 0)
     )
     (component C1
-      (place C1 691924.7 -448590.7 front 0)
+      (place C1 577814.8 -447572.0 front 0)
     )
     (component C4
-      (place C4 685361.2 -426128.8 front 0)
+      (place C4 682890.6 -605703.7 front 0)
     )
     (component C2
-      (place C2 728790.0 -564052.2 front 0)
+      (place C2 699751.4 -441893.2 front 0)
     )
     (component C6
-      (place C6 742492.5 -519408.2 front 0)
+      (place C6 743301.1 -504500.6 front 0)
     )
     (component C9
-      (place C9 752603.0 -470964.1 front 0)
+      (place C9 748704.3 -455972.1 front 0)
     )
     (component R3
-      (place R3 762622.0 -428113.6 front 0)
+      (place R3 826948.8 -663029.3 front 0)
     )
     (component R4
-      (place R4 809669.9 -625531.1 front 0)
+      (place R4 717755.6 -721147.2 front 0)
     )
     (component R1
-      (place R1 726466.3 -685225.2 front 0)
+      (place R1 726166.6 -692014.1 front 0)
     )
     (component R2
-      (place R2 653615.2 -600631.6 front 0)
+      (place R2 731436.2 -420363.2 front 0)
     )
     (component R13
-      (place R13 731633.7 -435494.9 front 0)
+      (place R13 763440.2 -623181.8 front 0)
     )
     (component Q1
-      (place Q1 696495.8 -548343.5 front 0)
+      (place Q1 749505.3 -548507.0 front 0)
     )
     (component R20
-      (place R20 615581.7 -601386.3 front 0)
+      (place R20 725187.6 -646824.0 front 0)
     )
     (component LED1
-      (place LED1 781075.0 -617080.4 front 0)
+      (place LED1 761095.2 -644561.7 front 0)
     )
     (component R5
-      (place R5 647791.2 -425305.4 front 0)
+      (place R5 599104.9 -424691.4 front 0)
     )
     (component LED2
-      (place LED2 761183.4 -640356.4 front 0)
+      (place LED2 799831.5 -619424.7 front 0)
     )
     (component C32
-      (place C32 687408.7 -585955.1 front 0)
+      (place C32 675422.9 -440679.0 front 0)
     )
     (component U5
       (place U5 873500.0 -502000.0 front 0)
@@ -189,13 +189,13 @@
       (place C43 990517.2 -483782.2 front 0)
     )
     (component R47
-      (place R47 610750.1 -414017.4 front 0)
+      (place R47 562494.8 -415010.9 front 0)
     )
     (component C44
-      (place C44 753987.0 -593974.3 front 0)
+      (place C44 755000.0 -578000.0 front 0)
     )
     (component C45
-      (place C45 743521.3 -616024.2 front 0)
+      (place C45 748502.6 -600592.5 front 0)
     )
     (component R48
       (place R48 442000.0 -700535.9 front 0)
@@ -222,16 +222,16 @@
       (place X101 659392.0 -745875.8 front 0)
     )
     (component C102
-      (place C102 578080.2 -740640.4 front 0)
+      (place C102 606593.5 -762362.0 front 0)
     )
     (component C103
-      (place C103 610327.5 -632149.2 front 0)
+      (place C103 688644.0 -725319.4 front 0)
     )
     (component R103
-      (place R103 716368.1 -755978.5 front 0)
+      (place R103 714902.4 -765128.9 front 0)
     )
     (component R104
-      (place R104 569010.6 -751269.7 front 0)
+      (place R104 585718.0 -761917.2 front 0)
     )
     (component R101
       (place R101 534337.9 -740649.9 front 0)
@@ -240,136 +240,130 @@
       (place C101 553885.3 -740199.8 front 0)
     )
     (component C106
-      (place C106 727380.2 -594734.9 front 0)
+      (place C106 753605.4 -755045.1 front 0)
     )
     (component C155
-      (place C155 734374.8 -706587.7 front 0)
+      (place C155 699408.8 -724382.0 front 0)
     )
     (component C156
-      (place C156 682187.2 -616407.6 front 0)
+      (place C156 606276.1 -635288.1 front 0)
     )
     (component C157
-      (place C157 688599.0 -739666.0 front 0)
+      (place C157 604723.2 -618965.2 front 0)
     )
     (component C160
-      (place C160 753855.4 -656200.9 front 0)
+      (place C160 755687.9 -700071.8 front 0)
     )
     (component C243
-      (place C243 577257.9 -588428.5 front 0)
+      (place C243 568527.2 -588918.4 front 0)
     )
     (component C143
-      (place C143 677336.5 -745139.6 front 0)
+      (place C143 605769.0 -597617.3 front 0)
     )
     (component C144
-      (place C144 587381.9 -756083.4 front 0)
+      (place C144 559587.4 -756442.3 front 0)
     )
     (component C145
-      (place C145 699070.7 -739702.1 front 0)
+      (place C145 610520.4 -746456.7 front 0)
     )
     (component C146
-      (place C146 613129.9 -746066.3 front 0)
+      (place C146 597925.7 -745763.0 front 0)
     )
     (component C147
-      (place C147 710642.9 -740332.9 front 0)
+      (place C147 707089.0 -749518.3 front 0)
     )
     (component C148
-      (place C148 598174.6 -740112.2 front 0)
+      (place C148 711327.2 -605772.7 front 0)
     )
     (component C149
-      (place C149 750453.2 -682784.8 front 0)
+      (place C149 685843.7 -761295.2 front 0)
     )
     (component C150
-      (place C150 721334.3 -738376.6 front 0)
+      (place C150 719092.8 -749759.2 front 0)
     )
     (component C151
-      (place C151 596990.1 -584494.8 front 0)
+      (place C151 589009.0 -588901.7 front 0)
     )
     (component C152
-      (place C152 745429.3 -709350.3 front 0)
+      (place C152 730130.2 -748751.8 front 0)
     )
     (component C153
-      (place C153 688775.6 -759636.6 front 0)
+      (place C153 696799.0 -761024.5 front 0)
     )
     (component C154
-      (place C154 600743.1 -755892.2 front 0)
+      (place C154 586190.5 -745779.9 front 0)
     )
     (component C242
-      (place C242 557083.1 -589261.9 front 0)
+      (place C242 642133.1 -517844.1 front 0)
     )
     (component C158
-      (place C158 735201.8 -730464.8 front 0)
+      (place C158 741530.3 -743867.2 front 0)
     )
     (component C141
       (place C141 659105.2 -762592.8 front 0)
     )
     (component FB106
-      (place FB106 698969.0 -721212.5 front 0)
+      (place FB106 687106.0 -743152.3 front 0)
     )
     (component FB107
       (place FB107 608884.5 -659340.3 front 0)
     )
     (component FB109
-      (place FB109 721451.2 -712222.1 front 0)
+      (place FB109 736991.5 -718571.8 front 0)
     )
     (component Q103
       (place Q103 633762.0 -748320.2 front 0)
     )
     (component R129
-      (place R129 506198.2 -746006.4 front 0)
+      (place R129 533494.4 -498546.3 front 0)
     )
     (component R163
-      (place R163 494650.9 -745226.6 front 0)
+      (place R163 415895.7 -620432.9 front 0)
     )
     (component R131
-      (place R131 751854.5 -755623.2 front 0)
+      (place R131 508761.6 -722561.2 front 0)
     )
     (component C192
-      (place C192 700621.0 -761352.7 front 0)
-    )
-    (component R132
-      (place R132 766526.3 -751682.4 front 0)
-    )
-    (component R133
-      (place R133 766269.5 -763200.1 front 0)
+      (place C192 573812.7 -744715.6 front 0)
     )
     (component R159
-      (place R159 531196.4 -763992.9 front 0)
+      (place R159 822276.7 -764991.6 front 0)
     )
     (component R141
-      (place R141 746794.4 -729583.4 front 0)
+      (place R141 545683.3 -755382.9 front 0)
     )
     (component R160
-      (place R160 570126.2 -762824.6 front 0)
+      (place R160 736099.3 -764697.6 front 0)
     )
     (component R170
-      (place R170 736609.7 -746323.9 front 0)
+      (place R170 548653.6 -584546.3 front 0)
     )
     (component R171
-      (place R171 547950.7 -752020.2 front 0)
+      (place R171 529498.4 -760969.5 front 0)
     )
     (component R172
-      (place R172 736290.4 -758249.3 front 0)
+      (place R172 765377.9 -519708.0 front 0)
     )
     (component R173
-      (place R173 723108.2 -535819.9 front 0)
+      (place R173 764701.0 -757004.0 front 0)
     )
     (component R203
-      (place R203 550810.9 -763714.8 front 0)
+      (place R203 528876.8 -514958.1 front 0)
     )
     (component R204
-      (place R204 785851.6 -752047.4 front 0)
+      (place R204 620453.2 -517106.7 front 0)
     )
     (component R205
-      (place R205 653226.6 -519737.0 front 0)
+      (place R205 765646.9 -505170.2 front 0)
     )
     (component R102
-      (place R102 477870.7 -729105.7 front 0)
+      (place R102 476346.4 -755259.7 front 0)
     )
     (component R108
-      (place R108 480539.8 -744376.6 front 0)
+      (place R108 414941.2 -601393.4 front 0)
     )
     (component R107
-      (place R107 415677.1 -627785.4 front 0)
+      (place R107 415730.4 -580264.1 front 0)
     )
     (component C104
       (place C104 417486.0 -701384.1 front 0)
@@ -378,31 +372,31 @@
       (place C105 518500.9 -744995.4 front 0)
     )
     (component C112
-      (place C112 481155.1 -717209.3 front 0)
+      (place C112 459234.1 -683675.2 front 0)
     )
     (component C210
-      (place C210 500800.0 -719268.5 front 0)
+      (place C210 480539.0 -743319.3 front 0)
     )
     (component R111
-      (place R111 480054.7 -681359.9 front 0)
+      (place R111 501675.3 -743380.2 front 0)
     )
     (component U106
       (place U106 567635.4 -634537.6 front 0)
     )
     (component U118
-      (place U118 444874.2 -682472.4 front 0)
+      (place U118 442567.7 -682283.8 front 0)
     )
     (component R128
-      (place R128 496138.3 -730354.9 front 0)
+      (place R128 496462.5 -756009.6 front 0)
     )
     (component Q104
-      (place Q104 475698.1 -699086.2 front 0)
+      (place Q104 481588.2 -725527.6 front 0)
     )
     (component R112
-      (place R112 414533.5 -607302.8 front 0)
+      (place R112 416835.3 -531654.9 front 0)
     )
     (component R214
-      (place R214 415249.9 -588524.2 front 0)
+      (place R214 417415.2 -512375.0 front 0)
     )
     (component U108
       (place U108 881122.7 -665537.0 front 0)
@@ -411,139 +405,139 @@
       (place C113 849267.4 -617832.1 front 0)
     )
     (component C114
-      (place C114 813317.0 -681907.1 front 0)
+      (place C114 952081.4 -752671.0 front 0)
     )
     (component C187
-      (place C187 826241.8 -754976.6 front 0)
+      (place C187 810044.7 -667477.6 front 0)
     )
     (component C133
-      (place C133 814457.1 -755637.0 front 0)
+      (place C133 936201.9 -620175.5 front 0)
     )
     (component C134
-      (place C134 795870.1 -661193.0 front 0)
+      (place C134 994864.9 -657205.3 front 0)
     )
     (component C137
-      (place C137 949808.1 -745756.8 front 0)
+      (place C137 805995.1 -755660.3 front 0)
     )
     (component C138
-      (place C138 979689.9 -687190.2 front 0)
+      (place C138 1000771.7 -695137.6 front 0)
     )
     (component C135
-      (place C135 938610.0 -757259.2 front 0)
+      (place C135 793300.8 -755507.9 front 0)
     )
     (component C136
-      (place C136 779846.7 -668212.1 front 0)
+      (place C136 994657.5 -727801.9 front 0)
     )
     (component C139
-      (place C139 993250.7 -678930.5 front 0)
+      (place C139 1002127.1 -631322.5 front 0)
     )
     (component C140
-      (place C140 973416.8 -718461.6 front 0)
+      (place C140 981696.8 -593037.3 front 0)
     )
     (component C217
-      (place C217 803619.6 -755266.7 front 0)
+      (place C217 782235.5 -756120.1 front 0)
     )
     (component C223
-      (place C223 982424.1 -576088.8 front 0)
+      (place C223 1005862.2 -614192.9 front 0)
     )
     (component C244
-      (place C244 985106.7 -587791.0 front 0)
+      (place C244 831324.6 -702738.5 front 0)
     )
     (component C188
-      (place C188 766309.4 -672935.3 front 0)
+      (place C188 1009187.5 -656981.5 front 0)
     )
     (component C189
-      (place C189 960460.2 -746202.8 front 0)
+      (place C189 1013802.0 -637026.8 front 0)
     )
     (component C219
-      (place C219 789100.7 -636638.7 front 0)
+      (place C219 809261.6 -702363.9 front 0)
     )
     (component R115
-      (place R115 1004088.9 -672959.9 front 0)
+      (place R115 978299.2 -553440.6 front 0)
     )
     (component R116
-      (place R116 971083.0 -743425.2 front 0)
+      (place R116 1008135.0 -727692.5 front 0)
     )
     (component R117
-      (place R117 987765.3 -723407.1 front 0)
+      (place R117 989117.2 -553756.4 front 0)
     )
     (component R123
-      (place R123 982573.7 -743751.8 front 0)
+      (place R123 1019486.2 -725113.5 front 0)
     )
     (component R124
-      (place R124 1004319.9 -698096.8 front 0)
+      (place R124 1025565.8 -703978.8 front 0)
     )
     (component FB108
-      (place FB108 1002368.4 -654966.9 front 0)
+      (place FB108 897866.9 -752166.2 front 0)
     )
     (component R175
-      (place R175 954376.3 -716600.4 front 0)
+      (place R175 976920.9 -726789.8 front 0)
     )
     (component R182
-      (place R182 832034.7 -684390.4 front 0)
+      (place R182 982429.7 -691225.2 front 0)
     )
     (component U109
       (place U109 952965.3 -650259.3 front 0)
     )
     (component C122
-      (place C122 797703.6 -689791.5 front 0)
+      (place C122 949773.0 -618946.6 front 0)
     )
     (component C123
-      (place C123 999946.3 -639730.2 front 0)
+      (place C123 985002.5 -569537.5 front 0)
     )
     (component C124
       (place C124 945899.5 -685398.3 front 0)
     )
     (component C127
-      (place C127 993430.5 -701448.1 front 0)
+      (place C127 1014313.6 -703879.1 front 0)
     )
     (component C128
-      (place C128 1001540.5 -622781.2 front 0)
+      (place C128 1003505.9 -582022.7 front 0)
     )
     (component FB104
-      (place FB104 987125.7 -600778.4 front 0)
+      (place FB104 928597.1 -752762.6 front 0)
     )
     (component FB105
-      (place FB105 891439.7 -752232.8 front 0)
+      (place FB105 1006429.2 -600153.9 front 0)
     )
     (component R120
-      (place R120 844261.7 -751658.7 front 0)
+      (place R120 824423.4 -751500.2 front 0)
     )
     (component R121
-      (place R121 777003.6 -691627.6 front 0)
+      (place R121 766767.2 -687063.7 front 0)
     )
     (component R122
-      (place R122 864790.1 -757187.5 front 0)
+      (place R122 874735.4 -758238.7 front 0)
     )
     (component C119
       (place C119 874270.9 -617711.3 front 0)
     )
     (component C120
-      (place C120 824303.7 -655528.5 front 0)
+      (place C120 912008.6 -616964.8 front 0)
     )
     (component C121
-      (place C121 832417.0 -624056.0 front 0)
+      (place C121 955283.0 -717074.0 front 0)
     )
     (component R199
-      (place R199 908430.3 -619692.6 front 0)
+      (place R199 826058.3 -688666.1 front 0)
     )
     (component R200
-      (place R200 940253.6 -623607.5 front 0)
+      (place R200 852722.6 -752404.3 front 0)
     )
     (component R139
-      (place R139 920402.8 -751904.5 front 0)
+      (place R139 972187.7 -752079.1 front 0)
     )
     (component R125
-      (place R125 981934.0 -553887.9 front 0)
+      (place R125 982645.4 -538771.4 front 0)
     )
     (component R135
-      (place R135 1004343.9 -587599.4 front 0)
+      (place R135 981412.0 -526881.3 front 0)
     )
     (component C129
-      (place C129 982880.9 -564300.5 front 0)
+      (place C129 788680.0 -701430.7 front 0)
     )
     (component R136
-      (place R136 1002217.6 -576177.4 front 0)
+      (place R136 1004161.5 -545454.7 front 0)
     )
     (component U110
       (place U110 1032835.0 -682030.8 front 0)
@@ -573,19 +567,19 @@
       (place R144 1052630.6 -734233.1 front 0)
     )
     (component R146
-      (place R146 1034611.7 -702870.5 front 0)
+      (place R146 1035291.5 -723279.4 front 0)
     )
     (component R147
-      (place R147 1034008.2 -721462.6 front 0)
+      (place R147 1108495.2 -623577.9 front 0)
     )
     (component C164
       (place C164 1086147.1 -682805.0 front 0)
     )
     (component R208
-      (place R208 1023195.9 -702298.6 front 0)
+      (place R208 1169281.0 -672673.2 front 0)
     )
     (component R177
-      (place R177 1107209.9 -623626.2 front 0)
+      (place R177 1121139.8 -623451.3 front 0)
     )
     (component U112
       (place U112 1114987.2 -662232.5 front 0)
@@ -594,10 +588,10 @@
       (place L102 1060607.2 -684038.4 front 0)
     )
     (component R154
-      (place R154 1122747.6 -627656.9 front 0)
+      (place R154 1142074.4 -629940.1 front 0)
     )
     (component R155
-      (place R155 1142735.9 -630089.1 front 0)
+      (place R155 1161598.7 -640531.1 front 0)
     )
     (component C174
       (place C174 1140993.2 -641433.6 front 0)
@@ -609,10 +603,10 @@
       (place C172 1114826.3 -641330.2 front 0)
     )
     (component R114
-      (place R114 1031046.2 -736527.9 front 0)
+      (place R114 1032368.2 -741504.6 front 0)
     )
     (component R145
-      (place R145 1172550.7 -676358.8 front 0)
+      (place R145 1138870.9 -618815.4 front 0)
     )
     (component U111
       (place U111 1140376.9 -695666.9 front 0)
@@ -645,43 +639,43 @@
       (place R157 1170316.6 -742916.1 front 0)
     )
     (component R192
-      (place R192 999663.0 -737938.7 front 0)
+      (place R192 1015086.2 -582738.7 front 0)
     )
     (component R193
-      (place R193 887523.7 -765294.3 front 0)
+      (place R193 897400.4 -765713.9 front 0)
     )
     (component R194
-      (place R194 914851.3 -765089.0 front 0)
+      (place R194 916995.0 -765160.5 front 0)
     )
     (component R195
-      (place R195 845590.2 -764080.2 front 0)
+      (place R195 851892.5 -765070.2 front 0)
     )
     (component R196
-      (place R196 954406.6 -765456.4 front 0)
+      (place R196 970516.1 -765434.2 front 0)
     )
     (component R197
-      (place R197 1010350.9 -737878.7 front 0)
+      (place R197 1029033.6 -591763.7 front 0)
     )
     (component R201
-      (place R201 1005448.1 -718564.9 front 0)
+      (place R201 1040705.1 -591854.0 front 0)
     )
     (component R202
-      (place R202 1013506.3 -622163.1 front 0)
+      (place R202 1004134.1 -562678.1 front 0)
     )
     (component R109
-      (place R109 1008378.2 -603020.4 front 0)
+      (place R109 1027838.3 -572661.8 front 0)
     )
     (component R246
-      (place R246 1021489.3 -721545.7 front 0)
+      (place R246 1051298.3 -591783.5 front 0)
     )
     (component R223
-      (place R223 974045.5 -764985.4 front 0)
+      (place R223 1043750.3 -576715.9 front 0)
     )
     (component R228
-      (place R228 787496.4 -764770.2 front 0)
+      (place R228 1019321.4 -556862.6 front 0)
     )
-    (component J105
-      (place J105 1095900.0 -589250.0 front 0)
+    (component J16
+      (place J16 637251.5 -572908.6 front 0)
     )
   )
   (library
@@ -1259,14 +1253,6 @@
       (pin Rect[T]Pad_5000x5000um 1 -0.0 4625.0)
       (pin Rect[T]Pad_5000x5000um 2 -0.0 -4625.0)
     )
-    (image R132
-      (pin Rect[T]Pad_5000x5000um 1 -4625.0 -0.0)
-      (pin Rect[T]Pad_5000x5000um 2 4625.0 -0.0)
-    )
-    (image R133
-      (pin Rect[T]Pad_5000x5000um 1 -4625.0 -0.0)
-      (pin Rect[T]Pad_5000x5000um 2 4625.0 -0.0)
-    )
     (image R159
       (pin Rect[T]Pad_5000x5000um (rotate 180) 1 4625.0 0.0)
       (pin Rect[T]Pad_5000x5000um (rotate 180) 2 -4625.0 0.0)
@@ -1356,11 +1342,11 @@
       (pin Rect[T]Pad_3500x16000um 14 -19500.0 28000.0)
     )
     (image U118
-      (pin Rect[T]Pad_2350x2280um 1 3380.0 4630.0)
-      (pin Rect[T]Pad_2350x2280um 2 -3380.0 4630.0)
-      (pin Rect[T]Pad_2350x2280um 3 -3370.0 -4620.0)
-      (pin Rect[T]Pad_2350x2280um 4 3370.0 -4640.0)
-      (pin Rect[T]Pad_4500x4500um (rotate 315) 5 -0.0 -0.0)
+      (pin Poly[T]Pad_06bec95c 1 3380.0 4630.0)
+      (pin Poly[T]Pad_fd34fed8 2 -3380.0 4630.0)
+      (pin Poly[T]Pad_9b2b1bd8 3 -3370.0 -4620.0)
+      (pin Poly[T]Pad_8c74ea73 4 3370.0 -4640.0)
+      (pin Poly[T]Pad_82409d1d 5 -0.0 -0.0)
     )
     (image R128
       (pin Rect[T]Pad_5000x5000um 1 -4625.0 -0.0)
@@ -1799,27 +1785,14 @@
       (pin Rect[T]Pad_5000x5000um 1 -4625.0 -0.0)
       (pin Rect[T]Pad_5000x5000um 2 4625.0 -0.0)
     )
-    (image J105
-      (pin Rect[TB]Pad_24000x7600um 1 -19500.0 -57150.0)
-      (pin Rect[TB]Pad_24000x7600um 2 19500.0 -57150.0)
-      (pin Rect[TB]Pad_24000x7600um 3 -19500.0 -44450.0)
-      (pin Rect[TB]Pad_24000x7600um 4 19500.0 -44450.0)
-      (pin Rect[TB]Pad_24000x7600um 5 -19500.0 -31750.0)
-      (pin Rect[TB]Pad_24000x7600um 6 19500.0 -31750.0)
-      (pin Rect[TB]Pad_24000x7600um 7 -19500.0 -19050.0)
-      (pin Rect[TB]Pad_24000x7600um 8 19500.0 -19050.0)
-      (pin Rect[TB]Pad_24000x7600um 9 -19500.0 -6350.0)
-      (pin Rect[TB]Pad_24000x7600um 10 19500.0 -6350.0)
-      (pin Rect[TB]Pad_24000x7600um 11 -19500.0 6350.0)
-      (pin Rect[TB]Pad_24000x7600um 12 19500.0 6350.0)
-      (pin Rect[TB]Pad_24000x7600um 13 -19500.0 19050.0)
-      (pin Rect[TB]Pad_24000x7600um 14 19500.0 19050.0)
-      (pin Rect[TB]Pad_24000x7600um 15 -19500.0 31750.0)
-      (pin Rect[TB]Pad_24000x7600um 16 19500.0 31750.0)
-      (pin Rect[TB]Pad_24000x7600um 17 -19500.0 44450.0)
-      (pin Rect[TB]Pad_24000x7600um 18 19500.0 44450.0)
-      (pin Rect[TB]Pad_24000x7600um 19 -19500.0 57150.0)
-      (pin Rect[TB]Pad_24000x7600um 20 19500.0 57150.0)
+    (image J16
+      (pin Round[T]Pad_14000um 1 -12700.0 38100.0)
+      (pin Round[T]Pad_14000um 2 12700.0 38100.0)
+      (pin Round[T]Pad_14000um 3 -12700.0 12700.0)
+      (pin Round[T]Pad_14000um 4 12700.0 12700.0)
+      (pin Round[T]Pad_14000um 5 -12700.0 -12700.0)
+      (pin Round[T]Pad_14000um 6 12700.0 -12700.0)
+      (pin Round[T]Pad_14000um 7 -12700.0 -38100.0)
     )
     (padstack Rect[A]Pad_17500x12000um
       (shape (rect F.Cu -8750 -6000 8750 6000))
@@ -1995,12 +1968,24 @@
       (shape (rect F.Cu -1750 -8000 1750 8000))
       (attach off)
     )
-    (padstack Rect[T]Pad_2350x2280um
-      (shape (rect F.Cu -1175 -1140 1175 1140))
+    (padstack Poly[T]Pad_06bec95c
+      (shape (polygon F.Cu 0 895 1420 1175 1140 1175 -2390 895 -2670 355 -2670 -1175 -1140 -1175 1140 -895 1420))
       (attach off)
     )
-    (padstack Rect[T]Pad_4500x4500um
-      (shape (rect F.Cu -2250 -2250 2250 2250))
+    (padstack Poly[T]Pad_fd34fed8
+      (shape (polygon F.Cu 0 895 1420 1175 1140 1175 -1140 -355 -2670 -895 -2670 -1175 -2390 -1175 1140 -895 1420))
+      (attach off)
+    )
+    (padstack Poly[T]Pad_9b2b1bd8
+      (shape (polygon F.Cu 0 -355 2670 1175 1140 1175 -1140 895 -1420 -895 -1420 -1175 -1140 -1175 2390 -895 2670))
+      (attach off)
+    )
+    (padstack Poly[T]Pad_8c74ea73
+      (shape (polygon F.Cu 0 895 2670 1175 2390 1175 -1140 895 -1420 -895 -1420 -1175 -1140 -1175 1140 355 2670))
+      (attach off)
+    )
+    (padstack Poly[T]Pad_82409d1d
+      (shape (polygon F.Cu 0 0 3182 3182 0 0 -3182 -3182 0))
       (attach off)
     )
     (padstack Rect[T]Pad_8500x3000um
@@ -2067,8 +2052,8 @@
       (shape (rect F.Cu -6000 -3450 6000 3450))
       (attach off)
     )
-    (padstack Rect[TB]Pad_24000x7600um
-      (shape (rect B.Cu -12000 -3800 12000 3800))
+    (padstack Round[T]Pad_14000um
+      (shape (circle F.Cu 14000))
       (attach off)
     )
     (padstack Via[0-3]_450:200_um
@@ -2129,7 +2114,7 @@
       (pins R3-2 R4-1 U1-14)
     )
     (net "GND"
-      (pins C1-2 C101-2 C102-2 C103-2 C104-2 C105-2 C106-2 C112-2 C129-2 C135-2 C136-2 C137-2 C138-2 C139-2 C140-2 C141-2 C143-2 C144-2 C145-2 C146-2 C147-2 C148-2 C149-2 C150-2 C151-2 C152-2 C153-2 C154-2 C155-2 C156-2 C157-2 C158-2 C160-2 C163-2 C165-2 C166-2 C168-2 C169-2 C170-2 C171-2 C172-2 C173-2 C183-2 C190-2 C192-2 C2-2 C210-2 C217-2 C223-2 C242-2 C243-2 C244-2 C32-2 C4-2 C41-2 C42-2 C43-2 C44-2 C45-2 C6-2 C7-2 C8-2 C9-2 D106-1 D107-1 J10-1 J105-13 J105-15 J105-17 J105-19 J105-3 J105-5 J105-7 J105-9 J13-A1 J13-A12 J13-B1 J13-B12 J13-SH J15-1 J15-3 J2-1 J6-1 J7-2 J7-4 LED1-1 LED2-1 Q103-2 Q104-2 R107-1 R111-1 R115-1 R129-1 R135-1 R147-1 R15-1 R155-1 R16-1 R17-1 R175-1 R182-1 R2-2 R4-2 R44-2 R45-2 R48-2 R7-2 U1-10 U1-13 U1-17 U1-5 U1-6 U1-7 U102-65 U103-4 U106-1 U106-2 U106-4 U106-7 U108-28 U108-33 U108-7 U110-4 U111-2 U112-1 U112-3 U112-9 U118-2 U118-5 U2-10 U2-11 U2-21 U3-2 U3-7 U4-4 U4-8 U5-1 U5-40 U5-41 X101-2 X101-4)
+      (pins C1-2 C101-2 C102-2 C103-2 C104-2 C105-2 C106-2 C112-2 C129-2 C135-2 C136-2 C137-2 C138-2 C139-2 C140-2 C141-2 C143-2 C144-2 C145-2 C146-2 C147-2 C148-2 C149-2 C150-2 C151-2 C152-2 C153-2 C154-2 C155-2 C156-2 C157-2 C158-2 C160-2 C163-2 C165-2 C166-2 C168-2 C169-2 C170-2 C171-2 C172-2 C173-2 C183-2 C190-2 C192-2 C2-2 C210-2 C217-2 C223-2 C242-2 C243-2 C244-2 C32-2 C4-2 C41-2 C42-2 C43-2 C44-2 C45-2 C6-2 C7-2 C8-2 C9-2 D106-1 D107-1 J10-1 J13-A1 J13-A12 J13-B1 J13-B12 J13-SH J15-1 J15-3 J16-7 J2-1 J6-1 J7-2 J7-4 LED1-1 LED2-1 Q103-2 Q104-2 R107-1 R111-1 R115-1 R129-1 R135-1 R147-1 R15-1 R155-1 R16-1 R17-1 R175-1 R182-1 R2-2 R4-2 R44-2 R45-2 R48-2 R7-2 U1-10 U1-13 U1-17 U1-5 U1-6 U1-7 U102-65 U103-4 U106-1 U106-2 U106-4 U106-7 U108-28 U108-33 U108-7 U110-4 U111-2 U112-1 U112-3 U112-9 U118-2 U118-5 U2-10 U2-11 U2-21 U3-2 U3-7 U4-4 U4-8 U5-1 U5-40 U5-41 X101-2 X101-4)
     )
     (net "GNDA"
       (pins C113-2 C114-2 C121-1 C122-1 C123-2 C124-2 C127-2 C128-2 C133-2 C134-2 C187-2 C188-2 C189-2 C219-2 R175-2 R182-2 U108-17 U109-7 U109-EPAD)
@@ -2287,12 +2272,6 @@
     (net "N_U102_X1D11"
       (pins R172-1 U102-14)
     )
-    (net "N_U102_X1D18"
-      (pins R132-1 U102-36)
-    )
-    (net "N_U102_X1D19"
-      (pins R133-1 U102-37)
-    )
     (net "N_U102_X1D22"
       (pins R102-1 U102-39)
     )
@@ -2423,7 +2402,7 @@
       (pins R124-1 R141-2 U108-31)
     )
     (net "RST_N"
-      (pins C192-1 J105-10 Q103-3 R131-1 U102-21)
+      (pins C192-1 J16-6 Q103-3 R131-1 U102-21)
     )
     (net "SCL"
       (pins R116-1 R228-1 U102-44 U3-5 U4-7 U5-6)
@@ -2447,19 +2426,19 @@
       (pins L1-2 U1-3 U1-4)
     )
     (net "TCK"
-      (pins J105-4 U102-24)
+      (pins J16-3 U102-24)
     )
     (net "TDI"
-      (pins J105-8 U102-18)
+      (pins J16-4 U102-18)
     )
     (net "TDO"
-      (pins J105-6 U102-20)
+      (pins J16-5 U102-20)
     )
     (net "THERM"
       (pins R15-2 U2-5)
     )
     (net "TMS"
-      (pins J105-2 U102-23)
+      (pins J16-2 U102-23)
     )
     (net "USB_DN"
       (pins D106-2 J13-A7 J13-B7 R156-1)
@@ -2471,7 +2450,7 @@
       (pins C171-1 C172-1 C174-1 FB107-1 L102-2 R154-2)
     )
     (net "V18"
-      (pins C152-1 C153-1 C154-1 C169-1 C170-1 C242-1 J105-1 R131-2 U102-17 U102-26 U102-31 U111-5)
+      (pins C152-1 C153-1 C154-1 C169-1 C170-1 C242-1 J16-1 R131-2 U102-17 U102-26 U102-31 U111-5)
     )
     (net "V33"
       (pins C158-1 C165-1 C166-1 C190-1 C41-1 C42-1 C44-1 C45-1 FB108-1 FB109-1 J2-2 L101-2 R144-2 R159-2 R178-1 R223-2 R228-2 R42-1 R43-1 R46-1 R47-1 U102-30 U3-1 U3-6 U4-1 U4-2 U5-2)
@@ -2492,7 +2471,7 @@
       (pins C143-1 C144-1 C145-1 C146-1 C147-1 C148-1 C149-1 C150-1 C151-1 FB106-2 FB107-2 U102-12 U102-19 U102-27 U102-34 U102-4 U102-42 U102-49 U102-57 U102-61 U102-62 U102-63 U102-64)
     )
     (net "VDDIO"
-      (pins C101-1 C106-1 C155-1 C156-1 C157-1 C160-1 C243-1 FB109-2 J105-11 R101-2 U102-38 U102-52 U102-8 U103-8 U106-14)
+      (pins C101-1 C106-1 C155-1 C156-1 C157-1 C160-1 C243-1 FB109-2 R101-2 U102-38 U102-52 U102-8 U103-8 U106-14)
     )
     (net "VDD_MIC"
       (pins C104-1 C105-1 C112-1 C210-1 J15-5 R111-2 U118-1)
@@ -2506,18 +2485,6 @@
     (net "VSYS"
       (pins C1-1 C4-1 L1-1 Q1-2 R1-1 R13-1 U1-8 U2-1 U2-20)
     )
-    (net "XL_DN0"
-      (pins J105-14 U102-35)
-    )
-    (net "XL_DN1"
-      (pins J105-12 U102-33)
-    )
-    (net "XL_UP0"
-      (pins J105-16 R132-2)
-    )
-    (net "XL_UP1"
-      (pins J105-18 R133-2)
-    )
     (net "XOD32"
       (pins R141-1 U102-56)
     )
@@ -2527,7 +2494,7 @@
     (net "__SS__"
       (pins R116-2 U108-9)
     )
-    (class kicad_default "" "3V3_EN" "3V3_PG" "AMP_CTL" "AUDIO_PA_EN" "BATP" "BTN" "CC1" "CC2" "EN" "ESP_BOOT" "ESP_EN" "ESP_RXD" "ESP_TXD" "ESP_USB_DN" "ESP_USB_DP" "FB" "GND" "GNDA" "GPIO10" "GPIO11" "GPIO12" "GPIO13" "GPIO14" "GPIO15" "GPIO7" "GPIO8" "GPIO9" "I2S2_BCLK" "I2S2_DATA" "I2S2_LRCLK" "I2S2_MCLK" "I2S_BCLK" "I2S_DIN_ESP" "I2S_DIN_SEC" "I2S_LRCK" "I2S_MCLK" "LBI" "LBO" "MIC_CLK" "MIC_CLK_M" "MIC_DATA" "MIC_DATA_M" "MIC_MUTE" "MOSI_" "MUTE_ON" "N_C102_Pad1" "N_C119_Pad2" "N_C120_Pad2" "N_C121_Pad2" "N_C164_Pad1" "N_C220_Pad1" "N_C221_Pad1" "N_LED1" "N_LED2" "N_LED3" "N_LED4" "N_Q103_G" "N_Q104_B" "N_Q104_C" "N_Q1C" "N_R125_Pad2" "N_U102_PLL_AVDD" "N_U102_X0D11" "N_U102_X0D35" "N_U102_X0D36" "N_U102_X1D00" "N_U102_X1D01" "N_U102_X1D10" "N_U102_X1D11" "N_U102_X1D18" "N_U102_X1D19" "N_U102_X1D22" "N_U102_X1D34" "N_U102_XIN" "N_U102_XOUT" "N_U106_4Y" "N_U108_AVDD" "N_U108_DVDD" "N_U108_IN1_L" "N_U108_IN2_L" "N_U108_IN3_L" "N_U108_LDO__SELECT" "N_U108_LOL" "N_U108_LOR" "N_U108_REF" "N_U108_SPI__SELECT" "N_U109_BYPASS" "N_U109_IN+" "N_U109_IN_" "N_U109_VO+" "N_U109_VO_" "N_U110_FB" "N_U110_LX" "N_U111_EN" "N_U111_IN" "N_U112_EN" "N_U112_FB" "N_U112_MODE" "N_U112_SW" "OLED_CS" "OLED_DC" "OLED_RES" "OLED_SCL" "OLED_SDA" "PA_5V" "PROG1" "PROG3" "QSPI_CLK" "QSPI_CS_N" "QSPI_D0" "QSPI_D1" "QSPI_D2" "QSPI_D3" "RST_DAC" "RST_N" "SCL" "SDA" "SPKM" "SPKO" "STAT1" "STAT2" "SW" "TCK" "TDI" "TDO" "THERM" "TMS" "USB_DN" "USB_DP" "V09" "V18" "V33" "V33A" "V5" "VBUS" "VBUS_DETEC" "VDD" "VDDIO" "VDD_MIC" "VLIPO" "VPCC" "VSYS" "XL_DN0" "XL_DN1" "XL_UP0" "XL_UP1" "XOD32" "XU316_RST" "__SS__"
+    (class kicad_default "" "3V3_EN" "3V3_PG" "AMP_CTL" "AUDIO_PA_EN" "BATP" "BTN" "CC1" "CC2" "EN" "ESP_BOOT" "ESP_EN" "ESP_RXD" "ESP_TXD" "ESP_USB_DN" "ESP_USB_DP" "FB" "GND" "GNDA" "GPIO10" "GPIO11" "GPIO12" "GPIO13" "GPIO14" "GPIO15" "GPIO7" "GPIO8" "GPIO9" "I2S2_BCLK" "I2S2_DATA" "I2S2_LRCLK" "I2S2_MCLK" "I2S_BCLK" "I2S_DIN_ESP" "I2S_DIN_SEC" "I2S_LRCK" "I2S_MCLK" "LBI" "LBO" "MIC_CLK" "MIC_CLK_M" "MIC_DATA" "MIC_DATA_M" "MIC_MUTE" "MOSI_" "MUTE_ON" "N_C102_Pad1" "N_C119_Pad2" "N_C120_Pad2" "N_C121_Pad2" "N_C164_Pad1" "N_C220_Pad1" "N_C221_Pad1" "N_LED1" "N_LED2" "N_LED3" "N_LED4" "N_Q103_G" "N_Q104_B" "N_Q104_C" "N_Q1C" "N_R125_Pad2" "N_U102_PLL_AVDD" "N_U102_X0D11" "N_U102_X0D35" "N_U102_X0D36" "N_U102_X1D00" "N_U102_X1D01" "N_U102_X1D10" "N_U102_X1D11" "N_U102_X1D22" "N_U102_X1D34" "N_U102_XIN" "N_U102_XOUT" "N_U106_4Y" "N_U108_AVDD" "N_U108_DVDD" "N_U108_IN1_L" "N_U108_IN2_L" "N_U108_IN3_L" "N_U108_LDO__SELECT" "N_U108_LOL" "N_U108_LOR" "N_U108_REF" "N_U108_SPI__SELECT" "N_U109_BYPASS" "N_U109_IN+" "N_U109_IN_" "N_U109_VO+" "N_U109_VO_" "N_U110_FB" "N_U110_LX" "N_U111_EN" "N_U111_IN" "N_U112_EN" "N_U112_FB" "N_U112_MODE" "N_U112_SW" "OLED_CS" "OLED_DC" "OLED_RES" "OLED_SCL" "OLED_SDA" "PA_5V" "PROG1" "PROG3" "QSPI_CLK" "QSPI_CS_N" "QSPI_D0" "QSPI_D1" "QSPI_D2" "QSPI_D3" "RST_DAC" "RST_N" "SCL" "SDA" "SPKM" "SPKO" "STAT1" "STAT2" "SW" "TCK" "TDI" "TDO" "THERM" "TMS" "USB_DN" "USB_DP" "V09" "V18" "V33" "V33A" "V5" "VBUS" "VBUS_DETEC" "VDD" "VDDIO" "VDD_MIC" "VLIPO" "VPCC" "VSYS" "XOD32" "XU316_RST" "__SS__"
       (circuit (use_via Via[0-3]_450:200_um))
       (rule (width 1500) (clearance 1200))
     )
