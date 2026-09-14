@@ -105,8 +105,19 @@ v6 は 3.0 出していたので足を 2 本省いた `NoFrontLegs` 版を作っ
 板の外へ出る物（口 5 つ・ソケット 2 つ・USB-C・AS5600・穴）は 2026-09-14 に全部決まり、筐体の模型にも入った。
 USB-C の型番も 2026-09-14 に決まったので、**板の外へ出る物は全部決まった。**
 
-次は回路図で、`hardware/frozen/v6/pcb/gen_sch.py` を v6.1 の口の一覧で回し、`check_sch.py` で写した元と突き合わせる。
-そのあと `gen_pcb.py` に v6.1 の外形・穴・欠き・この資料の座標を渡して部品を置き、`route.py` で配線して DRC をかける。
+板は 2026-09-14 に**配線まで通った**（DRC エラー 0・未接続 0）。道具は `hardware/pcb/` にある。
+
+```
+python hardware/pcb/gen_sch.py && python hardware/pcb/check_sch.py   # 回路図と突き合わせ
+python hardware/pcb/gen_pcb.py && python hardware/pcb/route.py       # 配置 → 自動配線 → DRC
+python hardware/pcb/fab.py && python hardware/pcb/check_fab.py       # 製造ファイルと、その検算
+```
+
+🔴 **発注の前に回すのは `check_fab.py`。** ガーバーとドリル（JLCPCB へ送る物そのもの）を
+配置のコードとは別の道で読み、外形・電池の極性・取付穴・ライザーの穴を突き合わせる。
+
+残っているのは発注だけで、ユーザーの判断で**来月**である。そのとき JLCPCB の在庫と区分と価格を取り直す
+（2026-09-14 時点で AS5600（C79815）が LCSC で在庫切れ。DigiKey などには在庫があるので一時的と見ている）。
 
 ## 6. ライザーの受け方が 3 回変わった（2026-09-14）
 
