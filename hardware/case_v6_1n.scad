@@ -52,8 +52,8 @@ use <parts/hub_board.scad>
 use <parts/typec_115426.scad>
 use <parts/plug.scad>
 use <parts/wires.scad>    // 線（丸束・曲げ半径で丸めた点列）
-use <parts/btn_v3.scad>    // 会話ボタン v3（🔒 2026-08-30）。原点 = ボタンの芯・z0 = 天板の外面
-use <parts/knob_v5.scad>   // つまみ v5。原点 = 軸・z0 = 天板の外面
+use <parts/btn_v61n.scad>    // 会話ボタン v3（🔒 2026-08-30）。原点 = ボタンの芯・z0 = 天板の外面
+use <parts/knob_v61n.scad>   // つまみ v5。原点 = 軸・z0 = 天板の外面
 use <parts/spk_v61.scad>   // スピーカー v6.1（parts/spk_v5.scad の写し。いまは中身も同じ・v6.1 の直しはこちらへ）。原点 = スピーカーの中心・z0 = 天板の外面
 use <parts/mts102_v61.scad>   // トグル MTS-102（📄 図面から起こした v6.1 用。parts/parts.scad の mts102 は v5 と共用なので触らない）
 include <parts/hub_board_parts.scad>   // HUB_HEADERS（口の表・自動生成）。数字はここから読む
