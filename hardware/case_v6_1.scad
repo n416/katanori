@@ -41,7 +41,7 @@ use <parts/plug.scad>
 use <parts/wires.scad>    // 線（丸束・曲げ半径で丸めた点列）
 use <parts/btn_v3.scad>    // 会話ボタン v3（🔒 2026-08-30）。原点 = ボタンの芯・z0 = 天板の外面
 use <parts/knob_v5.scad>   // つまみ v5。原点 = 軸・z0 = 天板の外面
-use <parts/spk_v5.scad>    // スピーカー v5（座・縁・グリル・吊り・バスタブ 3）。原点 = スピーカーの中心・z0 = 天板の外面（2026-09-08 分離）
+use <parts/spk_v61.scad>   // スピーカー v6.1（parts/spk_v5.scad の写し・違いは手の角度 S_NUT_ANG 57 → 20 だけ）。原点 = スピーカーの中心・z0 = 天板の外面
 include <parts/hub_board_parts.scad>   // HUB_HEADERS（口の表・自動生成）。数字はここから読む
 include <icons/icon_wrench_u.scad>   // スパナ（🔒 ユーザーの絵 uuu.svg から）
 include <icons/icon_headphone.scad>  // ヘッドホン（ユーザーの EPS から）
@@ -861,7 +861,7 @@ module icon_headphone2d() { sw = max(icon_headphone_sw() * ICON_HP_SW, SVC_MIN_W
 // 🔒 ユーザー 2026-09-14「ヘッドホンの刻印削除」: ヘッドホンの彫りは無い（この名前の後の定義が前のスパナを上書きしていた）
 
 // ---- 天板: つまみの台座と抜き・会話ボタンの台座と口・スピーカーの座とハニカムのグリル ----
-// スピーカーの座・縁・グリル・吊り・バスタブ 3 は parts/spk_v5.scad（2026-09-08 分離）。ここは at_spk() で呼ぶだけ
+// スピーカーの座・縁・グリル・吊り・バスタブ 3 は parts/spk_v61.scad（v5 の写し）。ここは at_spk() で呼ぶだけ
 // スピーカーの周りだけの組み立て図（🔒 ユーザー 2026-09-08「CAD でスピーカー周りの構造を見られるように」「ゴチャゴチャで分かりません」）: 実体は spk_v5 の切れ端・スピーカー・バスタブ 3、隣は半透明。part="spklook"
 module spk_look_box() translate([40, -6, 30]) cube([86 - 40, 34 + 6, 54 - 30]);
 module spk_look() {
