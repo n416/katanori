@@ -18,7 +18,7 @@ import kisym  # noqa: E402
 from kisym import find, find1  # noqa: E402
 
 PCB = pathlib.Path(__file__).parent / "katanori61" / "katanori61.kicad_pcb"
-FPDIR = pathlib.Path(r"C:\Program Files\KiCad\10.0\share\kicad\footprints")
+from kicad_paths import FPDIR  # noqa: E402
 
 
 def _crtyd_box(fp):

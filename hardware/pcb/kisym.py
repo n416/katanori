@@ -6,9 +6,11 @@ gen_sch.py が回路図を組むのに使う。KiCad 本体の記号をそのま
 
 import pathlib
 import re
+import sys
 
 HERE = pathlib.Path(__file__).parent
-SYMDIR = pathlib.Path(r"C:\Program Files\KiCad\10.0\share\kicad\symbols")
+sys.path.insert(0, str(HERE))
+from kicad_paths import SYMDIR  # noqa: E402
 
 
 # ---- S 式 ----

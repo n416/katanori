@@ -21,7 +21,7 @@ OUT = HERE / "katanori61"
 NAME = "katanori61"
 # 自動配線の実行ファイルは v6 の所に展開したものを使う（git には入れない）
 FR = HERE.parents[0] / "frozen" / "v6" / "pcb" / "freerouting" / "freerouting" / "freerouting.exe"
-CLI = r"C:\Program Files\KiCad\10.0\bin\kicad-cli.exe"
+from kicad_paths import CLI  # noqa: E402
 _n = [0]
 
 

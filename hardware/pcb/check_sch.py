@@ -24,7 +24,8 @@ sys.path.insert(0, str(HERE.parents[0] / "parts"))
 import hub_ports  # noqa: E402
 from gen_sch import PORT_FLIP  # noqa: E402   # 並びを逆にした口（2 か所に書かない）
 
-CLI = r"C:\Program Files\KiCad\10.0\bin\kicad-cli.exe"
+sys.path.insert(0, str(HERE))
+from kicad_paths import CLI  # noqa: E402
 SCH = HERE / "katanori61" / "katanori61.kicad_sch"
 EAGLE = HERE.parents[0] / "ref" / "powerboost_1000c" / "Adafruit PowerBoost 1000C Rev B.sch"
 RELAY_HTML = HERE.parents[0] / "parts" / "relay_board.html"
