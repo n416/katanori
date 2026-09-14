@@ -689,6 +689,11 @@ module top_inner_trim() difference() {
     translate([OUT_X0 - 5, OUT_Y0 - 5, -5]) cube([OUT_X1 - OUT_X0 + 10, OUT_Y1 - OUT_Y0 + 10, Z_TOP + 5]);
     translate([LW_X, FY_IN, -6]) cube([IN_X - LW_X, IN_Y - FY_IN, Z_TOP + 7]);
 }
+// 上の柱 4 本の逃げ（天板から下りる物だけを削る。板そのものは Z_TOP から上なので触らない）
+TOP_POST_CL = 0.3;
+module top_post_clear() for (q = POSTS_T)
+    translate([q[0] - TOP_POST_CL, q[1] - TOP_POST_CL, -1])
+        cube([post_w(q) + 2 * TOP_POST_CL, post_dy(q) + 2 * TOP_POST_CL, Z_TOP + 1]);
 module p_top() difference() {
     union() {
         slab_top();
@@ -702,6 +707,7 @@ module p_top() difference() {
     at_knob() knob_station_cut();
     at_btn()  btn3_station_cut();
     top_screw_cuts();
+    top_post_clear();   // 🔴 2026-09-14: 天板から下りる物が上の柱 4 本の場所に入っていた（つまみの台座が右後ろの柱に 1.17mm³）。柱の足元は空けておく
     top_inner_trim();   // 2026-09-14: 天板から下りる物（つまみの台座など）を箱の内側へ収める。🔴 slab_*() 4 枚を引くと CSG が 20 万要素を超えてプレビューが空になる（ユーザー報告）ので、箱 2 つで削る
 }
 // ---- ハッチ: Type-C の口・トグルの穴・電池の口 ----
