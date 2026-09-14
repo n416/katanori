@@ -173,6 +173,11 @@ def to_library(fp):
     for e in fp[2:]:
         if not isinstance(e, list) or e[0] not in _KEEP:
             continue
+        lay = find1(e, "layer")
+        if e[0] == "fp_circle" and lay and "CrtYd" in str(lay[1]):
+            # 🔴 XU316 の足形は外形（courtyard）の線に 1 番ピンの印の丸が混ざっていて、
+            #    KiCad の DRC が malformed_courtyard を 18 件出した（2026-09-15）。印は外形ではないので落とす
+            continue
         body = [x for x in e if not (isinstance(x, list) and x[0] in _DROP_IN_PAD)]
         if back:
             a_board = _pad_angle(body) if e[0] == "pad" else 0.0
@@ -187,7 +192,43 @@ def to_library(fp):
         elif e[0] == "pad":
             _set_pad_angle(body, _pad_angle(body) - ang)
         out.append(body)
+    _clean_courtyard(out)
     return out, back, ang
+
+
+def _clean_courtyard(fp):
+    """外形（courtyard）の線が 1 周の閉じた形になっていなければ、線の範囲を囲う長方形 1 つに替える。
+
+    🔴 XU316 の足形は外形の線に長さ 0 の線が 9 本と、内側に余計な線が 1 本混ざっていて、
+       KiCad の DRC が malformed_courtyard を 19 件出した（2026-09-15・Voice PE の元の足形のまま）。
+    """
+    idx = [i for i, e in enumerate(fp) if isinstance(e, list) and e[0] == "fp_line"
+           and find1(e, "layer") and "CrtYd" in str(find1(e, "layer")[1])]
+    if not idx:
+        return
+    segs, deg = [], {}
+    for i in idx:
+        s, e = find1(fp[i], "start"), find1(fp[i], "end")
+        a = (round(float(s[1]), 4), round(float(s[2]), 4))
+        b = (round(float(e[1]), 4), round(float(e[2]), 4))
+        if a == b:
+            continue
+        segs.append((a, b))
+        deg[a] = deg.get(a, 0) + 1
+        deg[b] = deg.get(b, 0) + 1
+    if segs and all(d == 2 for d in deg.values()) and len(segs) == len(deg):
+        if len(segs) != len(idx):                      # 長さ 0 の線だけ落とす
+            keep = [i for i in idx if (lambda s, e: (s[1], s[2]) != (e[1], e[2]))(find1(fp[i], "start"), find1(fp[i], "end"))]
+            for i in sorted(set(idx) - set(keep), reverse=True):
+                del fp[i]
+        return
+    xs = [p[0] for s in segs for p in s]
+    ys = [p[1] for s in segs for p in s]
+    lay = find1(fp[idx[0]], "layer")
+    for i in sorted(idx, reverse=True):
+        del fp[i]
+    fp.append(["fp_rect", ["start", f"{min(xs):g}", f"{min(ys):g}"], ["end", f"{max(xs):g}", f"{max(ys):g}"],
+               ["stroke", ["width", "0.05"], ["type", "solid"]], ["fill", "no"], list(lay)])
 
 
 _fpname = {}
@@ -221,7 +262,8 @@ def export_pretty(refs):
     fps = footprints()
     names = fp_names(refs)
     written = set()
-    for ref in refs:
+    # 同じ名前の足形は、部品番号の若い順で最初の物を書く（呼ぶ側の並びで中身が揺れないように）
+    for ref in sorted(refs, key=lambda r: (re.sub(r"\d", "", r), int(re.sub(r"\D", "", r) or 0))):
         name = names[ref]
         if name in written:
             continue

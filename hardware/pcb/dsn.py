@@ -30,27 +30,38 @@ def _y(v):
     return round(-v * SCALE, 1)
 
 
-def padstack_of(pad):
-    """パッド 1 つ → (名前, DSN の shape の行たち)。丸・角丸・長丸は DSN の circle / rect で近似する。"""
+def padstack_of(pad, copper=("F.Cu", "B.Cu")):
+    """パッド 1 つ → (名前, DSN の shape の行たち)。丸・角丸・長丸は DSN の circle / rect で近似する。
+    copper: 板の銅の層（4 層なら内層も入る）。貫通のパッドは全層、表面実装はパッドの層だけ。"""
     kind, shape = pad["type"], pad["shape"]
     sx, sy = pad["size"]
-    layers = ["F.Cu", "B.Cu"] if kind != "smd" else ["F.Cu"]
+    side = pad.get("side", "F.Cu")
+    layers = list(copper) if kind != "smd" else [side]
+    tag = ("A" if kind != "smd" else "T") + ("" if side == "F.Cu" or kind != "smd" else "B")
     if shape == "circle":
-        name = "Round[%s]Pad_%dum" % ("A" if kind != "smd" else "T", round(sx * SCALE))
+        name = "Round[%s]Pad_%dum" % (tag, round(sx * SCALE))
         body = [f"(shape (circle {ly} {round(sx * SCALE)}))" for ly in layers]
     else:
-        name = "Rect[%s]Pad_%dx%dum" % ("A" if kind != "smd" else "T",
-                                        round(sx * SCALE), round(sy * SCALE))
+        name = "Rect[%s]Pad_%dx%dum" % (tag, round(sx * SCALE), round(sy * SCALE))
         body = [f"(shape (rect {ly} {round(-sx / 2 * SCALE)} {round(-sy / 2 * SCALE)} "
                 f"{round(sx / 2 * SCALE)} {round(sy / 2 * SCALE)}))" for ly in layers]
     return name, body
 
 
-def write_dsn(path, name, insts, nets, boundary, keepouts=()):
-    """insts: [{ref, fp, x, y, ang, pads:[{num,type,shape,size,at,rot}]}]
+def write_dsn(path, name, insts, nets, boundary, keepouts=(), copper=("F.Cu", "B.Cu"), planes=None,
+              via=None, track_um=None, clear_um=None):
+    """insts: [{ref, fp, x, y, ang, pads:[{num,type,shape,size,at,rot,side}]}]
     nets: {ネット名: [(ref, パッド番号), ...]}
     boundary: [(x, y), ...]（閉じた多角形・mm）
-    keepouts: [(x0, y0, x1, y1), ...]（銅を置かない四角・mm）"""
+    keepouts: [(x0, y0, x1, y1), ...]（銅を置かない四角・mm）
+    copper: 銅の層（上から順）。planes: {層: ネット}（内層のベタ。自動配線はこの層に線を引かず、穴で落とす）
+    via: (銅の直径 mm, 穴 mm)。track_um / clear_um: 既定の線幅と間隔（0.1µm 単位）。
+    引数を省けば 2 層の v6.1 と同じファイルになる。"""
+    planes = planes or {}
+    VIA_NAME = VIA if via is None else f"Via[0-{len(copper) - 1}]_{round(via[0] * 1000)}:{round(via[1] * 1000)}_um"
+    VIA_D = VIA_DIA if via is None else round(via[0] * SCALE)
+    TR = TRACK_UM if track_um is None else track_um
+    CL = CLEAR_UM if clear_um is None else clear_um
     # 🔴 部品 1 つにつき 1 つの image を作り、パッドの位置も形も**回した状態**で書く。
     #    Freerouting は placement の回転でパッドの形を回さない（2026-09-12・コンデンサだけが
     #    短絡として出た。1.15 × 2.7 のパッドを回さずに見ていた）。回転は 0 で渡す。
@@ -71,22 +82,25 @@ def write_dsn(path, name, insts, nets, boundary, keepouts=()):
             if q["rot"] % 180 == 90:      # 形の縦横を入れ替える（90°・270°）
                 q["size"] = (p["size"][1], p["size"][0])
                 q["rot"] = 0
-            nm, body = padstack_of(q)
+            nm, body = padstack_of(q, copper)
             padstacks[nm] = body
             rot = f" (rotate {q['rot']:.0f})" if q.get("rot") else ""
             img.append(f"      (pin {nm}{rot} {q['num']} {_x(q['at'][0])} {_y(q['at'][1])})")
     o = [f'(pcb {name}.dsn', '  (parser', '    (string_quote ")',
          "    (space_in_quoted_tokens on)", '    (host_cad "katanori/dsn.py")',
-         '    (host_version "1")', "  )", "  (resolution um 10)", "  (unit um)", "  (structure",
-         "    (layer F.Cu (type signal) (property (index 0)))",
-         "    (layer B.Cu (type signal) (property (index 1)))",
-         "    (boundary (path pcb 0 " + " ".join(f"{_x(a)} {_y(b)}" for a, b in boundary) + "))",
-         f"    (via {VIA})",
-         f"    (rule (width {TRACK_UM}) (clearance {CLEAR_UM}) (clearance {CLEAR_UM} (type default_smd))"
-         f" (clearance {CLEAR_UM} (type smd_smd)))"]
+         '    (host_version "1")', "  )", "  (resolution um 10)", "  (unit um)", "  (structure"]
+    for i, ly in enumerate(copper):
+        o.append(f"    (layer {ly} (type {'power' if ly in planes else 'signal'}) (property (index {i})))")
+    o += ["    (boundary (path pcb 0 " + " ".join(f"{_x(a)} {_y(b)}" for a, b in boundary) + "))",
+          f"    (via {VIA_NAME})",
+          f"    (rule (width {TR}) (clearance {CL}) (clearance {CL} (type default_smd))"
+          f" (clearance {CL} (type smd_smd)))"]
+    for ly, net in planes.items():
+        o.append(f'    (plane "{net}" (polygon {ly} 0 ' + " ".join(f"{_x(a)} {_y(b)}" for a, b in boundary) + "))")
     for i, (x0, y0, x1, y1) in enumerate(keepouts):
-        o.append(f'    (keepout "ko{i}" (rect F.Cu {_x(x0)} {_y(y1)} {_x(x1)} {_y(y0)}))')
-        o.append(f'    (keepout "ko{i}b" (rect B.Cu {_x(x0)} {_y(y1)} {_x(x1)} {_y(y0)}))')
+        for j, ly in enumerate(copper):
+            sfx = "" if j == 0 else ("b" if len(copper) == 2 else f"_{j}")
+            o.append(f'    (keepout "ko{i}{sfx}" (rect {ly} {_x(x0)} {_y(y1)} {_x(x1)} {_y(y0)}))')
     o.append("  )")
     o.append("  (placement")
     for it in insts:
@@ -100,7 +114,7 @@ def write_dsn(path, name, insts, nets, boundary, keepouts=()):
         o += pins
         o.append("    )")
     # 貫通穴（ビア）の定義。これが無いと層をまたげず、自動配線が片面で詰まる（2026-09-12）
-    padstacks[VIA] = [f"(shape (circle F.Cu {VIA_DIA}))", f"(shape (circle B.Cu {VIA_DIA}))"]
+    padstacks[VIA_NAME] = [f"(shape (circle {ly} {VIA_D}))" for ly in copper]
     for nm, body in padstacks.items():
         o.append(f"    (padstack {nm}")
         o += ["      " + b for b in body]
@@ -115,8 +129,8 @@ def write_dsn(path, name, insts, nets, boundary, keepouts=()):
         o.append("      (pins " + " ".join(f"{r}-{p}" for r, p in pins) + ")")
         o.append("    )")
     o.append('    (class kicad_default "" ' + " ".join(f'"{n}"' for n in sorted(nets) if len(nets[n]) > 1))
-    o.append(f"      (circuit (use_via {VIA}))")
-    o.append(f"      (rule (width {TRACK_UM}) (clearance {CLEAR_UM}))")
+    o.append(f"      (circuit (use_via {VIA_NAME}))")
+    o.append(f"      (rule (width {TR}) (clearance {CL}))")
     o.append("    )")
     o.append("  )")
     o.append("  (wiring")

@@ -3,11 +3,13 @@
 
   python route.py            … DSN を渡して回し、SES を取り込む
   python route.py --ses      … 既にある SES を取り込むだけ
+  python route.py --board katanori61_voice   … 統合基板（4 層）。穴の大きさは DSN から読む
 
 配線と貫通穴は毎回すべて置き換える（前の配線が混ざると、どこまでが今回の結果か分からなくなる）。
 """
 
 import pathlib
+import re
 import subprocess
 import sys
 
@@ -17,8 +19,8 @@ import kisym  # noqa: E402
 from kisym import Str, find, find1  # noqa: E402
 import dsn  # noqa: E402
 
-OUT = HERE / "katanori61"
-NAME = "katanori61"
+NAME = sys.argv[sys.argv.index("--board") + 1] if "--board" in sys.argv else "katanori61"
+OUT = HERE / NAME
 # 自動配線の実行ファイルは v6 の所に展開したものを使う（git には入れない）
 #   zip の解凍の仕方で 1 段深さが変わる（freerouting/freerouting/ でも freerouting/ の直下でもよい）
 _FR_DIR = HERE.parents[0] / "frozen" / "v6" / "pcb" / "freerouting"
@@ -75,8 +77,11 @@ def merge():
                          ["end", sb[0], sb[1]], ["width", f"{w:.3f}"],
                          ["layer", Str(layer)], ["net", nets[net]], ["uuid", Str(uid())]])
             n_seg += 1
+    # 穴の大きさは DSN に書いた物（v6.1 は Via[0-1]_800:400_um・統合基板は Via[0-3]_450:200_um）
+    m = re.search(r"\(via Via\[0-\d\]_(\d+):(\d+)_um\)", (OUT / f"{NAME}.dsn").read_text(encoding="utf-8"))
+    vsize, vdrill = (f"{int(m.group(1)) / 1000:g}", f"{int(m.group(2)) / 1000:g}") if m else ("0.8", "0.4")
     for net, x, y in vias:
-        body.append(["via", ["at", f"{x:.4f}", f"{y:.4f}"], ["size", "0.8"], ["drill", "0.4"],
+        body.append(["via", ["at", f"{x:.4f}", f"{y:.4f}"], ["size", vsize], ["drill", vdrill],
                      ["layers", Str("F.Cu"), Str("B.Cu")], ["net", nets[net]], ["uuid", Str(uid())]])
     (OUT / f"{NAME}.kicad_pcb").write_text(kisym.dump(body) + "\n", encoding="utf-8")
     print(f"  配線 {n_seg} 本・貫通穴 {len(vias)} 個を入れた")
