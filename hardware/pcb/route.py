@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""自動配線（Freerouting）を回して、結果を hub_power.kicad_pcb に入れる。
+"""自動配線（Freerouting）を回して、結果を katanori61.kicad_pcb に入れる。
 
   python route.py            … DSN を渡して回し、SES を取り込む
   python route.py --ses      … 既にある SES を取り込むだけ
@@ -17,9 +17,10 @@ import kisym  # noqa: E402
 from kisym import Str, find, find1  # noqa: E402
 import dsn  # noqa: E402
 
-OUT = HERE / "hub_power"
-NAME = "hub_power"
-FR = HERE.parent / "_tmp_pcb" / "freerouting" / "freerouting" / "freerouting.exe"
+OUT = HERE / "katanori61"
+NAME = "katanori61"
+# 自動配線の実行ファイルは v6 の所に展開したものを使う（git には入れない）
+FR = HERE.parents[0] / "frozen" / "v6" / "pcb" / "freerouting" / "freerouting" / "freerouting.exe"
 CLI = r"C:\Program Files\KiCad\10.0\bin\kicad-cli.exe"
 _n = [0]
 
@@ -98,7 +99,7 @@ def stitch():
     for i in range(int((G.BOARD_L - 2) / PITCH) + 1):
         for j in range(int((G.BOARD_W - 2) / PITCH) + 1):
             u, v = 1.0 + i * PITCH, 1.0 + j * PITCH
-            if G.NOTCH[0] - 1 < u < G.NOTCH[1] + 1 and v > G.NOTCH[2] - 1:
+            if any(nx0 - 1 < u < nx1 + 1 and v > ny - 1 for nx0, nx1, ny in G.NOTCHES):
                 continue
             if any((u - mx) ** 2 + (v - my) ** 2 < (G.MOUNT_D / 2 + G.MOUNT_KEEP + VIA / 2) ** 2
                    for mx, my in G.MOUNT):

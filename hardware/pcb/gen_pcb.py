@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""hub_power.kicad_pcb（部品を置いただけの板・配線はまだ）を作る。
+"""katanori61.kicad_pcb（部品を置いただけの板・配線はまだ）を作る。
 
   python gen_pcb.py
 
@@ -21,7 +21,7 @@ import xml.etree.ElementTree as ET
 
 HERE = pathlib.Path(__file__).parent
 sys.path.insert(0, str(HERE))
-sys.path.insert(0, str(HERE.parent / "parts"))
+sys.path.insert(0, str(HERE.parents[0] / "parts"))
 import kisym  # noqa: E402
 from kisym import Str, find, find1  # noqa: E402
 import hub_ports  # noqa: E402
@@ -29,8 +29,8 @@ import dsn  # noqa: E402
 
 CLI = r"C:\Program Files\KiCad\10.0\bin\kicad-cli.exe"
 FPDIR = pathlib.Path(r"C:\Program Files\KiCad\10.0\share\kicad\footprints")
-OUT = HERE / "hub_power"
-NAME = "hub_power"
+OUT = HERE / "katanori61"
+NAME = "katanori61"
 _n = [0]
 
 
@@ -39,43 +39,38 @@ def uid():
     return str(uuid.uuid5(uuid.NAMESPACE_URL, f"katanori/pcb/{_n[0]}"))
 
 
-# ---- 板の寸法（🔒 2026-09-13 ユーザー「歯車 3 枚」→ 筐体の幅 48・板 44 × 81.2 で確定）----
-# 座標は **板の左下が原点・X 右・Y 上**。図面（KiCad）の座標へは bx() で移す。
-# ⚠ ここは筐体側（別セッション）が決めた数字をそのまま写す場所で、こちらで動かさない。
-BOARD_L, BOARD_W = 44.0, 81.2
-# 上の縁の切り欠き: ReSpeaker の J2（スピーカーのソケット・トップ型）のプラグが線込み 15 で
-# 降りてきて板を貫くため。プラグの実寸は板 X 13.04〜20.99・Y 73.91〜80.91 で、四方に 0.9〜1.0 の逃げ
-NOTCH = (12.0, 22.0, 73.0)        # x0, x1, この y から上端まで
-# 🔴 2026-09-13: 上の 2 つは Y 69.5 だった。OLED の柱（3.30/40.70, 71.80）との芯間が **2.309** で、
-#    M2 のなべ頭 φ3.8 もナット（二面幅 4.0）も並ばず、通し穴どうしが 0.09 重なって長穴になっていた。
-#    ⇒ Y 65.25 へ下げた（柱まで 6.55）。格子は 37 × 66 → **37 × 61.75**
-MOUNT = [(3.5, 3.5), (40.5, 3.5), (3.5, 65.25), (40.5, 65.25)]   # M2
-MOUNT_D = 2.2                     # φ2.2（M2）
-MOUNT_KEEP = 0.5                  # 穴のまわりに **銅** を置かせない幅（部品の背の話ではない）
-# 🔴 2026-09-13 筐体側: ねじの頭は背面・**ナットは板の側**（横差しのポケット）。
-#    ⇒ 取付穴のまわりに M2 の六角ナット（二面幅 4.0 ＝ 対角 4.62・背 1.6）が 4 個立つ。
-#    MOUNT_KEEP は銅の話なので、**部品がナットの下に入っていないかは別に見る**。
-NUT_R = 4.62 / 2 + 0.25           # 対角の半径 ＋ 逃げ（M2 のなべ頭 φ3.8 より大きいので、これで両方見られる）
-# 🔒 2026-09-13: 背面の殻の床から立つ柱が **板を貫いて**上の部品まで行く。
-#    (x, y, 抜きの径)。外形の切り抜きとして開け、まわりに銅も部品も置かない。
-#    ⚠ ReSpeaker の 2 本は柱そのものを板の帯（箱 Z 3.0〜4.6）でだけ φ3.5 に細らせてもらった
-#      （φ5.5 のままだと U4 のパッドを 0.138 削り、板の下の縁を 0.290 欠いた）。
-POSTS = [(3.30, 38.80, 6.5), (40.70, 38.80, 6.5), (3.30, 71.80, 6.5), (40.70, 71.80, 6.5),
-         (31.58, 2.46, 4.0), (2.66, 60.17, 4.0)]
-POST_KEEP = 0.5                   # 抜きのまわりに銅を置かせない幅（0.3 だと KiCad の copper_edge_clearance が出た）
-# 🔴 磁石と歯車の軸が降りてくる柱。ここに置いてよいのは AS5600（U4）だけ
-KEEPOUT_MAGNET = (33.2, 4.0, 39.2, 10.0)
-# 電池の影。🔒 2026-09-13 デザイン担当が確定した位置（603040・800mAh）。
-#    底は板の面から 4.8 ＝ J2 の天面と面一（J2 を X で避けられなかったので Z で避けた）。
-#    ⇒ 高さ 4.8 未満の物はこの下に置ける。効くのは組んだあとで線を挿し直すときだけ
-BATTERY = (6.5, 24.2, 36.5, 64.2)
-ORG = (60.0, 40.0)                # 図面の上での板の左上
-# 筐体（箱）の座標と板の座標のずれ。**箱 = 板 + BOX**。
-#    🔒 2026-09-13、筐体セッションの数字 2 組で裏を取った:
-#      柱 RSP5   板 (2.66, 60.17) → 箱 (4.657, 63.167)
-#      取付穴 HUB8 板 (3.50, 65.25) → 箱 (5.5, 68.25)
-#    向きは同じ（X 右・Y 上）。回転も鏡も無い
-BOX = (2.0, 3.0)
+# ---- 板の寸法（v6.1・2026-09-14）----
+# 座標は **板の左前が原点・X 右・Y 後ろ**。図面（KiCad）の座標へは bx() で移す。
+# ⚠ ここは筐体側（別セッション）が決めた数字で、こちらでは動かさない。1 か所に置くため
+#    v61_board.py（この板の「動かせない物」の一覧）から読む。
+sys.path.insert(0, str(HERE))
+import v61_board as VB
+
+BOARD_L, BOARD_W = VB.L, VB.W                      # 82.024 × 37.4
+# 後ろの両隅の欠き（箱の隅の柱が板の面を通る）。x0, x1, この y から後ろの縁まで
+NOTCHES = [(VB.NOTCHES[0][0], VB.NOTCHES[0][2], VB.NOTCHES[0][1]),
+           (VB.NOTCHES[1][0], VB.NOTCHES[1][2], VB.NOTCHES[1][1])]
+MOUNT = list(VB.HOLES)            # M2 × 4（床から立つ柱 φ7 の上）
+MOUNT_D = VB.HOLE_D               # φ2.2
+MOUNT_KEEP = 0.5                  # 穴のまわりに **銅** を置かせない幅
+# 🔒 2026-09-14 筐体側: ねじは板の上から M2×6・ナットは柱の中の横差し。板の上に出るのは頭だけ
+NUT_R = 4.62 / 2 + 0.25
+POSTS = []                        # v6.1 は板を貫く柱が無い（後ろの隅の 2 本は上の欠きになった）
+POST_KEEP = 0.5
+# 🔴 つまみの軸 φ7 が真上から降りる。ここに置いてよいのは AS5600（U4）だけ
+KEEPOUT_MAGNET = (VB.SHAFT[0], VB.SHAFT[1], VB.SHAFT[0] + VB.SHAFT[2], VB.SHAFT[1] + VB.SHAFT[3])
+# 電池は板の**下**（板の裏まで 6.0）。表の部品の背には効かない。裏に置けるのはこの外の帯だけ
+BATTERY = (16.05, 0.0, 66.05, 31.4)
+ORG = (40.0, 40.0)                # 図面の上での板の左上
+# 筐体（箱）の座標と板の座標のずれ。**箱 = 板 + BOX**（2026-09-14 筐体側）
+BOX = VB.ORG_W
+
+
+def outline_pts():
+    """外形の頂点（板の座標・反時計回り）。後ろの縁の両隅が欠けている。"""
+    (lx0, lx1, ly), (rx0, rx1, ry) = NOTCHES
+    return [(0, 0), (BOARD_L, 0), (BOARD_L, ry), (rx0, ry), (rx0, BOARD_W),
+            (lx1, BOARD_W), (lx1, ly), (0, ly)]
 
 
 def bx(x, y):
@@ -115,7 +110,7 @@ def pwr(x, y, ang=0):
     return (1.0 + y * 1.13, 25.5 + x * 1.32, (ang + 90) % 360)
 
 
-PLACE = {
+PLACE_V6 = {
     # ======== 電池の影（X 0〜35・Y 25〜75・天井 4.4）========
     # 電源・充電・電流計。いちばん背が高いのがインダクタの 1.8 なので 4.4 に楽に入る。
     # 🔴 USB-C（J13）・電池の PH（J10）はここへ入れない（背 3.16 と 4.8 で、口が板の外を向く）
@@ -125,7 +120,10 @@ PLACE = {
     "C8": pwr(12.0, 4.0), "C7": pwr(16.0, 4.0),
     "U2": pwr(12.0, 9.5),
     "R6": pwr(4.0, 17.0, 90), "R7": pwr(4.0, 20.0, 90),
-    "R16": pwr(9.0, 18.0), "R17": pwr(12.5, 18.0), "R15": pwr(16.0, 18.0),
+    # 🔴 2026-09-14: R16 が 18.0 のままだと PROG1 が 1 本つながらない（自動配線が残す）
+    "R16": pwr(9.0, 19.6),
+    "R17": pwr(12.5, 18.0),
+    "R15": pwr(16.0, 18.0),
     "LED4": (21.5, 42.5, 90), "R8": (17.5, 47.0, 90),
     "LED3": (13.5, 52.0, 90), "R14": (17.5, 52.0, 90),
     "R41": pwr(13.0, 28.5),
@@ -204,15 +202,109 @@ PLACE = {
     "J6": (20.0, 3.10, 180),   # リード＋会話ボタン（XIAO の下の谷・口は谷の側 +Y）
 }
 
+# ======== v6 の板（44 × 81.2・縦）から v6.1 の板（82.024 × 37.4・横）への写し ========
+# 🔴 **鏡にしない。** 軸を入れ替えるだけの写し（X←y・Y←x）は行列式が −1 で鏡像になり、
+#    足形のパッドの並びが裏返る。時計回りに 90° 回す形（(x, y) → (y, −x)）で写す。
+#    v6 で自動配線が通った相対の並びをそのまま持ち込むための写像で、ここで並べ直してはいない。
+# 倍率 0.75 / 0.80 は、v6 の電源の帯（x 1〜35・y 25.5〜75）を v6.1 の空き
+#    （X 19〜56.1・Y 3.5〜35.8）へ収める値。
+#    🔴 2026-09-14: 最初 0.75 / 0.80（Y は 30.7 まで）で回したら 9 本が未接続・違反 24 件だった。
+#       v6 でも同じ症状を「面積が余っているのに詰めていた」で直しているので、後ろの縁まで伸ばした。
+#       それでも STAT1 と VSYS の 2 本が残ったので、X も左へ広げた（19.0〜56.1 → 16.8〜55.9）。
+SX, SY = 0.79, 0.95
+
+
+def v61(x, y, ang=0):
+    return (16.8 + (y - 25.5) * SX, 3.5 + (35.0 - x) * SY, (ang - 90) % 360)
+
+
+def org_from_box(fp_id, ang, x0, y0, x1, y1, back=False):
+    """置きたい**枠**（板の座標）と角度から、足形の**原点**（板の座標）を逆算する。
+
+    🔴 こちらが筐体と決めてきたのは「枠」で、PLACE の表は「原点」を書く。手で引き算すると
+       回転のたびに向きを間違える（v6 で 3 回踏んだ）。⇒ 足形を読んで、その角度での枠を測って引く。
+    🔴 裏面（back）は**局所 Y が反転した状態で保存される**（KiCad 自身の板で確かめた。
+       cm5_minima の同じ足形が表 (-1, 0.43) / 裏 (-1, -0.43)）。⇒ 反転してから測る。
+    ⚠ 出来上がりは build() の中で **置いたあとの枠を測って**突き合わせる（check_boxes）。
+       ここの式だけを信じない。
+    """
+    fp = load_fp(fp_id)
+    if back:
+        fp = mirror_y(fp)
+    cx0, cy0, cx1, cy1 = courtyard(fp, 0.0, 0.0, ang)
+    return (x0 - cx0, y0 + cy1)
+
+
+# 板の上で場所が決まっている物（v61_board.py と筐体からの実測）。写像は通さない。
+# 角度は「足形の 0 度での向き」から決めた:
+#   PH 横（S2B/S4B）… 0 度で口は −Y。90 度で +X・180 度で +Y・270 度で −X
+#   PH 縦（B2B/B4B）… 口は上。パッドは +X へ並ぶ
+#   ピンソケット 1x0n … 0 度でパッドが +Y へ並ぶ。270 度で +X へ並ぶ
+#   USB-C … 0 度で口は +Y（パッドは −Y 側）。270 度で口が +X
+# ---- 枠で置く物（v61_board.py の PORTS と同じ枠を使う）----
+#   (角度, 枠 x0, y0, x1, y1)。枠は v61_board.py が持っている値から作る
+def _fb(nm):
+    q = [x for x in VB.PORTS if x[0] == nm][0]
+    fw, fh = q[3]
+    w, h = (fh, fw) if q[4] in ("+X", "-X") else (fw, fh)
+    return (q[1] - w / 2, q[2] - h / 2, q[1] + w / 2, q[2] + h / 2)
+
+
+# 板の**裏**に付く物（KiCad でも B.Cu に置く）。局所 Y が反転する
+BACK_SIDE = {"J10"}
+PH_H2 = "Connector_JST:JST_PH_S2B-PH-K_1x02_P2.00mm_Horizontal"
+PH_V2 = "Connector_JST:JST_PH_B2B-PH-K_1x02_P2.00mm_Vertical"
+PH_V4 = "Connector_JST:JST_PH_B4B-PH-K_1x04_P2.00mm_Vertical"
+SOCK7 = "Connector_PinHeader_2.54mm:PinHeader_1x07_P2.54mm_Vertical"   # 板の側はオス（2026-09-14）
+SOCK4 = "Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical"
+BOX_PLACE = {
+    # 口。角度は「足形の 0 度で口が −Y」から決めた（90 で +X・180 で +Y・270 で −X）
+    "J4": (PH_H2, 180) + _fb("SPK IN"),
+    "J5": (PH_H2, 270) + _fb("SPK OUT"),
+    "J6": (PH_H2, 0) + _fb("会話ボタン"),
+    "J7": (PH_V4, 0) + _fb("リード＋トグル"),      # 縦 4 ピン（上から挿す）
+    # 🔴 裏面は足形が鏡になるので、表と同じ角度だと口が逆（−X）を向く。180 度回して
+    #    電池の側（+X）へ向ける。2026-09-14 に測って確かめた
+    "J10": (PH_H2, 270) + _fb("電池"),             # 横出し 2 ピン（板の裏・口は +X ＝ 電池の側）
+    # ライザーの縦ソケット（パッドが板の +X へ 2.54 間隔で並ぶ向き）
+    "J1": (SOCK7, 90, -0.01, VB.RISER_XIAO[2] - VB.RISER_D / 2, 18.79, VB.RISER_XIAO[2] + VB.RISER_D / 2),
+    "J2": (SOCK4, 90, 35.47, VB.RISER_OLED[2] - VB.RISER_D / 2, 46.63, VB.RISER_OLED[2] + VB.RISER_D / 2),
+    # 充電の USB-C（口が板の右の縁から 1.53 出る）
+    # 🔴 2026-09-14: 270 度で置いたらパッドが板の外（板 X 82.8）へ出て、縁までの距離の違反が
+    #    18 件出た。図面の Y は下向きなので、板の座標で見ると回る向きが逆になる。⇒ 90 度。
+    "J13": ("Connector_USB:USB_C_Receptacle_HRO_TYPE-C-31-M-12", 90, 74.634, 20.68, 84.054, 31.32),
+    # ミュートリレー（背 9.33）
+    "K31": ("Relay_SMD:Relay_DPDT_Omron_G6S-2F", 90) + VB.RELAY[:2]
+           + (VB.RELAY[0] + VB.RELAY[2], VB.RELAY[1] + VB.RELAY[3]),
+}
+FIXED_V61 = {
+    # つまみ（磁石と軸がこの真上に降りる）。AS5600 は芯で置く
+    "U4": (65.700, 13.800, 0), "C42": (57.500, 13.800, 0),
+}
+def solve_fixed():
+    """枠で指定した物の原点を足形から逆算して PLACE を仕上げる（load_fp が要るので実行時に呼ぶ）。"""
+    for r, (fp, a, x0, y0, x1, y1) in BOX_PLACE.items():
+        ox, oy = org_from_box(FP_OVERRIDE.get(r, fp), a, x0, y0, x1, y1, back=r in BACK_SIDE)
+        FIXED_V61[r] = (ox, oy, a)
+    PLACE.update(FIXED_V61)
+
+# v6.1 に無い部品: SW1（板のトグル → ハッチへ）・J14（XIAO の 2 列目 → ライザーで 1 本に）
+GONE_V61 = {"SW1", "J14"}
+PLACE = {r: v61(*v) for r, v in PLACE_V6.items()
+         if r not in BOX_PLACE and r not in FIXED_V61 and r not in GONE_V61}
+PLACE.update(FIXED_V61)
+
+
 # 🔴 口は「枠が重なっていない」だけでは挿せない。**プラグの通り道**を別に見る。
 #    2026-09-13 ユーザー「J4J5どうやって挿すんだ」。私は当たりの検査しか書いておらず、
 #    J4・J6・J8 の 3 つで通り道が塞がっていた。[[clearance-is-not-assemblability]]
 #    値: (足形の中でのプラグの向き, 通り道の長さ)
 #      PH の横挿し   … 口は局所 −Y。プラグの胴 7.6 ＋ 指と曲がり 2.4 = 10.0
 #      2.54 の L 字   … 口は局所 −X。DuPont のハウジング 14（hardware/parts/plug.scad）＋ 2 = 16.0
+# v6.1: 板の面に沿ってプラグが入るのは 3 つだけ。J1・J2 はライザーのソケット（板が立つ）、
+#       J7 と J10 は縦の PH（上・下から挿す）なので、板の面の通り道は要らない。
 CONN = {
-    "J2": ("-y", 10.0), "J4": ("-y", 10.0), "J5": ("-y", 10.0),
-    "J6": ("-y", 10.0), "J10": ("-y", 10.0),
+    "J4": ("-y", 10.0), "J5": ("-y", 10.0), "J6": ("-y", 10.0),
 }
 # ⛔⛔ **手書きの OPEN_DIR は捨てた**（2026-09-13）。全ての角度で 180° 逆で、
 #    プラグの通り道の検査は 5 口とも **口の裏側**を見ていた。「5 口すべて空いている」は
@@ -300,9 +392,19 @@ HEIGHT_DEFAULT = (1.45, "⚠ 一般値・0805 の抵抗とコンデンサと LED
 
 # 角度を検算する所。板の座標で「このパッドはここに来るはず」を書いておく。
 # 🔴 鏡像事故はここで止める（[[mirror-accident-ledger]]）。1 本目と 7 本目の Y が入れ替わったら落ちる
+# 🔴 置いたあとのパッドの位置を板の座標で検算する（角度の取り違えはここで捕まる）。
+#    v6.1: ライザーのソケットは 1 番が左・パッドが +X へ 2.54 間隔（筐体へ渡した座標）。
 CHECK_PADS = {
-    ("J1", "1"): (9.40, 2.90), ("J1", "7"): (9.40, 18.14),
-    ("J14", "1"): (24.63, 2.90), ("J14", "7"): (24.63, 18.14),
+    # 🔒 2026-09-14: ライザーが裏面の L 字のメスで受ける形になり、ピンの列が +2.87 後ろへ動いた
+    ("J1", "1"): (1.770, 11.805), ("J1", "7"): (17.010, 11.805),
+    ("J2", "1"): (37.240, 4.770), ("J2", "4"): (44.860, 4.770),
+    # 🔴🔴 電池の極性。裏面なので足形が鏡になる。ここが入れ替わると逆接で煙が出る
+    #    （2026-09-11 に実機で INA226 から煙・PowerBoost が発熱している）。
+    #    **奥（ハッチ側・Y 大）が GND ／ 手前（OLED 側・Y 小）が VBAT（＋）**
+    ("J10", "1"): (3.550, 26.550), ("J10", "2"): (3.550, 24.550),
+    # USB-C は「パッドの列が板の内側」だけが条件（A1 と B1 のどちらが上かは足形が決める）。
+    #    列の X だけを見る。板の縁は 82.024
+    ("J13", "A1"): (75.859, None), ("J13", "B1"): (75.859, None),
 }
 
 
@@ -375,17 +477,58 @@ def courtyard(fp, x, y, ang):
             x + max(p[0] for p in pts), y + max(p[1] for p in pts))
 
 
-def place_footprint(ref, comp, x, y, ang, pads):
+# 🔴 裏面の足形の書き方は、KiCad 自身の実例で確かめた（2026-09-14）。
+#    C:/Program Files/KiCad/10.0/share/kicad/demos/cm5_minima/CM5_MINIMA_3.kicad_pcb に
+#    同じ足形が表と裏の両方に置いてあり、**局所 Y だけが符号反転**して層が F↔B になっていた
+#    （パッド 1 が F: (-1, 0.43) → B: (-1, -0.43)）。推測ではなく写した。
+def mirror_y(node):
+    """図形・パッドの局所座標の Y を反転する（裏面へ回すとき）。"""
+    if not isinstance(node, list):
+        return node
+    if node and str(node[0]) in ("at", "start", "end", "center", "mid", "xy"):
+        out = list(node)
+        if len(out) > 2:
+            try:
+                out[2] = f"{-float(out[2]):g}"
+            except ValueError:
+                pass
+        if str(node[0]) == "at" and len(out) > 3:      # 向きも反転
+            try:
+                out[3] = f"{(-float(out[3])) % 360:g}"
+            except ValueError:
+                pass
+        return out
+    return [mirror_y(e) for e in node]
+
+
+def flip_layer(name):
+    """F.* ↔ B.* を入れ替える（裏面に付ける部品用）。"""
+    s = str(name)
+    if s.startswith("F."):
+        return "B." + s[2:]
+    if s.startswith("B."):
+        return "F." + s[2:]
+    return s
+
+
+def place_footprint(ref, comp, x, y, ang, pads, back=False):
     fp = load_fp(comp["fp"])
-    out = ["footprint", Str(comp["fp"]), ["layer", Str("F.Cu")], ["uuid", Str(uid())],
+    if back:
+        # 🔴 裏面は**足形ごと**局所 Y を反転してから使う。ここで 1 回だけ反転すれば、
+        #    パッドも図形も枠（courtyard）も同じ物を見る。返す fp も反転済みなので、
+        #    呼び出し側の当たり判定が「反転前の枠」を見る事故が起きない（2026-09-14 に踏んだ）
+        fp = mirror_y(fp)
+    out = ["footprint", Str(comp["fp"]), ["layer", Str("B.Cu" if back else "F.Cu")], ["uuid", Str(uid())],
            ["at", f"{x:.3f}", f"{y:.3f}"] + ([f"{ang:.0f}"] if ang else []),
-           ["property", Str("Reference"), Str(ref), ["at", "0", "-2.5", "0"], ["layer", Str("F.SilkS")],
-            ["uuid", Str(uid())], ["effects", ["font", ["size", "0.8", "0.8"], ["thickness", "0.12"]]]],
-           ["property", Str("Value"), Str(comp["value"]), ["at", "0", "2.5", "0"], ["layer", Str("F.Fab")],
-            ["hide", "yes"], ["uuid", Str(uid())],
+           ["property", Str("Reference"), Str(ref), ["at", "0", "-2.5", "0"],
+            ["layer", Str("B.SilkS" if back else "F.SilkS")], ["uuid", Str(uid())],
+            ["effects", ["font", ["size", "0.8", "0.8"], ["thickness", "0.12"]]]
+            + ([["justify", "mirror"]] if back else [])],
+           ["property", Str("Value"), Str(comp["value"]), ["at", "0", "2.5", "0"],
+            ["layer", Str("B.Fab" if back else "F.Fab")], ["hide", "yes"], ["uuid", Str(uid())],
             ["effects", ["font", ["size", "0.8", "0.8"], ["thickness", "0.12"]]]],
            ["property", Str("LCSC"), Str(comp.get("lcsc", "")), ["at", "0", "3.5", "0"],
-            ["layer", Str("F.Fab")], ["hide", "yes"], ["uuid", Str(uid())],
+            ["layer", Str("B.Fab" if back else "F.Fab")], ["hide", "yes"], ["uuid", Str(uid())],
             ["effects", ["font", ["size", "0.8", "0.8"], ["thickness", "0.12"]]]],
            ["attr", "through_hole" if find1(fp, "attr") and "through_hole" in str(find1(fp, "attr")[1:])
             else "smd"]]
@@ -406,6 +549,10 @@ def place_footprint(ref, comp, x, y, ang, pads):
                 del pa[3:]
                 if a2:
                     pa.append(f"{a2:.0f}")
+            if back:
+                lay = find1(pad, "layers")
+                if lay:
+                    pad[pad.index(lay)] = ["layers"] + [Str(flip_layer(str(s))) for s in lay[1:]]
             num = str(pad[1])
             net = pads.get((ref, num))
             if net is not None:
@@ -419,6 +566,10 @@ def place_footprint(ref, comp, x, y, ang, pads):
                         ["scale", ["xyz", "1", "1", "1"]], ["rotate", ["xyz", "0", "0", "0"]]])
         else:
             body = [x for x in e if not (isinstance(x, list) and x[0] == "uuid")]
+            if back:
+                lay = find1(body, "layer")
+                if lay:
+                    body[body.index(lay)] = ["layer", Str(flip_layer(str(lay[1])))]
             # uuid を持てるのは図形・文字・ゾーンだけ（他に足すと KiCad が読めない）
             if e[0].startswith("fp_") or e[0] == "zone":
                 body = body + [["uuid", Str(uid())]]
@@ -435,11 +586,8 @@ def seg(x1, y1, x2, y2, layer="Edge.Cuts", width=0.1):
 def outline():
     """板の外形（44 × 81.2）と、上の縁の切り欠き。"""
     o = []
-    nx0, nx1, ny = NOTCH
     # 左下 →（右回り）。上の辺は切り欠きで 2 本に割れる
-    pts = [(0, 0), (BOARD_L, 0), (BOARD_L, BOARD_W),
-           (nx1, BOARD_W), (nx1, ny), (nx0, ny), (nx0, BOARD_W),
-           (0, BOARD_W)]
+    pts = outline_pts()
     for i in range(len(pts)):
         a, b = pts[i], pts[(i + 1) % len(pts)]
         o.append(seg(*bx(*a), *bx(*b)))
@@ -495,9 +643,7 @@ def gnd_zone():
     ⚠ ベタ任せにするとパッドが島に取り残されることがある。**それは KiCad の DRC が
     unconnected_items で出す**ので、検査で捕まえられる。
     """
-    nx0, nx1, ny = NOTCH
-    pts = [(0, 0), (BOARD_L, 0), (BOARD_L, BOARD_W),
-           (nx1, BOARD_W), (nx1, ny), (nx0, ny), (nx0, BOARD_W), (0, BOARD_W)]
+    pts = outline_pts()
     poly = ["polygon", ["pts"] + [["xy", f"{bx(*q)[0]:.3f}", f"{bx(*q)[1]:.3f}"] for q in pts]]
     # 🔴 **両面に敷く。**裏だけだと、表面実装の GND パッド（この板の GND のほとんど）が
     #    裏のベタに届かない（2026-09-13・裏だけで試したら 40 パッドが未接続で出た）。
@@ -568,8 +714,8 @@ def relax(placed, boxes, rounds=3000):
         return dx, dy
 
     # 板の外へ出ている物と、切り欠き・磁石の柱に掛かっている物を先に押し戻す
-    blocks = [bx(NOTCH[0], NOTCH[2]) + bx(NOTCH[1], BOARD_W),
-              bx(KEEPOUT_MAGNET[0], KEEPOUT_MAGNET[1]) + bx(KEEPOUT_MAGNET[2], KEEPOUT_MAGNET[3])]
+    blocks = [bx(n[0], n[2]) + bx(n[1], BOARD_W) for n in NOTCHES]
+    blocks.append(bx(KEEPOUT_MAGNET[0], KEEPOUT_MAGNET[1]) + bx(KEEPOUT_MAGNET[2], KEEPOUT_MAGNET[3]))
     # 🔴 取付穴（無メッキ）が部品の枠の中に入ると KiCad の DRC が npth_inside_courtyard で落ちる。
     #    配線まで回してから気づくと遠いので、置く段階で押し出す（2026-09-13 に J4 で踏んだ）
     for mxy in MOUNT:
@@ -653,12 +799,14 @@ def relax(placed, boxes, rounds=3000):
 
 
 def build():
+    solve_fixed()
     comps, pads, nets = netlist()
     NETNUM.update(nets)
     placed, boxes = [], []
 
     def add(ref, x, y, ang):
-        fpnode, raw = place_footprint(ref, comps[ref], x, y, ang, pads)
+        back = ref in BACK_SIDE
+        fpnode, raw = place_footprint(ref, comps[ref], x, y, ang, pads, back=back)
         placed.append(fpnode)
         boxes.append((ref, courtyard(raw, x, y, ang)))
         INSTS.append(dict(ref=ref, fp=comps[ref]["fp"], x=x, y=y, ang=ang,
@@ -673,12 +821,15 @@ def build():
             dx, dy = rot_xy(d["at"][0], d["at"][1], ang)
             NPTH.append((ref, dx, dy, max(d["size"]) / 2 + 0.3))
 
-    # 置く（板の座標 → 図面の座標）。"xiao" は 1×7 の縦ソケット。
-    # 🔴 この足形のパッドは**局所 +Y** に並ぶ（+X ではない）。板の +Y へ並べるには 180 度回す。
-    #    最初 90 で書いて CHECK_PADS に捕まえてもらった（2026-09-13）
-    for ref, (x, y, ang) in PLACE.items():
+    # 置く（板の座標 → 図面の座標）
+    # 🔴 縦のピンソケットの足形のパッドは**局所 +Y** に並ぶ（+X ではない）。板の +X へ並べるには 270 度。
+    # ⚠ J10 は物としては**板の裏**に付くが、いまは表（F.Cu）に置いている。
+    #    裏へ回すと足形が鏡になり、2 ピンの並び（どちらが VBAT か）が入れ替わる。
+    #    電池の極性を間違えると煙が出るので、裏返しは向きを検算してから入れる（docs/PCB-V61.md 5 章）。
+    for ref, v in PLACE.items():
+        x, y, ang = v
         X, Y = bx(x, y)
-        add(ref, X, Y, 180 if ang == "xiao" else ang)
+        add(ref, X, Y, ang)
 
     relax(placed, boxes)
     out_of_board = []
@@ -709,6 +860,8 @@ def build():
             dx, dy = rot_xy(float(pa[1]), float(pa[2]), fa)
             bxx, byy = fx + dx - ORG[0], BOARD_W - (fy + dy - ORG[1])
             wx, wy = CHECK_PADS[key]
+            if wy is None:            # X だけ見る（Y は足形の並びに任せる）
+                wy = round(byy, 2)
             if abs(bxx - wx) > 0.02 or abs(byy - wy) > 0.02:
                 bad_pad.append((key, round(bxx, 2), round(byy, 2), wx, wy))
     for key, gx, gy, wx, wy in bad_pad:
@@ -890,9 +1043,7 @@ def build():
     (OUT / f"{NAME}.kicad_pcb").write_text(kisym.dump(doc) + "\n", encoding="utf-8")
     print(f"{len(placed)} 部品・ネット {len(nets)} 本 → {OUT / (NAME + '.kicad_pcb')}")
     # 自動配線に渡す DSN。パネルの外形を囲い、板と板のあいだ・空いている所は銅を置かせない
-    bnd = [bx(0, 0), bx(BOARD_L, 0), bx(BOARD_L, BOARD_W),
-           bx(NOTCH[1], BOARD_W), bx(NOTCH[1], NOTCH[2]), bx(NOTCH[0], NOTCH[2]),
-           bx(NOTCH[0], BOARD_W), bx(0, BOARD_W)]
+    bnd = [bx(*q) for q in outline_pts()]
     ko = []
     pos = {it["ref"]: (it["x"], it["y"]) for it in INSTS}   # 押し離したあとの位置
     for ref, dx, dy, rr in NPTH:

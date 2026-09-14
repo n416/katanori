@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""hub_power.kicad_sch のつながりを、写した元と突き合わせる。
+"""katanori61.kicad_sch のつながりを、写した元と突き合わせる。
 
   python check_sch.py
 
@@ -20,18 +20,18 @@ import sys
 import xml.etree.ElementTree as ET
 
 HERE = pathlib.Path(__file__).parent
-sys.path.insert(0, str(HERE.parent / "parts"))
+sys.path.insert(0, str(HERE.parents[0] / "parts"))
 import hub_ports  # noqa: E402
 from gen_sch import PORT_FLIP  # noqa: E402   # 並びを逆にした口（2 か所に書かない）
 
 CLI = r"C:\Program Files\KiCad\10.0\bin\kicad-cli.exe"
-SCH = HERE / "hub_power" / "hub_power.kicad_sch"
-EAGLE = HERE.parent / "ref" / "powerboost_1000c" / "Adafruit PowerBoost 1000C Rev B.sch"
-RELAY_HTML = HERE.parent / "parts" / "relay_board.html"
+SCH = HERE / "katanori61" / "katanori61.kicad_sch"
+EAGLE = HERE.parents[0] / "ref" / "powerboost_1000c" / "Adafruit PowerBoost 1000C Rev B.sch"
+RELAY_HTML = HERE.parents[0] / "parts" / "relay_board.html"
 
 
 def kicad_nets():
-    out = HERE / "hub_power" / "_check.xml"
+    out = HERE / "katanori61" / "_check.xml"
     r = subprocess.run([CLI, "sch", "export", "netlist", "--format", "kicadxml", "-o", str(out), str(SCH)],
                        capture_output=True, text=True)
     if r.returncode != 0:
@@ -231,36 +231,37 @@ def check_ina(k):
     return bad
 
 
+# v6.1（2026-09-14）: XIAO はライザーの板を挟むので、この板から見えるのは 1x07 の 7 本だけ。
+# 並びは配線の都合で決めてよい（ライザーの上で入れ替わる）ので、鏡像の心配はこの板には無い。
+# 🔴 ただし **7 本の顔ぶれ**（XIAO が実際に使うピン）は hub_ports.py の XIAO の口と同じでなければならない。
 def check_xiao(k):
-    """XIAO の口 2 列 14 本が gen_sch.py の表のとおりか。
-
-    🔴 ここは鏡像事故が起きる場所なので、**gen_sch.py の表を読んで**突き合わせる
-    （数字をここに写すと、片方だけ直る事故が起きる）。
-    """
-    from gen_sch import XIAO_ROWS
     bad = 0
-    for ref, nm, col_x, rows in XIAO_ROWS:
-        for i, (net, lbl) in enumerate(rows, 1):
-            got = k.get((ref, str(i)))
-            if got and got.startswith("unconnected-"):
-                got = None
-            if got != net:
-                print(f"  ❌ {ref}.{i}（{lbl}）: {net} のはずが {got}")
-                bad += 1
-    if not bad:
-        print("  14 本とも表のとおり（列 X 9.40 が D0〜D6 側・1 本目が Y 2.90 側）")
+    want = {"V5", "GND", "V33", "SDA", "SCL", "BTN", "IN"}
+    got = {k.get(("J1", str(i))) for i in range(1, 8)}
+    got = {g for g in got if g and not g.startswith("unconnected-")}
+    src = {net for (_h, _fn, net, _x, _y) in
+           [p for p in hub_ports.ports() if p.id == "XIAO"][0].pins if net}
+    if got != want:
+        print(f"  ❌ J1 の 7 本: {sorted(want)} のはずが {sorted(got)}")
+        bad += 1
+    elif src != want:
+        print(f"  ❌ hub_ports の XIAO の口とちがう: {sorted(src)}")
+        bad += 1
+    else:
+        print("  7 本とも hub_ports の XIAO の口と同じ顔ぶれ（ライザーを挟むので並びは自由）")
     return bad
 
 
-# ---- 5. つまみ（AS5600）とマスタートグル ----
+# ---- 5. つまみ（AS5600）と、リード＋トグル・会話ボタンの口 ----
 # 📄 AS5600 データシート 9 ページ Figure 13: 3.3V 動作は VDD5V(1) と VDD3V3(2) をつなぐ。
 #    DIR(8)=GND で時計回りに増える。OUT(3) と PGO(5) は繋がない（🔴 PGO は OTP）。
 KNOB = {("U4", "1"): "V33", ("U4", "2"): "V33", ("U4", "4"): "GND", ("U4", "8"): "GND",
         ("U4", "6"): "SDA", ("U4", "7"): "SCL", ("U4", "3"): None, ("U4", "5"): None,
-        # マスタートグル: 2=COM を EN へ・1 を GND へ・3 は空き（リードスイッチと並列）
-        ("SW1", "2"): "EN", ("SW1", "1"): "GND", ("SW1", "3"): None,
-        # リード＋会話ボタンの 4 ピン。1 EN・2 GND がリードへ／3 GND・4 BTN が会話ボタンへ
-        ("J6", "1"): "EN", ("J6", "2"): "GND", ("J6", "3"): "GND", ("J6", "4"): "BTN"}
+        # v6.1: 板のトグル（SW1）は無い。ハッチのトグルとリードは J7 の 4 ピンで受ける
+        # 1 EN・2 GND がリードへ／3 EN・4 GND がトグルへ（並列の無極性スイッチ 2 つ）
+        ("J7", "1"): "EN", ("J7", "2"): "GND", ("J7", "3"): "EN", ("J7", "4"): "GND",
+        # 会話ボタンは 2 ピンの口
+        ("J6", "1"): "GND", ("J6", "2"): "BTN"}
 
 
 def check_knob(k):
@@ -273,7 +274,7 @@ def check_knob(k):
             print(f"  ❌ {ref}.{pin}: {net} のはずが {got}")
             bad += 1
     if not bad:
-        print("  AS5600 11 本・トグル 3 本・リード＋会話ボタンの 4 本が想定どおり")
+        print(f"  AS5600 8 本・リード＋トグル 4 本・会話ボタン 2 本の計 {len(KNOB)} 本が想定どおり")
     return bad
 
 
@@ -286,9 +287,9 @@ if __name__ == "__main__":
     b2 = check_hub(k)
     print("3. 電流計")
     b3 = check_ina(k)
-    print("4. XIAO の口（2 列 14 本）")
+    print("4. XIAO の口（ライザーの 1x07）")
     b3 += check_xiao(k)
-    print("5. つまみ（AS5600）・マスタートグル・リード＋会話ボタン")
+    print("5. つまみ（AS5600）・リード＋トグルの口・会話ボタンの口")
     b3 += check_knob(k)
     total = b1 + b2 + b3
     print(f"結果: ❌ {total} 件" if total else "結果: 合わない所は 0 件")

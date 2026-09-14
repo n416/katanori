@@ -1,0 +1,75 @@
+<!doctype html><meta charset="utf-8"><title>Type-C 基板の CC 抵抗（秋月 115426）</title>
+<style>
+ body{font:14px/1.7 "Segoe UI","Yu Gothic UI",sans-serif;margin:24px;color:#1a1a1a;background:#fafafa}
+ h1{font-size:18px;margin:0 0 4px} .src{color:#666;font-size:12px;margin:0 0 18px}
+ table{border-collapse:collapse;margin:14px 0} th,td{border:1px solid #ccc;padding:4px 10px;text-align:left}
+ th{background:#eee} .warn{color:#c0392b} code{background:#eee;padding:1px 4px}
+</style>
+<h1>Type-C 基板（秋月 115426）の CC 抵抗 5.1kΩ × 2</h1>
+<p class="src">パッドの並びは 🔒 実物のシルク（ユーザー 2026-09-09）: VBUS / +D / −D / GND / CC1 / CC2 / GND。2026-09-09 まで 2 番を GND と書いていたのは秋月の寸法図からの読み違いでした。</p>
+
+<svg viewBox="0 0 620 420" width="620" style="background:#fff;border:1px solid #ddd">
+  <!-- 基板 20 x 15 を 25px/mm。左下を (60, 360) -->
+  <rect x="60" y="10" width="500" height="375" fill="#e8f0e8" stroke="#2f6b3f" stroke-width="2"/>
+  <text x="66" y="30" font-size="12" fill="#2f6b3f">基板 20 × 15 × 1.6（部品面から見た図）</text>
+
+  <!-- コネクタ 8.94 x 7.35・中央・上辺から 0.8 出る -->
+  <rect x="198.2" y="-10" width="223.5" height="194" fill="#d7dbe0" stroke="#888" stroke-width="2"/>
+  <text x="230" y="110" font-size="14" fill="#444">USB Type-C レセプタクル</text>
+  <text x="230" y="130" font-size="12" fill="#777">表面実装（足は裏へ出ない）</text>
+
+  <!-- パッド 7 つ: 下辺から 2.54、1 番の X = 2.54、ピッチ 2.54 -->
+  <g>
+    <!-- 1 VBUS（四角ランド） -->
+    <rect x="52.5" y="288" width="15" height="15" fill="#b8860b" stroke="#000"/>
+    <circle cx="123.5" cy="295.5" r="7.5" fill="#b8860b" stroke="#000"/>
+    <circle cx="187"   cy="295.5" r="7.5" fill="#b8860b" stroke="#000"/>
+    <circle cx="250.5" cy="295.5" r="7.5" fill="#b8860b" stroke="#000"/>
+    <circle cx="314"   cy="295.5" r="7.5" fill="#b8860b" stroke="#000"/>
+    <circle cx="377.5" cy="295.5" r="7.5" fill="#b8860b" stroke="#000"/>
+    <circle cx="441"   cy="295.5" r="7.5" fill="#cc3333" stroke="#000" stroke-width="2"/>
+  </g>
+  <g font-size="13" text-anchor="middle">
+    <text x="60"    y="330">1</text><text x="60"  y="348" font-size="11">VBUS</text>
+    <text x="123.5" y="330">2</text><text x="123.5" y="348" font-size="11">+D</text>
+    <text x="187"   y="330">3</text><text x="187" y="348" font-size="11">−D</text>
+    <text x="250.5" y="330">4</text><text x="250.5" y="348" font-size="11" fill="#111"><tspan font-weight="bold">GND</tspan></text>
+    <text x="314"   y="330">5</text><text x="314" y="348" font-size="11">CC1</text>
+    <text x="377.5" y="330">6</text><text x="377.5" y="348" font-size="11">CC2</text>
+    <text x="441"   y="330" fill="#cc3333">7</text><text x="441" y="348" font-size="11" fill="#cc3333">GND</text>
+  </g>
+
+  <!-- L 字ヘッダ 6 本（1〜6）。7 番は立てない -->
+  <rect x="45" y="270" width="30" height="12" fill="none" stroke="#333" stroke-dasharray="5 3"/>
+  <rect x="235.5" y="270" width="30" height="12" fill="none" stroke="#333" stroke-dasharray="5 3"/>
+  <text x="45" y="264" font-size="12" fill="#333">L 字ピンは 1 番と 4 番に 1 本ずつ（ピン単位）。2・3・5・6・7 番は立てない</text>
+
+  <!-- 抵抗 R1: 5 → 7 -->
+  <path d="M314 288 L314 240 L441 240 L441 288" fill="none" stroke="#1f6fb2" stroke-width="3"/>
+  <rect x="352" y="228" width="52" height="24" fill="#f6e7c6" stroke="#1f6fb2" stroke-width="2"/>
+  <text x="378" y="245" font-size="12" text-anchor="middle" fill="#1f6fb2">5.1k</text>
+  <text x="452" y="238" font-size="12" fill="#1f6fb2">R1 = CC1 – GND</text>
+
+  <!-- 抵抗 R2: 6 → 7 -->
+  <path d="M377.5 288 L377.5 200 L441 200 L441 288" fill="none" stroke="#8e44ad" stroke-width="3"/>
+  <rect x="383" y="188" width="52" height="24" fill="#f6e7c6" stroke="#8e44ad" stroke-width="2"/>
+  <text x="409" y="205" font-size="12" text-anchor="middle" fill="#8e44ad">5.1k</text>
+  <text x="452" y="198" font-size="12" fill="#8e44ad">R2 = CC2 – GND</text>
+
+  <!-- PowerBoost へ 2 本 -->
+  <path d="M60 303 L60 400" fill="none" stroke="#8b4513" stroke-width="3"/>
+  <path d="M250.5 303 L250.5 400" fill="none" stroke="#111" stroke-width="3"/>
+  <text x="70" y="415" font-size="12">→ PowerBoost の USB（茶＝1 番 VBUS）と GND（黒＝4 番 GND）へ</text>
+</svg>
+
+<h2 style="font-size:15px">つなぐ先</h2>
+<table>
+ <tr><th>部品</th><th>片方</th><th>もう片方</th></tr>
+ <tr><td>5.1kΩ（1 本目）</td><td>5 番 CC1</td><td>7 番 GND</td></tr>
+ <tr><td>5.1kΩ（2 本目）</td><td>6 番 CC2</td><td>7 番 GND</td></tr>
+ <tr><td>PowerBoost への線 2 本</td><td>1 番 VBUS</td><td>4 番 GND</td></tr>
+</table>
+
+<p>GND は 4 番と 7 番の 2 つありますが、<b>抵抗は 2 本とも 7 番へ落とします</b>。🔒 ユーザー 2026-09-09「1，4 にピンヘッダ立てるよ。5,6,7 は抵抗に使う」により、L 字ピンは <b>1 番と 4 番に 1 本ずつ</b>だけです（<code>TC_PINS = [0, 3]</code>）。2・3・5・6・7 番は穴が空いたままなので、抵抗の足がそのまま入ります。4 番はヘッダと PowerBoost への線が入るので混ぜません。</p>
+
+<p class="warn">⚠ 抵抗の胴は 🔒 部品面（ユーザー 2026-09-09「抵抗は部品面にハンダ付けします」）。⇒ 足が裏へ出ないので、左の壁の逃げはヘッダの 1 番と 4 番のぶんだけになりました（溝 10.2 × 2.8 × 深さ 1.0）。胴を置ける範囲には 1 つ制限があります: パッドの列（箱では Y 65.19）から <b>+Y 側へ 2.06 まで</b>。それを越えると床の「後ろの控え」（X 3.544〜5.2・Y 67.25〜70.75・Z 0〜6）に当たります。5・6・7 番は Z 2.97〜8.05 で、まさにこの帯の高さです。胴を列の線に沿って寝かせる分には掛かりません。</p>

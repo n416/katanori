@@ -203,12 +203,12 @@ Extended は部品の種類ごとに 1 回の発注で $3.07 かかる。昇圧�
 
 #### 回路図（2026-09-12・v0.1）
 
-回路図は [hardware/pcb/hub_power/](../hardware/pcb/hub_power/) にあり、`hardware/pcb/gen_sch.py` が生成する。
+回路図は [hardware/frozen/v6/pcb/hub_power/](../hardware/frozen/v6/pcb/hub_power/) にあり、`hardware/frozen/v6/pcb/gen_sch.py` が生成する。
 新しく設計した回路は無く、3 つの出どころを 1 枚に写しただけである。電源は Adafruit PowerBoost 1000C Rev B の
 回路図（[hardware/ref/powerboost_1000c/](../hardware/ref/powerboost_1000c/)・CC BY-SA 3.0）、ハブは
 [relay_board.html](../hardware/parts/relay_board.html) の部品と `hub_ports.py` の口、電流計は今の INA226 モジュールの役目である。
 
-`hardware/pcb/check_sch.py` が、KiCad の書き出したつながりを写した元とピン 1 本ずつ突き合わせる。
+`hardware/frozen/v6/pcb/check_sch.py` が、KiCad の書き出したつながりを写した元とピン 1 本ずつ突き合わせる。
 v0.1 では合わない所は 0 件だった。わざと 5 か所を壊すと 5 か所とも検出したので、空振りではない。
 
 写したときに変えた点は次のとおりである。
@@ -236,7 +236,7 @@ MMUN2133 はベースとエミッタのあいだに抵抗を内蔵している�
 
 パネルは **74 × 86mm** で、上が**ハブ 74 × 52**、下が**電源 40 × 32**、あいだ 2mm をミシン目のタブ 2 本でつなぐ。
 1 枚で発注して、使うときに割る。電源板の大きさは、いまの PowerBoost の場所（天井）で当たりを見て決めた
-（`hardware/_tmp_pcb/pbfit.scad` で `one`/`others` と当たりを取り、後ろ＝ハッチ側へ伸ばす向きなら 32mm まで当たり 0。
+（`hardware/frozen/v6/pcb_tmp/pbfit.scad` で `one`/`others` と当たりを取り、後ろ＝ハッチ側へ伸ばす向きなら 32mm まで当たり 0。
 前へ伸ばすと 5mm でスピーカーのバスタブの腕に当たる）。
 
 ハブ側の口・リレー・会話ボタン・取付穴は、いまのユニバーサル基板と同じ座標に置いた（`hub_ports.py` と
@@ -247,7 +247,7 @@ MMUN2133 はベースとエミッタのあいだに抵抗を内蔵している�
 電源板側に付ける前提で書かれている）。**板ごとにネット名を分けてある**（電源板側は V5P・GNDP・V33P・SDAP・SCLP・ENP）。
 2 枚は銅箔ではつながらず、つながるのは J11 ↔ J12 のハーネスだけだからである。
 
-配線は Freerouting（`hardware/_tmp_pcb/freerouting/`・インストールせず展開しただけ）で引いた。
+配線は Freerouting（`hardware/frozen/v6/pcb/freerouting/`・インストールせず展開しただけ）で引いた。
 結果は **未配線 0・違反 0**、KiCad の DRC も**エラー 0**である（残る警告はシルクの文字の重なりと、
 足形がライブラリと少し違うという指摘だけ）。線幅 0.2mm・間隔 0.15mm・ビア 0.8/0.4mm。
 
@@ -255,16 +255,16 @@ MMUN2133 はベースとエミッタのあいだに抵抗を内蔵している�
 
 | ファイル | 役目 |
 |---|---|
-| `hardware/pcb/gen_sch.py` | 回路図を作る |
-| `hardware/pcb/check_sch.py` | 回路図を写した元（PowerBoost・relay_board・hub_ports）と突き合わせる |
-| `hardware/pcb/gen_pcb.py` | 部品を置いた基板と、自動配線へ渡す DSN を作る |
-| `hardware/pcb/dsn.py` | DSN の書き出しと SES の読み込み（KiCad のコマンド版には無い） |
-| `hardware/pcb/route.py` | 自動配線を回して結果を基板へ入れ、DRC をかける |
-| `hardware/pcb/check_pcb.py` | 銅箔どうしの最小すきまを **KiCad とは別の道で**測る（同じ道具で 2 回測っても独立した観測にならないため） |
+| `hardware/frozen/v6/pcb/gen_sch.py` | 回路図を作る |
+| `hardware/frozen/v6/pcb/check_sch.py` | 回路図を写した元（PowerBoost・relay_board・hub_ports）と突き合わせる |
+| `hardware/frozen/v6/pcb/gen_pcb.py` | 部品を置いた基板と、自動配線へ渡す DSN を作る |
+| `hardware/frozen/v6/pcb/dsn.py` | DSN の書き出しと SES の読み込み（KiCad のコマンド版には無い） |
+| `hardware/frozen/v6/pcb/route.py` | 自動配線を回して結果を基板へ入れ、DRC をかける |
+| `hardware/frozen/v6/pcb/check_pcb.py` | 銅箔どうしの最小すきまを **KiCad とは別の道で**測る（同じ道具で 2 回測っても独立した観測にならないため） |
 
 #### 部品と製造ファイル（2026-09-12）
 
-`hardware/pcb/fab.py` が、ガーバー・穴・部品表・実装位置を `hardware/pcb/hub_power/fab/` に書き出す。
+`hardware/frozen/v6/pcb/fab.py` が、ガーバー・穴・部品表・実装位置を `hardware/frozen/v6/pcb/hub_power/fab/` に書き出す。
 発注に上げるのは `hub_power_gerber.zip`（ガーバーと穴だけ）と `fab/bom.csv`・`fab/cpl.csv` である。
 
 製造ファイルは **表面実装の 44 個（28 種類）**を頼む形で、**足付きの部品 11 個**
@@ -1563,7 +1563,7 @@ Internal Connections でコイルの長方形が左から2列目の上下2本に
 関係がない。⇒ 🔒 **穴の位置もネットの割り当ても exit も、いまのままでよい。**
 実測でも、線が箱の外へ出た量は **0mm3**（v1 は 17,844mm3）。
 
-🔒 **2026-09-12 ユーザー「要らないね」: 起こした板（`hardware/pcb/`）には、板の上の直挿しの会話ボタンを
+🔒 **2026-09-12 ユーザー「要らないね」: 起こした板（`hardware/frozen/v6/pcb/`）には、板の上の直挿しの会話ボタンを
 載せない。** 会話ボタンは天板のもの 1 つだけになり、口（`BTN2`）で受ける。いま使っているユニバーサル基板の
 側は下の 2026-08-17 のままで、変わったのは新しい板の上だけである。
 

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """JLCPCB に出す製造ファイルを書き出す。
 
-  python fab.py     → hardware/pcb/hub_power/fab/ に
+  python fab.py     → hardware/pcb/katanori61/fab/ に
                       ガーバー一式・穴（Excellon）・部品表（BOM）・実装位置（CPL）・zip
 
 実装を頼むのは**表面実装の部品だけ**。スルーホール（リレー・ピンヘッダ・JST・2SC1815・1N4148・
@@ -22,10 +22,10 @@ import kisym  # noqa: E402
 from kisym import find, find1  # noqa: E402
 
 CLI = r"C:\Program Files\KiCad\10.0\bin\kicad-cli.exe"
-OUT = HERE / "hub_power"
+OUT = HERE / "katanori61"
 FAB = OUT / "fab"
 GERBER = FAB / "gerber"      # zip にするのはここだけ（部品表と実装位置は別に上げる）
-NAME = "hub_power"
+NAME = "katanori61"
 
 
 def run(*args):

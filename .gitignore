@@ -27,3 +27,23 @@ hardware/_pf/
 # 刷るぞー の測定キャッシュ（絶対パスと mtime で作る派生物。他人の環境では当たらない）
 surugo/.measure_cache.json
 surugo/.heat_cache/
+
+# v5 の検査の作業場（tools/props_gen.py・ribs_gen.py・manual_v5/ が書く。413 ファイル・172MB）
+hardware/_tmp_v5/
+
+# Freerouting は展開しただけの実行ファイル（141MB）。route.py がこの場所を読む
+hardware/frozen/v6/pcb/freerouting/
+
+# MuJoCo の模型の出力（スクリプトと XML は入れる・絵と数表は焼き直せる）
+hardware/sim/*/*.gif
+hardware/sim/*/*.png
+hardware/sim/*/*.npy
+hardware/sim/*/*.txt
+hardware/sim/m2_sorter/emgi/
+
+# v6 の当たり検査の出力（_v6_gear_chk.py が焼き直す）
+hardware/frozen/v6/chk/*.stl
+hardware/frozen/v6/chk/*.echo
+
+# 自動配線の実行時に出るログ（2026-09-14）
+en/

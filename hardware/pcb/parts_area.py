@@ -17,7 +17,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).parent))
 import kisym  # noqa: E402
 from kisym import find, find1  # noqa: E402
 
-PCB = pathlib.Path(__file__).parent / "hub_power" / "hub_power.kicad_pcb"
+PCB = pathlib.Path(__file__).parent / "katanori61" / "katanori61.kicad_pcb"
 FPDIR = pathlib.Path(r"C:\Program Files\KiCad\10.0\share\kicad\footprints")
 
 

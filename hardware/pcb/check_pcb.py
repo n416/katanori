@@ -21,8 +21,8 @@ sys.path.insert(0, str(HERE))
 import kisym  # noqa: E402
 from kisym import find, find1  # noqa: E402
 
-PCB = HERE / "hub_power" / "hub_power.kicad_pcb"
-LIMIT = 0.15   # 案③の設計規則（hub_power.kicad_pro の min_clearance）
+PCB = HERE / "katanori61" / "katanori61.kicad_pcb"
+LIMIT = 0.15   # 案③の設計規則（katanori61.kicad_pro の min_clearance）
 
 
 def shapes(pcb):

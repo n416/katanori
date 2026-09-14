@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-"""ハブ＋電源の板の回路図（hub_power.kicad_sch）を作る。
+"""ハブ＋電源の板の回路図（katanori61.kicad_sch）を作る。
 
-  python gen_sch.py        → hardware/pcb/hub_power/hub_power.kicad_sch と .kicad_pro
+  python gen_sch.py        → hardware/pcb/katanori61/katanori61.kicad_sch と .kicad_pro
 
 回路は 3 つの出どころの写しで、ここで新しく設計した回路は無い。
   電源   : Adafruit PowerBoost 1000C Rev B（hardware/ref/powerboost_1000c/・CC BY-SA 3.0）
@@ -24,15 +24,15 @@ import kisym  # noqa: E402
 from kisym import Str  # noqa: E402
 import hub_ports  # noqa: E402
 
-OUT = pathlib.Path(__file__).parent / "hub_power"
-NAME = "hub_power"
-ROOT = str(uuid.uuid5(uuid.NAMESPACE_URL, "katanori/hub_power"))
+OUT = pathlib.Path(__file__).parent / "katanori61"
+NAME = "katanori61"
+ROOT = str(uuid.uuid5(uuid.NAMESPACE_URL, "katanori/katanori61"))
 _n = [0]
 
 
 def uid():
     _n[0] += 1
-    return str(uuid.uuid5(uuid.NAMESPACE_URL, f"katanori/hub_power/{_n[0]}"))
+    return str(uuid.uuid5(uuid.NAMESPACE_URL, f"katanori/katanori61/{_n[0]}"))
 
 
 G = 2.54
@@ -155,7 +155,7 @@ r("R42", "10K", XI + 12, YI + 1, "V33", "SDA", note="I2C の引き上げ")
 r("R43", "10K", XI + 15, YI + 1, "V33", "SCL", note="I2C の引き上げ")
 part("J10", "Connector_Generic:Conn_01x02", "BAT (JST-PH)", XI - 20, YI + 8,
      {"1": "GND", "2": "BATP"}, "Connector_JST:JST_PH_S2B-PH-K_1x02_P2.00mm_Horizontal",
-     note="🔴 1 番が −・2 番が +（PowerBoost B1 の並び）")
+     note="🔴 1 番が −・2 番が +（PowerBoost B1 の並び）。v6.1 は板の裏に横出し（🔒 ユーザー 2026-09-14「水平に出す形に」）")
 # 🔒 2026-09-12 ユーザー「2 だね」: 充電の USB-C の受け口を電源板に載せる（秋月の Type-C 基板と
 #    線 2 本と手付けの CC 抵抗が消える）。JLCPCB は SMT の流れで付ける（Assembly Type: SMT Assembly）。
 #    ⚠ 板の縁を壁へ持っていくのは筐体 v6 側の仕事。
@@ -164,8 +164,8 @@ part("J13", "Connector:USB_C_Receptacle_USB2.0_16P", "USB-C", XI - 20, YI + 18,
       "A4": "VBUS", "A9": "VBUS", "B4": "VBUS", "B9": "VBUS",
       "A5": "CC1", "B5": "CC2",
       "A6": None, "B6": None, "A7": None, "B7": None, "A8": None, "B8": None},
-     "katanori:USB_C_HRO_TYPE-C-31-M-12_NoFrontLegs", lcsc="C165948",
-     note="充電の口。D+/D− と SBU は使わない")
+     "Connector_USB:USB_C_Receptacle_HRO_TYPE-C-31-M-12", lcsc="C165948",
+     note="充電の口。D+/D− と SBU は使わない。v6.1 は板の縁から 1.53 しか出ないので前のシェルの足 2 本も板に載る")
 r("R44", "5.1k", XI - 16, YI + 22, "CC1", "GND", note="CC1 の引き下げ（充電器に 5V を出させる）")
 r("R45", "5.1k", XI - 13, YI + 22, "CC2", "GND", note="CC2 の引き下げ")
 
@@ -217,14 +217,10 @@ part("U4", "katanori:AS5600-ASOM", "AS5600-ASOM", XA, YA,
      note="つまみの角度。磁石は真上・板 X 36.2 Y 7。🔴 PGO(5) と OUT(3) は繋がない")
 c("C42", "0.1uF", XA + 12, YA + 8, "V33", "GND", note="AS5600 のパスコン（📄 9 ページ Figure 13）")
 
-# ======== マスタートグル: 板に実装するスライドスイッチ（2026-09-13） ========
-# 🔒 筐体側 2026-09-13。口 J7（トグルへ 2 本）が消えて板の上の部品になる。
-#    SHOU HAN MST-12D18G3（C49023766）・9.1 × 3.5 × 6.5・SMD の横出し・板 X 21.95〜31.05 の上の縁。
-#    1 回路 2 接点のうち片側だけ使う（もう片方は未接続）。リードスイッチと並列で EN⇔GND。
-#    ⚠ この部品の JLCPCB の区分（Basic か Extended か）は未確認（2026-09-13）。
-part("SW1", "Switch:SW_SPDT", "MST-12D18G3", XA, YA + 20,
-     {"2": "EN", "1": "GND", "3": None}, "katanori:SW_Slide_MST-12D18G3",
-     lcsc="C49023766", note="マスタートグル。2=COM を EN へ・1 を GND へ・3 は空き", grp="hub")
+# ======== マスタートグルは板の部品ではない（v6.1・2026-09-14） ========
+# 🔒 筐体側 2026-09-14「トグルは板に立ちません。ハッチに付いて線 2 本です」。板の表から 14.45 上に
+#    あるので板からは立てられない。v6 に在った SW1（MST-12D18G3）は消し、リードと同じ EN⇔GND の
+#    線として下の J7 で受ける。
 
 # 口（hub_ports.py の並びのまま = 今の線がそのまま挿さる）
 # 🔒 2026-09-13 で口は 7 つになった: XIAO・OLED・スピーカー IN・スピーカー OUT・リード・
@@ -245,7 +241,10 @@ PORT_NAME = {"OLED": "OLED", "PHIN": "SPK IN", "PHOUT": "SPK OUT"}
 # 🔒 2026-09-13 筐体側: 口は全部「線が板の面と平行に抜ける」形にする（外向きだと壁に当たる）。
 #    2 本の口は 2.54 の L 字ソケット・スピーカーと電池と OLED は JST PH の横型。
 FP_PORT = {
-    "OLED": "Connector_JST:JST_PH_S4B-PH-K_1x04_P2.00mm_Horizontal",
+    # 🔒 v6.1（2026-09-14）: OLED は線ではなくライザーの板で受ける。並び（1 GND・2 3V3・3 SCL・4 SDA）は
+    #    パネルと 1 対 1 のまま変えない。口は PH の横型 → 2.54 の縦のメス → **オスのピンヘッダ**と替わった
+    #    （メスの背 8.5 ではライザーの板が XIAO の下のメスに 2.49 届かなかった）
+    "OLED": "Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical",
     "PHIN": "Connector_JST:JST_PH_S2B-PH-K_1x02_P2.00mm_Horizontal",
     "PHOUT": "Connector_JST:JST_PH_S2B-PH-K_1x02_P2.00mm_Horizontal",
 }
@@ -261,47 +260,35 @@ for p in hub_ports.ports():
          FP_PORT[p.id], note=p.label)
     gx += 12
 
-# ======== リードと会話ボタンを 1 つの口にまとめる（🔒 ユーザー 2026-09-13）========
-# 口 6 つに対して、プラグの通り道まで取れる場所が板に 5 か所しか無かった（gen_pcb.py の CONN）。
-# ユーザー「別に線が二股になるのは構わないと思います」。
-# 🔴 3 ピン（EN・BTN・GND）ではなく **4 ピン**にする。GND を 2 本にすれば、1 つの端子へ線を
-#    2 本入れる（圧着できない）ことも、線を割って継ぐこともせずに済む。
-#    並びは **隣り合う 2 本ずつで分かれる**ように: 1 EN・2 GND がリードへ、3 GND・4 BTN が会話ボタンへ。
-#    どちらも無極性のスイッチなので、組の中での順は効かない。
-part("J6", "Connector_Generic:Conn_01x04", "REED+BTN2", 0, 0,
-     {"1": "EN", "2": "GND", "3": "GND", "4": "BTN"},
-     "Connector_JST:JST_PH_S4B-PH-K_1x04_P2.00mm_Horizontal",
-     note="1 EN・2 GND → リード ／ 3 GND・4 BTN → 会話ボタン（線は口の所で二股）", grp="ports")
+# ======== 会話ボタンの口と、リード＋トグルの口（v6.1・2026-09-14） ========
+# v6 は「リード＋会話ボタン」で 1 つの 4 ピンだったが、v6.1 は板が広がって口の場所が増えたので分けた。
+# 🔒 リードとトグルは**どちらも EN を GND へ落とすだけの並列のスイッチ**なので、1 つの 4 ピンにまとめる。
+#    並びは隣り合う 2 本ずつで分かれる: 1 EN・2 GND がリードへ、3 EN・4 GND がトグルへ。
+#    どちらも無極性なので組の中の順は効かない。GND を 2 本にしてあるので、1 つの端子へ線を 2 本
+#    入れる（圧着できない）ことも、線を割って継ぐこともしないで済む。
+part("J6", "Connector_Generic:Conn_01x02", "BTN2", 0, 0,
+     {"1": "GND", "2": "BTN"},
+     "Connector_JST:JST_PH_S2B-PH-K_1x02_P2.00mm_Horizontal",
+     note="筐体の会話ボタンへ 2 本", grp="ports")
+part("J7", "Connector_Generic:Conn_01x04", "REED+TOGGLE", 0, 0,
+     {"1": "EN", "2": "GND", "3": "EN", "4": "GND"},
+     "Connector_JST:JST_PH_B4B-PH-K_1x04_P2.00mm_Vertical",
+     note="1 EN・2 GND → リード ／ 3 EN・4 GND → マスタートグル（縦の口・上から挿す）", grp="ports")
 
-# ======== XIAO の口 — 2 列 14 本の直挿し（2026-09-13） ========
-# 🔒 筐体側 2026-09-13。ReSpeaker の上に立っている 2×7 のピンヘッダ（XIAO 面から 10 出る）が、
-#    この板のメスソケット 2 本へ真上から挿さる。線が 7 本消える。
-# 🔴 **どちらの列がどちらか**は鏡像事故の温床なので、出どころを 3 つ揃えてから書いた:
-#    ① 筐体側の 3 次元の変換（回転だけ・利き手は変わらない）で 📄 パッド「下から 9.397 と 24.627」が
-#       板の X 9.40 と 24.63 に写る。下の列（9.397）が D0〜D6 側
-#    ② XIAO の標準の上面図は「USB を上」で左列が D0…D6。ここでは USB-C が ReSpeaker の左を向くので
-#       上面図を反時計 90° 回した形になり、左列（D0〜D6）が下へ来る
-#    ③ docs/RESPEAKER-LITE.md 3 章: 外部パッド1 `Mute D3 D2 Usr ⏚ 3V3` が **下辺**・
-#       外部電源パッド（GND・5V）が **上の長辺**。①② と同じ割り当てになる
-# 🔴 板の +Z の面（部品が生える面・ReSpeaker を向いている面）から見た座標である。
-#    KiCad の表面がこの面なので、そのまま入れて合う。
+# ======== XIAO の口 — ライザーの板を受ける 1x07（v6.1・2026-09-14） ========
+# 🔒 筐体側 2026-09-14。v6 は XIAO の 2×7 のピンヘッダが板のメスソケット 2 本へ真上から挿さっていたが、
+#    v6.1 は板と XIAO の間にライザーの板が立つ。ライザーの上側のメスが XIAO のピンを受け（信号 4 本が
+#    Z 32.11・電源 3 本が Z 16.88）、下側のオスがこの板の 1x07 のメスに挿さる。
+#    ⇒ この板から見えるのは **7 本だけ**（D0・D1・D6〜D10 はライザーで終わる）。
+# 🔴 どちらの列がどちらか、という v6 の鏡像の心配はここでは消える。ライザーの板の上で入れ替わるので、
+#    この板の並びは配線の都合で決めてよい。電源 3 本を 1 番側・信号 4 本を 7 番側にした。
 XX, YX = 15, 200
 group("xiao")
-# 列 X 9.40（D0〜D6 側）／ 列 X 24.63（5V・GND・3V3・D10〜D7 側）。どちらも 1 本目が Y 2.90 側
-XIAO_ROWS = [
-    ("J1", "XIAO D0-D6", 9.40,
-     [(None, "D0"), (None, "D1"), ("BTN", "D2"), ("IN", "D3"),
-      ("SDA", "D4"), ("SCL", "D5"), (None, "D6")]),
-    ("J14", "XIAO PWR", 24.63,
-     [("V5", "5V"), ("GND", "GND"), ("V33", "3V3"), (None, "D10"),
-      (None, "D9"), (None, "D8"), (None, "D7")]),
-]
-for ref, nm, col_x, rows in XIAO_ROWS:
-    part(ref, "Connector_Generic:Conn_01x07", nm, XX, YX,
-         {str(i): net for i, (net, _) in enumerate(rows, 1)},
-         "Connector_PinSocket_2.54mm:PinSocket_1x07_P2.54mm_Vertical",
-         note=f"列 X {col_x}・1 本目が Y 2.90 側: " + " / ".join(lbl for _, lbl in rows))
-    XX += 60
+part("J1", "Connector_Generic:Conn_01x07", "XIAO RISER", XX, YX,
+     {"1": "V5", "2": "GND", "3": "V33", "4": "SDA", "5": "SCL", "6": "BTN", "7": "IN"},
+     "Connector_PinHeader_2.54mm:PinHeader_1x07_P2.54mm_Vertical",
+     note="ライザー: 1 5V・2 GND・3 3V3・4 SDA・5 SCL・6 D2(BTN)・7 D3(IN)。"
+          "🔒 2026-09-14 板の側は**オスのピンヘッダ**（ライザー側が裏面の L 字のメスで受ける）")
 
 # ---- JLCPCB（LCSC）の部品番号（2026-09-12 に JLCPCB の部品検索で取った） ----
 # 「基」= Basic（種類ごとの取り付け料 $0 ）・「拡」= Extended（種類ごとに $3.07）
@@ -521,10 +508,24 @@ def build():
            ["sheet_instances", ["path", Str("/"), ["page", Str("1")]]], ["embedded_fonts", "no"]]
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT / f"{NAME}.kicad_sch").write_text(kisym.dump(doc) + "\n", encoding="utf-8")
+    # 🔴 設計規則はここで書く。v6 では手で入れた .kicad_pro が残っていて気づかなかったが、
+    #    規則の無い（からの）.kicad_pro だと KiCad は既定値（線 0.2 以上・すきま 0.2 以上・
+    #    縁まで 0.5）で検査し、自動配線の結果が違反の山に見える（2026-09-14 に v6.1 で踏んだ）。
+    #    値は v6 の hub_power.kicad_pro と同じ（案③ JLCPCB の 6/6mil 相当）。
     pro = OUT / f"{NAME}.kicad_pro"
-    if not pro.exists():
-        pro.write_text(json.dumps({"meta": {"filename": f"{NAME}.kicad_pro", "version": 1}}, indent=2),
-                       encoding="utf-8")
+    rules = {"min_clearance": 0.15, "min_copper_edge_clearance": 0.3, "min_hole_clearance": 0.25,
+             "min_hole_to_hole": 0.5, "min_microvia_diameter": 0.2, "min_microvia_drill": 0.1,
+             "min_silk_clearance": 0.0, "min_through_hole_diameter": 0.3, "min_track_width": 0.1,
+             "min_via_annular_width": 0.13, "min_via_diameter": 0.45}
+    net_default = {"bus_width": 12.0, "clearance": 0.15, "diff_pair_gap": 0.25, "diff_pair_width": 0.2,
+                   "line_style": 0, "microvia_diameter": 0.3, "microvia_drill": 0.1, "name": "Default",
+                   "pcb_color": "rgba(0, 0, 0, 0.000)", "schematic_color": "rgba(0, 0, 0, 0.000)",
+                   "track_width": 0.2, "via_diameter": 0.8, "via_drill": 0.4, "wire_width": 6.0}
+    pro.write_text(json.dumps({
+        "board": {"design_settings": {"rules": rules}},
+        "meta": {"filename": f"{NAME}.kicad_pro", "version": 3},
+        "net_settings": {"classes": [net_default], "meta": {"version": 4}},
+        "sheets": [], "text_variables": {}}, indent=2), encoding="utf-8")
     print(f"{len(PARTS)} 部品 → {OUT / (NAME + '.kicad_sch')}")
 
 

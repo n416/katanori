@@ -1,0 +1,15 @@
+<mujoco model="roll"><option timestep="0.0004" gravity="0 0 -9.81" integrator="implicitfast" cone="elliptic" impratio="10"><flag multiccd="enable"/></option>
+<visual><global offwidth="1280" offheight="720"/></visual>
+<worldbody><light pos="0.5 -1 2" dir="-0.3 0.5 -1"/><camera name="iso" pos="0.3139 -1.1000 0.5000" xyaxes="1.0000 -0.0000 0.0000 0.0000 0.5281 0.8492"/>
+<geom name="lead" type="box" pos="0.14101 0.00000 -0.05331" size="0.15000 0.03200 0.01500" xyaxes="0.965926 0 -0.258819 0 1 0" rgba="0.7 0.75 0.8 1" friction="0.3 0.005 0.0001"/>
+<geom name="railL0" type="box" pos="0.40664 -0.04700 -0.12449" size="0.12500 -0.01500 0.01500" xyaxes="0.965926 0 -0.258819 0 1 0" rgba="0.7 0.75 0.8 1" friction="0.3 0.005 0.0001"/>
+<geom name="railR0" type="box" pos="0.40664 0.04700 -0.12449" size="0.12500 -0.01500 0.01500" xyaxes="0.965926 0 -0.258819 0 1 0" rgba="0.7 0.75 0.8 1" friction="0.3 0.005 0.0001"/>
+<geom name="end" type="box" pos="0.57567 0.00000 -0.16978" size="0.05000 0.03200 0.01500" xyaxes="0.965926 0 -0.258819 0 1 0" rgba="0.7 0.75 0.8 1" friction="0.3 0.005 0.0001"/>
+<geom name="wall-1" type="box" pos="0.31393 -0.04200 -0.08412" size="0.32500 0.01000 0.04500" xyaxes="0.965926 0 -0.258819 0 1 0" rgba="0.7 0.75 0.8 1" friction="0.3 0.005 0.0001"/>
+<geom name="wall1" type="box" pos="0.31393 0.04200 -0.08412" size="0.32500 0.01000 0.04500" xyaxes="0.965926 0 -0.258819 0 1 0" rgba="0.7 0.75 0.8 1" friction="0.3 0.005 0.0001"/>
+<geom name="ground" type="plane" pos="0 0 -0.6" size="3 3 0.1"/>
+<body name="s0" pos="0.04200 -0.02700 0.00220" quat="0.707107 -0.707107 0.000000 0.000000"><freejoint/>
+<geom name="s0_sh" type="cylinder" size="0.01000 0.02000" pos="0 0 0.02000" density="7850" rgba="0.8 0.65 0.2 1" friction="0.3 0.005 0.0001"/>
+<geom name="s0_hd" type="cylinder" size="0.01900 0.00700" pos="0 0 0.04700" density="7850" rgba="0.8 0.65 0.2 1" friction="0.3 0.005 0.0001"/>
+</body>
+</worldbody></mujoco>

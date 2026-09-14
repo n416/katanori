@@ -4,7 +4,7 @@
   python parts_place.py            → 標準出力へ
   python parts_place.py -o FILE    → ファイルへ
 
-🔴 読むのは **生成済みの hub_power.kicad_pcb**（gen_pcb.py の PLACE ではない）。
+🔴 読むのは **生成済みの katanori61.kicad_pcb**（gen_pcb.py の PLACE ではない）。
    PLACE は置き場所の狙いで、relax() が重なりを押し離したあとの実位置とは違う。
 🔴 背の高さは gen_pcb.py の HEIGHT。**出どころ（📄 かどうか）を必ず一緒に出す。**
 """
@@ -17,7 +17,7 @@ import kisym  # noqa: E402
 from kisym import find, find1  # noqa: E402
 import gen_pcb as G  # noqa: E402
 
-PCB = pathlib.Path(__file__).parent / "hub_power" / "hub_power.kicad_pcb"
+PCB = pathlib.Path(__file__).parent / "katanori61" / "katanori61.kicad_pcb"
 
 
 def rows():

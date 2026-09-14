@@ -16,9 +16,9 @@
 
 | | 課題 | 持ち物 |
 |---|---|---|
-| デザイン担当 | 薄さと「携帯機に見える形」 | `hardware/_v6_portrait.scad`・`docs/CASE-V6-PLAN.md` |
-| 回路担当（「ケーブル取り回しの問題」） | 中継基板が引けること | `hardware/pcb/` |
-| 機構担当（「機構担当の引き継ぎ」） | つまみが回って AS5600 が読むこと | `hardware/_v6_gear.scad`・`docs/MECH-V6-HANDOFF.md` |
+| デザイン担当 | 薄さと「携帯機に見える形」 | `hardware/frozen/v6/_v6_portrait.scad`・`docs/CASE-V6-PLAN.md` |
+| 回路担当（「ケーブル取り回しの問題」） | 中継基板が引けること | `hardware/frozen/v6/pcb/` |
+| 機構担当（「機構担当の引き継ぎ」） | つまみが回って AS5600 が読むこと | `hardware/frozen/v6/_v6_gear.scad`・`docs/MECH-V6-HANDOFF.md` |
 | **調停役（あなた）** | **薄さを守りながら 3 つを落とし込む** | この文書 |
 
 3 つはそれぞれ自分の課題に最適化します。**衝突したときに、どこを譲るかを決めるのがあなたです。**
@@ -28,7 +28,7 @@
 
 1. `docs/CASE-V6-PLAN.md` … v6 の現在地（外形・Z の鎖・板の天井の地図・潰した当たりの記録）
 2. `docs/MECH-V6-HANDOFF.md` … 機構側の到達点と、筐体・板への要求
-3. `hardware/_v6_portrait.scad` / `hardware/_v6_gear.scad` … 形の正
+3. `hardware/frozen/v6/_v6_portrait.scad` / `hardware/frozen/v6/_v6_gear.scad` … 形の正
 4. `docs/POWER.md` / `docs/RESPEAKER-LITE.md` / `docs/KNOB-ENCODER.md`
 
 ## 3. 🔒 触れない前提（ユーザーが決めたもの）
@@ -75,7 +75,7 @@
 
 ## 5. やり方の決まり
 
-- 🔴 **`hardware/_v6_portrait.scad` と `hardware/_v6_gear.scad` を編集しない。**持ち主に文で要求する
+- 🔴 **`hardware/frozen/v6/_v6_portrait.scad` と `hardware/frozen/v6/_v6_gear.scad` を編集しない。**持ち主に文で要求する
 - 🔴 **ユーザーへ判断を上げる前に、自分の案を 1 つ出す。**選択肢を並べて投げない。1 返答で迫る判断は 1 つまで
 - 🔴 数字で言う。当たりは `--backend=manifold`、**エラー／空／数値の 3 分岐**、対照を毎回 1 本
 - 🔴 絵を出す。座標の羅列で判断を求めない
@@ -92,7 +92,7 @@
 
 ## 0. まず自分で数え直した
 
-機構の 14 本＋対照 7 本を `python hardware/tools/_v6_gear_chk.py` でそのまま回した。
+機構の 14 本＋対照 7 本を `python hardware/frozen/v6/tools/_v6_gear_chk.py` でそのまま回した。
 **実体 15 本すべて 空 か 0.0000・対照 7 本すべて反応。**報告と一致する（ERROR 0 本）。
 その上で、**誰も数えていない数が 1 つある**と分かった（3 章）。
 
@@ -629,8 +629,8 @@ v6 の 2 つの .scad にある磁石は **AS5600 用の φ4 が 1 個だけ**�
 ## 5. コミットの取り決め
 
 回路担当の案「**本体へ書いた人がコミットする**」に賛成。
-⚠ それより重いのは **ワークツリーが 18 コミット遅れで、`hardware/pcb/` が古い 74 × 52 のまま**である点。
-⇒ **ワークツリー側で `hardware/pcb/` を読まない。**板のことは回路担当の本体が正。
+⚠ それより重いのは **ワークツリーが 18 コミット遅れで、`hardware/frozen/v6/pcb/` が古い 74 × 52 のまま**である点。
+⇒ **ワークツリー側で `hardware/frozen/v6/pcb/` を読まない。**板のことは回路担当の本体が正。
 
 ---
 
@@ -962,11 +962,11 @@ v6 がその前提を壊したので、数は戻る。**無駄だったのでは
 
 # 裁定 #14 — 「検査が別の物を見ていた」の 5 つ目は、調停自身だった（2026-09-13）
 
-回路担当の指摘: ワークツリーで古いのは `hardware/pcb/` だけではない。
+回路担当の指摘: ワークツリーで古いのは `hardware/frozen/v6/pcb/` だけではない。
 **`docs/POWER.md` は本体 `main` より 322 行・9 コミット古い**（`KNOB-ENCODER.md` は 69 行）。
 
 🔴 **私は裁定 #9 と #11 を、そのワークツリーの古い写しから引用していた。**
-規則「ワークツリーで `hardware/pcb/` を読まない」は、**読む側の穴を塞いでいなかった。**
+規則「ワークツリーで `hardware/frozen/v6/pcb/` を読まない」は、**読む側の穴を塞いでいなかった。**
 
 ## ✅ 中身は生きていた（`git show main:` で全部当て直した）
 
@@ -991,7 +991,7 @@ v6 がその前提を壊したので、数は戻る。**無駄だったのでは
 > 🔒 **ワークツリーでは、v6 の未追跡ファイル 4 つ以外を 編集も引用もしない。
 > 読むなら `git show main:<path>`。行番号もそちらで取る。**
 
-（デザイン担当は既に `git show main:hardware/pcb/gen_pcb.py` でやっている。それを全ファイルへ広げる。）
+（デザイン担当は既に `git show main:hardware/frozen/v6/pcb/gen_pcb.py` でやっている。それを全ファイルへ広げる。）
 
 ⚠ 例外は無い。**この文書自身も、本体へ持っていくときは新規ファイルとして入る。**
 
@@ -1774,7 +1774,7 @@ ReSpeaker の面の座（0.30）で挟む**案を出し、**未確認 2 点**を
 
 v6 の .scad と docs が**ワークツリー `laughing-babbage-470b6c` に未追跡のまま**置かれていて、
 そのワークツリーは **main より 18 コミット以上古かった**。同じリポジトリの中に
-新しい所（本体の基板・ファーム・`docs/POWER.md`）と古い所（ワークツリーの `hardware/pcb`・`docs`）が
+新しい所（本体の基板・ファーム・`docs/POWER.md`）と古い所（ワークツリーの `hardware/frozen/v6/pcb`・`docs`）が
 混在し、**どれを見ればよいかが外から分からない**状態になっていた。
 調停役は「ワークツリーで追跡ファイルを読まない」という自分向けの運用規則で避けていただけで、
 混乱そのものは片付けていなかった。ユーザーには避けようが無い。
@@ -1782,12 +1782,12 @@ v6 の .scad と docs が**ワークツリー `laughing-babbage-470b6c` に未�
 | | |
 |---|---|
 | コミット | `c7a8528`（28 個）／ `1ca7e0e`（説明図の SVG 2 枚） |
-| .scad 8 本 | `hardware/_v6_portrait.scad` `_v6_gear` `_v6_flat` `_v6_form` `_v6_shape` `_v6_gear_probe` `_v6_knob_hold` `hardware/case_v6.scad` |
-| tools | `hardware/tools/_v6_batfit.py` `_v6_gear_chk.py` `_v6_gear_sweep.py` |
+| .scad 8 本 | `hardware/frozen/v6/_v6_portrait.scad` `_v6_gear` `_v6_flat` `_v6_form` `_v6_shape` `_v6_gear_probe` `_v6_knob_hold` `hardware/frozen/v6/case_v6.scad` |
+| tools | `hardware/frozen/v6/tools/_v6_batfit.py` `_v6_gear_chk.py` `_v6_gear_sweep.py` |
 | docs | `docs/CASE-V6-PLAN.md` `MECH-V6-HANDOFF.md` `MECH-V6-REQ.md` `MEDIATOR-V6-HANDOFF.md`（この文書） |
 | 追跡ファイルの変更 | `hardware/tools/_stl_preflight.py` ＝ 0.42 に出どころが無いと記録したコメント 8 行（**しきい値は 0.42 のまま**） |
 
-**ワークツリー側の v6 は全部消した。** 中間の PNG 約 45 枚と `hardware/_tmp_v6chk/` は運んでいない（.scad から焼き直せる）。
+**ワークツリー側の v6 は全部消した。** 中間の PNG 約 45 枚と `hardware/frozen/v6/chk/` は運んでいない（.scad から焼き直せる）。
 ワークツリーに残っている `hardware/ref/oled_.../` の staged 3 個は**他スレッドの物で、本体に同じ物が入っている**ので触っていない。
 
 ## 🔒 この案件で立った規則（追加分）
@@ -1803,7 +1803,7 @@ v6 の .scad と docs が**ワークツリー `laughing-babbage-470b6c` に未�
 
 - **デザイン担当**：セッションを本体へ移した上で、**厚み 6.0 をやり直す**。前の 6.0 は電池が今と違う位置にあった頃の走りで、もう根拠にならない
 - **機構担当**：本体の場所で検査を 1 度通す。特に `_v6_portrait.scad` の柱 — 基板の穴 Y 69.5 → **65.25**（`631:` 行に入っている事は確認済み）で 8 の字が解けた状態が、本体側でも同じに出るか
-- ✅ **消した**：`hardware/_tmp_sim/v6_gear/`（ユーザー「消していいよ」）。13MB・6 個・未追跡。**同じ所に `emgi/`（ネジ仕分け機の 3MF・別件）があるので、そちらは触っていない**
+- ✅ **消した**：`hardware/_tmp_sim/v6_gear/（消した・現物は frozen/v6/sim2d/ の 2D 模型だけ）`（ユーザー「消していいよ」）。13MB・6 個・未追跡。**同じ所に `emgi/`（ネジ仕分け機の 3MF・別件）があるので、そちらは触っていない**
 
 ## 🔴 MuJoCo で歯車を回した — 消えかけて、機構担当が書き直した
 

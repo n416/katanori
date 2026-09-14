@@ -76,8 +76,10 @@ hardware/          筐体・つまみ・基板モックの CAD（OpenSCAD）  �
 ├── icons/         刻印の元絵（SVG）と生成スクリプト
 ├── tools/         刷る前の検算（_stl_preflight.py / _stl_clean.py）
 ├── stl/           印刷した STL（刷るぞーが読む）／ print_log.jsonl 印刷の記録
-├── ref/           実物の写真・ピン配置
-└── frozen/v1-v4/  🔒 凍結した v1〜v4 の .scad・検算・レンダー。読まない・触らない
+├── ref/           実物の写真・ピン配置・データシート
+├── sim/           MuJoCo の模型（m2_sorter/ ＝ M2 ねじ仕分けの機構、2026-09-07）
+├── frozen/v1-v4/  🔒 凍結した v1〜v4 の .scad・検算・レンダー。読まない・触らない
+└── frozen/v6/     v6（2026-09-12〜13・失敗）。歯車の機構と KiCad の板は次で使い回す。中身は frozen/v6/README.md
 
 docs/manual/       組み立てマニュアル（assembly_v4.html と画像）
 docs/SIMULATOR.md  シミュレーターのビルドと使い方
