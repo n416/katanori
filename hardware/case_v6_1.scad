@@ -1310,8 +1310,54 @@ module w_batout() {   // 電流計 OUTPUT ± → PowerBoost の JST（2 本・JS
     w1([jm + jx * 0.8, jm + jx * 1.5, [37.5, 25.0, 46.5], [37.5, 25.0, 43.3], [37.5, 12.0, 43.3], m1], "batout", d = 1.6, r = 2.0);
     fan([ina_pwr_mouth(2), ina_pwr_mouth(3)], ina_pwr_ax(2), m1, d = 1.0);
 }
-WIRE_NAMES = ["xiao", "oled", "as5600", "pwr", "chg", "ina", "tgl", "btn2", "phin", "phout", "bat", "batout"];
+// ---- v6.1 スピーカーの線（🔒 ユーザー 2026-09-14「スピーカーのケーブル大丈夫？」→ 引き直し）----
+//   行き先は PCB の J5（板の座標 X 5.20〜13.80・Y 13.65〜20.55・口は −X）。プラグは板の縁の側（−X）へ抜ける。
+//   スピーカー側の出口は v5 と同じ（前の壁の切り欠きから局所 x 5.44〜8.1・Z は spk_wire_z()）。
+//   道: 切り欠き → (15, 27.5) で真下へ → Z 20 で左へ → X 5 で下りて J5 の口へ（+X 向きに挿す）
+function j5_frame() = [for (q = PCB_PARTS) if (q[0] == "J5  SPK OUT") q][0];
+function j5_mouth() = let (q = j5_frame(), o = pcb_w(q))
+    [o[0] - PCB_PLUG_PATH + 0.8, o[1] + (q[4] - q[3]) / 2, HUB_AT[2] + 1.6 + q[5] / 2];   // 口の外（−X 側）・枠の Y の中央・胴の高さの半分
+module w_spk61() {
+    zl = SPK_LEAD[2]; m = j5_mouth();
+    for (i = [0, 1]) let (pw = W_spk([spk_pad_xy(i)[0], spk_pad_xy(i)[1], 0]), d = i == 0 ? -0.6 : 0.6, yr = 27.5 + d / 2, xn = 15.0 + d)
+        w1(concat(i == 0 ? [[pw[0], pw[1] + 1.2, zl], [pw[0], 23.2, zl], [xn, 23.2, zl]]
+                         : [[pw[0], pw[1] + 1.2, zl], [11.5, 21.0, zl], [11.5, 23.6, zl], [xn, 23.6, zl]],
+                  [[xn, yr, zl], [xn, yr, 20.0], [5.0 + d, yr, 20.0], [5.0 + d, m[1], 20.0], [5.0 + d, m[1], m[2]], [m[0], m[1], m[2]]]), "spkout", d = 1.0, r = 1.5);
+}
+// ---- 残り 4 本（2026-09-14）。口の座標は PCB_PARTS から引く（板が動けば追従する）----
+function pcb_part(nm) = [for (r = PCB_PARTS) if (r[0] == nm) r][0];
+function pcb_mouth(nm) = let (q = pcb_part(nm), o = pcb_w(q), w = q[2] - q[1], d = q[4] - q[3], z = pcb_z0(q))
+      (q[6] ==  3) ? [o[0] + w + PCB_PLUG_PATH - 0.8, o[1] + d / 2, z + q[5] / 2]
+    : (q[6] == -3) ? [o[0] - PCB_PLUG_PATH + 0.8, o[1] + d / 2, z + q[5] / 2]
+    : (q[6] ==  1) ? [o[0] + w / 2, o[1] + d + PCB_PLUG_PATH - 0.8, z + q[5] / 2]
+    : (q[6] == -1) ? [o[0] + w / 2, o[1] - PCB_PLUG_PATH + 0.8, z + q[5] / 2]
+    :                [o[0] + w / 2, o[1] + d / 2, z + q[5] + 2.0];   // 縦の口は上へ
+// スピーカー IN: ReSpeaker の J2 ソケット（PH・世界 79.44, 19.87, 24.50）→ J4（口は +Y・世界 77.3, 30.6, 12）
+module w_spkin61() { j = j2_mouth(); m = pcb_mouth("J4  SPK IN");
+    bnd([j + [0, 0.8, 0], j + [0, 3.0, 0], [80.5, 24.5, 24.495], [80.5, 24.5, 16.0], [80.5, m[1], 16.0], [m[0], m[1], m[2]]], 2, "spkin"); }
+// 会話ボタン: マイクロスイッチの端子 2 本（下向き・Z 35.31）→ J6（口は −Y・世界 19.5, 33.9, 12）
+module w_btn61() { m = pcb_mouth("J6  BTN2");
+    for (i = [0, 1]) let (t = btn_pin(i == 0 ? -1 : 1), d = i == 0 ? -0.6 : 0.6)
+        w1([t + [0, 0, -0.8], [t[0], t[1], 30.0], [t[0], 30.0 + d, 30.0], [m[0] + d, 30.0 + d, 30.0], [m[0] + d, 30.0 + d, m[2]], [m[0] + d, m[1], m[2]]], "btn2", d = 1.55, r = 2.0); }
+// リード＋トグル: リードの足（つまみの台座・Z 50.75）2 本 ＋ トグルの端子 2 本 → J7（縦の口・世界 65.5, 46.6, 17.6）
+module w_reedtgl61() { m = pcb_mouth("J7  REED+TGL");
+    for (i = [0, 1]) let (x = KNOB_AT[0] + (i == 0 ? -7.15 : 7.15), d = i == 0 ? -0.8 : 0.8)
+        w1([[x, KNOB_AT[1] + 16.15, 43.9], [x, KNOB_AT[1] + 16.15, 42.0], [m[0] + d, m[1], 42.0], [m[0] + d, m[1], m[2]]], "reed", d = 1.55, r = 2.0);   // 台座の裏（Z 43.954）から下。台座の中の足の道は knob_v5 の縦の溝が持つ
+    for (i = [0, 1]) let (t = tgl_term(i == 0 ? -1 : 1), d = i == 0 ? -2.4 : 2.4)
+        w1([t + [0, -1.0, 0], [t[0], 32.0, t[2]], [t[0] + d, 32.0, 40.0], [m[0] + d, 32.0, 40.0], [m[0] + d, m[1], 40.0], [m[0] + d, m[1], m[2]]], "tgl", d = 1.55, r = 2.0); }   // 端子は −Y を向く（先が Y 33.4・根元が 39.4）。先から Y 32 まで出してから右へ。つまみの軸（Y 〜30.8）の後ろを通る。Z 40 はつまみの台座の裏 43.954 の下
+// 電池: 電池の左の短辺（タブは左・板の座標 x 16.05 ＝ 世界 18.05）→ J10（板の裏・口は +X・世界 14.6, 39.05, 5.6）
+module w_bat61() { m = pcb_mouth("J10 BAT");
+    for (i = [0, 1]) let (d = i == 0 ? -0.8 : 0.8)
+        w1([[BAT_C[0] - 25.0 - 0.5, BAT_C[1] + d, 3.0], [16.5, BAT_C[1] + d, 3.0], [16.5, m[1], 3.0], [16.5, m[1], m[2]], [m[0], m[1], m[2]]], "bat", d = 1.55, r = 2.0); }
+WIRE_NAMES = ["spkout", "spkin", "btn2v61", "reedtgl", "batv61"];   // 🔴 v5 の 12 束（xiao / oled / as5600 / pwr / chg / ina / tgl / btn2 / phin / phout / bat / batout）は、
+//   相手がハブ基板・電流計・PowerBoost・Type-C 基板だったので v6.1 では成り立たない。モジュールは残してあるが描かない。
+//   引き直すのは スピーカー IN・会話ボタン・リード＋トグル・電池 の 4 本（口は PCB_PARTS にある）
 module w_one(n) color("#e0b060") {
+    if (n == "spkout") w_spk61();
+    if (n == "spkin") w_spkin61();
+    if (n == "btn2v61") w_btn61();
+    if (n == "reedtgl") w_reedtgl61();
+    if (n == "batv61") w_bat61();
     if (n == "xiao") w_xiao(); if (n == "oled") w_oled(); if (n == "as5600") w_as5600(); if (n == "pwr") w_pwr();
     if (n == "chg") w_chg(); if (n == "ina") w_ina(); if (n == "tgl") w_tgl(); if (n == "btn2") w_btn2();
     if (n == "phin") w_phin(); if (n == "phout") w_phout(); if (n == "bat") w_bat(); if (n == "batout") w_batout();
