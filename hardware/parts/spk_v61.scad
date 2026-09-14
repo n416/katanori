@@ -96,7 +96,19 @@ module spk_driver_probe(d = 6.0, len = 45) for (h = S_HANDS) spk_at_hand(h) tran
 module spk_nut_path(len) for (h = S_HANDS) spk_at_hand(h) translate([S_R_NUT - S_NUT_T / 2 - 0.15, -S_NUT_AF / 2 - 0.15, Z_FOOT_B - len]) cube([S_NUT_T + 0.3, S_NUT_AF + 0.3, len]);   // ナットが入る道（case_v5 の nutpath が呼ぶ）
 // ---- 天板側（case_v5 が at_spk() で呼ぶ）----
 module spk_station_add() { spk_rim(); spk_hang_arms(); }   // 後ろの角の R（spk_gussets）は 2026-09-08 に消した: 足 15 のうち 1.1 しか持たず意味が無い（ユーザー）
+// 座の壁とナットのポケットの間に残る楔を出さない（🔴 2026-09-14 刷る向きの検算: 厚さ 0.018〜0.213mm の刃が
+//   天板に残っていた。実績の下限 0.42 割れ＝刷れば折れて中に落ちる）。両方の空から S_THIN 届く所＝肉が 0.5 以下の所を削る
+S_THIN = 0.50;
+module spk_seat2d() translate([-spk_l() / 2 - S_CL, -spk_w() / 2 - S_CL]) spk_obr2d(spk_l() + 2 * S_CL, spk_w() + 2 * S_CL);
+module spk_nutpocket2d() for (h = S_HANDS) spk_at_hand(h)
+    translate([S_R_NUT - S_NUT_T / 2, -S_NUT_AF / cos(30) / 2]) square([S_NUT_T, S_NUT_AF / cos(30)]);
+module spk_thin_trim() translate([0, 0, Z_FOOT_B - 0.01]) linear_extrude(Z_IN - Z_FOOT_B + 0.02)
+    for (h = S_HANDS) hull() intersection() {   // 手ごとに hull（2 つを一緒に hull すると間の肉まで消える）
+        offset(r = S_THIN) spk_seat2d();
+        offset(r = S_THIN) spk_at_hand(h) translate([S_R_NUT - S_NUT_T / 2, -S_NUT_AF / cos(30) / 2]) square([S_NUT_T, S_NUT_AF / cos(30)]);
+    }
 module spk_station_cut() {
+    spk_thin_trim();
     translate([-spk_l() / 2 - S_CL, -spk_w() / 2 - S_CL, Z_IN - 0.01]) spk_obr(spk_l() + 2 * S_CL, spk_w() + 2 * S_CL, S_LIFT + 0.01);           // 座（内面から 0.9）
     translate([-(spk_dia()[0] + 1) / 2, -(spk_dia()[1] + 1) / 2, Z_IN - 0.01]) spk_obr(spk_dia()[0] + 1, spk_dia()[1] + 1, S_REL + 0.01);   // 振動板の逃げ（小判 15 × 9・内面から 1.3）
     // 前へ開く溝は 2026-09-09 に廃止（私の判断）: 手を倒してスピーカーは真下から真っすぐ入るようになり、溝は要らなくなった。
