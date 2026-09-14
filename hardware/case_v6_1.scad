@@ -170,7 +170,7 @@ BAT_RX = 0;    // 🔒 ユーザー 2026-09-14「リポ電池を PCB 基板の�
 function bat_h() = (BAT_RX % 180 == 0) ? lipo_size()[2] : lipo_size()[1];   // 回した後の高さ
 module at_bat()  translate([BAT_C[0], BAT_C[1], BAT_AT[2] + bat_h() / 2]) rotate([BAT_RX, 0, 0]) rotate([0, 0, 90 + BAT_RZ]) translate([-lipo_size()[0] / 2, -lipo_size()[1] / 2, -lipo_size()[2] / 2]) children();   // 箱の中心を原点に置いてから回す   // 模型は 50 が X。箱では 50 を Y（前後）に寝かせる（§2 X 11.5〜46.5・Y 13.9〜63.9・タブは後ろ）
 module at_tc()   translate([TC_AT[0], TC_AT[1], TC_AT[2] + tc_size()[0]]) rotate([0, 90, 0]) children();   // 板の裏を左の壁の内面（X 1.694）に。局所 X（20）→ 下向き Z・局所 Y（15・口は +Y）→ 後ろ・部品面 → +X（箱の中）
-KNOB_RZ = 90;   // 🔒 ユーザー 2026-09-14「つまみを Z 軸を中心に 90 度回転」: 軸まわりに 90°（台座・島・リードの穴・ねじが一緒に回る）
+KNOB_RZ = 0;    // 🔒 ユーザー 2026-09-14「つまみを 90 度回転させちゃってるんでそれを直して」: 90 → 0（v5 の向きに戻す）。台座・島・リードの穴・ねじが一緒に戻る
 module at_knob() translate([KNOB_AT[0], KNOB_AT[1], Z_TOP + TOP_T]) rotate([0, 0, KNOB_RZ]) children();             // 天板の外面が z0
 BTN_RZ = 90 + 90;   // 🔒 ユーザー 2026-09-14「ボタンを Z 軸中心に 90 度回転」を 2 回: 180
 module at_btn()  translate([BTN_AT[0], BTN_AT[1], Z_TOP + TOP_T]) rotate([0, 0, BTN_RZ]) children();               // 天板の外面が z0（btn_v3 の約束）
@@ -1346,8 +1346,8 @@ NUT_PATH_L = 5;   // ナットが入るのに要る道の長さ
 module nut_path_world() union() { for (n = UNITS) if (n != "spktub" && n != "knob") one(n); p_top(); p_floor(); p_lwall(); p_rwall(); p_front(); p_hatch(); at_knob() union() { knob_group("knob"); knob_group("wall"); knob_group("pcb"); } }
 module nut_paths() {
     at_spk() spk_nut_path(NUT_PATH_L);   // スピーカー: 板の下端から下へ（放射方向に倒した手に追従）
-    at_knob() rotate([0, 0, knob_hang_rot()]) for (sx = [-1, 1], ay = knob_hang_arm_y()) let (dir = ay > 0 ? 1 : -1)
-        translate([sx * knob_hang_nut_x() - 0.9 - 0.15, dir > 0 ? ay + 3 : ay - 3 - NUT_PATH_L, knob_hang_scr_z() - 2.48 - 0.15]) cube([1.8 + 0.3, NUT_PATH_L, 4.96 + 0.3]);   // つまみ: 手の外側の面から外へ 1.8 × 4.96（+0.3）
+    // つまみの手 4 本のナットの道は 2026-09-14 に削除（AS5600 のバスタブをやめて手そのものが無くなったため。
+    // 残しておくと、存在しない部品のための道を ReSpeaker に当てて「17.37」「56.51」と鳴っていた）
 }
 if (part == "nutpath") intersection() { nut_paths(); nut_path_world(); }   // 0 が正
 if (part == "nutpath_show") { color("#ff4040") nut_paths(); color("#9aa5b1", 0.4) nut_path_world(); }
