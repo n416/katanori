@@ -36,7 +36,9 @@ G.OUT = HERE / NAME
 G.NAME = NAME
 COPPER = ["F.Cu", "In1.Cu", "In2.Cu", "B.Cu"]
 # Voice PE の設計規則に寄せた値（線 0.156・間隔 0.125・穴 0.4064/0.2032）。JLCPCB の 4 層で作れる範囲に丸めた
-TRACK, CLEAR, VIA = 0.15, 0.127, (0.45, 0.2)
+# 🔴 間隔 0.12: マイクの LDO（U118・X2SON4）の足形はパッド 3–5 の間が 0.123 しかなく、0.127 では
+#    どう引いても違反になる（2026-09-15・Freerouting が最初から数えていた 16 件の一部）。JLCPCB の 4 層は 0.09 まで作れる
+TRACK, CLEAR, VIA = 0.15, 0.12, (0.45, 0.2)
 
 _load = G.load_fp
 

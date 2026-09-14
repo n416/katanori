@@ -42,8 +42,14 @@ def uid():
 def run_freerouting():
     if not FR.exists():
         sys.exit(f"Freerouting が無い: {FR}")
+    extra = []
+    if NAME != "katanori61":
+        # 🔴 2026-09-15 統合基板: 配線の段は「一番良い版（未接続 2 本）に戻す」と言いながら、
+        #    続く最適化の段が未接続 9 本の別の版から始まり、その版が SES に書き出された（Freerouting 2.4.1）。
+        #    ⇒ 最適化の段を回さない。v6.1 は今の結果を変えないため、そのまま
+        extra = ["--router.optimizer.enabled=false"]
     r = subprocess.run([str(FR), "-de", str(OUT / f"{NAME}.dsn"), "-do", str(OUT / f"{NAME}.ses"),
-                        "-l", "en", "-mt", "1", "-mp", "40"], capture_output=True, text=True,
+                        "-l", "en", "-mt", "1", "-mp", "40"] + extra, capture_output=True, text=True,
                        encoding="utf-8", errors="replace")
     for line in (r.stdout + r.stderr).splitlines():
         if "stage completed" in line or "stage interrupted" in line:
