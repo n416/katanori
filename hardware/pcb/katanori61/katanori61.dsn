@@ -136,19 +136,19 @@
       (place LED2 869687.9 -593127.5 front 0)
     )
     (component C31
-      (place C31 575900.0 -463500.0 front 0)
+      (place C31 575900.0 -442500.0 front 0)
     )
     (component R32
-      (place R32 575900.0 -501500.0 front 0)
+      (place R32 620500.0 -497300.0 front 0)
     )
     (component R31
-      (place R31 575900.0 -539500.0 front 0)
+      (place R31 621000.0 -532400.0 front 0)
     )
     (component D31
-      (place D31 551000.0 -574264.1 front 0)
+      (place D31 550234.4 -603500.0 front 0)
     )
     (component Q31
-      (place Q31 556500.0 -618564.1 front 0)
+      (place Q31 580234.4 -617450.0 front 0)
     )
     (component C32
       (place C32 823996.0 -557674.2 front 0)
@@ -164,6 +164,9 @@
     )
     (component J5
       (place J5 519500.0 -593000.0 front 0)
+    )
+    (component J6
+      (place J6 565000.0 -479500.0 front 0)
     )
     (component J7
       (place J7 1005000.0 -437500.0 front 0)
@@ -419,6 +422,10 @@
       (pin Rect[A]Pad_17500x12000um 1 -0.0 -0.0)
       (pin Rect[A]Pad_17500x12000um 2 -0.0 -20000.0)
     )
+    (image J6
+      (pin Rect[A]Pad_12000x17500um 1 0.0 -0.0)
+      (pin Rect[A]Pad_12000x17500um 2 20000.0 -0.0)
+    )
     (image J7
       (pin Rect[A]Pad_12000x17500um 1 0.0 -0.0)
       (pin Rect[A]Pad_12000x17500um 2 20000.0 -0.0)
@@ -596,6 +603,9 @@
     (net "BATP"
       (pins J10-2 R41-1 U3-10)
     )
+    (net "BTN"
+      (pins J1-6 J6-2)
+    )
     (net "CC1"
       (pins J13-A5 R44-1)
     )
@@ -612,7 +622,7 @@
       (pins R3-2 R4-1 U1-14)
     )
     (net "GND"
-      (pins C1-2 C2-2 C31-2 C32-2 C4-2 C41-2 C42-2 C6-2 C7-2 C8-2 C9-2 J1-2 J10-1 J13-A1 J13-A12 J13-B1 J13-B12 J13-SH J2-1 J7-2 J7-4 LED1-1 LED2-1 Q31-2 R15-1 R16-1 R17-1 R2-2 R32-2 R4-2 R44-2 R45-2 R7-2 U1-10 U1-13 U1-17 U1-5 U1-6 U1-7 U2-10 U2-11 U2-21 U3-2 U3-7 U4-4 U4-8)
+      (pins C1-2 C2-2 C31-2 C32-2 C4-2 C41-2 C42-2 C6-2 C7-2 C8-2 C9-2 J1-2 J10-1 J13-A1 J13-A12 J13-B1 J13-B12 J13-SH J2-1 J6-1 J7-2 J7-4 LED1-1 LED2-1 Q31-2 R15-1 R16-1 R17-1 R2-2 R32-2 R4-2 R44-2 R45-2 R7-2 U1-10 U1-13 U1-17 U1-5 U1-6 U1-7 U2-10 U2-11 U2-21 U3-2 U3-7 U4-4 U4-8)
     )
     (net "IN"
       (pins J1-7 R31-1)
@@ -689,7 +699,7 @@
     (net "VSYS"
       (pins C1-1 C4-1 L1-1 Q1-2 R1-1 R13-1 U1-8 U2-1 U2-20)
     )
-    (class kicad_default "" "BASE" "BATP" "CC1" "CC2" "COL" "EN" "FB" "GND" "IN" "LBI" "LBO" "N_LED1" "N_LED2" "N_LED3" "N_LED4" "N_Q1C" "PROG1" "PROG3" "SCL" "SDA" "SPKM" "SPKO" "SPKP" "STAT1" "STAT2" "SW" "THERM" "V33" "V5" "VBUS" "VLIPO" "VPCC" "VSYS"
+    (class kicad_default "" "BASE" "BATP" "BTN" "CC1" "CC2" "COL" "EN" "FB" "GND" "IN" "LBI" "LBO" "N_LED1" "N_LED2" "N_LED3" "N_LED4" "N_Q1C" "PROG1" "PROG3" "SCL" "SDA" "SPKM" "SPKO" "SPKP" "STAT1" "STAT2" "SW" "THERM" "V33" "V5" "VBUS" "VLIPO" "VPCC" "VSYS"
       (circuit (use_via Via[0-1]_800:400_um))
       (rule (width 2000) (clearance 1500))
     )
