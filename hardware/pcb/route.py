@@ -20,7 +20,10 @@ import dsn  # noqa: E402
 OUT = HERE / "katanori61"
 NAME = "katanori61"
 # 自動配線の実行ファイルは v6 の所に展開したものを使う（git には入れない）
-FR = HERE.parents[0] / "frozen" / "v6" / "pcb" / "freerouting" / "freerouting" / "freerouting.exe"
+#   zip の解凍の仕方で 1 段深さが変わる（freerouting/freerouting/ でも freerouting/ の直下でもよい）
+_FR_DIR = HERE.parents[0] / "frozen" / "v6" / "pcb" / "freerouting"
+FR = next((p for p in (_FR_DIR / "freerouting" / "freerouting.exe", _FR_DIR / "freerouting.exe") if p.exists()),
+          _FR_DIR / "freerouting" / "freerouting.exe")
 from kicad_paths import CLI  # noqa: E402
 _n = [0]
 

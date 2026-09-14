@@ -33,6 +33,7 @@ hardware/_tmp_v5/
 
 # Freerouting は展開しただけの実行ファイル（141MB）。route.py がこの場所を読む
 hardware/frozen/v6/pcb/freerouting/
+hardware/frozen/v6/pcb/freerouting.zip
 
 # MuJoCo の模型の出力（スクリプトと XML は入れる・絵と数表は焼き直せる）
 hardware/sim/*/*.gif
