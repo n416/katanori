@@ -938,14 +938,15 @@ RIB_LMIN = 4.0;   // 🔒 ユーザー 2026-09-05「v4 と同じ 8mm 未満で�
 include <parts/ribs_v61_gen.scad>   // RIB_SEGS（自動生成: python hardware/tools/ribs_gen61.py）
 include <parts/props_v61_gen.scad>  // props_top / raft_top（自動生成: python hardware/tools/props_gen61.py）。🔒 ユーザー 2026-09-14「天板だけですよね支柱とラフト」: 支柱が要るのは天板だけ。他の板は空の受け口
 module rib_2d(k) for (s = RIB_SEGS) if (s[0] == k) { if (s[1] == 0) translate([s[3], s[2] - RIB_W / 2]) square([s[4] - s[3], RIB_W]); else translate([s[2] - RIB_W / 2, s[3]]) square([RIB_W, s[4] - s[3]]); }
+RIB_BITE = 0.2;   // 🔴 2026-09-14: 格子は板の内面と**ぴったり同じ面**から立てていた。厚み 0 の接触なので
+//   manifold が別の塊として返し、ハッチで 2 本が「浮いている塊」になった（刷ると外れて落ちる）。板の中へこれだけ食い込ませる
 module panel_ribs(k) if (!RIBS_OFF) color("#8fb8a0") {
-    if (k == "lwall") translate([LW_X + RIB_H, 0, 0]) rotate([0, -90, 0]) linear_extrude(RIB_H) rib_2d(k);
-    if (k == "rwall") translate([IN_X, 0, 0]) rotate([0, -90, 0]) linear_extrude(RIB_H) rib_2d(k);
-    if (k == "hatch") translate([0, IN_Y, 0]) rotate([90, 0, 0]) linear_extrude(RIB_H) rib_2d(k);
-    if (k == "front") translate([0, FY_IN + RIB_H_FR, 0]) rotate([90, 0, 0]) linear_extrude(RIB_H_FR) rib_2d(k);
-    if (k == "bridge") translate([0, 0, BRG_ZB + BRG_T - 0.01]) linear_extrude(RIB_H + 0.01) rib_2d(k);   // 🔒 ユーザー 2026-09-05「ブリッジの長い手にもグリッド格子が欲しい（割と歪む）」: 帯の上面に立てる
+    if (k == "lwall") translate([LW_X + RIB_H, 0, 0]) rotate([0, -90, 0]) linear_extrude(RIB_H + RIB_BITE) rib_2d(k);
+    if (k == "rwall") translate([IN_X + RIB_BITE, 0, 0]) rotate([0, -90, 0]) linear_extrude(RIB_H + RIB_BITE) rib_2d(k);
+    if (k == "hatch") translate([0, IN_Y + RIB_BITE, 0]) rotate([90, 0, 0]) linear_extrude(RIB_H + RIB_BITE) rib_2d(k);
+    if (k == "front") translate([0, FY_IN + RIB_H_FR, 0]) rotate([90, 0, 0]) linear_extrude(RIB_H_FR + RIB_BITE) rib_2d(k);
 }
-module ribs() { panel_ribs("lwall"); panel_ribs("rwall"); panel_ribs("hatch"); panel_ribs("front"); panel_ribs("bridge"); }
+module ribs() { panel_ribs("lwall"); panel_ribs("rwall"); panel_ribs("hatch"); panel_ribs("front"); }   // v6.1 にブリッジは無い
 
 // ---- 中身 ----
 module innards() for (n = UNITS) one(n);
