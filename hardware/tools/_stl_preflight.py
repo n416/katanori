@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """刷る前に STL を機械で検算する（docs/PRINT.md ＋ 記憶 stl-preflight-check）。
   使い方: python hardware/tools/_stl_preflight.py "hardware/stl/v5/*.stl" [薄肉のしきい値 mm] [--mat resin|nylon]
-  見るもの ①底の Z が 0 か ②中身が 1 個か（宙に浮いた欠片が無いか）③しきい値より薄い面
+  見るもの ①底の Z が 0 か ②中身が 1 個か（宙に浮いた欠片が無いか）③しきい値より薄い面 ④（nylon）二重面＝厚みゼロの皮（外注の自動判定が殻として数える）
   ③は「平行」（= 本物の薄肉）と「先細り」（= 面取りやツメの先端。不良ではない）を分けて出す。
   🔒 材料で判定を分ける（2026-09-15・ユーザー「レジン版とナイロン版はスイッチできるわけで、それに応じてアラートを分けて」）:
     resin … 自分の機械（光造形）。上の ①②③ と 接地・宙から始まる肉・急な立ち上がり
@@ -64,7 +64,29 @@ def mjf_head(p, tris, v, bd):
         for m in sorted(loose, key=lambda m:-(m[3]-m[0])*(m[4]-m[1])*(m[5]-m[2]))[1:]:
             print("   ⚠ 別の塊  X %.2f..%.2f  Y %.2f..%.2f  Z %.2f..%.2f（1 ファイル 1 部品。欠けた欠片ならファイルの側の不良）"
                   % (m[0],m[3],m[1],m[4],m[2],m[5]))
+    # 🔴 二重面（同じ 3 頂点の三角形が 2 枚＝厚みゼロの皮）。2026-09-15 SOLIZE の自動見積りが v61n_shell を「シェル数 129」で弾いた正体
+    #   （二重面 77 枚。板 5 枚を 45° の留めで突き合わせたまま union していた・docs/CASE-V61N.md 5.3）。外注の判定はこれを殻として数える。
+    #   面積ゼロの三角形（頂点が重なった潰れ）は数だけ出す。どの読み込みでも捨てられる物で、殻にはならない
+    dup, dup_box = double_faces(tris)
+    if dup:
+        print("   🔴 二重面 %d 枚  X %.2f..%.2f  Y %.2f..%.2f  Z %.2f..%.2f ── 厚みゼロの皮。外注の自動判定が殻として数える（面どうし密着の union・外面と同一平面の直方体・外面ちょうどの輪が原因）"
+              % (dup, dup_box[0],dup_box[3],dup_box[1],dup_box[4],dup_box[2],dup_box[5]))
+    zero=int((np.linalg.norm(np.cross(tris[:,1]-tris[:,0], tris[:,2]-tris[:,0]), axis=1) < 2e-9).sum())
+    print("   二重面 %d 枚・面積ゼロの三角形 %d 枚（後者は害なし）" % (dup, zero))
     print("   接地・宙から始まる肉・急な立ち上がりは見ない（粉の中で焼く）。薄い肉は 最薄 %.1f で 🔴・壁 %.1f 未満で ⚠" % (MJF_THIN_RED, MJF_THIN_WARN))
+
+def double_faces(tris):
+    """同じ 3 頂点（1e-5 で丸め）を持つ三角形の重なり枚数と、その bbox。面積ゼロの潰れは数えない（皮ではない）"""
+    seen={}; hit=[]
+    area=np.linalg.norm(np.cross(tris[:,1]-tris[:,0], tris[:,2]-tris[:,0]), axis=1)
+    for i,t in enumerate(tris):
+        if area[i] < 2e-9: continue
+        k=tuple(sorted(tuple(np.round(v,5)) for v in t))
+        if k in seen: hit.append(i)
+        else: seen[k]=i
+    if not hit: return 0, None
+    v=tris[hit].reshape(-1,3)
+    return len(hit), [v[:,0].min(),v[:,1].min(),v[:,2].min(),v[:,0].max(),v[:,1].max(),v[:,2].max()]
 
 def bodies(tris):
     """中身の数と、それぞれの bbox。頂点を丸めてつなぐ"""

@@ -581,7 +581,10 @@ BIG = 400;
 function vcross(a, b) = [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 module halfspace(p, u, v) { w = vcross(u, v); translate(p) multmatrix([[u[0], v[0], w[0], 0], [u[1], v[1], w[1], 0], [u[2], v[2], w[2], 0], [0, 0, 0, 1]]) rotate([0, 0, -45]) translate([0, -BIG / 2, -BIG / 2]) cube([BIG, BIG, BIG]); }   // 局所 (s, t) = (a·u, a·v)。s > t の側（線 t = s の右下）を落とす
 // 板ごとの楔（隣に取られる側）。床: 4 稜（左右の壁・フロント・ハッチ）で、床の面に沿う方向 = 壁へ向かう横方向、厚み方向 = −Z
-module floor_wedges() {
+// 🔴 ナイロン（一体シェル）では床と 4 壁の間の楔を切らない（2026-09-15）。切ると 5 枚が 45° の斜面で「面どうし密着」のまま union され、
+//    回した halfspace の丸めで厚みゼロの二重面と 4 枚以上が共有する辺が残る（SOLIZE の自動見積りが shell 129 個と数えて弾いた）。
+//    重ねて union すれば継ぎ目そのものが消える。天板との継ぎ目（Z_TOP の楔）は別部品なので残す
+module floor_wedges() if (!nylon()) {
     halfspace([LW_X, 0, 0], [-1, 0, 0], [0, 0, -1]);  halfspace([IN_X, 0, 0], [1, 0, 0], [0, 0, -1]);
     halfspace([0, OUT_Y0 + FRONT_T, 0], [0, -1, 0], [0, 0, -1]);  halfspace([0, IN_Y, 0], [0, 1, 0], [0, 0, -1]);
 }
@@ -590,28 +593,30 @@ module top_wedges() {
     halfspace([0, OUT_Y0 + FRONT_T, Z_TOP], [0, -1, 0], [0, 0, 1]);  halfspace([0, IN_Y, Z_TOP], [0, 1, 0], [0, 0, 1]);
 }
 module lwall_wedges() {
-    halfspace([LW_X, 0, 0], [0, 0, -1], [-1, 0, 0]);  halfspace([LW_X, 0, Z_TOP], [0, 0, 1], [-1, 0, 0]);
-    halfspace([LW_X, OUT_Y0 + FRONT_T, 0], [0, -1, 0], [-1, 0, 0]);  halfspace([LW_X, IN_Y, 0], [0, 1, 0], [-1, 0, 0]);
+    halfspace([LW_X, 0, Z_TOP], [0, 0, 1], [-1, 0, 0]);
+    if (!nylon()) { halfspace([LW_X, 0, 0], [0, 0, -1], [-1, 0, 0]);  halfspace([LW_X, OUT_Y0 + FRONT_T, 0], [0, -1, 0], [-1, 0, 0]);  halfspace([LW_X, IN_Y, 0], [0, 1, 0], [-1, 0, 0]); }
 }
 module rwall_wedges() {
-    halfspace([IN_X, 0, 0], [0, 0, -1], [1, 0, 0]);  halfspace([IN_X, 0, Z_TOP], [0, 0, 1], [1, 0, 0]);
-    halfspace([IN_X, OUT_Y0 + FRONT_T, 0], [0, -1, 0], [1, 0, 0]);  halfspace([IN_X, IN_Y, 0], [0, 1, 0], [1, 0, 0]);
+    halfspace([IN_X, 0, Z_TOP], [0, 0, 1], [1, 0, 0]);
+    if (!nylon()) { halfspace([IN_X, 0, 0], [0, 0, -1], [1, 0, 0]);  halfspace([IN_X, OUT_Y0 + FRONT_T, 0], [0, -1, 0], [1, 0, 0]);  halfspace([IN_X, IN_Y, 0], [0, 1, 0], [1, 0, 0]); }
 }
 module front_wedges() {
-    halfspace([LW_X, OUT_Y0 + FRONT_T, 0], [-1, 0, 0], [0, -1, 0]);  halfspace([IN_X, OUT_Y0 + FRONT_T, 0], [1, 0, 0], [0, -1, 0]);
-    halfspace([0, OUT_Y0 + FRONT_T, 0], [0, 0, -1], [0, -1, 0]);  halfspace([0, OUT_Y0 + FRONT_T, Z_TOP], [0, 0, 1], [0, -1, 0]);
+    halfspace([0, OUT_Y0 + FRONT_T, Z_TOP], [0, 0, 1], [0, -1, 0]);
+    if (!nylon()) { halfspace([LW_X, OUT_Y0 + FRONT_T, 0], [-1, 0, 0], [0, -1, 0]);  halfspace([IN_X, OUT_Y0 + FRONT_T, 0], [1, 0, 0], [0, -1, 0]);  halfspace([0, OUT_Y0 + FRONT_T, 0], [0, 0, -1], [0, -1, 0]); }
 }
 module hatch_wedges() {
-    halfspace([LW_X, IN_Y, 0], [-1, 0, 0], [0, 1, 0]);  halfspace([IN_X, IN_Y, 0], [1, 0, 0], [0, 1, 0]);
-    halfspace([0, IN_Y, 0], [0, 0, -1], [0, 1, 0]);  halfspace([0, IN_Y, Z_TOP], [0, 0, 1], [0, 1, 0]);
+    halfspace([0, IN_Y, Z_TOP], [0, 0, 1], [0, 1, 0]);
+    if (!nylon()) { halfspace([LW_X, IN_Y, 0], [-1, 0, 0], [0, 1, 0]);  halfspace([IN_X, IN_Y, 0], [1, 0, 0], [0, 1, 0]);  halfspace([0, IN_Y, 0], [0, 0, -1], [0, 1, 0]); }
 }
 // 板の素（外面まで伸ばした直方体 − 楔）∩ 丸い外形
-module slab_floor() intersection() { env(); difference() { translate([OUT_X0, OUT_Y0, -FLOOR_T]) cube([OUT_X1 - OUT_X0, OUT_Y1 - OUT_Y0, FLOOR_T]); floor_wedges(); } }
-module slab_top()   intersection() { env(); difference() { translate([OUT_X0, OUT_Y0, Z_TOP]) cube([OUT_X1 - OUT_X0, OUT_Y1 - OUT_Y0, TOP_T]); top_wedges(); } }
-module slab_lwall() intersection() { env(); difference() { translate([OUT_X0, OUT_Y0, -FLOOR_T]) cube([WALL, OUT_Y1 - OUT_Y0, Z_TOP + TOP_T + FLOOR_T]); lwall_wedges(); } }
-module slab_rwall() intersection() { env(); difference() { translate([IN_X, OUT_Y0, -FLOOR_T]) cube([WALL, OUT_Y1 - OUT_Y0, Z_TOP + TOP_T + FLOOR_T]); rwall_wedges(); } }
-module slab_front() intersection() { env(); difference() { translate([OUT_X0, OUT_Y0, -FLOOR_T]) cube([OUT_X1 - OUT_X0, FRONT_T, Z_TOP + TOP_T + FLOOR_T]); front_wedges(); } }
-module slab_hatch() intersection() { env(); difference() { translate([OUT_X0, IN_Y, -FLOOR_T]) cube([OUT_X1 - OUT_X0, HATCH_T, Z_TOP + TOP_T + FLOOR_T]); hatch_wedges(); } }
+//   🔴 直方体は外へ 1 はみ出させる（2026-09-15）。外面を env() の平面と同一平面に置くと intersection の境目（角丸の最初の輪）に厚みゼロの欠片が残り、
+//      STL が非多様体になる（SOLIZE の自動見積りが弾いた）。形は env() で決まるので変わらない
+module slab_floor() intersection() { env(); difference() { translate([OUT_X0 - 1, OUT_Y0 - 1, -FLOOR_T - 1]) cube([OUT_X1 - OUT_X0 + 2, OUT_Y1 - OUT_Y0 + 2, FLOOR_T + 1]); floor_wedges(); } }
+module slab_top()   intersection() { env(); difference() { translate([OUT_X0 - 1, OUT_Y0 - 1, Z_TOP]) cube([OUT_X1 - OUT_X0 + 2, OUT_Y1 - OUT_Y0 + 2, TOP_T + 1]); top_wedges(); } }
+module slab_lwall() intersection() { env(); difference() { translate([OUT_X0 - 1, OUT_Y0 - 1, -FLOOR_T - 1]) cube([WALL + 1, OUT_Y1 - OUT_Y0 + 2, Z_TOP + TOP_T + FLOOR_T + 2]); lwall_wedges(); } }
+module slab_rwall() intersection() { env(); difference() { translate([IN_X, OUT_Y0 - 1, -FLOOR_T - 1]) cube([WALL + 1, OUT_Y1 - OUT_Y0 + 2, Z_TOP + TOP_T + FLOOR_T + 2]); rwall_wedges(); } }
+module slab_front() intersection() { env(); difference() { translate([OUT_X0 - 1, OUT_Y0 - 1, -FLOOR_T - 1]) cube([OUT_X1 - OUT_X0 + 2, FRONT_T + 1, Z_TOP + TOP_T + FLOOR_T + 2]); front_wedges(); } }
+module slab_hatch() intersection() { env(); difference() { translate([OUT_X0 - 1, IN_Y, -FLOOR_T - 1]) cube([OUT_X1 - OUT_X0 + 2, HATCH_T + 1, Z_TOP + TOP_T + FLOOR_T + 2]); hatch_wedges(); } }
 
 // ---- 左の壁: ジャックの丸い口・ReSpeaker の USB-C の盲ポケット ----
 // 🔒 ユーザー 2026-09-14「ReSpeaker の USB 口が移動できてない」: 板を Y 軸 180° 回したぶん、壁の口も回す。
@@ -656,7 +661,7 @@ module wsk_plate(l, w, y) translate([-l / 2, y, -w / 2]) rotate([90, 0, 0]) spk_
 // ヒゲの外面の断面: 外面で ch 広がり、奥へ ch で 0 になる曲線。(0,ch)→(ch,0) を制御点 ((1−k)ch/2, 同) で結ぶ 2 次ベジエ＝内へ吸い込むように反る（k=WSK_R 0.4）。🔴 2026-09-05 まで凸の 1/4 円で描いていて顔が違った（ユーザー「猫ヒゲの形状も違う」）
 function bev_pts(c, k, n = 10) = [for (i = [0 : n]) let (t = i / n, p = (1 - k) * c / 2) [2 * t * (1 - t) * p + t * t * c, (1 - t) * (1 - t) * c + 2 * t * (1 - t) * p]];   // [奥行き, 広がり] の列
 module whisker(c, ang) translate([c[0], OUT_Y0, c[2]]) rotate([0, ang, 0]) {   // 原点 = 板の外面
-    hull() { wsk_plate(WSK_L + 2 * WSK_CH, WSK_W + 2 * WSK_CH, -0.5); for (q = bev_pts(WSK_CH, WSK_R)) wsk_plate(WSK_L + 2 * q[1], WSK_W + 2 * q[1], q[0]); }   // 外面の反ったベベル
+    hull() { wsk_plate(WSK_L + 2 * WSK_CH, WSK_W + 2 * WSK_CH, -0.5); for (q = bev_pts(WSK_CH, WSK_R)) wsk_plate(WSK_L + 2 * (q[1] + 0.01), WSK_W + 2 * (q[1] + 0.01), q[0] - 0.01); }   // 外面の反ったベベル。🔴 輪は外面の 0.01 外・0.01 広く（2026-09-16: 外面ちょうどに輪を置くと STL に面積ゼロの三角形が 100 枚/本 残る。45° の斜面に沿ってずらすので形は同じ）
     hull() { wsk_plate(WSK_L, WSK_W, WSK_CH); wsk_plate(WSK_L, WSK_W, FRONT_T + 1); }   // 内面まで貫く小判のスリット
 }
 WIN_CR = WIN_CL_Z;   // 窓の角の丸み。四角いガラスを隙間で囲むと角の丸みは隙間の小さい方（縦 0.15）まで。🔴 2026-09-05 まで角の立った四角で切っていた（ユーザー「液晶のベベルの違い」）
