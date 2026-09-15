@@ -91,6 +91,30 @@ ESP_SMALL = {"R46": (58.5, 34.0), "C43": (58.5, 36.0), "R47": (36.0, 34.5), "C44
              "C45": (35.5, 22.5), "R48": (4.0, 7.0), "TP1": (60.0, 1.5), "TP2": (62.0, 1.5),
              "TP3": (64.0, 1.5), "TP4": (66.0, 1.5)}
 
+# ======== 音声の核（XU316・Flash・水晶・コーデック・アンプ・マイクの電源）は手で置いて手で引く ========
+#   🔒 ユーザー 2026-09-15: XU316 とコーデックの周りは Voice PE の配線を手本に手で引く。別のスレッド
+#      （「ReSpeaker回路の配線」）が voice_core.py を持つ。取り決めは docs/VOICE-CORE-HANDOFF.md
+#   区画の中へは核の部品と固定の物（J2・J15・J5 など）以外を置かない。核の外の配線は自動配線。
+CORE_REGION = (0.6, 0.6, 62.0, 17.0)          # 板の座標 x0, y0, x1, y1（Y 上向き・前の縁が y = 0）
+CORE_REFS = frozenset([GV.vref(r) for g in ("xmos", "codec", "micsup") for r in VPE_GROUPS[g][1].split()]
+                      + ["J16"])
+
+
+def load_core():
+    """voice_core.py が有れば読む。無ければ None（今までどおり全部を自動で置く）。"""
+    if not (HERE / "voice_core.py").exists():
+        return None
+    import voice_core
+    extra = set(voice_core.place()) - CORE_REFS
+    if extra:
+        sys.exit("voice_core.place() に核ではない部品がある: " + " ".join(sorted(extra)))
+    return voice_core
+
+
+def exempt(k, r):
+    """立入禁止 k（6 番目 = 入ってよい部品。ref 1 つか集合）に r が入ってよいか。"""
+    return k[5] is not None and (r in k[5] if isinstance(k[5], (set, frozenset)) else k[5] == r)
+
 
 def fit(points, region, mirror_x=False):
     """点の集まりを、縦横比を保って区画の中へ縮めて置く（大きくはしない）。"""
@@ -152,6 +176,10 @@ def build_place(comps):
     #   🔒 ユーザー 2026-09-15: 20 ピンの J105（裏の右の帯・XU316 から 45mm）をやめ、XU316 のそばのパッドにした
     ux, uy, _ = place["U102"]
     place["J16"] = (ux - 8.0, uy, 0)
+    core = load_core()
+    if core:
+        for r, (x, y, a) in core.place().items():
+            place[r] = (x, y, a)
     missing = sorted(set(r for r in comps if not r.startswith("#")) - set(place))
     if missing:
         sys.exit("置き場所が決まっていない部品: " + " ".join(missing))
@@ -209,7 +237,7 @@ def legalize(boxes, side, fixed, keep, margins=None):
         mg = (margins or {}).get(r, GAP)
         own = np.zeros_like(occ[s])
         for k in keep:                           # 自分に向けた立入禁止（つまみの軸は AS5600 以外）
-            if k[5] and k[5] != r and k[4] == s:
+            if k[5] and not exempt(k, r) and k[4] == s:
                 x0, y0, x1, y1 = cells(k, 0)
                 own[y0:y1, x0:x1] = True
         grid = occ[s] | own
@@ -462,9 +490,14 @@ def build():
             rr = max(float(v) for v in find1(p, "size")[1:3]) / 2 + 0.3
             cx, cy = X + dx - G.ORG[0], G.BOARD_W - (Y + dy - G.ORG[1])
             keep.append((cx - rr, cy - rr, cx + rr, cy + rr, "F", None))
-    movable = set(place) - FIXED
+    core = load_core()
+    fixed = set(FIXED)
+    if core:
+        fixed |= set(core.place())                      # 手で置いた核の部品は動かさない
+        keep.append((*CORE_REGION, "F", CORE_REFS))     # 核の外の部品は区画へ入れない
+    movable = set(place) - fixed
     margins = {r: margin_of(len([p for p in find(raw[r][0], "pad") if str(p[1])])) for r in place}
-    moved = legalize(boxes, side, FIXED & set(place), keep, margins)
+    moved = legalize(boxes, side, fixed & set(place), keep, margins)
     far = sorted(moved.items(), key=lambda kv: -kv[1])[:8]
     print("  空いた所へ置いた。狙いから遠くへ行った物: " + "・".join(f"{r} {d:.1f}" for r, d in far))
     # 押し離した量だけ原点を動かす
@@ -487,7 +520,7 @@ def build():
     for r in movable:
         b = boxes[r]
         for k in keep:
-            if k[4] == side[r] and k[5] != r and b[0] < k[2] - 1e-6 and k[0] < b[2] - 1e-6 and b[1] < k[3] - 1e-6 and k[1] < b[3] - 1e-6:
+            if k[4] == side[r] and not exempt(k, r) and b[0] < k[2] - 1e-6 and k[0] < b[2] - 1e-6 and b[1] < k[3] - 1e-6 and k[1] < b[3] - 1e-6:
                 hit.append((r, k[5] or "穴・欠き・軸・電池"))
     for r, what in hit[:40]:
         print(f"  立入禁止に入っている {r}: {what}")
@@ -553,7 +586,34 @@ def build():
                       ["connect_pads", "yes", ["clearance", "0.2"]], ["min_thickness", "0.2"],
                       ["filled_areas_thickness", "no"],
                       ["fill", "yes", ["thermal_gap", "0.2"], ["thermal_bridge_width", "0.4"]], poly])
-    doc += G.outline() + G.mounting_holes() + placed + zones + G.vbus_zone()
+    # 核の手の配線（板の座標 → 図面の座標）。自動配線にも「動かさない線」として渡す（下の DSN）
+    core_wiring, core_items = [], []
+    if core:
+        for net, lay, w, pts in core.tracks():
+            for a, b in zip(pts, pts[1:]):
+                (xa, ya), (xb, yb) = G.bx(*a), G.bx(*b)
+                core_items.append(["segment", ["start", f"{xa:.4f}", f"{ya:.4f}"], ["end", f"{xb:.4f}", f"{yb:.4f}"],
+                                   ["width", f"{w:.3f}"], ["layer", Str(lay)], ["net", str(nets[net])],
+                                   ["uuid", Str(G.uid())]])
+                core_wiring.append(f"    (wire (path {lay} {round(w * dsn.SCALE)} {dsn._x(xa)} {dsn._y(ya)} "
+                                   f'{dsn._x(xb)} {dsn._y(yb)}) (net "{net}") (type protect))')
+        for net, x, y in core.vias():
+            X, Y = G.bx(x, y)
+            core_items.append(["via", ["at", f"{X:.4f}", f"{Y:.4f}"], ["size", f"{VIA[0]}"], ["drill", f"{VIA[1]}"],
+                               ["layers", Str("F.Cu"), Str("B.Cu")], ["net", str(nets[net])], ["uuid", Str(G.uid())]])
+            core_wiring.append(f'    (via Via[0-{len(COPPER) - 1}]_{round(VIA[0] * 1000)}:{round(VIA[1] * 1000)}_um '
+                               f'{dsn._x(X)} {dsn._y(Y)} (net "{net}") (type protect))')
+        for net, lay, poly_pts, prio in getattr(core, "zones", lambda: [])():
+            zones.append(["zone", ["net", str(nets[net])], ["net_name", Str(net)], ["layer", Str(lay)],
+                          ["uuid", Str(G.uid())], ["name", Str(f"core_{net}")], ["hatch", "edge", "0.5"],
+                          ["priority", str(prio)], ["connect_pads", "yes", ["clearance", f"{CLEAR}"]],
+                          ["min_thickness", "0.2"], ["filled_areas_thickness", "no"],
+                          ["fill", "yes", ["thermal_gap", "0.2"], ["thermal_bridge_width", "0.3"]],
+                          ["polygon", ["pts"] + [["xy", f"{G.bx(*q)[0]:.3f}", f"{G.bx(*q)[1]:.3f}"]
+                                                 for q in poly_pts]]])
+        print(f"  核（voice_core.py）: 部品 {len(core.place())}・線 {len([i for i in core_items if i[0] == 'segment'])}"
+              f"・穴 {len([i for i in core_items if i[0] == 'via'])}")
+    doc += G.outline() + G.mounting_holes() + placed + core_items + zones + G.vbus_zone()
     (G.OUT / f"{NAME}.kicad_pcb").write_text(kisym.dump(doc) + "\n", encoding="utf-8")
     # 設計規則（Voice PE に寄せる）
     pro = G.OUT / f"{NAME}.kicad_pro"
@@ -564,7 +624,9 @@ def build():
         {"min_clearance": PAD_PAD_MIN, "min_track_width": 0.15, "min_via_diameter": VIA[0],
          "min_through_hole_diameter": VIA[1], "min_via_annular_width": 0.1, "min_hole_clearance": 0.2,
          "min_hole_to_hole": 0.25, "min_copper_edge_clearance": 0.3})
-    d["net_settings"]["classes"][0].update({"clearance": CLEAR, "track_width": TRACK,
+    # ⚠ ネットクラスの間隔はパッドどうしにも効き、kicad_dru の条件付き規則が当たらない組では
+    #    こちらが使われる（2026-09-15・CLEAR にしたら XU316 の隣り合うパッド 0.146 が 56 件の違反になった）
+    d["net_settings"]["classes"][0].update({"clearance": PAD_PAD_MIN, "track_width": TRACK,
                                             "via_diameter": VIA[0], "via_drill": VIA[1]})
     pro.write_text(json.dumps(d, indent=2), encoding="utf-8")
     # 規則: 板の下限は PAD_PAD_MIN（パッドどうしのため）。それ以外（線・穴・ベタ）は CLEAR を守らせる
@@ -601,7 +663,8 @@ def build():
     #    ⇒ 4 層とも配線の層として渡し、GND も自動配線に引かせる（v6.1 と同じ）。
     #    GND のベタは 4 層すべてに敷くので、In1.Cu は配線の少ない所がそのまま面になる
     np_, nn = dsn.write_dsn(G.OUT / f"{NAME}.dsn", NAME, insts, netpins, bnd, ko, copper=COPPER,
-                           via=VIA, track_um=round(TRACK * 10000), clear_um=round(CLEAR * 10000))
+                           via=VIA, track_um=round(TRACK * 10000), clear_um=round(CLEAR * 10000),
+                           wiring=core_wiring)
     print(f"自動配線へ: {np_} 部品・{nn} ネット → {G.OUT / (NAME + '.dsn')}")
     if bad or hit:
         sys.exit(f"重なり {len(bad)} 組・立入禁止 {len(hit)} 件")
