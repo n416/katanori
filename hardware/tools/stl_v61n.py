@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-"""筐体 v6.1n（MJF ナイロン）の発注用 STL 7 点を hardware/stl/v61n/ へ書き出す（2026-09-15）。
+"""筐体 v6.1n（MJF ナイロン）の発注用 STL 7 点を hardware/stl/v61n/ へ書き出す（2026-09-15。2026-09-16 に分割を底パーツ＋蓋に変えた）。
    python hardware/tools/stl_v61n.py                 全部（7 点）
    python hardware/tools/stl_v61n.py btn_tub top     名前を指定（stl/v61n/v61n_<名前>.stl）
-   python hardware/tools/stl_v61n.py --check         筐体の当たり検査（seam_shell_top ほか）を hardware/_tmp_v61n/ に出して体積を出す
+   python hardware/tools/stl_v61n.py --check         筐体の当たり検査（seam_shell_lid・path_* ほか）を hardware/_tmp_v61n/ に出して体積を出す
    ⚠ 出力先は書き出す前に必ず消す（OpenSCAD は空だと STL を書かないので、古いファイルを読む事故が起きる）。
    支柱・ラフト・FIT_PRINT は渡さない（MJF。MAT="nylon" で PROPS_OFF・RIBS_OFF が true）。
    材料は -D で渡す（case: MAT="nylon"・部品ファイル: $mat="nylon"）。--resin-check はレジン（MAT="resin" を渡す）で検査だけ回す。
@@ -25,8 +25,8 @@ def mat_defs(src, nylon=True):
     return ['-D', 'MAT="%s"' % m] if src == CASE else ['-D', '$mat="%s"' % m]
 # ファイル名 → (元の .scad, part の値)。名前は v61n_<キー>.stl になる（コミット 26b3e3a と同じ 7 点）
 PARTS = [
-    ('shell',      CASE, 'print_shell'),     # 床＋4 壁の一体シェル
-    ('top',        CASE, 'print_top'),       # 天板（外面を下）
+    ('shell',      CASE, 'print_shell'),     # 底パーツ（床＋前＋後ろ＋右の壁＋左の壁の帯。2026-09-16 の分割）
+    ('lid',        CASE, 'print_lid'),       # 蓋（天板＋左の板＋鉤＋PCB の受け。2026-09-16 まで 'top' = 天板だけだった）
     ('knob',       KNOB, 'knob'),            # つまみ本体
     ('island',     KNOB, 'wall'),            # つまみの島（座金＋タブ）
     ('spktub',     SPK,  'print_tub'),       # スピーカーのバスタブ
@@ -34,7 +34,8 @@ PARTS = [
     ('btn_tub',    BTN,  'print_tub'),       # 会話ボタンのバスタブ
 ]
 # 筐体の当たり検査（docs/CASE-V61N.md 5 章の表）。0 か、表の値が正
-CHECKS = ['seam_shell_top', 'plugpath', 'hit_wires', 'nutpath', 'sk_rsp', 'sk_hub', 'sk_spktub', 'sk_tgl', 'sk_btn', 'hit_btn']
+CHECKS = ['seam_shell_lid', 'plugpath', 'hit_wires', 'nutpath', 'sk_rsp', 'sk_oled', 'sk_hub', 'sk_spktub', 'sk_tgl', 'sk_btn', 'hit_btn',
+          'path_hub', 'path_oled', 'path_rsp', 'path_bat', 'path_lid']   # path_*: 入れる道の掃引（2026-09-16・全部 0 が正）
 NAMES = [k for k, _, _ in PARTS]
 
 def export(dst, src, pname, nylon=True):

@@ -59,7 +59,8 @@ def main():
         shutil.rmtree(GERBER)
     GERBER.mkdir()
     pcb = str(OUT / f"{NAME}.kicad_pcb")
-    run("pcb", "export", "gerbers", "-o", str(GERBER) + "\\", "--no-protel-ext",
+    # 🔴 --check-zones: 基板ファイルにはベタの塗りを保存していないので、書き出しのとき塗り直す。無いと GND ベタが空のガーバーになる（2026-09-16 夕に発見。それまでの fab の B_Cu は塗り 0 面だった）
+    run("pcb", "export", "gerbers", "-o", str(GERBER) + "\\", "--no-protel-ext", "--check-zones",
         "--layers", "F.Cu,B.Cu,F.Paste,B.Paste,F.Silkscreen,B.Silkscreen,F.Mask,B.Mask,Edge.Cuts", pcb)
     run("pcb", "export", "drill", "-o", str(GERBER) + "\\", "--format", "excellon",
         "--drill-origin", "absolute", "--excellon-units", "mm", "--excellon-separate-th", pcb)
