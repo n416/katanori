@@ -24,7 +24,7 @@
 //   （皮・板・検査の語は皮を起こすときにここへ足す。既にある語の意味は変えない）
 // ============================================================
 part = "explode";
-MAT = "nylon";   // ["resin", "nylon"]   刷り方。"resin" = 自分の光造形（板 6 枚）／"nylon" = 外注 MJF（底パーツ＋蓋の 2 部品。蓋 = 天板＋左の板・2026-09-16）。GUI ではこの行を書き換える（Customizer でも選べる）。CLI は -D MAT="nylon"
+MAT = "resin";   // ["resin", "nylon"]   刷り方。"resin" = 自分の光造形（板 6 枚）／"nylon" = 外注 MJF（底パーツ＋蓋の 2 部品。蓋 = 天板＋左の板・2026-09-16）。GUI ではこの行を書き換える（Customizer でも選べる）。CLI は -D MAT="nylon"
 $mat = MAT;      // 🔴 部品ファイル（use）へ材料を配る。$ 付きは呼び出しの連鎖を伝わる（parts/mat.scad の説明）。PROPS_OFF などより前に置くこと
 // ---- 刷り方（🔒 ユーザー 2026-09-14「ナイロンで印刷する場合のモードが欲しいね」）----
 //   "resin" … 自分の機械（光造形）。いまの既定。板厚も格子も支柱も、この機械の癖を避けるための形
@@ -1367,7 +1367,11 @@ if (part == "all")    { skin(); innards(); }
 if (part == "explode" && nylon()) {   // ナイロン（2026-09-16 の分割）: 底パーツは置いたまま。蓋（天板＋左の板）は小組ごと上へ、PCB と電池は左の窓から外へ、ReSpeaker と OLED はライザーごと上へ
     color(C_SHELL) shell(); one("tgl");
     translate([-100, 0, 0]) { one("hub"); one("bat"); }                                        // 板の右端（86）が箱の外へ出るまで左へ
-    translate([0, 0, 60])   { one("riser"); one("oriser"); translate([0, 0, 20]) one("rsp"); translate([0, -20, 0]) one("oled"); }   // ライザー 2 枚は +60（底 67.5 が箱の天面 53 より上）。ReSpeaker はライザーの口（下向き）から上へ 20 抜く（頭 121.5 は蓋の左の板の下端 126 より下）・OLED はライザーの前向きの口から前へ 20 抜く（ユーザー 2026-09-16 夕「ライザーカードの切り離しがない」）
+    // ライザー 2 枚: 裏の L 字のメス（口は下）で PCB のオスに上から被さり、表の前向きのメスに ReSpeaker と OLED のピンが前から入る。
+    //   ⇒ 分解の向きは「ライザーは上へ・ReSpeaker と OLED は前へ」（ユーザー 2026-09-16 夕「ライザーカードの切り離しがない」「位置が微妙に悪くて分解に見えてない」）
+    translate([0, 0, 90])   { one("riser"); one("oriser"); }                                       // ライザーは ReSpeaker の頭（101.5）の上・Z 106〜139（蓋の左の板 X 〜1.7 とバスタブ Z 143〜 には触れない）
+    translate([0, -20, 60]) one("rsp");                                                            // ReSpeaker は箱の天面 53 の上で前へ 20（Y −14〜0）
+    translate([0, -40, 60]) one("oled");                                                           // OLED はさらに前 −40（ReSpeaker の前・Y −40〜−27）
     translate([0, 0, 125]) {                                                                    // 蓋の左の板の下端 126（OLED の頭より上・🔴 75 だと板の中に OLED が入って見えた）
         color(C_TOP61) lid();
         // 蓋に付く小組もばらす（ユーザー 2026-09-16 夕「explode でつまみとかボタンとかがバラけてない」）。上から入る物は天板の上へ、下から入る物は天板の下へ（左の板の下端 0.5 より上に収める）
@@ -1381,12 +1385,12 @@ if (part == "explode" && nylon()) {   // ナイロン（2026-09-16 の分割）:
 }
 if (part == "explode" && !nylon()) {   // レジン: 箱全体の分解。🔒 ユーザー 2026-09-05「explode がブリッジだけになっている」
     color("#e0a040") p_floor(); one("bat");                                                                    // 置いたまま（床・電池）
-    translate([0, 0, 30]) { one("riser"); one("oriser"); }                                                     // ライザー 2 枚は PCB（+20）の口から上へ 10（🔴 2026-09-16 夕まで explode に無かった）
-    translate([0, 0, 45]) one("rsp");                                                                          // ReSpeaker はライザーの口（下向き）から上へ 15
-    translate([0, -15, 30]) one("oled");                                                                       // OLED はライザーの前向きの口から前へ 15（フロント板 −30 の手前）
+    translate([0, 0, 50]) { one("riser"); one("oriser"); }                                                     // ライザー 2 枚は PCB（+20・頭 43）のオスから上へ抜く: Z 66〜99（🔴 2026-09-16 夕まで explode に無かった）
+    translate([0, -20, 0]) one("rsp");                                                                         // ReSpeaker はライザーの前向きの口から前へ 20（置いた高さのまま）
+    translate([0, -40, 0]) one("oled");                                                                        // OLED はさらに前 −40（ReSpeaker の前。フロント板は −50）
     translate([-30, 0, 0]) { color("#4a90d9") p_lwall(); panel_ribs("lwall"); }                                      // 左の壁は左へ
     translate([30, 0, 0])  { color("#4a90d9") p_rwall(); panel_ribs("rwall"); }                                      // 右の壁は右へ
-    translate([0, -30, 0]) { color("#9b59b6") p_front(); panel_ribs("front"); }                                      // フロントは前へ
+    translate([0, -50, 0]) { color("#9b59b6") p_front(); panel_ribs("front"); }                                      // フロントは前へ（30 → 50: OLED を −40 に出したので、その手前）
     translate([0, 35, 0])  { color("#27ae60") p_hatch(); panel_ribs("hatch"); one("tgl"); }                            // ハッチは後ろへ（トグルごと）
     translate([0, 0, 20])  one("hub");                                                                                  // PCB（柱 4 本の上へ）
     translate([0, 0, 80]) {                                                                                                 // 天板は上へ（60 → 80: ReSpeaker を +45 に上げたので、下に散らすバスタブが重ならない高さ）。小組はさらにばらす（ナイロンの explode と同じ散らし方・2026-09-16 夕）
