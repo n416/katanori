@@ -29,7 +29,7 @@
 //   print_strap_a / print_strap_b / print_strap_c … 帯 1 本を刷る向き（直置き・足の裏が Z 0）＋ 支柱とラフト（parts/props_v5_gen.scad・python hardware/tools/props_gen.py）。素の形は -D PROPS_OFF=true
 //   （皮・板・検査の語は皮を起こすときにここへ足す。既にある語の意味は変えない）
 // ============================================================
-part = "look";
+part = "all";
 PROPS_OFF = false;   // true: 刷る向きの素の形（支柱・ラフト無し）。tools/props_gen.py がこれで焼いて支柱の位置を決める
 
 include <parts/fit.scad>   // 嵌め合いの数式（穴 = ダボ + 向きで決まる差。🔒 2026-09-10 ゲージ）
