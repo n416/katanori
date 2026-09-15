@@ -1380,7 +1380,7 @@ if (part == "explode" && nylon()) {   // ナイロン（2026-09-16 の分割）:
     }
 }
 if (part == "explode" && !nylon()) {   // レジン: 箱全体の分解。🔒 ユーザー 2026-09-05「explode がブリッジだけになっている」
-    color("#e0a040") p_floor(); one("bat"); one("rsp"); one("oled");                                       // 置いたまま（床・電池・ReSpeaker・OLED）
+    color("#e0a040") p_floor(); one("bat"); one("rsp"); one("riser"); one("oled"); one("oriser");             // 置いたまま（床・電池・ReSpeaker・OLED・ライザー 2 枚。🔴 ライザーは 2026-09-16 夕まで抜けていた）
     translate([-30, 0, 0]) { color("#4a90d9") p_lwall(); panel_ribs("lwall"); }                                      // 左の壁は左へ
     translate([30, 0, 0])  { color("#4a90d9") p_rwall(); panel_ribs("rwall"); }                                      // 右の壁は右へ
     translate([0, -30, 0]) { color("#9b59b6") p_front(); panel_ribs("front"); }                                      // フロントは前へ
