@@ -3,7 +3,35 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<style>img{max-width:100%}</style>
+<style>img{max-width:100%}
+  /* 死因を先頭に */
+  .cause{grid-column:1/-1;margin-top:4px;padding:18px 22px 16px;border-left:4px solid var(--red);background:var(--panel);border-radius:0 6px 6px 0}
+  .cause .lbl{font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.16em;color:var(--red);font-weight:600}
+  .cause .big{font-family:"Shippori Mincho",serif;font-size:clamp(22px,3vw,30px);font-weight:800;line-height:1.3;margin:4px 0 8px;text-wrap:balance}
+  .cause p{font-size:14.5px;max-width:60em}
+  .cause .q{font-family:"Shippori Mincho",serif;font-size:15px;margin-top:8px;color:var(--ink-2)}
+  .cause.alive{border-color:var(--gold)} .cause.alive .lbl{color:var(--gold-ink)}
+  .tile .why{font-size:11px;line-height:1.35;color:var(--red);font-weight:500}
+  .tile.now .why{color:var(--gold-ink)}
+  /* 事故の記録 */
+  .tally{display:flex;flex-wrap:wrap;gap:8px 22px;font-size:13px;color:var(--ink-2);margin:0 0 6px}
+  .tally b{font-family:"IBM Plex Mono",monospace;font-size:18px;color:var(--ink);font-weight:600;margin-right:2px}
+  .mon{font-family:"IBM Plex Mono",monospace;font-size:12px;letter-spacing:.14em;color:var(--ink-3);margin:30px 0 4px;border-bottom:1px solid var(--rule);padding-bottom:4px}
+  .ev{display:grid;grid-template-columns:6.5em 1fr;gap:16px;padding:14px 0;border-bottom:1px solid var(--rule-2)}
+  .ev .d{font-family:"IBM Plex Mono",monospace;font-size:12.5px;color:var(--ink-2);padding-top:4px;line-height:1.5}
+  .ev h4{font-size:16.5px;font-weight:700;margin:0 0 4px;font-family:inherit;line-height:1.45}
+  .chips{display:inline-flex;flex-wrap:wrap;gap:5px;margin-left:8px;vertical-align:3px}
+  .chip{font-family:"IBM Plex Mono",monospace;font-size:10.5px;padding:1px 7px;border-radius:99px;border:1px solid var(--rule);color:var(--ink-2);font-weight:500;white-space:nowrap}
+  .chip.fire{border-color:var(--red);color:var(--red)}
+  .chip.mir{border-color:var(--gold);color:var(--gold-ink);background:var(--gold-soft)}
+  .chip.ai{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+  .chip.open{border-style:dashed}
+  .chip.guess{color:var(--ink-3)}
+  .ev p{font-size:14px;max-width:62em}
+  .ev .q{font-family:"Shippori Mincho",serif;font-size:15px;margin:6px 0 0;border-left:2px solid var(--rule);padding-left:10px;color:var(--ink)}
+  .ev .src{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--ink-3);margin-top:5px;word-break:break-all}
+  @media(max-width:560px){.ev{grid-template-columns:1fr;gap:4px}}
+</style>
 <title>かたのりの歴史</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700;800&family=IBM+Plex+Sans+JP:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 </head>
@@ -179,20 +207,20 @@
     <div>
       <div class="eyebrow">katanori — Gemini と声で話す小さなロボット</div>
       <h1>かたのりの歴史</h1>
-      <p class="dek">2026 年 7 月 25 日の初コミットから 9 月 15 日まで。<b>ファームは 2 日で会話が成立</b>したが、<b>筐体は 8 版</b>を数えた。ここでは筐体 v1 から v6.1n までの形・部品・かかった時間と、中身（ファーム・電気・基板）の節目をまとめる。使う人は介護の現場と高齢の方。だから「つまみは画面の右」が設計の最上位条件になっている。</p>
+      <p class="dek">2026 年 7 月 25 日の初コミットから 9 月 15 日まで。<b>ファームは 2 日で会話が成立</b>したが、<b>筐体は 8 版</b>を数えた。ここでは筐体 v1 から v6.1n までの形・部品・かかった時間と、<b>各版が何で死んだか</b>、そして壊れた・燃えた・鏡だった事故の記録をまとめる。使う人は介護の現場と高齢の方。だから「つまみは画面の右」が設計の最上位条件になっている。</p>
     </div>
     <div class="span"><strong>53<span style="font-size:14px;font-weight:400"> 日</span></strong>2026-07-25 → 09-15<br>583 commits / 41 稼働日</div>
   </header>
 
   <div class="lineup" aria-label="筐体の系譜">
-    <div class="tile dead"><div class="v">v1<small>2枚貝</small></div><div class="pic"><img src="img/line_v1.png" alt="v1 正面"></div><div class="d">08-15→20</div></div>
-    <div class="tile dead"><div class="v">v2<small>寝かす</small></div><div class="pic"><img src="img/line_v2.png" alt="v2 正面"></div><div class="d">08-17→23</div></div>
-    <div class="tile dead"><div class="v">v3<small>板6枚</small></div><div class="pic"><img src="img/line_v3.png" alt="v3 正面"></div><div class="d">08-22→25</div></div>
-    <div class="tile"><div class="v">v4<small>刷った</small></div><div class="pic"><img src="img/line_v4.png" alt="v4 正面"></div><div class="d">08-25→09-05</div></div>
-    <div class="tile now"><div class="v">v5<small>実機</small></div><div class="pic"><img src="img/v5_look.png" alt="v5"></div><div class="d">09-05→11</div></div>
-    <div class="tile dead"><div class="v">v6<small>縦置き</small></div><div class="pic"><img src="img/v6_face.png" alt="v6"></div><div class="d">09-12→13</div></div>
-    <div class="tile dead"><div class="v">v6.1<small>基板1枚</small></div><div class="pic"><img src="img/v61_map.svg" alt="v6.1 基板の地図"></div><div class="d">09-14→15</div></div>
-    <div class="tile"><div class="v">v6.1n<small>MJF</small></div><div class="pic"><img src="img/v61n_look.png" alt="v6.1n"></div><div class="d">09-14→15</div></div>
+    <div class="tile dead"><div class="v">v1<small>2枚貝</small></div><div class="pic"><img src="img/line_v1.png" alt="v1 正面"></div><div class="d">08-15→20</div><div class="why">配線できず</div></div>
+    <div class="tile dead"><div class="v">v2<small>寝かす</small></div><div class="pic"><img src="img/line_v2.png" alt="v2 正面"></div><div class="d">08-17→23</div><div class="why">組めず</div></div>
+    <div class="tile dead"><div class="v">v3<small>板6枚</small></div><div class="pic"><img src="img/line_v3.png" alt="v3 正面"></div><div class="d">08-22→25</div><div class="why">PowerBoost の置き場なし</div></div>
+    <div class="tile"><div class="v">v4<small>刷った</small></div><div class="pic"><img src="img/line_v4.png" alt="v4 正面"></div><div class="d">08-25→09-05</div><div class="why">線の太さを 4mm 間違え</div></div>
+    <div class="tile now"><div class="v">v5<small>実機</small></div><div class="pic"><img src="img/v5_look.png" alt="v5"></div><div class="d">09-05→11</div><div class="why">生きている（現行）</div></div>
+    <div class="tile dead"><div class="v">v6<small>縦置き</small></div><div class="pic"><img src="img/v6_face.png" alt="v6"></div><div class="d">09-12→13</div><div class="why">薄さ 23 に歯車が収まらず</div></div>
+    <div class="tile dead"><div class="v">v6.1<small>基板1枚</small></div><div class="pic"><img src="img/v61_map.svg" alt="v6.1 基板の地図"></div><div class="d">09-14→15</div><div class="why">刷らないと決めた</div></div>
+    <div class="tile"><div class="v">v6.1n<small>MJF</small></div><div class="pic"><img src="img/v61n_look.png" alt="v6.1n"></div><div class="d">09-14→15</div><div class="why">発注前・宿題 3 つ</div></div>
   </div>
 
   <div class="stats">
@@ -200,8 +228,8 @@
     <div class="stat"><div class="k">実際に刷った回数</div><div class="n">41<small>回</small></div><div class="s">v4 11 回 ＋ v5 30 回（失敗 4）</div></div>
     <div class="stat"><div class="k">印刷部品の点数</div><div class="n">21<small>→</small>7</div><div class="s">v5（レジン）→ v6.1n（MJF）</div></div>
     <div class="stat"><div class="k">筐体のねじ</div><div class="n">33<small>→</small>4</div><div class="s">v5 → v6.1n（本）</div></div>
-    <div class="stat"><div class="k">電子部品</div><div class="n">14<small>種</small></div><div class="s">v6.1 基板で 4 モジュールがチップ化</div></div>
-    <div class="stat"><div class="k">いちばん濃い日</div><div class="n">62<small>commits</small></div><div class="s">2026-09-13（v6 を畳んだ日）</div></div>
+    <div class="stat"><div class="k">鏡（左右が逆）</div><div class="n">6<small>回</small></div><div class="s">モデル・穴割り・刻印・列・ヘッダ・裏面</div></div>
+    <div class="stat"><div class="k">煙が出た</div><div class="n">1<small>回</small></div><div class="s">2026-09-11 INA226。ほか発熱 2</div></div>
   </div>
 
   <section>
@@ -220,6 +248,7 @@
     <!-- v1 -->
     <article class="ver" id="v1">
       <div class="ver-head"><div class="vn dead">v1</div><h3>上下 2 枚貝 <span class="badge dead">未印刷</span></h3><div class="when">2026-08-15 → 08-20 ／ 6 日<br>生まれた日 08-17</div></div>
+      <div class="cause"><div class="lbl">死因</div><div class="big">配線できなかった。</div><p>ハブ基板の 9 つの口が、線の出る空間 25mm を箱の外に要求していた。はみ出し 16,476 mm³。その前にスピーカーで 2 回太らせている（23×16 の部品に 27mm の部屋を作り、ケーシング付きと知らずに受け皿を作り込んだ）。</p></div>
       <figure class="fig"><div class="main"><img src="img/v1_iso.png" alt="v1 の全体（斜め）"></div><div class="sub"><div><img src="img/v1_explode.png" alt="v1 分解図"></div><div><img src="img/compare_v1_v4.png" alt="v1〜v4 と StackChan の比較"></div></div><figcaption>上シェルを下へ被せる。右下は v1〜v4 を同じ縮尺で並べた比較図（右端は StackChan）</figcaption></figure>
       <div>
         <dl class="spec">
@@ -233,7 +262,6 @@
         <div class="body">
           <h4>入ったもの</h4>
           <ul><li>箱詰めスタディ（08-15）から起こした最初の「刷って組む物」</li><li>「基板は立てるだけにしない。溝とレールは位置決め、固定はねじ」の思想</li></ul>
-          <div class="death"><b>死因</b>配線できなかった。ハブ基板の 9 つの口が線の空間 25mm を箱の外に要求し、はみ出し 16,476 mm³。さらにスピーカーで 2 回太らせた（23×16 の部品に 27mm の部屋、ケーシング付きと知らずに受け皿を作り込んだ）。</div>
         </div>
       </div>
     </article>
@@ -241,6 +269,7 @@
     <!-- v2 -->
     <article class="ver" id="v2">
       <div class="ver-head"><div class="vn dead">v2</div><h3>ハブ基板を寝かせた <span class="badge dead">08-23 凍結</span></h3><div class="when">2026-08-17 → 08-23 ／ 7 日<br>3 commits</div></div>
+      <div class="cause"><div class="lbl">死因</div><div class="big">組み立てられなかった。</div><p>真っ直ぐ閉じられず 3 か所で干渉（トグルの胴 132.8 mm³、XIAO の USB-C の殻 10.4、ブリッジの波 8.1）。AI の分割案 A も「ハブが蓋になって配線できない」で同日却下。AI は閉じる通り道の当たりしか見ておらず、組む姿勢を追っていなかった。</p><div class="q">「見れば分かるレベルだった」</div></div>
       <figure class="fig"><div class="main"><img src="img/v2_explode.png" alt="v2 分解図"></div><div class="sub"><div><img src="img/v2_open.png" alt="v2 上シェルを外してハブ基板の口を見た図"></div><div><img src="img/line_v2.png" alt="v2 正面"></div></div><figcaption>左下は上シェルを外し、ハブ基板の口 10 個を色分けした図。v2 だけ単独の完成レンダリングが残っていない</figcaption></figure>
       <div>
         <dl class="spec">
@@ -254,7 +283,6 @@
         <div class="body">
           <h4>入ったもの</h4>
           <ul><li>奥行 84→76、高さ 59.2→52.6。<b>8 版を通じて箱が縮んだのはこの 1 回だけ</b></li><li>部品どうしと線 12 本の当たりがゼロ（線どうし 66 組も）</li><li>背面のサービス記号はユーザー自身が SVG で描いた（AI の案 4 つは全部却下）</li></ul>
-          <div class="death"><b>死因</b>組み立てられなかった。真っ直ぐ閉じられず 3 か所で干渉（トグルの胴 132.8 mm³、XIAO の USB-C の殻 10.4、ブリッジの波 8.1）。AI の分割案 A も「ハブが蓋になって配線できない」で却下。</div>
         </div>
       </div>
     </article>
@@ -262,6 +290,7 @@
     <!-- v3 -->
     <article class="ver" id="v3">
       <div class="ver-head"><div class="vn dead">v3</div><h3>板 6 枚に転換 <span class="badge dead">08-25 打ち切り</span></h3><div class="when">2026-08-22 → 08-25 ／ 4 日<br>6 commits</div></div>
+      <div class="cause"><div class="lbl">死因</div><div class="big">PowerBoost の置き場が無かった。</div><p>PowerBoost を本物（ヘッダ・ハウジング・挿す軌跡）にしたら中に置ける場所が無かった。ブリッジ↔壁の M2×15 も 3 本とも入らなかった。</p><div class="q">「一番入れるのが面倒なピースを最後に入れようとしても入るわけがない」</div></div>
       <figure class="fig"><div class="main"><img src="img/v3_look.png" alt="v3 の全体"></div><div class="sub"><div><img src="img/v3_explode.png" alt="v3 分解図"></div><div><img src="img/line_v3.png" alt="v3 正面"></div></div><figcaption>床・左右の壁・天面・フロント・ハッチ。ハッチ（背面板）はここで生まれた</figcaption></figure>
       <div>
         <dl class="spec">
@@ -275,7 +304,6 @@
         <div class="body">
           <h4>入ったもの</h4>
           <ul><li><b>1 回の印刷が 1,022 層 → 362 層</b>（3 分の 1）。「縮んだのは箱ではなく 1 回の印刷」</li><li>組み立てマニュアルの原型（assembly_v3 → v4 → v5 と続く）</li><li>呼び名の体系：まな板・側面構造体・天面＋フロント・ハッチ</li></ul>
-          <div class="death"><b>死因</b>PowerBoost を本物（ヘッダ・ハウジング・挿す軌跡）にしたら置ける場所が無かった。「一番入れるのが面倒なピースを最後に入れようとしても入るわけがない」。ブリッジ↔壁の M2×15 も 3 本とも入らなかった。</div>
         </div>
       </div>
     </article>
@@ -283,6 +311,7 @@
     <!-- v4 -->
     <article class="ver" id="v4">
       <div class="ver-head"><div class="vn">v4</div><h3>外皮とボス、工具なしの電池交換 <span class="badge printed">初めて刷った</span></h3><div class="when">2026-08-25 → 09-05 ／ 12 日<br>236 commits</div></div>
+      <div class="cause"><div class="lbl">死因</div><div class="big">組み立てマニュアルを机上で 16 回以上通したのに、組めなかった。</div><p>組み立てマニュアルは v3 で書き始め、v4 では「3 度目」「7 度目」「12 度目」「16 度目」と番号を付けて机上で通し、そのたびにナットの入らない所・手順に無い部品・線の車線を直した。それでも 09-05 に実機で組めなかった。原因は線の太さ。DuPont のハウジングは 14mm なのに模型は 10 で置いていて、しかもその 10 に「✅実測」の印が付いていた（ヘッダの値をハウジングの欄に書いた）。机上の通しは模型の数字で通すので、数字が違えば何度通しても見つからない。</p></div>
       <figure class="fig"><div class="main"><img src="img/v4_look.png" alt="v4 の全体"></div><div class="sub"><div><img src="img/v4_explode.png" alt="v4 分解図"></div><div><img src="img/line_v4.png" alt="v4 正面"></div></div><figcaption>尻尾はアンテナ。天面に会話ボタン・つまみ・ハニカムのグリル、正面に OLED と猫ヒゲ（マイクのスリット）</figcaption></figure>
       <div>
         <dl class="spec">
@@ -296,7 +325,6 @@
         <div class="body">
           <h4>入ったもの</h4>
           <ul><li>皮 6 枚とボス。開口はベベル、継ぎ目は 45°</li><li>電池の蓋が左の壁から後ろへ移り、横スライド。<b>後ろへ引き出す電池交換</b></li><li>PowerBoost と電池をブリッジの上へ（v3 の死因を解決）</li><li>会話ボタンをレバー式マイクロスイッチに（押し心地「最高」・約 30gf）</li><li>組み立て 12 手順を机上で 15 回以上通し、「工具と手の道」を初めて実測</li><li>天板が 2.5mm 指定で 3.7mm に出た事件（Mars 系の土台のたわみ）を切り分けて記録</li></ul>
-          <div class="death"><b>死因</b>線のハウジングは 14mm なのに模型は 10 で置いていて、その 10 に「✅実測」の印が付いていた。09-05 に実機で組めず、電池の床が成立しなくなった。</div>
         </div>
       </div>
     </article>
@@ -304,6 +332,7 @@
     <!-- v5 -->
     <article class="ver" id="v5">
       <div class="ver-head"><div class="vn now">v5</div><h3>v4 を数字で直した、今の実機 <span class="badge now">現行の実機</span></h3><div class="when">2026-09-05 → 09-11 ／ 7 日<br>69 commits</div></div>
+      <div class="cause alive"><div class="lbl">生きている</div><div class="big">今の実機。ただし充電プラグが挿さらない。</div><p>Type-C の口がハッチ外面の 1.6mm 裏に落ちている。線の束 12 本と 4 つのモジュールがバラバラに載る構成そのものが v6 の動機になった。</p></div>
       <figure class="fig"><div class="main"><img src="img/v5_look.png" alt="v5 の全体"></div><div class="sub"><div><img src="img/v5_explode.png" alt="v5 分解図"></div><div><img src="img/v4_look.png" alt="v4（比較用）" style="opacity:.45"></div></div><figcaption>配置は v4 のまま、Y と Z を広げて当たりを減らした。背面のハッチと横スライドの電池の蓋、トグルの尻尾。右下は比較用の v4</figcaption></figure>
       <div>
         <dl class="spec">
@@ -317,7 +346,6 @@
         <div class="body">
           <h4>入ったもの</h4>
           <ul><li>反り止めの格子を左右の壁・フロント・ハッチに</li><li>Type-C の受けを床と一体化。PowerBoost はダボ＋E リング</li><li>スピーカーの留めが実物で通った（09-09）</li><li>外注見積（09-12）：筐体＋基板で 1 台 ¥16,300、5 台なら ¥4,740/台</li></ul>
-          <div class="next"><b>残り</b>Type-C の口がハッチ外面の 1.6mm 裏に落ちて充電プラグが挿さらない。線の束と 4 つのモジュールがバラバラに載る構成そのものが v6 の動機になった。</div>
         </div>
       </div>
     </article>
@@ -325,6 +353,7 @@
     <!-- v6 -->
     <article class="ver" id="v6">
       <div class="ver-head"><div class="vn dead">v6</div><h3>縦置きのポータブル端末 <span class="badge dead">失敗として閉じた</span></h3><div class="when">2026-09-12 → 09-13 ／ 2 日<br>62 commits</div></div>
+      <div class="cause"><div class="lbl">死因</div><div class="big">薄さ 23mm に歯車が収まらなかった。絵が出てこなかった。</div><p>歯車の遊び 8.07° が残り、3 スレッド（デザイン・回路・機構）の要求が調停の中で数字の表だけ行き来して、案が絵にならなかった。調停役が「引くな・触るな」を出し続け、見せられる物が最後まで出なかった。</p><div class="q">「OKOK やめましょう。絵がでてきません。終わってる」</div></div>
       <figure class="fig"><div class="main"><img src="img/v6_face.png" alt="v6 の全体"></div><div class="sub"><div><img src="img/v6_gear.png" alt="v6 つまみの歯車 3 枚"></div><div><img src="img/v6_pcb.png" alt="v6 中継基板（ハブ＋電源）"></div></div><figcaption>皿そのものがつまみ。左下は歯車 3 枚で AS5600 まで送る機構、右下はハブ＋電源を 1 枚にした中継基板</figcaption></figure>
       <div>
         <dl class="spec">
@@ -338,7 +367,6 @@
         <div class="body">
           <h4>得たもの</h4>
           <ul><li><b>基板化</b>。ユニバーサル基板・PowerBoost・INA226・Type-C 基板を 1 枚に統合し、線の束を消す道筋</li><li>「厚みで解けない数 12.4」（基板の面から ReSpeaker の XIAO 面まで）の発見</li><li>JLCPCB の部品区分と費用の調査（5 枚で $88、1 枚 $17.6）</li></ul>
-          <div class="death"><b>死因</b>歯車の遊び 8.07°が残り、薄さ 23mm の中に 3 スレッドの要求が収まらなかった。09-13 に並べ替えの案 A〜E を出し直し、E「文庫本」で PCB 前提・トグル廃止・しおりの磁石が決まった。</div>
         </div>
       </div>
     </article>
@@ -346,6 +374,7 @@
     <!-- v6.1 -->
     <article class="ver" id="v61">
       <div class="ver-head"><div class="vn dead">v6.1</div><h3>v5 の箱に基板 1 枚を入れ、奥行を縮めた <span class="badge dead">刷らない</span></h3><div class="when">2026-09-14 → 09-15 ／ 2 日<br>26 commits</div></div>
+      <div class="cause alive"><div class="lbl">終わり</div><div class="big">刷らないと決めた。</div><p>板 6 枚をレジンで刷る形のまま基板 1 枚を入れたが、ナイロン（MJF）の刷り方モードを入れた時点で「全部 MJF」に決まり、この版は刷らないまま v6.1n の元になった。</p></div>
       <figure class="fig"><div class="main" style="background:#f7f8fa"><img src="img/v61_map.svg" alt="v6.1 基板 katanori61 の区画と口の地図"></div><div class="sub"><div style="background:#fff"><img src="img/v61_routed.svg" alt="v6.1 基板の配線図"></div><div><img src="img/v5_look.png" alt="外形は v5 とほぼ同じ" style="opacity:.55"></div></div><figcaption>筐体のレンダリングは残っていない（v6.1n の元）。左上は基板 katanori61 の区画図、下は配線後の板と、外形の元になった v5</figcaption></figure>
       <div>
         <dl class="spec">
@@ -359,7 +388,6 @@
         <div class="body">
           <h4>入ったもの</h4>
           <ul><li>v6 の「縦置き・薄さ 23」を諦め、v5 の横置きに戻して<b>板 1 枚だけ持ち込んだ</b></li><li>PCB 化で PowerBoost・INA226・Type-C 基板・ブリッジ・帯が消え、奥行が 25.9mm 縮んだ</li><li>基板を 4.0 上げて電池の口を縦のトップ型に（「線を回すよりはいい」）</li></ul>
-          <div class="next"><b>次へ</b>ナイロン（MJF）で刷るモードを入れたことがそのまま v6.1n への橋渡しになった。</div>
         </div>
       </div>
     </article>
@@ -367,6 +395,7 @@
     <!-- v6.1n -->
     <article class="ver" id="v61n">
       <div class="ver-head"><div class="vn">v6.1n</div><h3>MJF ナイロンの一体シェル <span class="badge">発注前</span></h3><div class="when">2026-09-14 → 09-15 ／ 2 日<br>11 commits</div></div>
+      <div class="cause alive"><div class="lbl">まだ死んでいない</div><div class="big">発注前。宿題が 3 つ。</div><p>会話ボタンのバスタブに 0.27mm の刃が 1 か所（発注前に直す）。電池を工具なしで交換する形になっていない（天板の 4 本を外す）。E リングを実物で嵌めた記録がまだ無い。</p></div>
       <figure class="fig"><div class="main"><img src="img/v61n_look.png" alt="v6.1n シェルと天板を組んだ状態"></div><div class="sub"><div><img src="img/v61n_tray.png" alt="v6.1n 発注用 STL 7 点"></div><div><img src="img/v5_explode.png" alt="v5 の分解図（比較用）" style="opacity:.45"></div></div><figcaption>発注用 STL 7 点から描いた（シェル＋天板を組んだ状態と、7 点並べ）。右下は比較用の v5 分解図 21 点</figcaption></figure>
       <div>
         <dl class="spec">
@@ -380,10 +409,52 @@
         <div class="body">
           <h4>なぜ形が変わったか</h4>
           <ul><li>板 6 枚だった理由は「寝かせて刷る・反る・支柱の跡」の 3 つ。粉の中で焼く MJF ではその 3 つが消える</li><li>ReSpeaker と基板は幅 82.02 で上下からしか入らないので、口は上の 1 か所で足りる</li><li>下の柱 4 本・耳 6 個・ハッチの足・座ぐり 5 か所を全部削除。体積 −29%</li></ul>
-          <div class="next"><b>宿題</b>会話ボタンのバスタブに 0.27mm の刃が 1 か所（発注前に直す）。電池を工具なしで交換する形になっていない（天板の 4 本を外す）。E リングを実物で嵌めた記録がまだ無い。</div>
         </div>
       </div>
     </article>
+  </section>
+
+
+  <section id="incidents">
+    <div class="sec-h"><h2>壊れた・燃えた・鏡だった</h2><span class="note">事故と失敗の記録 34 件。docs と git に残っているものと、ユーザーの証言 1 件</span></div>
+    <p class="lead">筐体の死因のほかに、部品が壊れ、煙が出て、左右が逆に描かれた記録がある。<b>AI の失敗はそのまま載せる</b>。原因が特定されていないもの、推測のままのもの、まだ直っていないものは印を付けた。撤回された記述（「はんだブリッジ」「原因は配線の短絡」「WIFI_OFF のせい」）はここには書かない。</p>
+    <div class="tally"><span><b>6</b>鏡（左右が逆）</span><span><b>1</b>煙が出た</span><span><b>3</b>発熱・熱で劣化</span><span><b>4</b>刷って失敗</span><span><b>3</b>買って外れ</span><span><b>15</b>AI の失敗</span><span><b>3</b>未解決</span></div>
+    <div class="mon">2026-08</div>
+    <div class="ev"><div class="d">07-29〜08-05</div><div><h4>つまみを回すとコーデックが死ぬ。根本原因は特定しないまま部品ごと捨てた<span class="chips"><span class="chip fire">火・煙</span><span class="chip ai">AI の失敗</span></span></h4><p>可変抵抗を回している最中にコーデック出力が死に、再起動でも戻らず USB 抜き差しでだけ復帰。AI は「原因は配線の短絡」と解決済みに書き換えて同日取り消し、「WIFI_OFF のせい」と決めつけて後で撤回。抵抗膜は半田の熱でも劣化していた。AS5600（非接触）へ全面移行して症状を消した。</p><div class="q">「根本原因は特定していない。特定しないまま、原因ごと部品を捨てて症状を消した。」</div><div class="src">docs/KNOB-TROUBLE.md:29 / 78bbdee→c7ee305 / 4a97a49</div></div></div>
+    <div class="ev"><div class="d">08-02</div><div><h4>板バネ 9 枚が 1 日半後に全数破断<span class="chips"><span class="chip broke">壊れた</span></span></h4><p>「厚み ≧ 長さ ÷ 30」は刷りたてでのみ成立し、約 1 日半後に同じ 9 枚が押した瞬間に全部割れた。第 1 世代ではデテント（板バネ）を作らないと決めた。</p><div class="src">docs/KNOB-ENCODER.md:53</div></div></div>
+    <div class="ev"><div class="d">08-02</div><div><h4>つまみの治具で 3 件同時にやらかす。スタンドオフが 2 本折れた<span class="chips"><span class="chip broke">壊れた</span><span class="chip ai">AI の失敗</span></span></h4><p>コネクタのスロット位置が外れて手加工で開け直し（説明書を流し読み）。軸がブリッジの穴に入らず削って通した（印刷の補正を入れ忘れ）。スタンドオフ 2 本が折れた（長穴の向きの肉厚を計算していなかった。0.3mm しか無かった）。以後「3 件を一つの教訓にまとめない」が規則になった。</p><div class="src">docs/DIMENSIONS.md:19-28</div></div></div>
+    <div class="ev"><div class="d">08-02〜05</div><div><h4>1 枚目の ReSpeaker Lite が死んだ<span class="chips"><span class="chip broke">壊れた</span><span class="chip fire">火・煙</span><span class="chip guess">原因は推測</span></span></h4><p>コーデックが I2C の ACK すら返さない、ESP32 がブートループ、XMOS の USB が 0.5〜3 秒で必ず切断、異常発熱（触って即抜電）。最後の音は書き込みリセット時の ROM ブートログの轟音。原因は当時「不明」。後日「鉄定規の上で通電してショートさせた」説が出たが現物では未確認。「電池で 20 分動いた」の実績もこの板と一緒に失われた。</p><div class="q">「これは設計の問題ではなく作業環境の問題なので、同じ机で同じことをすれば再発する」</div><div class="src">firmware/esp32/README.md:775-838 / docs/POWER.md:55-64</div></div></div>
+    <div class="ev"><div class="d">08-03</div><div><h4>起動時の轟音。ブートログがそのままスピーカーに出る<span class="chips"><span class="chip fire">火・煙</span><span class="chip open">未解決</span></span></h4><p>ESP32-S3 の GPIO43 は UART0 TX 兼 I2S DOUT。リセット直後の ROM ブートログが増幅されて耳を痛める音になる。起動アナウンスを足した時点で「電源を入れるだけで開く経路」が生まれ、開いたまま電源断→次の起動で轟音が実際に出た。10cm で 105〜110dB 台（概算）。電池切れで繰り返す経路は推定・未実測。スピーカー線にミュートリレー（無通電で開）を入れる決定。</p><div class="q">「だからアナログ回路組んだ」</div><div class="src">firmware/esp32/README.md:1081-1139</div></div></div>
+    <div class="ev"><div class="d">08-04</div><div><h4>鏡 ①　ReSpeaker のモデル全体が鏡像<span class="chips"><span class="chip mir">鏡</span></span></h4><p>モックで面の Y 割り当てを逆に置き、モデル全体が鏡像になった。以後「鏡像の禁止」を文書化。座標系を変えたら XIAO 面のレンダを実物写真と並べて照合するまで設計に使わない。見分け方は「面ラベルが鏡文字に見えたら裏を見ている」。</p><div class="q">「鏡像は一瞬正しく見えるため、それを基準に伝えられる座標ごと汚染される」「二度と起こさない。絶対」</div><div class="src">docs/RESPEAKER-LITE.md:48 / hardware/parts/respeaker_lite.scad:38</div></div></div>
+    <div class="ev"><div class="d">08-06 / 08-17</div><div><h4>買って不合格だったボタン 2 種<span class="chips"><span class="chip parts">買い物</span></span></h4><p>PS21B-3 押しボタンは実測 600gf（合格ライン 100gf の 6 倍）。タクトスイッチのアソートは 255gf で不合格、180 個が手持ちのまま。会話ボタンは DAOKAI のレバー式マイクロスイッチ（30gf）に落ち着いた。タクトへ替えた理由だった「24mm の井戸」は二重計上だった。</p><div class="src">docs/DIMENSIONS.md:392,523</div></div></div>
+    <div class="ev"><div class="d">08-08</div><div><h4>1N4148 の向きで半日溶かした<span class="chips"><span class="chip fire">火・煙</span></span></h4><p>リレーのフライホイールダイオードは帯（カソード）が +5V 側。逆だと +5V→ダイオード→トランジスタが短絡。ただしトランジスタが OFF なら電流が流れず熱くならないので、「鳴らない・熱くもない」を理由にダイオードを容疑から外してはいけない。</p><div class="src">docs/POWER.md:1461</div></div></div>
+    <div class="ev"><div class="d">08-17〜23</div><div><h4>かしめ工具 SN-58B。AI が「安いです」「これなら」と勧め、合わなかった<span class="chips"><span class="chip parts">買い物</span><span class="chip ai">AI の失敗</span></span></h4><p>v2 から v3 へ移るとき線を簡略化したくてフラットケーブル（IDC）を採り掛けた。8/17 の買い物リストには「圧着工具は要らない（万力で潰す）」と書いたのに、AI は SN-58B を勧め、言うことが次々変わった。SN-58B は QI（DuPont）の端子に合わず、フラットケーブル案ごと消えて DuPont に戻った。repo に残った記録は「[[crimper-sn58b-not-for-qi]]」というリンク 1 行だけで、記憶の本体は無い。この項はユーザーの証言による。</p><div class="q">「正直ラリってたね」</div><div class="src">docs/POWER.md:846 / 旧 docs/SHOPPING.md（8/24 削除）</div></div></div>
+    <div class="ev"><div class="d">08-17</div><div><h4>つまみの可動域が丸ごと裏返っていた<span class="chips"><span class="chip broke">壊れた</span></span></h4><p>ツメを壁のどちら側に置くかで可動域が裏返る。刷った版は「OFF から右へ 0 度・左へ 315 度」で、組んだユーザーが発見。時計回りで値が増える以上、OFF は可動域の時計回り側の端。</p><div class="src">docs/KNOB-ENCODER.md:268</div></div></div>
+    <div class="ev"><div class="d">08-19</div><div><h4>鏡 ②　ハブ基板の穴割りが鏡像。いちばん波及が大きかった<span class="chips"><span class="chip mir">鏡</span><span class="chip ai">AI の失敗</span></span></h4><p>HTML の穴割りは SVG の y が下向き、SCAD の生成器は行 A を Y 小に置いていて、回転では戻らない鏡像になっていた。基板は前日に実装完了していて口の位置はもう動かせない。筐体の配線は全部引き直し。線が箱を横断する原因もこの鏡と帳尻合わせの 180° 回転。ユーザーの決定で OLED と AS5600 の口の役割を入れ替えて補正した（つまみを OLED の右に置くため）。</p><div class="q">「中継基板のコネクタの位置が実際と違う。鏡面になってないかこれ。ハンダ面に部品が乗ってる」</div><div class="src">docs/DIMENSIONS.md:114-147 / docs/CASE-V2.md:1140</div></div></div>
+    <div class="ev"><div class="d">08-19</div><div><h4>つまみ v4 を捨てた。圧入した輪が歪んだ<span class="chips"><span class="chip broke">壊れた</span></span></h4><p>圧入した輪が歪み、実機でツメが床を擦って回らなくなった。同日夕方、外側の輪とスリットを廃止し、座金＋タブ 1 枚の「島」を上からねじ 2 本で留める形へ。</p><div class="q">「歪む壁に壁を建てるな」「圧入ゼロ」</div><div class="src">docs/KNOB-ENCODER.md:8,711</div></div></div>
+    <div class="ev"><div class="d">08-22</div><div><h4>分割案 A を入れて同日中に戻した<span class="chips"><span class="chip ai">AI の失敗</span></span></h4><p>背板を上シェルへ移す案を AI が出して入れたが、ハブが蓋になって配線できない。分割をまたぐ束が 7 → 10 本に増えていた。AI は閉じる通り道の当たりしか見ておらず、組む姿勢を追っていなかった。21:22 に案 A の前へ戻した。</p><div class="q">「見れば分かるレベルだった」</div><div class="src">docs/CASE-V2.md:109-120</div></div></div>
+    <div class="ev"><div class="d">08-26</div><div><h4>OLED のナットが入らない。検査を φ2.0 で撃っていた<span class="chips"><span class="chip ai">AI の失敗</span></span></h4><p>3 度目の机上の通しで発覚。L の裏から 0.19mm の所に会話ボタンの受けが立っていた。前回の検査はナットの道を φ2.0 の円筒で撃っていたが、ナットは二面幅 4.3 なので φ2.0 が抜けても意味が無かった。</p><div class="src">72333e1</div></div></div>
+    <div class="ev"><div class="d">08-28</div><div><h4>つまみの STL が 5 つに割れていた<span class="chips"><span class="chip broke">壊れた</span></span></h4><p>16 度目の机上の通しで preflight が「中身 5 個」と判定。面取りの抜きで外側の筒だけ 0.01mm 長く、そのはみ出しが半径いっぱいの円板になって部品を 2 か所で輪切りにしていた。</p><div class="src">docs/KNOB-ENCODER.md:377 / 4b75859</div></div></div>
+    <div class="ev"><div class="d">08-29</div><div><h4>試し刷りでは入って、本番では入らない<span class="chips"><span class="chip ai">AI の失敗</span></span></h4><p>会話ボタンの留め板が ReSpeaker の前リブに 6.191 mm³ 食い込んでいた。別に刷る部品だったので当たり検査の対象 3 つ全部から外れていた。以後「組んだ状態で天面の中に居る物は、別部品でも突き合わせる」。</p><div class="q">「本番用とテスト用が別物ってことですよね。困ります」</div><div class="src">1f52b26</div></div></div>
+    <div class="ev"><div class="d">08-30〜31</div><div><h4>天板が 2.5mm 指定で 3.7mm に出た<span class="chips"><span class="chip broke">壊れた</span><span class="chip open">未解決</span></span></h4><p>初報のノギスは 4.0、ゲージで 3.7。同じ設定の小さい板は 2.5 で正しく、45mm 離れた大きい板が小さい板の厚みまで変えることを実証。プリンタの土台の弾性たわみ（Mars 系の既知の現象）。待機 3s＋速度 100 で 3.7→3.4、「動いたが消えていない」。後日、この現象が天板と床を反りから守っていたことが分かった。</p><div class="q">「モデルは無罪」</div><div class="src">docs/PRINT.md:18-64,1435 / aa1314e</div></div></div>
+    <div class="mon">2026-09</div>
+    <div class="ev"><div class="d">09-01〜09</div><div><h4>刷って失敗した 4 回、割れた帯、欠けた足<span class="chips"><span class="chip broke">壊れた</span></span></h4><p>電池の蓋の磁石の淵が出ない（新しい透明レジンのせい→後に「変わったのは色ではなくメーカー」と訂正）。支柱 6 本があちこち欠けた。サポートの円柱が剥がせない。ビルドプレートの固定が中途半端で途中停止。ほかに帯 C が割れ、ブリッジの足が欠け、ブリッジが帯 A と B のあいだの T で割れてツバをパズルのピースに変えた。</p><div class="src">hardware/print_log.jsonl:68,76,315,377 / 453f2d0</div></div></div>
+    <div class="ev"><div class="d">09-03</div><div><h4>支柱 6 本は締結として成立していなかった<span class="chips"><span class="chip ai">AI の失敗</span></span></h4><p>帯の下に出る軸が 1.6mm しか無く、下の溝は軸の先端なので壁が無い。scad には「下は電池が蓋」と書いてあったが、電池は柔らかいパウチで蓋にならない。板と支柱 6 本がひとまとまりで帯から浮く。支柱は帯と一体に戻し、点数は 25 → 19。</p><div class="q">「このスペーサーって上に載ってるだけじゃない？基板と一緒に引っ張ったら取れない？」「電池は蓋にならないよね・・・」</div><div class="src">docs/CASE-V4-LOG.md:2093</div></div></div>
+    <div class="ev"><div class="d">09-04</div><div><h4>鏡 ③　刻印の反射。ソースからは永久に見つからない型<span class="chips"><span class="chip mir">鏡</span><span class="chip ai">AI の失敗</span></span></h4><p>壁の印（スパナ・ヘッドホン等）に反射が入った。作った側は CAD を 180° 回して裏から撮った像をトレースしただけで、反転のコマンドは使っていない。反転が生まれるのは、その像を「表の図」として読み直した瞬間で、どこにも変換が残らない。文字列 grep の番人は素通り。規則は「投影図にはどちら側から見たかを書く。書いていない絵はトレースしない」。</p><div class="q">「文字が裏返って読めたら、その絵は表の図ではない」</div><div class="src">docs/CASE-V4-LOG.md:2788-2810 / 89c07fa</div></div></div>
+    <div class="ev"><div class="d">09-05</div><div><h4>コメントに飲まれて壊れた STL を焼いていた。警告 9 件を見落とし<span class="chips"><span class="chip ai">AI の失敗</span></span></h4><p>NUT_AF の編集で NUT_T・SCR_D・SCR_CB・SCR_CBT がコメントに飲まれ、角のねじ穴とナットのポケットが壊れた STL を焼いて印刷のログに載せていた。直して 18 点を焼き直し。同日、板 5 枚が 0.0043 浮いていた（球の極に頂点が無い）。</p><div class="q">「浮いてるってよ」</div><div class="src">f075c56 / 06c6d4d</div></div></div>
+    <div class="ev"><div class="d">09-06</div><div><h4>鏡 ④　XIAO の 2 列を逆に置いていた<span class="chips"><span class="chip mir">鏡</span></span></h4><p>「未確認・当たりに効かない」と書いて逆に置いていた。公式ピン配置に合わせて列と線の束を入れ替え。マニュアルの図には「ハブの図は 180°・XIAO の図は 90° 回しただけで鏡ではない」と明記するようになった。</p><div class="src">d1f85a9 / fadaa21</div></div></div>
+    <div class="ev"><div class="d">09-08</div><div><h4>鏡 ⑤　「また鏡」。AS5600 のヘッダの列<span class="chips"><span class="chip mir">鏡</span></span></h4><p>列の並びが実物と逆で、反転前はどう回してもそうならなかった＝回転では戻らない＝鏡。符号を反転。</p><div class="q">「また鏡」</div><div class="src">hardware/parts/parts.scad:139 / 2b088a0</div></div></div>
+    <div class="ev"><div class="d">09-09</div><div><h4>厚み 0 の膜。1 回目の直しで 2 → 4 か所に増えた<span class="chips"><span class="chip broke">壊れた</span><span class="chip ai">AI の失敗</span></span></h4><p>帯 C の溝の抜きが土手の端と同座標で、ブーリアンが 0 厚のシェルを残していた。ユーザーが CHITUBOX で発見。1 回目の直しは伸ばす端を間違えて膜が増え、2 回目で終点側に直した。</p><div class="src">5667813</div></div></div>
+    <div class="ev"><div class="d">09-11 未明</div><div><h4>INA226 から煙。PowerBoost が発熱<span class="chips"><span class="chip fire">火・煙</span></span></h4><p>買った PH の圧着済みペアは、噛み合わせると赤と黒が入れ替わる（オス側もメス側も「黒が左・赤が右」で作られている）。そのまま電池線に入れて通電し、INA226 から煙が出て PowerBoost が発熱した。被害は電池の経路だけで、USB 給電では全部動いた。03 時台の切り分けで PowerBoost は生きていて（5Vo に 5.1V）、焼けたのは INA226 の 1 枚だけ。同日ユーザーがパッケージの中央が焦げているのを見つけ、17:20 に新品へ替えると電流が読めた。原因は「圧着ペアの色を配線の情報として扱ったこと」。線の色は信用せず、電池をつなぐ前にテスターで当たる。</p><div class="q">「『発熱した』『煙が出た』を死亡と書いたのは早すぎた。試せる部品は試してから交換と書くこと。」</div><div class="src">docs/POWER.md:1660-1712,1875-1877 / f12fd98</div></div></div>
+    <div class="ev"><div class="d">09-11</div><div><h4>「5V は出ているのに起動しない」で 30 分。GND が外れていた<span class="chips"><span class="chip broke">壊れた</span></span></h4><p>GND の DuPont が外れていた。5V の線は繋がっていたので PowerBoost 側では正常な 5V が読めた。PWR の口は 4 穴で 3 本目が空きなので、3 本のハウジングが 1 つずれても挿さる。</p><div class="q">「電源が来ないときは 5V ではなく GND を先に疑う」</div><div class="src">docs/POWER.md:1677-1692</div></div></div>
+    <div class="ev"><div class="d">09-11</div><div><h4>OLED を逆に挿して「壊れた」と判定した<span class="chips"><span class="chip broke">壊れた</span><span class="chip open">未解決</span></span></h4><p>口ごとに 4 本の並びが違い、OLED（GND・VDD・SCL・SDA）とつまみ（SDA・SCL・3V3・GND）は逆順。同じ 4 本で並びだけ逆なので挿し間違えても物理的には入る。I2C バスが止まってファームが固まり、向きを直しても画面は真っ暗だった。どちらかの並びを揃えるか逆挿しできない形にするかは未解決。</p><div class="src">docs/POWER.md:1713-1723</div></div></div>
+    <div class="ev"><div class="d">09-11</div><div><h4>つまみの回転が逆、会話ボタンは断線<span class="chips"><span class="chip broke">壊れた</span></span></h4><p>天板を刷り直して組み付けが変わり、OFF 位置が 100%・回し切りが 0% になっていた（ビルドフラグで反転）。会話ボタンが効かないのは断線で、ユーザーが 30 回とも HIGH を確認して翌日直した。</p><div class="q">「つまみは完璧ですね」</div><div class="src">8539e93 / e10366e / 5876427</div></div></div>
+    <div class="ev"><div class="d">09-12</div><div><h4>エコーガードを外した<span class="chips"><span class="chip ai">AI の失敗</span></span></h4><p>喋っている最中はマイクを送らない作りになっていた。ハードウェア AEC のある ReSpeaker を選んだ意味が無い。既定を「送る」に変え、直後に声で割り込めることを実機で確認。</p><div class="q">「こんなのあったらダメでしょ。何のために ReSpeaker 選んでここまで来たのか」</div><div class="src">ad12606 / 25b1fd6</div></div></div>
+    <div class="ev"><div class="d">09-13</div><div><h4>基板のねじが入らない。芯間 2.309mm<span class="chips"><span class="chip ai">AI の失敗</span></span></h4><p>ハブの取付穴と OLED の柱の芯間が 2.309。通し穴 φ2.6 と φ2.2 は 0.09 重なって 1 つの長穴になり、ザグリ φ4 どうしは 1.69 重なる。枠の重なりだけ見ていて、ねじを回す物どうしの間隔を見ていなかった。取付穴どうしの芯間の検査を新設。</p><div class="q">「これにどうやってネジいれるんですか？」</div><div class="src">ca69416</div></div></div>
+    <div class="ev"><div class="d">09-13</div><div><h4>口 6 つのうち 4 つが挿せない。直した検査は 5 口とも裏側を見ていた<span class="chips"><span class="chip ai">AI の失敗</span></span></h4><p>当たりの検査しか書いておらず、プラグが入るかを確かめていなかった（J4・J10・J6・J8 が挿入不可）。直した後の検査は口の向きを手書きの表で持っていて、その表が全角度で逆。「5 口すべて空いている」は裏側が空いていたという意味しかなかった。表を捨て、パッドの重心と枠の中心のずれから向きを測るようにした。</p><div class="q">「J4J5どうやって挿すんだ。適当にやってんなぁ」</div><div class="src">a33f1ae / d21edca / docs/MEDIATOR-V6-HANDOFF.md:2054</div></div></div>
+    <div class="ev"><div class="d">09-13</div><div><h4>v6 の調停の失敗。消し飛ぶ物にいちばん詳しい指示を書いた<span class="chips"><span class="chip ai">AI の失敗</span></span></h4><p>ユーザーに「機構が暴走」と言われ、調停役は「4 つの要求の渋滞」と診断したが訂正された。機構がやったのは接着面を見せない工夫＝つまみの最下流で、上流が開いたまま作っても消し飛ぶもの。原因は調停役の書き方で、いちばん長く具体的に書いた指示がそれだった。規則は「消し飛ぶ物に詳しい指示を書かない」「1 通に 1 問」。</p><div class="q">「OKOK やめましょう。絵がでてきません。終わってる」</div><div class="src">b323d0e / docs/POWER.md:583-586</div></div></div>
+    <div class="ev"><div class="d">09-13</div><div><h4>MuJoCo で歯車を回したら NaN で落ちた<span class="chips"><span class="chip broke">壊れた</span></span></h4><p>歯面どうしを三角メッシュの接触で解かせると、歯 1 枚が噛む瞬間に接点が一気に増えて加速度が NaN になる（最長 1.74 秒）。刻みを細かくしても落ちる時刻が動くだけ。噛み合いは当たりの体積で見ることにした。</p><div class="src">7ad6fea</div></div></div>
+    <div class="ev"><div class="d">09-14</div><div><h4>鏡 ⑥　基板の裏面は KiCad の中で鏡になる（先回りで潰した）<span class="chips"><span class="chip mir">鏡</span></span></h4><p>電池の口 J10 は板の裏に付く。裏面の足形は KiCad の中で鏡になるので、表と同じ角度で置くと口が逆を向き、2 つのピンが入れ替わる。置いた後の座標を測って固定し、入れ替わると生成の時点で止まる検査にした。</p><div class="src">docs/PCB-V61.md:151-158</div></div></div>
   </section>
 
   <section>
