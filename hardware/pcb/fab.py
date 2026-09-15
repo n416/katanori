@@ -21,7 +21,7 @@ sys.path.insert(0, str(HERE))
 import kisym  # noqa: E402
 from kisym import find, find1  # noqa: E402
 
-CLI = r"C:\Program Files\KiCad\10.0\bin\kicad-cli.exe"
+from kicad_paths import CLI  # noqa: E402
 OUT = HERE / "katanori61"
 FAB = OUT / "fab"
 GERBER = FAB / "gerber"      # zip にするのはここだけ（部品表と実装位置は別に上げる）

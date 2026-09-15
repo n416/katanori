@@ -6,9 +6,11 @@ gen_sch.py が回路図を組むのに使う。KiCad 本体の記号をそのま
 
 import pathlib
 import re
+import sys
 
 HERE = pathlib.Path(__file__).parent
-SYMDIR = pathlib.Path(r"C:\Program Files\KiCad\10.0\share\kicad\symbols")
+sys.path.insert(0, str(HERE))
+from kicad_paths import SYMDIR  # noqa: E402
 
 
 # ---- S 式 ----
@@ -88,9 +90,17 @@ def _lib(name):
     return _libs[name]
 
 
+# ライブラリのファイルに無い記号（他の回路図の lib_symbols から持ってきた物）。lib_id → S 式
+EXTRA = {}
+
+
 def symbol(lib_id):
     """'Lib:Name' → 回路図の lib_symbols に埋め込める形（extends を解決済み）。"""
-    lib, name = lib_id.split(":")
+    if lib_id in EXTRA:
+        out = list(EXTRA[lib_id])
+        out[1] = Str(lib_id)
+        return out
+    lib, name = lib_id.split(":", 1)
     syms = _lib(lib)
     s = syms[name]
     ext = find1(s, "extends")

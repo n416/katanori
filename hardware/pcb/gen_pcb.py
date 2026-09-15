@@ -27,8 +27,7 @@ from kisym import Str, find, find1  # noqa: E402
 import hub_ports  # noqa: E402
 import dsn  # noqa: E402
 
-CLI = r"C:\Program Files\KiCad\10.0\bin\kicad-cli.exe"
-FPDIR = pathlib.Path(r"C:\Program Files\KiCad\10.0\share\kicad\footprints")
+from kicad_paths import CLI, FPDIR  # noqa: E402
 OUT = HERE / "katanori61"
 NAME = "katanori61"
 _n = [0]

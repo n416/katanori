@@ -31,8 +31,12 @@ surugo/.heat_cache/
 # v5 の検査の作業場（tools/props_gen.py・ribs_gen.py・manual_v5/ が書く。413 ファイル・172MB）
 hardware/_tmp_v5/
 
-# Freerouting は展開しただけの実行ファイル（141MB）。route.py がこの場所を読む
-hardware/frozen/v6/pcb/freerouting/
+# Freerouting の zip（展開した物は hardware/frozen/v6/pcb/freerouting/ にコミットしてある。zip は二重になるので入れない）
+#   🔒 ユーザー 2026-09-15: 展開した実行ファイル（141MB）はコミットする。2 か所の PC で clone するだけで route.py が動くように
+hardware/frozen/v6/pcb/freerouting.zip
+#   上の *.exe・bin/ に掛からないように戻す（実行ファイルと同梱の Java の DLL）
+!hardware/frozen/v6/pcb/freerouting/freerouting.exe
+!hardware/frozen/v6/pcb/freerouting/runtime/bin/
 
 # MuJoCo の模型の出力（スクリプトと XML は入れる・絵と数表は焼き直せる）
 hardware/sim/*/*.gif
@@ -47,3 +51,6 @@ hardware/frozen/v6/chk/*.echo
 
 # 自動配線の実行時に出るログ（2026-09-14）
 en/
+
+# 基板の道具が書き出す途中のファイル（Voice PE のネットリストなど）
+hardware/pcb/build/
