@@ -1296,6 +1296,7 @@ module corner_boss() difference() {
 module floor_foot_screw_cut() translate([FOOT_SCR[0], FOOT_SCR[1], 0]) { translate([0, 0, -FLOOR_T - 1]) cylinder(d = SCR_D, h = FLOOR_T + FOOT_PAD_H + 2, $fn = 24); translate([0, 0, -FLOOR_T - 0.01]) cylinder(d = SCR_CB, h = SCR_CBT, $fn = 32); }   // 通しと床の裏の座ぐり
 module lid() { p_top(); lwall_flap(); lid_foot(); }
 module shell() { p_floor(); if (nylon()) { lwall_strips(); fasten_lwall(); } else p_lwall(); p_rwall(); p_front(); p_hatch(); }   // ナイロン: 底パーツ（左の壁は帯だけ・上の柱 2 本は前後の壁に付く）
+EXP_KNOB_S = 6;   // explode でつまみの群を散らす倍率（knob_v61 の knob_exp_dz × これ）
 module lid_units() { at_knob() for (g = KNOB61_GROUPS) knob_group(g); knob61_shaft(); one("btn"); one("spk"); one("spktub"); }   // 蓋に付いて動く物（つまみの島・軸・会話ボタン・スピーカー・バスタブ）。磁石と AS5600 は PCB 側
 if (part == "shell") { assert(nylon(), "shell はナイロンの形。先頭の MAT を \"nylon\" にすること"); color(C_CASE) shell(); }
 if (part == "lid")   { assert(nylon(), "lid はナイロンの形。先頭の MAT を \"nylon\" にすること"); color(C_CASE) lid(); }
@@ -1367,7 +1368,16 @@ if (part == "explode" && nylon()) {   // ナイロン（2026-09-16 の分割）:
     color(C_SHELL) shell(); one("tgl");
     translate([-100, 0, 0]) { one("hub"); one("bat"); }                                        // 板の右端（86）が箱の外へ出るまで左へ
     translate([0, 0, 60])   { one("rsp"); one("riser"); one("oled"); one("oriser"); }          // ReSpeaker の底 67.5 が箱の天面 53 より上・OLED の頭 108
-    translate([0, 0, 125])  { color(C_TOP61) lid(); lid_units(); }                              // 蓋の左の板の下端 126（OLED の頭より上・🔴 75 だと板の中に OLED が入って見えた）
+    translate([0, 0, 125]) {                                                                    // 蓋の左の板の下端 126（OLED の頭より上・🔴 75 だと板の中に OLED が入って見えた）
+        color(C_TOP61) lid();
+        // 蓋に付く小組もばらす（ユーザー 2026-09-16 夕「explode でつまみとかボタンとかがバラけてない」）。上から入る物は天板の上へ、下から入る物は天板の下へ（左の板の下端 0.5 より上に収める）
+        at_knob() for (g = KNOB61_GROUPS) translate([0, 0, knob_exp_dz(g) * EXP_KNOB_S]) knob_group(g);   // つまみは knob_v61 の散らし方（持ち手 +27.6・磁石 +21.6・ねじ +15.6・島 +4.2・ナット −3.6・E リング −7.2）
+        translate([0, 0, knob_exp_dz("knob") * EXP_KNOB_S]) knob61_shaft();                             // 伸ばした軸は持ち手と一緒
+        translate([0, 0, 15])  at_btn() btn3_piston();                                                    // 会話ボタンの押し子（上から）
+        translate([0, 0, -20]) at_btn() { btn3_tub(); btn3_switch(); btn3_sw_screws(); btn3_v_screws(); }   // バスタブとスイッチとねじ（下から）
+        translate([0, 0, -12]) one("spk");                                                                // スピーカー本体（下から・バスタブより上）
+        translate([0, 0, -25]) one("spktub");                                                             // スピーカーのバスタブ 3 とねじ（いちばん下。Z 143〜150 で左の板の下端 126 より上）
+    }
 }
 if (part == "explode" && !nylon()) {   // レジン: 箱全体の分解。🔒 ユーザー 2026-09-05「explode がブリッジだけになっている」
     color("#e0a040") p_floor(); one("bat"); one("rsp"); one("oled");                                       // 置いたまま（床・電池・ReSpeaker・OLED）
@@ -1376,7 +1386,15 @@ if (part == "explode" && !nylon()) {   // レジン: 箱全体の分解。🔒 �
     translate([0, -30, 0]) { color("#9b59b6") p_front(); panel_ribs("front"); }                                      // フロントは前へ
     translate([0, 35, 0])  { color("#27ae60") p_hatch(); panel_ribs("hatch"); one("tgl"); }                            // ハッチは後ろへ（トグルごと）
     translate([0, 0, 20])  one("hub");                                                                                  // PCB（柱 4 本の上へ）
-    translate([0, 0, 60])  { color("#c9d0d8") p_top(); one("knob"); one("btn"); one("spk"); one("spktub"); }           // 天板は小組ごと上へ
+    translate([0, 0, 60]) {                                                                                                 // 天板は上へ。小組はさらにばらす（ナイロンの explode と同じ散らし方・2026-09-16 夕）
+        color("#c9d0d8") p_top();
+        at_knob() for (g = KNOB61_GROUPS) translate([0, 0, knob_exp_dz(g) * EXP_KNOB_S]) knob_group(g);
+        translate([0, 0, knob_exp_dz("knob") * EXP_KNOB_S]) knob61_shaft();
+        translate([0, 0, 15])  at_btn() btn3_piston();
+        translate([0, 0, -20]) at_btn() { btn3_tub(); btn3_switch(); btn3_sw_screws(); btn3_v_screws(); }
+        translate([0, 0, -12]) one("spk");
+        translate([0, 0, -25]) one("spktub");
+    }
 }
 if (starts(part, "only_")) one(tail(part, 5));
 if (starts(part, "hit_"))  { n = tail(part, 4); intersection() { one(n); others(n); } }
