@@ -822,7 +822,9 @@ module tgl_cradle() { x0 = TGL_AT[0] - mts102_d() / 2 - CRADLE_CL; x1 = TGL_AT[0
 module floor_bosses() for (p = POSTS_B) translate([p[0], p[1], -0.01]) cube([POST_W, post_dy(p), FLOOR_BOSS + 0.01]);   // 耳の下の台（柱と同じ足跡）
 module p_floor() difference() { union() { slab_floor(); tc_seat(); hub_posts(); rsp_seat(); oled_rib(); floor_bosses(); fp_groove(); } floor_screw_cuts(); hub_screw_cuts(); floor_hatch_screw_cuts(); }   // Type-C の受け・ハブの柱・ReSpeaker の座・OLED のリブ・ハッチの爪の帯は床と一体
 // 刷る部品ごとの色（同じ色 = 同じ部品として刷る）
-module skin(a = 0.5) { color("#e0a040", a) p_floor(); color("#c9d0d8", a) p_top(); color("#4a90d9", a) p_lwall(); color("#4a90d9", a) p_rwall(); color("#9b59b6", a) p_front(); color("#27ae60", a) p_hatch(); ribs(); }   // リブ込み（skin / all で見える）
+// 🔒 ユーザー 2026-09-16「explode 以外は灰色にしてほしい」: 筐体は C_CASE の 1 色。板を色分けするのは explode だけ
+C_CASE = "#c9d0d8";   // 筐体の色（explode 以外）
+module skin(a = 0.5) { color(C_CASE, a) { p_floor(); p_top(); p_lwall(); p_rwall(); p_front(); p_hatch(); } ribs(C_CASE, a); }   // リブ込み（skin / all で見える）
 
 // ============================================================
 // 締結（v4 §5 の流儀: 樹脂にねじを切らない・貫通＋ナット。ビスは M2×15 / M2×6 / M2×8・ナット M2）
@@ -1006,14 +1008,15 @@ RIB_LMIN = 4.0;   // 🔒 ユーザー 2026-09-05「v4 と同じ 8mm 未満で�
 include <parts/ribs_v5_gen.scad>   // RIB_SEGS
 include <parts/props_v5_gen.scad>  // props_strap_* / raft_strap_*（自動生成・python hardware/tools/props_gen.py）
 module rib_2d(k) for (s = RIB_SEGS) if (s[0] == k) { if (s[1] == 0) translate([s[3], s[2] - RIB_W / 2]) square([s[4] - s[3], RIB_W]); else translate([s[2] - RIB_W / 2, s[3]]) square([RIB_W, s[4] - s[3]]); }
-module panel_ribs(k) if (!RIBS_OFF) color("#8fb8a0") {
+C_RIB = "#8fb8a0";   // 格子の色（explode）
+module panel_ribs(k, c = C_RIB, a = 1) if (!RIBS_OFF) color(c, a) {
     if (k == "lwall") translate([LW_X + RIB_H, 0, 0]) rotate([0, -90, 0]) linear_extrude(RIB_H) rib_2d(k);
     if (k == "rwall") translate([IN_X, 0, 0]) rotate([0, -90, 0]) linear_extrude(RIB_H) rib_2d(k);
     if (k == "hatch") translate([0, IN_Y, 0]) rotate([90, 0, 0]) linear_extrude(RIB_H) rib_2d(k);
     if (k == "front") translate([0, FY_IN + RIB_H_FR, 0]) rotate([90, 0, 0]) linear_extrude(RIB_H_FR) rib_2d(k);
     if (k == "bridge") translate([0, 0, BRG_ZB + BRG_T - 0.01]) linear_extrude(RIB_H + 0.01) rib_2d(k);   // 🔒 ユーザー 2026-09-05「ブリッジの長い手にもグリッド格子が欲しい（割と歪む）」: 帯の上面に立てる
 }
-module ribs() { panel_ribs("lwall"); panel_ribs("rwall"); panel_ribs("hatch"); panel_ribs("front"); panel_ribs("bridge"); }
+module ribs(c = C_RIB, a = 1) { panel_ribs("lwall", c, a); panel_ribs("rwall", c, a); panel_ribs("hatch", c, a); panel_ribs("front", c, a); panel_ribs("bridge", c, a); }
 
 // ---- 中身 ----
 module innards() for (n = UNITS) one(n);
@@ -1233,13 +1236,13 @@ if (part == "print_inabar_a") print_inabar_a();   // 試し刷り A（凹み 3.0
 if (part == "print_inabar_b") print_inabar_b();   // 試し刷り B（凹み 3.35・ダボ 2.9・溝あり）   // 電流計の小帯（上面を下・支柱不要）
 if (part == "print_inabar_c") print_inabar_c();   // 試し刷り C（凹み 3.35・ダボ 2.9・抜き穴 1.5）
 if (part == "print_inabar_d") print_inabar_d();   // 試し刷り D（凹み 3.35・ダボ 2.9・横穴 1.5）
-if (part == "p_floor") color("#e0a040") p_floor();
-if (part == "p_top")   color("#c9d0d8") p_top();
-if (part == "p_lwall") { color("#4a90d9") p_lwall(); panel_ribs("lwall"); }
-if (part == "p_rwall") { color("#4a90d9") p_rwall(); panel_ribs("rwall"); }
-if (part == "p_front") { color("#9b59b6") p_front(); panel_ribs("front"); }
-if (part == "p_hatch") { color("#27ae60") p_hatch(); panel_ribs("hatch"); }
-if (part == "fasten") { color("#4a90d9") p_lwall(); color("#4a90d9") p_rwall(); color("#e0a040", 0.35) p_floor(); color("#c9d0d8", 0.35) p_top(); color("#9b59b6", 0.35) p_front(); bridge(); brg_front(); straps(); }
+if (part == "p_floor") color(C_CASE) p_floor();
+if (part == "p_top")   color(C_CASE) p_top();
+if (part == "p_lwall") { color(C_CASE) p_lwall(); panel_ribs("lwall", C_CASE); }
+if (part == "p_rwall") { color(C_CASE) p_rwall(); panel_ribs("rwall", C_CASE); }
+if (part == "p_front") { color(C_CASE) p_front(); panel_ribs("front", C_CASE); }
+if (part == "p_hatch") { color(C_CASE) p_hatch(); panel_ribs("hatch", C_CASE); }
+if (part == "fasten") { color(C_CASE) p_lwall(); color(C_CASE) p_rwall(); color(C_CASE, 0.35) p_floor(); color(C_CASE, 0.35) p_top(); color(C_CASE, 0.35) p_front(); bridge(); brg_front(); straps(); }   // 壁は不透明・床と天板と前板は半透明（色は同じ灰）。ブリッジと帯は別部品なので色は残す
 if (part == "tcfit")  { one("tc"); color("#e0a040", 0.9) p_floor(); color("#4a90d9", 0.35) p_lwall(); color("#27ae60", 0.35) p_hatch(); }   // 床（受け込み）＝橙・左の壁（押さえ込み）＝青・ハッチ＝緑
 if (part == "tcfix")  { one("tc"); color("#e0a040", 0.25) p_floor(); color("#4a90d9", 0.25) p_lwall(); color("#27ae60", 0.25) difference() { p_hatch(); tc_hatch_blocks(); } color("#e2622b") tc_hatch_blocks(); }   // 羊羹だけ不透明（ハッチから引いてから重ねる。重ねるだけだと透けに負けて見えない）
 if (part == "tcwall") { color("#4a90d9") p_lwall(); color("#e2622b", 0.6) tc_wall_relief(); at_tc() color("#1a5c2a", 0.3) cube(tc_size()); at_tc() color("#c8ccd0", 0.3) translate([tc_size()[0] / 2 - tc_conn()[0] / 2, tc_size()[1] - tc_conn()[1] + 0.8, tc_size()[2]]) cube(tc_conn()); tc_ra(); }   // 板と殻は輪郭（0.3 の透け）だけ。橙が「掘った形」で、そこにヘッダとコネクタの足の裏出しが収まる

@@ -23,8 +23,8 @@
 //   seam_<板>_<板> … 板 2 枚の重なり（例 seam_top_front。0 が正）
 //   （皮・板・検査の語は皮を起こすときにここへ足す。既にある語の意味は変えない）
 // ============================================================
-part = "explode";
-MAT = "resin";   // ["resin", "nylon"]   刷り方。"resin" = 自分の光造形（板 6 枚）／"nylon" = 外注 MJF（一体シェル＋天板）。GUI ではこの行を書き換える（Customizer でも選べる）。CLI は -D MAT="nylon"
+part = "all";
+MAT = "nylon";   // ["resin", "nylon"]   刷り方。"resin" = 自分の光造形（板 6 枚）／"nylon" = 外注 MJF（一体シェル＋天板）。GUI ではこの行を書き換える（Customizer でも選べる）。CLI は -D MAT="nylon"
 $mat = MAT;      // 🔴 部品ファイル（use）へ材料を配る。$ 付きは呼び出しの連鎖を伝わる（parts/mat.scad の説明）。PROPS_OFF などより前に置くこと
 // ---- 刷り方（🔒 ユーザー 2026-09-14「ナイロンで印刷する場合のモードが欲しいね」）----
 //   "resin" … 自分の機械（光造形）。いまの既定。板厚も格子も支柱も、この機械の癖を避けるための形
@@ -817,11 +817,13 @@ CRADLE_GAP = 2.2;   // 前の当ての、端子の両脇の切れ目（軸から
 module floor_bosses() for (p = POSTS_B) translate([p[0], p[1], -0.01]) cube([POST_W, post_dy(p), FLOOR_BOSS + 0.01]);   // 耳の下の台（柱と同じ足跡）
 module p_floor() difference() { union() { slab_floor(); inner_fillets(); hub_posts(); rsp_seat(); oled_rib(); if (!nylon()) floor_bosses(); } if (!nylon()) { floor_screw_cuts(); floor_hatch_screw_cuts(); } hub_screw_cuts(); }   // v6.1: Type-C の受けと前板の溝は無い   // Type-C の受け・ハブの柱・ReSpeaker の座・OLED のリブ・ハッチの爪の帯は床と一体
 // 刷る部品ごとの色（同じ色 = 同じ部品として刷る）
+// 🔒 ユーザー 2026-09-16「explode 以外は灰色にしてほしい」: 筐体は C_CASE の 1 色。板を色分けするのは explode だけ（C_SHELL / C_TOP61 と板ごとの色）
+C_CASE = "#c9d0d8";   // 筐体の色（explode 以外）
 module skin(a = 0.5) {
-    if (nylon()) { color(C_SHELL) shell(); color(C_TOP61) p_top(); }   // ナイロン: シェル＋天板の 2 部品・不透明（2026-09-16）
-    else { color("#e0a040", a) p_floor(); color("#c9d0d8", a) p_top(); color("#4a90d9", a) p_lwall(); color("#4a90d9", a) p_rwall(); color("#9b59b6", a) p_front(); color("#27ae60", a) p_hatch(); ribs(); }   // レジン: 板 6 枚を色分け・半透明
+    if (nylon()) { color(C_CASE, a) shell(); color(C_CASE, a) p_top(); }   // ナイロン: シェル＋天板の 2 部品
+    else { color(C_CASE, a) { p_floor(); p_top(); p_lwall(); p_rwall(); p_front(); p_hatch(); } ribs(C_CASE, a); }   // レジン: 板 6 枚＋格子
 }
-C_SHELL = "#8fb8a0"; C_TOP61 = "#b4d2c0";   // ナイロンの 2 部品の色（同じ系統。分けるのは explode で見分けるため）   // リブ込み（skin / all で見える）
+C_SHELL = "#8fb8a0"; C_TOP61 = "#b4d2c0";   // explode（ナイロン）の 2 部品の色。skin / all は C_CASE   // リブ込み（skin / all で見える）
 
 // ============================================================
 // 締結（v4 §5 の流儀: 樹脂にねじを切らない・貫通＋ナット。ビスは M2×15 / M2×6 / M2×8・ナット M2）
@@ -1014,13 +1016,14 @@ include <parts/props_v61_gen.scad>  // props_top / raft_top（自動生成: pyth
 module rib_2d(k) for (s = RIB_SEGS) if (s[0] == k) { if (s[1] == 0) translate([s[3], s[2] - RIB_W / 2]) square([s[4] - s[3], RIB_W]); else translate([s[2] - RIB_W / 2, s[3]]) square([RIB_W, s[4] - s[3]]); }
 RIB_BITE = 0.2;   // 🔴 2026-09-14: 格子は板の内面と**ぴったり同じ面**から立てていた。厚み 0 の接触なので
 //   manifold が別の塊として返し、ハッチで 2 本が「浮いている塊」になった（刷ると外れて落ちる）。板の中へこれだけ食い込ませる
-module panel_ribs(k) if (!RIBS_OFF) color("#8fb8a0") {
+C_RIB = "#8fb8a0";   // 格子の色（explode）
+module panel_ribs(k, c = C_RIB, a = 1) if (!RIBS_OFF) color(c, a) {
     if (k == "lwall") translate([LW_X + RIB_H, 0, 0]) rotate([0, -90, 0]) linear_extrude(RIB_H + RIB_BITE) rib_2d(k);
     if (k == "rwall") translate([IN_X + RIB_BITE, 0, 0]) rotate([0, -90, 0]) linear_extrude(RIB_H + RIB_BITE) rib_2d(k);
     if (k == "hatch") translate([0, IN_Y + RIB_BITE, 0]) rotate([90, 0, 0]) linear_extrude(RIB_H + RIB_BITE) rib_2d(k);
     if (k == "front") translate([0, FY_IN + RIB_H_FR, 0]) rotate([90, 0, 0]) linear_extrude(RIB_H_FR + RIB_BITE) rib_2d(k);
 }
-module ribs() { panel_ribs("lwall"); panel_ribs("rwall"); panel_ribs("hatch"); panel_ribs("front"); }   // v6.1 にブリッジは無い
+module ribs(c = C_RIB, a = 1) { panel_ribs("lwall", c, a); panel_ribs("rwall", c, a); panel_ribs("hatch", c, a); panel_ribs("front", c, a); }   // v6.1 にブリッジは無い
 
 // ---- 中身 ----
 module innards() for (n = UNITS) one(n);
@@ -1155,7 +1158,7 @@ if (starts(part, "hit_w_")) intersection() { w_one(tail(part, 6)); all_solid(); 
 if (starts(part, "only_w_")) w_one(tail(part, 7));
 if (part == "plugs") plugs();
 module shell() { p_floor(); p_lwall(); p_rwall(); p_front(); p_hatch(); }   // ナイロン: 床＋4 壁を 1 部品に
-if (part == "shell") { assert(nylon(), "shell はナイロンの形。先頭の MAT を \"nylon\" にすること"); color("#8fb8a0") shell(); }
+if (part == "shell") { assert(nylon(), "shell はナイロンの形。先頭の MAT を \"nylon\" にすること"); color(C_CASE) shell(); }
 if (part == "print_shell") { assert(nylon(), "print_shell はナイロンの形。先頭の MAT を \"nylon\" にすること"); shell(); }
 if (part == "seam_shell_top") intersection() { shell(); p_top(); }   // ナイロンの継ぎ目はここ 1 か所だけ（0 が正）
 if (part == "skin")   skin();
@@ -1181,13 +1184,13 @@ if (part == "print_front")  { print_front();  if (!PROPS_OFF) { props_front();  
 if (part == "print_hatch")  { print_hatch();  if (!PROPS_OFF) { props_hatch();  raft_hatch(); } }
 if (starts(part, "sk_"))   intersection() { one(tail(part, 3)); skin_solid(); }
 if (starts(part, "seam_")) { ab = tail(part, 5); k = search("_", ab)[0]; a = _join([for (i = [0 : k - 1]) ab[i]]); b = _join([for (i = [k + 1 : len(ab) - 1]) ab[i]]); intersection() { plate_named(a); plate_named(b); } }
-if (part == "p_floor") color("#e0a040") p_floor();
-if (part == "p_top")   color("#c9d0d8") p_top();
-if (part == "p_lwall") { color("#4a90d9") p_lwall(); panel_ribs("lwall"); }
-if (part == "p_rwall") { color("#4a90d9") p_rwall(); panel_ribs("rwall"); }
-if (part == "p_front") { color("#9b59b6") p_front(); panel_ribs("front"); }
-if (part == "p_hatch") { color("#27ae60") p_hatch(); panel_ribs("hatch"); }
-if (part == "fasten") { color("#4a90d9") p_lwall(); color("#4a90d9") p_rwall(); color("#e0a040", 0.35) p_floor(); color("#c9d0d8", 0.35) p_top(); color("#9b59b6", 0.35) p_front(); }
+if (part == "p_floor") color(C_CASE) p_floor();
+if (part == "p_top")   color(C_CASE) p_top();
+if (part == "p_lwall") { color(C_CASE) p_lwall(); panel_ribs("lwall", C_CASE); }
+if (part == "p_rwall") { color(C_CASE) p_rwall(); panel_ribs("rwall", C_CASE); }
+if (part == "p_front") { color(C_CASE) p_front(); panel_ribs("front", C_CASE); }
+if (part == "p_hatch") { color(C_CASE) p_hatch(); panel_ribs("hatch", C_CASE); }
+if (part == "fasten") { color(C_CASE) p_lwall(); color(C_CASE) p_rwall(); color(C_CASE, 0.35) p_floor(); color(C_CASE, 0.35) p_top(); color(C_CASE, 0.35) p_front(); }   // 壁は不透明・床と天板と前板は半透明（色は同じ灰）
 if (part == "all")    { skin(); innards(); }
 if (part == "explode" && nylon()) {   // ナイロン: シェル（床＋4 壁＋トグルの座）は置いたまま、PCB と天板の小組だけ上へ（2026-09-16）
     color(C_SHELL) shell(); one("bat"); one("rsp"); one("oled"); one("tgl");
