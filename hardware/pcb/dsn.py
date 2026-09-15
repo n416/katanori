@@ -56,7 +56,7 @@ def padstack_of(pad, copper=("F.Cu", "B.Cu")):
 
 
 def write_dsn(path, name, insts, nets, boundary, keepouts=(), copper=("F.Cu", "B.Cu"), planes=None,
-              via=None, track_um=None, clear_um=None, wiring=()):
+              via=None, track_um=None, clear_um=None):
     """insts: [{ref, fp, x, y, ang, pads:[{num,type,shape,size,at,rot,side}]}]
     nets: {ネット名: [(ref, パッド番号), ...]}
     boundary: [(x, y), ...]（閉じた多角形・mm）
@@ -146,7 +146,6 @@ def write_dsn(path, name, insts, nets, boundary, keepouts=(), copper=("F.Cu", "B
     o.append("    )")
     o.append("  )")
     o.append("  (wiring")
-    o += list(wiring)                  # 先に引いてある線（type protect = 自動配線が動かさない）
     o.append("  )")
     o.append(")")
     open(path, "w", encoding="utf-8").write("\n".join(o) + "\n")
