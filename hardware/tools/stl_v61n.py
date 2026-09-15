@@ -4,7 +4,8 @@
    python hardware/tools/stl_v61n.py btn_tub top     名前を指定（stl/v61n/v61n_<名前>.stl）
    python hardware/tools/stl_v61n.py --check         筐体の当たり検査（seam_shell_top ほか）を hardware/_tmp_v61n/ に出して体積を出す
    ⚠ 出力先は書き出す前に必ず消す（OpenSCAD は空だと STL を書かないので、古いファイルを読む事故が起きる）。
-   支柱・ラフト・FIT_PRINT は渡さない（MJF。case_v6_1n.scad は MAT="nylon" で PROPS_OFF・RIBS_OFF が true）。
+   支柱・ラフト・FIT_PRINT は渡さない（MJF。MAT="nylon" で PROPS_OFF・RIBS_OFF が true）。
+   材料は parts/mat.scad の 1 行。書き出す間だけ "nylon" にして戻す（-D では部品が resin のまま残るため）。--resin-check はレジンのまま検査だけ回す。
    書き出したら `python hardware/tools/_stl_preflight.py "hardware/stl/v61n/*.stl"` を通す（道に v61n があるので nylon の判定になる）。
 """
 import os, subprocess, sys, time
@@ -14,10 +15,23 @@ HW = os.path.dirname(HERE)                                   # hardware
 OPENSCAD = os.environ.get('OPENSCAD', r'C:\Program Files\OpenSCAD (Nightly)\openscad.exe')
 OUT = os.path.join(HW, 'stl', 'v61n')
 
-CASE = os.path.join(HW, 'case_v6_1n.scad')
-KNOB = os.path.join(HW, 'parts', 'knob_v61n.scad')
-BTN  = os.path.join(HW, 'parts', 'btn_v61n.scad')
-SPK  = os.path.join(HW, 'parts', 'spk_v61n.scad')
+CASE = os.path.join(HW, 'case_v6_1.scad')            # 2026-09-15: 写し（case_v6_1n）は畳まれ、parts/mat.scad の MAT で切り替える
+KNOB = os.path.join(HW, 'parts', 'knob_v61.scad')
+BTN  = os.path.join(HW, 'parts', 'btn_v61.scad')
+SPK  = os.path.join(HW, 'parts', 'spk_v61.scad')
+MATF = os.path.join(HW, 'parts', 'mat.scad')
+# 🔴 -D MAT= では use した部品が resin のまま残る（case の assert が捕まえる）。書き出す間だけ mat.scad の 1 行を "nylon" にして、終わったら戻す
+class Nylon:
+    def __enter__(self):
+        self.orig = open(MATF, encoding='utf-8').read()
+        import re
+        cur = re.search(r'^MAT = "(\w+)";', self.orig, re.M).group(1)
+        self.changed = cur != 'nylon'
+        if self.changed:
+            open(MATF, 'w', encoding='utf-8', newline='\n').write(re.sub(r'^MAT = "\w+";', 'MAT = "nylon";', self.orig, count=1, flags=re.M))
+        return self
+    def __exit__(self, *a):
+        if self.changed: open(MATF, 'w', encoding='utf-8', newline='\n').write(self.orig)
 # ファイル名 → (元の .scad, part の値)。名前は v61n_<キー>.stl になる（コミット 26b3e3a と同じ 7 点）
 PARTS = [
     ('shell',      CASE, 'print_shell'),     # 床＋4 壁の一体シェル
@@ -42,14 +56,16 @@ def export(dst, src, pname):
         return None, time.time() - t, err
     return os.path.getsize(dst), time.time() - t, err
 
-if '--check' in sys.argv:
+if '--check' in sys.argv or '--resin-check' in sys.argv:
     tmp = os.path.join(HW, '_tmp_v61n'); os.makedirs(tmp, exist_ok=True)
     sys.path.insert(0, HERE); from stl_read import tris
-    for c in CHECKS:
+    import contextlib
+    with (contextlib.nullcontext() if '--resin-check' in sys.argv else Nylon()):
+      for c in CHECKS:
         dst = os.path.join(tmp, c + '.stl')
         size, dt, err = export(dst, CASE, c)
         if size is None:
-            print('%-16s EMPTY (0)   %5.1fs' % (c, dt)); continue
+            print('%-16s EMPTY (0)   %5.1fs  %s' % (c, dt, err.strip().splitlines()[-1][:80] if 'ERROR' in err or 'assert' in err.lower() else '')); continue
         v = 0.0
         for a, b, cc in tris(dst):
             v += (a[0]*(b[1]*cc[2]-b[2]*cc[1]) - a[1]*(b[0]*cc[2]-b[2]*cc[0]) + a[2]*(b[0]*cc[1]-b[1]*cc[0])) / 6.0
@@ -58,7 +74,8 @@ if '--check' in sys.argv:
 
 want = [a for a in sys.argv[1:] if not a.startswith('-')] or NAMES
 os.makedirs(OUT, exist_ok=True)
-for k in want:
+with Nylon():
+  for k in want:
     if k not in NAMES: raise SystemExit('知らない部品: %s（%s）' % (k, ' '.join(NAMES)))
     src, pname = next((f, p) for n, f, p in PARTS if n == k)
     dst = os.path.join(OUT, 'v61n_%s.stl' % k)
