@@ -360,8 +360,8 @@ module oriser61() {
 //   軸（φ7）を knob_v5 の軸の下端（外面から 15.9）から PCB の上の磁石まで伸ばす。IC 5 × 4 × 1.1 と 磁石との隙間 1.1 は knob_v5 の CHIP_H / CHIP_GAP と同じ数
 KNOB61_GROUPS = ["knob", "mag", "screw", "wall", "nut", "ering"];
 AS_IC = [5.0, 4.0, 1.1]; AS_GAP = 1.1;
-AS_IC_Z  = HUB_AT[2] + 1.6;                 // PCB の上面 4.1
-MAG61_Z0 = AS_IC_Z + AS_IC[2] + AS_GAP;     // 磁石の下面 6.3
+AS_IC_Z  = HUB_AT[2] + 1.6;                 // PCB の上面 レジン 9.6／ナイロン 13.6
+MAG61_Z0 = AS_IC_Z + AS_IC[2] + AS_GAP;     // 磁石の下面 レジン 11.8／ナイロン 15.8（隙間 1.1 は同じ。軸はナイロンが 4.0 短い）
 module knob61_shaft() translate([KNOB_AT[0], KNOB_AT[1], 0]) color("#d8dde3") translate([0, 0, MAG61_Z0 + 2.0 - 0.01]) cylinder(d = knob_shaft_d(), h = (Z_TOP + TOP_T + knob_shaft_bot()) - (MAG61_Z0 + 2.0) + 0.02);   // 伸ばした軸（蓋に付いて動く。lid_units が読む）
 module knob61() {
     at_knob() for (g = KNOB61_GROUPS) knob_group(g);
