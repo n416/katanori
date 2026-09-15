@@ -575,6 +575,23 @@ EDGE_R = 2.0;   // 🔴 2026-09-16 まで WALL に連動していて、ナイロ
 //   半円（頂点が ±Z にある）を回して作ると極も赤道も頂点に乗り、外面が数字どおりの位置に出る
 module edge_ball() rotate_extrude($fn = 48) intersection() { circle(r = EDGE_R, $fn = 48); translate([0, -EDGE_R - 1]) square([EDGE_R + 1, 2 * EDGE_R + 2]); }
 module env() hull() for (x = [OUT_X0 + EDGE_R, OUT_X1 - EDGE_R], y = [OUT_Y0 + EDGE_R, OUT_Y1 - EDGE_R], z = [-FLOOR_T + EDGE_R, Z_TOP + TOP_T - EDGE_R]) translate([x, y, z]) edge_ball();
+// ---- ナイロン: 内側の角のフィレット（外の丸みと同心・r = EDGE_R − 壁 1.6 = 0.4）。🔒 ユーザー 2026-09-16「内部なにもしないと当然角は薄くなるけど、そこにも R 付けてるの？」
+//   壁 1.6 < R 2.0 なので内側の角を立てたままだと角の肉が 稜 1.43・床の隅（3 面の頂点）1.31 に痩せる。内側を同心の r 0.4 で丸めると角でも 1.6。
+//   足すのは 空洞の箱 − 内側の丸い箱 env_in()（同じ 8 中心・半径 IN_R）＝ 床の稜 4 本・壁どうしの稜 4 本・床の隅 4 つの球面。
+//   天板（2.5）は R 2.0 より厚く、天板と壁の稜では内側の角が丸みの反対側に来て痩せないので、天板には何も足さない（env_in の上の中心は Z_TOP + 0.5 で空洞の箱に掛からない）。
+//   レジン（壁 2.0 = R）は元から角でも 2.0 なので無し。⚠ 帯の平らな面は壁の内面ちょうど（軸に平行な同じ式の値なので Manifold が merge する。preflight の二重面で確かめる）
+IN_R = EDGE_R - WALL;
+module edge_ball_r(r) rotate_extrude($fn = 48) intersection() { circle(r = r, $fn = 48); translate([0, -r - 1]) square([r + 1, 2 * r + 2]); }
+module env_in() hull() for (x = [OUT_X0 + EDGE_R, OUT_X1 - EDGE_R], y = [OUT_Y0 + EDGE_R, OUT_Y1 - EDGE_R], z = [-FLOOR_T + EDGE_R, Z_TOP + TOP_T - EDGE_R]) translate([x, y, z]) edge_ball_r(IN_R);
+//   🔴 「空洞の箱 − env_in」だと帯の平らな面が壁の内面と同一平面になり、Manifold が厚みゼロの皮を残して壁のポケットの口を塞いだ（2026-09-16 preflight: 閉じた空洞・平たい肉 0.00）。
+//      帯は稜ごとの細い箱（空洞側へ IN_R・壁の中へ FIL_OV 食い込む）− env_in で作る。壁の中へ食い込む分は肉の中なので形は変わらない。⚠ 稜から 0.4 以内に壁の穴があると FIL_OV だけ塞ぐ（いまは無い）
+FIL_OV = 0.3;
+module fillet_boxes() {
+    for (y = [[FY_IN - FIL_OV, FY_IN + IN_R], [IN_Y - IN_R, IN_Y + FIL_OV]]) translate([LW_X - FIL_OV, y[0], -FIL_OV]) cube([IN_X - LW_X + 2 * FIL_OV, y[1] - y[0], IN_R + FIL_OV]);   // 床の稜（X 方向）前・後ろ
+    for (x = [[LW_X - FIL_OV, LW_X + IN_R], [IN_X - IN_R, IN_X + FIL_OV]]) translate([x[0], FY_IN - FIL_OV, -FIL_OV]) cube([x[1] - x[0], IN_Y - FY_IN + 2 * FIL_OV, IN_R + FIL_OV]);   // 床の稜（Y 方向）左・右
+    for (x = [[LW_X - FIL_OV, LW_X + IN_R], [IN_X - IN_R, IN_X + FIL_OV]], y = [[FY_IN - FIL_OV, FY_IN + IN_R], [IN_Y - IN_R, IN_Y + FIL_OV]]) translate([x[0], y[0], -FIL_OV]) cube([x[1] - x[0], y[1] - y[0], Z_TOP + FIL_OV]);   // 壁どうしの稜 4 本（床から Z_TOP まで）
+}
+module inner_fillets() if (nylon() && IN_R > 0.001) difference() { fillet_boxes(); env_in(); }
 BIG = 400;
 // 45° の半空間。p = 稜の内側の角（3D）、u = 稜に直交する 2 方向のうち「この板の面に沿う方向」の単位ベクトル、v = 「厚み方向」の単位ベクトル（外向き）。
 //   落とすのは (q − p)·u > (q − p)·v の側（隣の板の取り分）。楔 = その半空間 ∩ 角の直方体は、大きな回転した直方体で表す
@@ -793,7 +810,7 @@ echo(str("hatch feet: X ", HSCR_X, " Y ", IN_Y - HFOOT_D, "-", IN_Y, " H ", HFOO
 CRADLE_T = 1.6; CRADLE_CL = 0.3; CRADLE_Z0 = 41.0; CRADLE_Y1 = IN_Y - 2.75;   // 受け: 壁の厚み・胴との隙間・下端（胴の下端 36.85 の 4 上・胴の上 8.9 を抱く）・後端（ハッチの内面の縁とリブの手前）
 CRADLE_GAP = 2.2;   // 前の当ての、端子の両脇の切れ目（軸から ±2.2。端子 1.2 と、その両脇を下りる線 2 本が通る）
 module floor_bosses() for (p = POSTS_B) translate([p[0], p[1], -0.01]) cube([POST_W, post_dy(p), FLOOR_BOSS + 0.01]);   // 耳の下の台（柱と同じ足跡）
-module p_floor() difference() { union() { slab_floor(); hub_posts(); rsp_seat(); oled_rib(); if (!nylon()) floor_bosses(); } if (!nylon()) { floor_screw_cuts(); floor_hatch_screw_cuts(); } hub_screw_cuts(); }   // v6.1: Type-C の受けと前板の溝は無い   // Type-C の受け・ハブの柱・ReSpeaker の座・OLED のリブ・ハッチの爪の帯は床と一体
+module p_floor() difference() { union() { slab_floor(); inner_fillets(); hub_posts(); rsp_seat(); oled_rib(); if (!nylon()) floor_bosses(); } if (!nylon()) { floor_screw_cuts(); floor_hatch_screw_cuts(); } hub_screw_cuts(); }   // v6.1: Type-C の受けと前板の溝は無い   // Type-C の受け・ハブの柱・ReSpeaker の座・OLED のリブ・ハッチの爪の帯は床と一体
 // 刷る部品ごとの色（同じ色 = 同じ部品として刷る）
 module skin(a = 0.5) { color("#e0a040", a) p_floor(); color("#c9d0d8", a) p_top(); color("#4a90d9", a) p_lwall(); color("#4a90d9", a) p_rwall(); color("#9b59b6", a) p_front(); color("#27ae60", a) p_hatch(); ribs(); }   // リブ込み（skin / all で見える）
 
