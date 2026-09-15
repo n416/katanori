@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
-"""自動配線（Freerouting）を回して、結果を katanori61.kicad_pcb に入れる。
+"""自動配線（Freerouting）を回して、結果を板（.kicad_pcb）に入れる。
 
   python route.py            … DSN を渡して回し、SES を取り込む
   python route.py --ses      … 既にある SES を取り込むだけ
-  python route.py --board katanori61_voice   … 統合基板（4 層）。穴の大きさは DSN から読む
+  python route.py --board katanori61_audio   … 音声の板（4 層）。穴の大きさは DSN から読む
 
 配線と貫通穴は毎回すべて置き換える（前の配線が混ざると、どこまでが今回の結果か分からなくなる）。
 """
@@ -148,6 +148,8 @@ def stitch():
     足りているかどうかは KiCad の DRC（unconnected_items）が言う。ここでは判定しない。
     """
     import check_pcb
+    if NAME == "katanori61_audio":
+        import gen_pcb_audio  # noqa: F401   # gen_pcb の板の寸法・穴・欠きを音声の板のものに差し替える
     import gen_pcb as G
     pcb = kisym.parse((OUT / f"{NAME}.kicad_pcb").read_text(encoding="utf-8"))[0]
     allobj = check_pcb.shapes(pcb)
