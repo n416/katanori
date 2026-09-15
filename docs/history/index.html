@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>img{max-width:100%}</style>
+<title>かたのりの歴史</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700;800&family=IBM+Plex+Sans+JP:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+</head>
+<body>
+<style>
+  :root{
+    --paper:#FAF8EF; --surface:#FFFFFF; --panel:#F1EEE2; --panel-2:#E9E5D6;
+    --ink:#1E232B; --ink-2:#5B6270; --ink-3:#8A8F9A;
+    --gold:#D9AD00; --gold-ink:#7E6300; --gold-soft:#F6E7A6;
+    --green:#2E6B4E; --green-soft:#D8E9DF;
+    --red:#B3432B; --rule:#DCD7C6; --rule-2:#EAE6D8;
+    --shadow:0 1px 2px rgba(30,35,43,.06), 0 8px 24px rgba(30,35,43,.06);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper:#14171C; --surface:#1B1F26; --panel:#21262E; --panel-2:#2A303A;
+      --ink:#ECE9DF; --ink-2:#A8ADB8; --ink-3:#7C818C;
+      --gold:#F2C21A; --gold-ink:#F2C21A; --gold-soft:#4A3E10;
+      --green:#6CBF95; --green-soft:#1E3A2C;
+      --red:#E07A63; --rule:#2F353F; --rule-2:#262B34;
+      --shadow:0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.25);
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#14171C; --surface:#1B1F26; --panel:#21262E; --panel-2:#2A303A;
+    --ink:#ECE9DF; --ink-2:#A8ADB8; --ink-3:#7C818C;
+    --gold:#F2C21A; --gold-ink:#F2C21A; --gold-soft:#4A3E10;
+    --green:#6CBF95; --green-soft:#1E3A2C;
+    --red:#E07A63; --rule:#2F353F; --rule-2:#262B34;
+    --shadow:0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.25);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:"IBM Plex Sans JP","Hiragino Sans","Yu Gothic",sans-serif;font-size:15px;line-height:1.75;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1080px;margin:0 auto;padding-inline:20px;padding-block:0 80px}
+  h1,h2,h3{font-family:"Shippori Mincho","Hiragino Mincho ProN","Yu Mincho",serif;text-wrap:balance;margin:0;font-weight:700}
+  .mono{font-family:"IBM Plex Mono","Consolas",monospace;font-variant-numeric:tabular-nums}
+  .eyebrow{font-family:"IBM Plex Mono",monospace;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-2)}
+  a{color:inherit}
+  img{max-width:100%;height:auto;display:block}
+  p{margin:0}
+  .num{font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums}
+
+  /* masthead */
+  .mast{padding-block:56px 32px;border-bottom:1px solid var(--rule);display:grid;grid-template-columns:1fr auto;gap:24px;align-items:end}
+  .mast h1{font-size:clamp(40px,6vw,64px);line-height:1.1;letter-spacing:.02em;font-weight:800}
+  .mast .dek{max-width:38em;color:var(--ink-2);margin-top:16px;font-size:15px}
+  .mast .dek b{color:var(--ink);font-weight:500}
+  .span{font-family:"IBM Plex Mono",monospace;font-size:13px;color:var(--ink-2);text-align:right;line-height:1.6}
+  .span strong{display:block;color:var(--ink);font-size:22px;font-weight:600}
+
+  /* lineup */
+  .lineup{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:10px;margin-top:28px}
+  .tile{background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:10px 8px 8px;display:grid;grid-template-rows:auto 1fr auto;gap:6px;min-height:0}
+  .tile .v{font-family:"IBM Plex Mono",monospace;font-size:13px;font-weight:600}
+  .tile .v small{font-weight:400;color:var(--ink-3);margin-left:4px}
+  .tile .pic{aspect-ratio:1/1;position:relative;overflow:hidden}
+  .tile .pic img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+  .tile .d{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--ink-2)}
+  .tile.dead .v{color:var(--ink-2)}
+  .tile.now{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold-soft)}
+  @media(max-width:860px){.lineup{grid-template-columns:repeat(4,minmax(0,1fr))}}
+  @media(max-width:460px){.lineup{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+  /* numbers */
+  .stats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:0;margin-top:28px;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+  .stat{padding:14px 12px 12px;border-right:1px solid var(--rule-2)}
+  .stat:last-child{border-right:0}
+  .stat .k{font-size:12px;color:var(--ink-2)}
+  .stat .n{font-family:"IBM Plex Mono",monospace;font-size:26px;font-weight:600;line-height:1.2;font-variant-numeric:tabular-nums}
+  .stat .n small{font-size:13px;font-weight:400;color:var(--ink-2);margin-left:2px}
+  .stat .s{font-size:12px;color:var(--ink-3);margin-top:2px}
+  @media(max-width:760px){.stats{grid-template-columns:repeat(3,minmax(0,1fr))}.stat:nth-child(3){border-right:0}.stat:nth-child(-n+3){border-bottom:1px solid var(--rule-2)}}
+
+  /* sections */
+  section{margin-top:64px}
+  .sec-h{display:flex;align-items:baseline;gap:16px;border-bottom:2px solid var(--ink);padding-bottom:8px;margin-bottom:24px}
+  .sec-h h2{font-size:26px}
+  .sec-h .note{font-size:13px;color:var(--ink-2)}
+  .lead{max-width:40em;color:var(--ink-2);margin-bottom:20px}
+  .lead b{color:var(--ink);font-weight:500}
+
+  /* chart */
+  .chart{background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:16px 16px 10px;overflow-x:auto}
+  .chart svg{display:block;min-width:720px;width:100%;height:auto}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--ink-2);margin-top:8px}
+  .legend i{display:inline-block;width:12px;height:12px;border-radius:2px;vertical-align:-2px;margin-right:6px}
+
+  /* version blocks */
+  .ver{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:28px;padding-block:32px;border-top:1px solid var(--rule)}
+  .ver:first-of-type{border-top:0}
+  @media(max-width:760px){.ver{grid-template-columns:1fr;gap:18px}}
+  .ver-head{grid-column:1/-1;display:grid;grid-template-columns:auto 1fr auto;gap:18px;align-items:baseline}
+  .ver-head .vn{font-family:"IBM Plex Mono",monospace;font-size:44px;font-weight:600;line-height:1;letter-spacing:-.02em}
+  .ver-head .vn.dead{color:var(--ink-3)}
+  .ver-head .vn.now{color:var(--gold-ink)}
+  .ver-head h3{font-size:20px;font-weight:700}
+  .ver-head .when{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--ink-2);text-align:right;line-height:1.6;white-space:nowrap}
+  @media(max-width:560px){.ver-head{grid-template-columns:auto 1fr}.ver-head .when{grid-column:1/-1;text-align:left;white-space:normal}}
+  .fig{display:grid;gap:10px;align-content:start}
+  .fig .main{background:var(--panel);border-radius:6px;position:relative;aspect-ratio:5/4;overflow:hidden}
+  .fig .main img{position:absolute;inset:14px;width:calc(100% - 28px);height:calc(100% - 28px);object-fit:contain}
+  .fig .sub{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .fig .sub div{background:var(--panel);border-radius:6px;position:relative;aspect-ratio:4/3;overflow:hidden}
+  .fig .sub img{position:absolute;inset:10px;width:calc(100% - 20px);height:calc(100% - 20px);object-fit:contain}
+  .fig figcaption,.fig .cap{font-size:12px;color:var(--ink-3);line-height:1.5}
+  .spec{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 22px;font-size:13.5px;margin:0}
+  .spec div{display:grid;grid-template-columns:5.5em 1fr;gap:8px;border-bottom:1px dotted var(--rule);padding-block:5px}
+  .spec dt{color:var(--ink-2)}
+  .spec dd{margin:0;font-variant-numeric:tabular-nums}
+  .spec dd .mono{font-size:13px}
+  @media(max-width:460px){.spec{grid-template-columns:1fr}}
+  .body{margin-top:16px}
+  .body h4{font-size:12px;letter-spacing:.1em;color:var(--ink-2);margin:14px 0 6px;font-weight:600;font-family:"IBM Plex Mono",monospace}
+  .body ul{margin:0;padding-left:1.2em}
+  .body li{margin:2px 0}
+  .body li::marker{color:var(--ink-3)}
+  .death{margin-top:14px;padding:12px 14px;border-left:3px solid var(--red);background:var(--panel);border-radius:0 6px 6px 0;font-size:14px}
+  .death b{color:var(--red);font-weight:600;margin-right:6px}
+  .next{margin-top:14px;padding:12px 14px;border-left:3px solid var(--gold);background:var(--panel);border-radius:0 6px 6px 0;font-size:14px}
+  .next b{color:var(--gold-ink);font-weight:600;margin-right:6px}
+  .badge{display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:11px;padding:1px 8px;border-radius:99px;border:1px solid var(--rule);color:var(--ink-2);vertical-align:2px;margin-left:8px}
+  .badge.now{border-color:var(--gold);color:var(--gold-ink);background:var(--gold-soft)}
+  .badge.dead{border-color:var(--rule);color:var(--ink-3)}
+  .badge.printed{border-color:var(--green);color:var(--green);background:var(--green-soft)}
+
+  /* firmware timeline */
+  .phases{display:grid;gap:22px}
+  .phase{display:grid;grid-template-columns:200px 1fr;gap:20px}
+  @media(max-width:660px){.phase{grid-template-columns:1fr;gap:6px}}
+  .phase .ph{position:sticky;top:12px;align-self:start}
+  .phase .ph .t{font-family:"Shippori Mincho",serif;font-size:18px;font-weight:700}
+  .phase .ph .w{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--ink-2)}
+  .ml{list-style:none;margin:0;padding:0;border-left:1px solid var(--rule)}
+  .ml li{display:grid;grid-template-columns:5.5em 1fr;gap:12px;padding:6px 0 6px 16px;position:relative;font-size:14px}
+  .ml li::before{content:"";position:absolute;left:-4px;top:15px;width:7px;height:7px;border-radius:50%;background:var(--ink-3)}
+  .ml li.big::before{background:var(--gold);width:9px;height:9px;left:-5px;top:14px}
+  .ml li .d{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--ink-2);padding-top:2px}
+  .ml li b{font-weight:600}
+  .shots{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:20px}
+  @media(max-width:660px){.shots{grid-template-columns:1fr}}
+  .shots figure{margin:0;background:var(--panel);border-radius:6px;padding:10px}
+  .shots figcaption{font-size:12px;color:var(--ink-3);margin-top:6px}
+
+  /* parts */
+  table{border-collapse:collapse;width:100%;font-size:13.5px}
+  th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--rule-2);vertical-align:top}
+  th{font-weight:600;font-size:12px;color:var(--ink-2);letter-spacing:.04em;border-bottom:1px solid var(--rule)}
+  td.mono{font-size:12.5px;white-space:nowrap}
+  .twrap{overflow-x:auto}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:28px;align-items:start}
+  @media(max-width:760px){.two{grid-template-columns:1fr}}
+  .callout{background:var(--panel);border-radius:6px;padding:16px 18px;font-size:14px}
+  .callout h4{margin:0 0 6px;font-size:14px;font-weight:600}
+  .callout .big{font-family:"IBM Plex Mono",monospace;font-size:28px;font-weight:600;line-height:1.2}
+  .callout .big small{font-size:13px;color:var(--ink-2);font-weight:400}
+
+  /* code size bars */
+  .bars{display:grid;gap:8px;font-size:13px}
+  .bar{display:grid;grid-template-columns:9em 1fr 6em;gap:10px;align-items:center}
+  .bar .tr{height:14px;background:var(--panel-2);border-radius:3px;overflow:hidden}
+  .bar .fl{height:100%;background:var(--ink-2);border-radius:3px}
+  .bar .fl.hw{background:var(--gold)}
+  .bar .fl.fw{background:var(--green)}
+  .bar .n{font-family:"IBM Plex Mono",monospace;text-align:right;font-variant-numeric:tabular-nums}
+
+  footer{margin-top:64px;border-top:1px solid var(--rule);padding-top:18px;font-size:12.5px;color:var(--ink-2);line-height:1.7}
+  footer ul{margin:6px 0 0;padding-left:1.2em}
+  @media (prefers-reduced-motion: no-preference){ .tile.now{transition:box-shadow .2s} }
+</style>
+
+<div class="wrap">
+  <header class="mast">
+    <div>
+      <div class="eyebrow">katanori — Gemini と声で話す小さなロボット</div>
+      <h1>かたのりの歴史</h1>
+      <p class="dek">2026 年 7 月 25 日の初コミットから 9 月 15 日まで。<b>ファームは 2 日で会話が成立</b>したが、<b>筐体は 8 版</b>を数えた。ここでは筐体 v1 から v6.1n までの形・部品・かかった時間と、中身（ファーム・電気・基板）の節目をまとめる。使う人は介護の現場と高齢の方。だから「つまみは画面の右」が設計の最上位条件になっている。</p>
+    </div>
+    <div class="span"><strong>53<span style="font-size:14px;font-weight:400"> 日</span></strong>2026-07-25 → 09-15<br>583 commits / 41 稼働日</div>
+  </header>
+
+  <div class="lineup" aria-label="筐体の系譜">
+    <div class="tile dead"><div class="v">v1<small>2枚貝</small></div><div class="pic"><img src="img/line_v1.png" alt="v1 正面"></div><div class="d">08-15→20</div></div>
+    <div class="tile dead"><div class="v">v2<small>寝かす</small></div><div class="pic"><img src="img/line_v2.png" alt="v2 正面"></div><div class="d">08-17→23</div></div>
+    <div class="tile dead"><div class="v">v3<small>板6枚</small></div><div class="pic"><img src="img/line_v3.png" alt="v3 正面"></div><div class="d">08-22→25</div></div>
+    <div class="tile"><div class="v">v4<small>刷った</small></div><div class="pic"><img src="img/line_v4.png" alt="v4 正面"></div><div class="d">08-25→09-05</div></div>
+    <div class="tile now"><div class="v">v5<small>実機</small></div><div class="pic"><img src="img/v5_look.png" alt="v5"></div><div class="d">09-05→11</div></div>
+    <div class="tile dead"><div class="v">v6<small>縦置き</small></div><div class="pic"><img src="img/v6_face.png" alt="v6"></div><div class="d">09-12→13</div></div>
+    <div class="tile dead"><div class="v">v6.1<small>基板1枚</small></div><div class="pic"><img src="img/v61_map.svg" alt="v6.1 基板の地図"></div><div class="d">09-14→15</div></div>
+    <div class="tile"><div class="v">v6.1n<small>MJF</small></div><div class="pic"><img src="img/v61n_look.png" alt="v6.1n"></div><div class="d">09-14→15</div></div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="k">筐体の版</div><div class="n">8</div><div class="s">v1〜v6.1n。刷ったのは v4 と v5</div></div>
+    <div class="stat"><div class="k">実際に刷った回数</div><div class="n">41<small>回</small></div><div class="s">v4 11 回 ＋ v5 30 回（失敗 4）</div></div>
+    <div class="stat"><div class="k">印刷部品の点数</div><div class="n">21<small>→</small>7</div><div class="s">v5（レジン）→ v6.1n（MJF）</div></div>
+    <div class="stat"><div class="k">筐体のねじ</div><div class="n">33<small>→</small>4</div><div class="s">v5 → v6.1n（本）</div></div>
+    <div class="stat"><div class="k">電子部品</div><div class="n">14<small>種</small></div><div class="s">v6.1 基板で 4 モジュールがチップ化</div></div>
+    <div class="stat"><div class="k">いちばん濃い日</div><div class="n">62<small>commits</small></div><div class="s">2026-09-13（v6 を畳んだ日）</div></div>
+  </div>
+
+  <section>
+    <div class="sec-h"><h2>どれくらいの時間が掛かったか</h2><span class="note">日ごとのコミット数と、筐体・中身の期間</span></div>
+    <p class="lead">7 月末に一気に立ち上がり、8 月上旬から中旬は谷（8/4〜8/24 で 20 コミット）。8 月 25 日の筐体 v4 から粒度が変わり、<b>9 月に入って 1 日 20〜60 コミット</b>が続く。筐体は v1〜v3 が合計 13 コミットしかないのに対し、v4 は 236。</p>
+    <div class="chart">
+      <svg id="tl" viewBox="0 0 1000 330" role="img" aria-label="日ごとのコミット数と版の期間"></svg>
+      <div class="legend"><span><i style="background:var(--ink-2)"></i>1 日のコミット数</span><span><i style="background:var(--gold)"></i>筐体の版</span><span><i style="background:var(--green)"></i>中身（ファーム・電気・基板）</span></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-h"><h2>筐体の系譜</h2><span class="note">v1 → v6.1n。外寸は mm、体積は外形</span></div>
+    <p class="lead">全部 OpenSCAD で書き、当たり検査（部品どうし・線・工具の道）を数字で取ってから刷る流れ。<b>各版は「何で死んだか」がはっきりしている</b>のがこのプロジェクトの特徴で、次の版はその死因から始まっている。</p>
+
+    <!-- v1 -->
+    <article class="ver" id="v1">
+      <div class="ver-head"><div class="vn dead">v1</div><h3>上下 2 枚貝 <span class="badge dead">未印刷</span></h3><div class="when">2026-08-15 → 08-20 ／ 6 日<br>生まれた日 08-17</div></div>
+      <figure class="fig"><div class="main"><img src="img/v1_iso.png" alt="v1 の全体（斜め）"></div><div class="sub"><div><img src="img/v1_explode.png" alt="v1 分解図"></div><div><img src="img/compare_v1_v4.png" alt="v1〜v4 と StackChan の比較"></div></div><figcaption>上シェルを下へ被せる。右下は v1〜v4 を同じ縮尺で並べた比較図（右端は StackChan）</figcaption></figure>
+      <div>
+        <dl class="spec">
+          <div><dt>外寸</dt><dd><span class="mono">90.0 × 84.0 × 59.2</span>（447.6 cm³・8 版で最大）</dd></div>
+          <div><dt>分割</dt><dd>上下 2 枚貝。12 辺すべて 2mm 面取り</dd></div>
+          <div><dt>印刷部品</dt><dd>6 点（下・上・ボタン・クリップ・ワッシャ・尻尾）</dd></div>
+          <div><dt>ねじ</dt><dd>M2.5 ×4 ＋ 樹脂に直接ねじ込む M2×8 ×14</dd></div>
+          <div><dt>ハブ基板</dt><dd>背側に<b>立てて</b>留める</dd></div>
+          <div><dt>刷った</dt><dd>0 回（机上見積 1,145 層・2 回）</dd></div>
+        </dl>
+        <div class="body">
+          <h4>入ったもの</h4>
+          <ul><li>箱詰めスタディ（08-15）から起こした最初の「刷って組む物」</li><li>「基板は立てるだけにしない。溝とレールは位置決め、固定はねじ」の思想</li></ul>
+          <div class="death"><b>死因</b>配線できなかった。ハブ基板の 9 つの口が線の空間 25mm を箱の外に要求し、はみ出し 16,476 mm³。さらにスピーカーで 2 回太らせた（23×16 の部品に 27mm の部屋、ケーシング付きと知らずに受け皿を作り込んだ）。</div>
+        </div>
+      </div>
+    </article>
+
+    <!-- v2 -->
+    <article class="ver" id="v2">
+      <div class="ver-head"><div class="vn dead">v2</div><h3>ハブ基板を寝かせた <span class="badge dead">08-23 凍結</span></h3><div class="when">2026-08-17 → 08-23 ／ 7 日<br>3 commits</div></div>
+      <figure class="fig"><div class="main"><img src="img/v2_explode.png" alt="v2 分解図"></div><div class="sub"><div><img src="img/v2_open.png" alt="v2 上シェルを外してハブ基板の口を見た図"></div><div><img src="img/line_v2.png" alt="v2 正面"></div></div><figcaption>左下は上シェルを外し、ハブ基板の口 10 個を色分けした図。v2 だけ単独の完成レンダリングが残っていない</figcaption></figure>
+      <div>
+        <dl class="spec">
+          <div><dt>外寸</dt><dd><span class="mono">90.0 × 76.0 × 52.6</span>（359.7 cm³・−20%）</dd></div>
+          <div><dt>分割</dt><dd>上下 2 枚貝のまま。背面にケーブルレール</dd></div>
+          <div><dt>印刷部品</dt><dd>8 点（電池の蓋とロックが増えた）</dd></div>
+          <div><dt>ねじ</dt><dd><b>全部貫通＋ナット</b>に移行。蓋のロック M2×6 ×1</dd></div>
+          <div><dt>電池</dt><dd>左の壁の彫り込み蓋・磁石止め。工具なしで開く</dd></div>
+          <div><dt>刷った</dt><dd>0 回</dd></div>
+        </dl>
+        <div class="body">
+          <h4>入ったもの</h4>
+          <ul><li>奥行 84→76、高さ 59.2→52.6。<b>8 版を通じて箱が縮んだのはこの 1 回だけ</b></li><li>部品どうしと線 12 本の当たりがゼロ（線どうし 66 組も）</li><li>背面のサービス記号はユーザー自身が SVG で描いた（AI の案 4 つは全部却下）</li></ul>
+          <div class="death"><b>死因</b>組み立てられなかった。真っ直ぐ閉じられず 3 か所で干渉（トグルの胴 132.8 mm³、XIAO の USB-C の殻 10.4、ブリッジの波 8.1）。AI の分割案 A も「ハブが蓋になって配線できない」で却下。</div>
+        </div>
+      </div>
+    </article>
+
+    <!-- v3 -->
+    <article class="ver" id="v3">
+      <div class="ver-head"><div class="vn dead">v3</div><h3>板 6 枚に転換 <span class="badge dead">08-25 打ち切り</span></h3><div class="when">2026-08-22 → 08-25 ／ 4 日<br>6 commits</div></div>
+      <figure class="fig"><div class="main"><img src="img/v3_look.png" alt="v3 の全体"></div><div class="sub"><div><img src="img/v3_explode.png" alt="v3 分解図"></div><div><img src="img/line_v3.png" alt="v3 正面"></div></div><figcaption>床・左右の壁・天面・フロント・ハッチ。ハッチ（背面板）はここで生まれた</figcaption></figure>
+      <div>
+        <dl class="spec">
+          <div><dt>外寸</dt><dd><span class="mono">90.0 × 76.0 × 53.0</span>（362.1 cm³）</dd></div>
+          <div><dt>分割</dt><dd>板 6 枚。天面とフロントは別部品、継ぎ目は角丸の真ん中</dd></div>
+          <div><dt>印刷部品</dt><dd>13 点</dd></div>
+          <div><dt>ねじ</dt><dd>22 本（M2×6 / M2×15 / M3×8）＋ナット M3 ×4・M2 ×15</dd></div>
+          <div><dt>組む順</dt><dd>ユーザーが書いた①〜⑬を先に置き、形を従わせた</dd></div>
+          <div><dt>刷った</dt><dd>0 回（机上見積 天面 362 層）</dd></div>
+        </dl>
+        <div class="body">
+          <h4>入ったもの</h4>
+          <ul><li><b>1 回の印刷が 1,022 層 → 362 層</b>（3 分の 1）。「縮んだのは箱ではなく 1 回の印刷」</li><li>組み立てマニュアルの原型（assembly_v3 → v4 → v5 と続く）</li><li>呼び名の体系：まな板・側面構造体・天面＋フロント・ハッチ</li></ul>
+          <div class="death"><b>死因</b>PowerBoost を本物（ヘッダ・ハウジング・挿す軌跡）にしたら置ける場所が無かった。「一番入れるのが面倒なピースを最後に入れようとしても入るわけがない」。ブリッジ↔壁の M2×15 も 3 本とも入らなかった。</div>
+        </div>
+      </div>
+    </article>
+
+    <!-- v4 -->
+    <article class="ver" id="v4">
+      <div class="ver-head"><div class="vn">v4</div><h3>外皮とボス、工具なしの電池交換 <span class="badge printed">初めて刷った</span></h3><div class="when">2026-08-25 → 09-05 ／ 12 日<br>236 commits</div></div>
+      <figure class="fig"><div class="main"><img src="img/v4_look.png" alt="v4 の全体"></div><div class="sub"><div><img src="img/v4_explode.png" alt="v4 分解図"></div><div><img src="img/line_v4.png" alt="v4 正面"></div></div><figcaption>尻尾はアンテナ。天面に会話ボタン・つまみ・ハニカムのグリル、正面に OLED と猫ヒゲ（マイクのスリット）</figcaption></figure>
+      <div>
+        <dl class="spec">
+          <div><dt>外寸</dt><dd><span class="mono">86.7 × 75.0 × 53.0</span>（344.1 cm³・X が初めて 90 を割った）</dd></div>
+          <div><dt>分割</dt><dd>板 6 枚・厚み 2.0（落下前提）。ブリッジ＋留め帯 3 本が電池を抱く</dd></div>
+          <div><dt>印刷部品</dt><dd>19 点（一時 25 点。支柱 6 本は刷って失敗し帯と一体に戻した）</dd></div>
+          <div><dt>ねじ</dt><dd>29 本（5 種）＋ナット M3 ×4・M2 ×17、E リング ×7、磁石 ×2</dd></div>
+          <div><dt>刷った</dt><dd><b>11 回</b>（ok 9・失敗 2）08-31 → 09-03</dd></div>
+          <div><dt>条件</dt><dd>🔒 つまみは OLED の右（右利き）。前が画面・上が操作面・後ろが開く蓋</dd></div>
+        </dl>
+        <div class="body">
+          <h4>入ったもの</h4>
+          <ul><li>皮 6 枚とボス。開口はベベル、継ぎ目は 45°</li><li>電池の蓋が左の壁から後ろへ移り、横スライド。<b>後ろへ引き出す電池交換</b></li><li>PowerBoost と電池をブリッジの上へ（v3 の死因を解決）</li><li>会話ボタンをレバー式マイクロスイッチに（押し心地「最高」・約 30gf）</li><li>組み立て 12 手順を机上で 15 回以上通し、「工具と手の道」を初めて実測</li><li>天板が 2.5mm 指定で 3.7mm に出た事件（Mars 系の土台のたわみ）を切り分けて記録</li></ul>
+          <div class="death"><b>死因</b>線のハウジングは 14mm なのに模型は 10 で置いていて、その 10 に「✅実測」の印が付いていた。09-05 に実機で組めず、電池の床が成立しなくなった。</div>
+        </div>
+      </div>
+    </article>
+
+    <!-- v5 -->
+    <article class="ver" id="v5">
+      <div class="ver-head"><div class="vn now">v5</div><h3>v4 を数字で直した、今の実機 <span class="badge now">現行の実機</span></h3><div class="when">2026-09-05 → 09-11 ／ 7 日<br>69 commits</div></div>
+      <figure class="fig"><div class="main"><img src="img/v5_look.png" alt="v5 の全体"></div><div class="sub"><div><img src="img/v5_explode.png" alt="v5 分解図"></div><div><img src="img/v4_look.png" alt="v4（比較用）" style="opacity:.45"></div></div><figcaption>配置は v4 のまま、Y と Z を広げて当たりを減らした。背面のハッチと横スライドの電池の蓋、トグルの尻尾。右下は比較用の v4</figcaption></figure>
+      <div>
+        <dl class="spec">
+          <div><dt>外寸</dt><dd><span class="mono">86.7 × 81.9 × 55.0</span>（計算値）</dd></div>
+          <div><dt>材料</dt><dd>自宅の光造形（レジン）。フロント・ハッチは 2.8 厚（二次硬化で鞍型に歪んだため）</dd></div>
+          <div><dt>印刷部品</dt><dd><b>21 点</b>・101.1 cm³</dd></div>
+          <div><dt>ねじ</dt><dd>33 本＋ナット 33、E リング 5、磁石 4</dd></div>
+          <div><dt>線</dt><dd>DuPont 12 束（ハウジング 14・曲がり 3.0 で引き回し）</dd></div>
+          <div><dt>刷った</dt><dd><b>30 回</b>（ok 28・失敗 2）09-05 → 09-10</dd></div>
+        </dl>
+        <div class="body">
+          <h4>入ったもの</h4>
+          <ul><li>反り止めの格子を左右の壁・フロント・ハッチに</li><li>Type-C の受けを床と一体化。PowerBoost はダボ＋E リング</li><li>スピーカーの留めが実物で通った（09-09）</li><li>外注見積（09-12）：筐体＋基板で 1 台 ¥16,300、5 台なら ¥4,740/台</li></ul>
+          <div class="next"><b>残り</b>Type-C の口がハッチ外面の 1.6mm 裏に落ちて充電プラグが挿さらない。線の束と 4 つのモジュールがバラバラに載る構成そのものが v6 の動機になった。</div>
+        </div>
+      </div>
+    </article>
+
+    <!-- v6 -->
+    <article class="ver" id="v6">
+      <div class="ver-head"><div class="vn dead">v6</div><h3>縦置きのポータブル端末 <span class="badge dead">失敗として閉じた</span></h3><div class="when">2026-09-12 → 09-13 ／ 2 日<br>62 commits</div></div>
+      <figure class="fig"><div class="main"><img src="img/v6_face.png" alt="v6 の全体"></div><div class="sub"><div><img src="img/v6_gear.png" alt="v6 つまみの歯車 3 枚"></div><div><img src="img/v6_pcb.png" alt="v6 中継基板（ハブ＋電源）"></div></div><figcaption>皿そのものがつまみ。左下は歯車 3 枚で AS5600 まで送る機構、右下はハブ＋電源を 1 枚にした中継基板</figcaption></figure>
+      <div>
+        <dl class="spec">
+          <div><dt>外寸</dt><dd><span class="mono">48 × 88 × 23</span>（97 cm³・スピーカーのポッドで総幅 56.2）</dd></div>
+          <div><dt>方針</dt><dd>丸み無し。幅 58 は「ポータブル端末に見えない」で却下</dd></div>
+          <div><dt>基板</dt><dd>中継基板 44 × 81.2・54 部品。XIAO 直挿し、AS5600 チップ直付け</dd></div>
+          <div><dt>機構</dt><dd>歯車 3 枚（皿・中継・読み取り）</dd></div>
+          <div><dt>体制</dt><dd>デザイン・回路・機構の 3 スレッド＋調停役</dd></div>
+          <div><dt>刷った</dt><dd>0 回</dd></div>
+        </dl>
+        <div class="body">
+          <h4>得たもの</h4>
+          <ul><li><b>基板化</b>。ユニバーサル基板・PowerBoost・INA226・Type-C 基板を 1 枚に統合し、線の束を消す道筋</li><li>「厚みで解けない数 12.4」（基板の面から ReSpeaker の XIAO 面まで）の発見</li><li>JLCPCB の部品区分と費用の調査（5 枚で $88、1 枚 $17.6）</li></ul>
+          <div class="death"><b>死因</b>歯車の遊び 8.07°が残り、薄さ 23mm の中に 3 スレッドの要求が収まらなかった。09-13 に並べ替えの案 A〜E を出し直し、E「文庫本」で PCB 前提・トグル廃止・しおりの磁石が決まった。</div>
+        </div>
+      </div>
+    </article>
+
+    <!-- v6.1 -->
+    <article class="ver" id="v61">
+      <div class="ver-head"><div class="vn dead">v6.1</div><h3>v5 の箱に基板 1 枚を入れ、奥行を縮めた <span class="badge dead">刷らない</span></h3><div class="when">2026-09-14 → 09-15 ／ 2 日<br>26 commits</div></div>
+      <figure class="fig"><div class="main" style="background:#f7f8fa"><img src="img/v61_map.svg" alt="v6.1 基板 katanori61 の区画と口の地図"></div><div class="sub"><div style="background:#fff"><img src="img/v61_routed.svg" alt="v6.1 基板の配線図"></div><div><img src="img/v5_look.png" alt="外形は v5 とほぼ同じ" style="opacity:.55"></div></div><figcaption>筐体のレンダリングは残っていない（v6.1n の元）。左上は基板 katanori61 の区画図、下は配線後の板と、外形の元になった v5</figcaption></figure>
+      <div>
+        <dl class="spec">
+          <div><dt>外寸</dt><dd><span class="mono">86.7 × 56.0 × 55.0</span>（計算値・奥行 81.9 → 56.0）</dd></div>
+          <div><dt>分割</dt><dd>板 6 枚（レジン）。刷り方モード resin / nylon を新設</dd></div>
+          <div><dt>基板</dt><dd><b>katanori61</b> 82.0 × 37.4 × 1.6。DRC 0・未接続 0。発注は来月</dd></div>
+          <div><dt>ねじ</dt><dd>筐体 9 本</dd></div>
+          <div><dt>線</dt><dd>DuPont 無し。XIAO と OLED はライザーの L 字メスが受ける。残る口は 4</dd></div>
+          <div><dt>刷った</dt><dd>0 回（全部 MJF に決めた）</dd></div>
+        </dl>
+        <div class="body">
+          <h4>入ったもの</h4>
+          <ul><li>v6 の「縦置き・薄さ 23」を諦め、v5 の横置きに戻して<b>板 1 枚だけ持ち込んだ</b></li><li>PCB 化で PowerBoost・INA226・Type-C 基板・ブリッジ・帯が消え、奥行が 25.9mm 縮んだ</li><li>基板を 4.0 上げて電池の口を縦のトップ型に（「線を回すよりはいい」）</li></ul>
+          <div class="next"><b>次へ</b>ナイロン（MJF）で刷るモードを入れたことがそのまま v6.1n への橋渡しになった。</div>
+        </div>
+      </div>
+    </article>
+
+    <!-- v6.1n -->
+    <article class="ver" id="v61n">
+      <div class="ver-head"><div class="vn">v6.1n</div><h3>MJF ナイロンの一体シェル <span class="badge">発注前</span></h3><div class="when">2026-09-14 → 09-15 ／ 2 日<br>11 commits</div></div>
+      <figure class="fig"><div class="main"><img src="img/v61n_look.png" alt="v6.1n シェルと天板を組んだ状態"></div><div class="sub"><div><img src="img/v61n_tray.png" alt="v6.1n 発注用 STL 7 点"></div><div><img src="img/v5_explode.png" alt="v5 の分解図（比較用）" style="opacity:.45"></div></div><figcaption>発注用 STL 7 点から描いた（シェル＋天板を組んだ状態と、7 点並べ）。右下は比較用の v5 分解図 21 点</figcaption></figure>
+      <div>
+        <dl class="spec">
+          <div><dt>外寸</dt><dd><span class="mono">86.7 × 53.6 × 55</span>（STL の外接箱）</dd></div>
+          <div><dt>材料</dt><dd><b>MJF PA12</b>（JLC3DP 外注）。全面 1.6 厚、格子・支柱・ラフト無し</dd></div>
+          <div><dt>分割</dt><dd>床＋4 壁を 1 部品（シェル）、天板だけ蓋</dd></div>
+          <div><dt>印刷部品</dt><dd><b>7 点</b>・53.7 cm³（大 2 点で 44g。レジン 6 枚は 67g）</dd></div>
+          <div><dt>ねじ</dt><dd><b>4 本</b>（天板を留める柱だけ）。E リング 2 枚、磁石 φ4 は接着</dd></div>
+          <div><dt>公差</dt><dd>±0.3 を全部の嵌め合いに積む。軸受けの遊び 0.25 → 0.80</dd></div>
+        </dl>
+        <div class="body">
+          <h4>なぜ形が変わったか</h4>
+          <ul><li>板 6 枚だった理由は「寝かせて刷る・反る・支柱の跡」の 3 つ。粉の中で焼く MJF ではその 3 つが消える</li><li>ReSpeaker と基板は幅 82.02 で上下からしか入らないので、口は上の 1 か所で足りる</li><li>下の柱 4 本・耳 6 個・ハッチの足・座ぐり 5 か所を全部削除。体積 −29%</li></ul>
+          <div class="next"><b>宿題</b>会話ボタンのバスタブに 0.27mm の刃が 1 か所（発注前に直す）。電池を工具なしで交換する形になっていない（天板の 4 本を外す）。E リングを実物で嵌めた記録がまだ無い。</div>
+        </div>
+      </div>
+    </article>
+  </section>
+
+  <section>
+    <div class="sec-h"><h2>中身の歴史</h2><span class="note">ファーム・バックエンド・電気・基板</span></div>
+    <p class="lead">構成は <b>ReSpeaker Lite（XMOS XU316・ハードウェア AEC）→ XIAO ESP32S3 → Cloudflare Durable Object → Gemini Live API</b>。マイコンは OLED に顔を出し、音声は WebSocket over TLS でそのまま中継する。筐体が 8 版かかった一方で、会話そのものは 2 日目に成立している。</p>
+    <div class="phases">
+      <div class="phase"><div class="ph"><div class="t">立ち上がり</div><div class="w">07-25 → 07-27</div></div>
+        <ul class="ml">
+          <li><span class="d">07-25</span><span>初コミット。DO 中継＋Python ラッパーで PC 上の会話が成立（24kHz）</span></li>
+          <li><span class="d">07-26</span><span>実機 XIAO の OLED に顔を表示。DO 経由で Gemini まで WebSocket 疎通</span></li>
+          <li class="big"><span class="d">07-26</span><span><b>実機で音声対話が成立</b>（I2S 入出力＋DO のフレーム分割）</span></li>
+          <li><span class="d">07-26</span><span>TLS 証明書の検証（ルート CA ピン留め）、Wi-Fi プロビジョニング、起動アナウンス、現在時刻の注入、つなぎ言葉</span></li>
+          <li><span class="d">07-27</span><span>Usr ボタンで会話の開始／終了（BOOT ボタンは小さすぎた）</span></li>
+        </ul></div>
+      <div class="phase"><div class="ph"><div class="t">つまみの苦闘</div><div class="w">07-29 → 08-05</div></div>
+        <ul class="ml">
+          <li><span class="d">07-29</span><span>可変抵抗を配線。「回すと音が死ぬ」問題が発生</span></li>
+          <li><span class="d">07-30</span><span>原因追及が二転三転。AS5600（非接触の絶対角度）への移行を本命に</span></li>
+          <li class="big"><span class="d">08-02</span><span><b>AS5600 へ移行完了</b>。原因の可変抵抗を部品ごと消して解決</span></li>
+          <li><span class="d">08-05</span><span>「mic 0 フレーム」の犯人は D1 ＝ XMOS リセット線。封印して実会話まで開通</span></li>
+        </ul></div>
+      <div class="phase"><div class="ph"><div class="t">安全機構と基板</div><div class="w">08-03 → 08-18</div></div>
+        <ul class="ml">
+          <li><span class="d">08-03</span><span>OTA 更新（Wi-Fi 越し書き込み→再起動→待受）</span></li>
+          <li><span class="d">08-07</span><span>会話ボタンは動作力 30gf のマイクロスイッチに（届いた 600gf 品は不合格）</span></li>
+          <li class="big"><span class="d">08-08</span><span><b>ミュートリレー</b>（無通電で開）8 項目合格。GPIO43 ＝ UART TX ＝ I2S DOUT で、ブートログが耳元の轟音になるのを塞ぐ</span></li>
+          <li><span class="d">08-14</span><span>ReSpeaker＋XIAO を「音声モジュール」として切り離す決定</span></li>
+          <li><span class="d">08-18</span><span>ハブ基板（ユニバーサル基板 1 枚）の実装完了。全数テスターで導通確認</span></li>
+        </ul></div>
+      <div class="phase"><div class="ph"><div class="t">実機で組み上がる</div><div class="w">09-02 → 09-12</div></div>
+        <ul class="ml">
+          <li class="big"><span class="d">09-02</span><span><b>電池で起動・完全停止・再起動</b>。ハブ基板を組んで初通電、I2C 5 個とミュートリレーが動く</span></li>
+          <li><span class="d">09-11</span><span>設定メニュー（会話ボタン長押し）、電池残量の表示、BootLog、待機スリープからボタンで起きて会話</span></li>
+          <li><span class="d">09-12</span><span>つまみで選ぶメニュー、声で割り込む（バージイン）、ウォッチドッグ 30 秒、60 秒無音で閉じる</span></li>
+        </ul></div>
+      <div class="phase"><div class="ph"><div class="t">PCB 化</div><div class="w">09-12 → 09-15</div></div>
+        <ul class="ml">
+          <li><span class="d">09-12</span><span>JLCPCB の部品区分と費用の調査、外注の見積もり</span></li>
+          <li class="big"><span class="d">09-14</span><span><b>基板 katanori61</b>（82.0 × 37.4）を起こし、配線まで通る。DRC 0</span></li>
+          <li><span class="d">09-15</span><span>Home Assistant Voice PE の KiCad を参照として取り込み、回路図を 2 枚（音声の板／ハブ）に分ける</span></li>
+          <li><span class="d">09-15</span><span>自前の音声の板（XU316＋ESP32-S3）は配置・配線まで済ませて<b>保留</b>（量産の計画が立ったら再開）</span></li>
+        </ul></div>
+    </div>
+    <div class="shots">
+      <figure><img src="img/menu_mock.png" alt="設定メニューの OLED モック"><figcaption>設定メニューの見本（09-11）。つまみで選び、短押しで値を変え、長押しで戻る。ひらがなのドットフォント</figcaption></figure>
+      <figure><img src="img/battery_mock.png" alt="電池残量の OLED モック"><figcaption>音量画面の右上に出す電池残量の案 A／B。A が採用</figcaption></figure>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-h"><h2>部品</h2><span class="note">現行の実機（v5）に載っている電子部品と、v6.1 基板での置き換え</span></div>
+    <div class="two">
+      <div class="twrap">
+        <table>
+          <thead><tr><th>部品</th><th>型番・仕様</th><th>役割</th></tr></thead>
+          <tbody>
+            <tr><td>MCU</td><td class="mono">XIAO ESP32S3</td><td>全体制御・Wi-Fi・I2S・I2C。外付けアンテナ必須</td></tr>
+            <tr><td>音声フロントエンド</td><td class="mono">ReSpeaker Lite (XU316)</td><td>マイク 2 個・ハードウェア AEC・コーデック・アンプ</td></tr>
+            <tr><td>ディスプレイ</td><td class="mono">OLED 2.42" I2C</td><td>顔・音量・メニュー（0.96" は 08-07 に退役）</td></tr>
+            <tr><td>音量つまみ</td><td class="mono">AS5600 ＋ 磁石</td><td>非接触の絶対角度。疑似電源 OFF も兼ねる</td></tr>
+            <tr><td>電源</td><td class="mono">PowerBoost 1000C</td><td>リポ → 5V 昇圧、充電、ロードシェア</td></tr>
+            <tr><td>電池</td><td class="mono">リポ 3.7V 1000mAh</td><td>容量は暫定</td></tr>
+            <tr><td>電流計</td><td class="mono">INA226</td><td>消費電流・残量</td></tr>
+            <tr><td>ミュートリレー</td><td class="mono">G6S-2F DC5</td><td>無通電で開。起動時の轟音を塞ぐ</td></tr>
+            <tr><td>マスタートグル</td><td class="mono">MTS-102</td><td>EN⇔GND、電源の完全遮断</td></tr>
+            <tr><td>リードスイッチ</td><td class="mono">N/O 2.5 × 14</td><td>蓋を閉じると電源 OFF</td></tr>
+            <tr><td>会話ボタン</td><td class="mono">レバー式マイクロスイッチ</td><td>動作力 約 30gf</td></tr>
+            <tr><td>スピーカー</td><td class="mono">秋月 112495 8Ω</td><td>23 × 15 × 4</td></tr>
+            <tr><td>充電口</td><td class="mono">秋月 Type-C 115426</td><td>USB-C で受けて PowerBoost へ</td></tr>
+            <tr><td>ハブ基板</td><td class="mono">DAISEN PU52X74</td><td>ユニバーサル基板 1 枚に全部の口とリレー駆動</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="display:grid;gap:14px">
+        <div class="callout"><h4>v6.1 基板 katanori61 が置き換えるもの</h4><p>ハブ基板・PowerBoost・INA226・Type-C 基板の 4 つが、<b>1 枚 82.0 × 37.4 mm・54 部品</b>のチップ実装になる（MCP73871 充電、TPS61090 昇圧、INA226 チップ、AS5600 直付け、リレー）。線が残る口は JST-PH が 4〜5 つだけ。</p></div>
+        <div class="callout"><h4>費用の目安（2026-09-12 の見積もり）</h4><div class="big">$17.6<small> / 枚（基板・5 枚で $88）</small></div><p style="margin-top:6px">筐体は 21 点をレジン外注で $12、MJF で $42。筐体＋基板＋送料で 1 台 ¥16,300、5 台なら ¥4,740/台。v6.1n の 7 点構成の再見積もりはまだ無い。</p></div>
+        <div class="callout"><h4>コードの規模（行）</h4>
+          <div class="bars">
+            <div class="bar"><span>hardware（scad＋py）</span><div class="tr"><div class="fl hw" style="width:100%"></div></div><span class="n">59,529</span></div>
+            <div class="bar"><span>　うち凍結分 v1〜v4・v6</span><div class="tr"><div class="fl hw" style="width:58%;opacity:.5"></div></div><span class="n">34,820</span></div>
+            <div class="bar"><span>docs（設計判断の記録）</span><div class="tr"><div class="fl" style="width:37%"></div></div><span class="n">22,145</span></div>
+            <div class="bar"><span>firmware</span><div class="tr"><div class="fl fw" style="width:28%"></div></div><span class="n">16,821</span></div>
+            <div class="bar"><span>backend（DO）</span><div class="tr"><div class="fl fw" style="width:5.4%"></div></div><span class="n">3,236</span></div>
+            <div class="bar"><span>simulator</span><div class="tr"><div class="fl fw" style="width:2.9%"></div></div><span class="n">1,706</span></div>
+          </div>
+          <p style="margin-top:8px;font-size:12.5px;color:var(--ink-2)">CAD をコードで書く方式なので、筐体の試行回数がそのまま行数に出ている。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div>出典はリポジトリの git 履歴と docs/（ARCHITECTURE.md、CASE-V2〜V61N.md、PCB-V61.md、TODO.md、print_log.jsonl）。2026-09-15 時点。</div>
+    <ul>
+      <li>v5・v6.1 の外寸は .scad の定数から積算した計算値。v6.1n は発注用 STL の外接箱。</li>
+      <li>v6.1 と v6.1n の筐体レンダリングはリポジトリに無いため、v6.1n はここで STL から描いた。天板は組んだ位置に置いてある。</li>
+      <li>「刷った回数」は print_log.jsonl の結果付きターム数。2026-08-30 の天板（ログ以前）は含まない。</li>
+      <li>未着手：ウェイクワード、QR ペアリング。保留：自前の音声の板。</li>
+    </ul>
+  </footer>
+</div>
+
+<script>
+(function(){
+  // 日ごとのコミット数（git log --date=short）
+  var days = {"07-25":4,"07-26":29,"07-27":3,"07-29":3,"07-30":13,"08-01":5,"08-02":12,"08-03":5,"08-04":1,"08-05":2,"08-11":3,"08-14":3,"08-15":2,"08-17":1,"08-18":1,"08-21":1,"08-22":2,"08-23":2,"08-24":4,"08-25":18,"08-26":24,"08-27":38,"08-28":13,"08-29":12,"08-30":10,"08-31":1,"09-01":20,"09-02":34,"09-03":5,"09-04":28,"09-05":31,"09-06":21,"09-07":11,"09-08":2,"09-09":26,"09-10":17,"09-11":19,"09-12":33,"09-13":62,"09-14":37,"09-15":25};
+  var start = new Date(2026,6,25), N = 53;
+  function key(i){ var d=new Date(start); d.setDate(d.getDate()+i); return String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+  function idx(md){ var m=+md.slice(0,2), d=+md.slice(3); return Math.round((new Date(2026,m-1,d)-start)/864e5); }
+  var W=1000, L=40, R=12, cw=(W-L-R)/N, top=14, H=150, max=62;
+  var css=getComputedStyle(document.documentElement);
+  var s='';
+  // grid
+  [0,20,40,60].forEach(function(v){ var y=top+H-v/max*H; s+='<line x1="'+L+'" y1="'+y+'" x2="'+(W-R)+'" y2="'+y+'" stroke="var(--rule-2)" stroke-width="1"/><text x="'+(L-6)+'" y="'+(y+4)+'" font-size="10" text-anchor="end" fill="var(--ink-3)" font-family="IBM Plex Mono,monospace">'+v+'</text>'; });
+  for(var i=0;i<N;i++){ var k=key(i), v=days[k]||0; if(v){ var h=v/max*H; s+='<rect x="'+(L+i*cw+1)+'" y="'+(top+H-h)+'" width="'+(cw-2)+'" height="'+h+'" fill="var(--ink-2)" rx="1"><title>'+k+'：'+v+' commits</title></rect>'; } }
+  // month ticks
+  [["07-25","7/25"],["08-01","8/1"],["08-15","8/15"],["09-01","9/1"],["09-15","9/15"]].forEach(function(t){ var x=L+idx(t[0])*cw; s+='<line x1="'+x+'" y1="'+(top+H)+'" x2="'+x+'" y2="'+(top+H+5)+'" stroke="var(--ink-3)"/><text x="'+x+'" y="'+(top+H+17)+'" font-size="11" text-anchor="middle" fill="var(--ink-2)" font-family="IBM Plex Mono,monospace">'+t[1]+'</text>'; });
+  // spans
+  var y0=top+H+34, rh=16;
+  var cases=[["v1","08-15","08-20",0],["v2","08-17","08-23",1],["v3","08-22","08-25",0],["v4","08-25","09-05",1],["v5","09-05","09-11",0],["v6","09-12","09-13",1],["v6.1","09-14","09-15",0],["v6.1n","09-14","09-15",2]];
+  var inner=[["会話成立","07-25","07-27",0],["つまみ","07-29","08-05",1],["OTA・リレー・ハブ基板","08-03","08-18",0],["実機で組む","09-02","09-12",1],["PCB","09-12","09-15",0]];
+  function row(list,y,color,label){
+    s+='<text x="'+L+'" y="'+(y-4)+'" font-size="10" fill="var(--ink-3)" font-family="IBM Plex Mono,monospace" letter-spacing=".08em">'+label+'</text>';
+    list.forEach(function(r){ var x1=L+idx(r[1])*cw, x2=L+(idx(r[2])+1)*cw, yy=y+r[3]*(rh+3);
+      s+='<rect x="'+x1+'" y="'+yy+'" width="'+Math.max(x2-x1,cw)+'" height="'+rh+'" fill="'+color+'" rx="2" opacity=".9"/>';
+      var wide = (x2-x1) > 10+r[0].length*7; var tx = wide ? x1+4 : x2+4; var fill = wide ? 'var(--paper)' : 'var(--ink)';
+      s+='<text x="'+tx+'" y="'+(yy+11.5)+'" font-size="10.5" fill="'+fill+'" font-family="IBM Plex Mono,monospace" font-weight="600">'+r[0]+'</text>'; });
+  }
+  row(cases,y0,'var(--gold)','筐体');
+  row(inner,y0+3*(rh+3)+22,'var(--green)','中身');
+  document.getElementById('tl').innerHTML=s;
+})();
+</script>
+</body>
+</html>
