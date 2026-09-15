@@ -619,12 +619,15 @@ module hatch_wedges() {
     halfspace([0, IN_Y, 0], [0, 0, -1], [0, 1, 0]);  halfspace([0, IN_Y, Z_TOP], [0, 0, 1], [0, 1, 0]);
 }
 // 板の素（外面まで伸ばした直方体 − 楔）∩ 丸い外形
-module slab_floor() intersection() { env(); difference() { translate([OUT_X0, OUT_Y0, -FLOOR_T]) cube([OUT_X1 - OUT_X0, OUT_Y1 - OUT_Y0, FLOOR_T]); floor_wedges(); } }
-module slab_top()   intersection() { env(); difference() { translate([OUT_X0, OUT_Y0, Z_TOP]) cube([OUT_X1 - OUT_X0, OUT_Y1 - OUT_Y0, TOP_T]); top_wedges(); } }
-module slab_lwall() intersection() { env(); difference() { translate([OUT_X0, OUT_Y0, -FLOOR_T]) cube([WALL, OUT_Y1 - OUT_Y0, Z_TOP + TOP_T + FLOOR_T]); lwall_wedges(); } }
-module slab_rwall() intersection() { env(); difference() { translate([IN_X, OUT_Y0, -FLOOR_T]) cube([WALL, OUT_Y1 - OUT_Y0, Z_TOP + TOP_T + FLOOR_T]); rwall_wedges(); } }
-module slab_front() intersection() { env(); difference() { translate([OUT_X0, OUT_Y0, -FLOOR_T]) cube([OUT_X1 - OUT_X0, FRONT_T, Z_TOP + TOP_T + FLOOR_T]); front_wedges(); } }
-module slab_hatch() intersection() { env(); difference() { translate([OUT_X0, IN_Y, -FLOOR_T]) cube([OUT_X1 - OUT_X0, HATCH_T, Z_TOP + TOP_T + FLOOR_T]); hatch_wedges(); } }
+// 🔴 slab_*() は render() で包む（2026-09-16）。F5（OpenCSG）は「板の直方体 − 45° の楔（回した大きな箱）∩ 丸い外形 env()」を正しく描けず、
+//    env() の面に他の板の色を縞で重ねる（explode の床の裏が虹色・skin の天面に縞。ユーザー「何枚かさなってるんだこれ」）。実体は重なっていない（seam_* が 0）。
+//    箱を小さくしても入れ子を変えても直らず、render() で Manifold の網にして描かせると直る。キャッシュされるので 2 回目からは速い。書き出しには影響しない
+module slab_floor() render() intersection() { env(); difference() { translate([OUT_X0, OUT_Y0, -FLOOR_T]) cube([OUT_X1 - OUT_X0, OUT_Y1 - OUT_Y0, FLOOR_T]); floor_wedges(); } }
+module slab_top()   render() intersection() { env(); difference() { translate([OUT_X0, OUT_Y0, Z_TOP]) cube([OUT_X1 - OUT_X0, OUT_Y1 - OUT_Y0, TOP_T]); top_wedges(); } }
+module slab_lwall() render() intersection() { env(); difference() { translate([OUT_X0, OUT_Y0, -FLOOR_T]) cube([WALL, OUT_Y1 - OUT_Y0, Z_TOP + TOP_T + FLOOR_T]); lwall_wedges(); } }
+module slab_rwall() render() intersection() { env(); difference() { translate([IN_X, OUT_Y0, -FLOOR_T]) cube([WALL, OUT_Y1 - OUT_Y0, Z_TOP + TOP_T + FLOOR_T]); rwall_wedges(); } }
+module slab_front() render() intersection() { env(); difference() { translate([OUT_X0, OUT_Y0, -FLOOR_T]) cube([OUT_X1 - OUT_X0, FRONT_T, Z_TOP + TOP_T + FLOOR_T]); front_wedges(); } }
+module slab_hatch() render() intersection() { env(); difference() { translate([OUT_X0, IN_Y, -FLOOR_T]) cube([OUT_X1 - OUT_X0, HATCH_T, Z_TOP + TOP_T + FLOOR_T]); hatch_wedges(); } }
 
 // ---- 左の壁: ジャックの丸い口・ReSpeaker の USB-C の盲ポケット ----
 JACK_C = [LW_X - WALL / 2, RSP_Y1 + 2.485, RSP_Z + 6.502];   // 筒の軸（respeaker_lite: 面から 2.485・下から 6.502）

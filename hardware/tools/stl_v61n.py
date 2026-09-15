@@ -5,7 +5,7 @@
    python hardware/tools/stl_v61n.py --check         筐体の当たり検査（seam_shell_top ほか）を hardware/_tmp_v61n/ に出して体積を出す
    ⚠ 出力先は書き出す前に必ず消す（OpenSCAD は空だと STL を書かないので、古いファイルを読む事故が起きる）。
    支柱・ラフト・FIT_PRINT は渡さない（MJF。MAT="nylon" で PROPS_OFF・RIBS_OFF が true）。
-   材料は -D で渡す（case: MAT="nylon"・部品ファイル: $mat="nylon"）。--resin-check はレジン（何も渡さない）で検査だけ回す。
+   材料は -D で渡す（case: MAT="nylon"・部品ファイル: $mat="nylon"）。--resin-check はレジン（MAT="resin" を渡す）で検査だけ回す。
    書き出したら `python hardware/tools/_stl_preflight.py "hardware/stl/v61n/*.stl"` を通す（道に v61n があるので nylon の判定になる）。
 """
 import os, subprocess, sys, time
@@ -21,8 +21,8 @@ BTN  = os.path.join(HW, 'parts', 'btn_v61.scad')
 SPK  = os.path.join(HW, 'parts', 'spk_v61.scad')
 # 材料は -D で渡す（2026-09-16）: case には MAT="nylon"、部品ファイルには $mat="nylon"（parts/mat.scad の説明）。2026-09-15 までは mat.scad の 1 行を書き換えて戻していた
 def mat_defs(src, nylon=True):
-    if not nylon: return []
-    return ['-D', 'MAT="nylon"'] if src == CASE else ['-D', '$mat="nylon"']
+    m = 'nylon' if nylon else 'resin'   # 🔴 resin も明示する（ファイルの既定 MAT は GUI で書き換わることがある・2026-09-16）
+    return ['-D', 'MAT="%s"' % m] if src == CASE else ['-D', '$mat="%s"' % m]
 # ファイル名 → (元の .scad, part の値)。名前は v61n_<キー>.stl になる（コミット 26b3e3a と同じ 7 点）
 PARTS = [
     ('shell',      CASE, 'print_shell'),     # 床＋4 壁の一体シェル

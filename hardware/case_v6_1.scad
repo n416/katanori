@@ -630,12 +630,15 @@ module hatch_wedges() {
 // 板の素（外面まで伸ばした直方体 − 楔）∩ 丸い外形
 //   🔴 直方体は外へ 1 はみ出させる（2026-09-15）。外面を env() の平面と同一平面に置くと intersection の境目（角丸の最初の輪）に厚みゼロの欠片が残り、
 //      STL が非多様体になる（SOLIZE の自動見積りが弾いた）。形は env() で決まるので変わらない
-module slab_floor() intersection() { env(); difference() { translate([OUT_X0 - 1, OUT_Y0 - 1, -FLOOR_T - 1]) cube([OUT_X1 - OUT_X0 + 2, OUT_Y1 - OUT_Y0 + 2, FLOOR_T + 1]); floor_wedges(); } }
-module slab_top()   intersection() { env(); difference() { translate([OUT_X0 - 1, OUT_Y0 - 1, Z_TOP]) cube([OUT_X1 - OUT_X0 + 2, OUT_Y1 - OUT_Y0 + 2, TOP_T + 1]); top_wedges(); } }
-module slab_lwall() intersection() { env(); difference() { translate([OUT_X0 - 1, OUT_Y0 - 1, -FLOOR_T - 1]) cube([WALL + 1, OUT_Y1 - OUT_Y0 + 2, Z_TOP + TOP_T + FLOOR_T + 2]); lwall_wedges(); } }
-module slab_rwall() intersection() { env(); difference() { translate([IN_X, OUT_Y0 - 1, -FLOOR_T - 1]) cube([WALL + 1, OUT_Y1 - OUT_Y0 + 2, Z_TOP + TOP_T + FLOOR_T + 2]); rwall_wedges(); } }
-module slab_front() intersection() { env(); difference() { translate([OUT_X0 - 1, OUT_Y0 - 1, -FLOOR_T - 1]) cube([OUT_X1 - OUT_X0 + 2, FRONT_T + 1, Z_TOP + TOP_T + FLOOR_T + 2]); front_wedges(); } }
-module slab_hatch() intersection() { env(); difference() { translate([OUT_X0 - 1, IN_Y, -FLOOR_T - 1]) cube([OUT_X1 - OUT_X0 + 2, HATCH_T + 1, Z_TOP + TOP_T + FLOOR_T + 2]); hatch_wedges(); } }
+// 🔴 slab_*() は render() で包む（2026-09-16）。F5（OpenCSG）は「板の直方体 − 45° の楔（回した大きな箱）∩ 丸い外形 env()」を正しく描けず、
+//    env() の面に他の板の色を縞で重ねる（explode の床の裏が虹色・skin の天面に縞。ユーザー「何枚かさなってるんだこれ」）。実体は重なっていない（seam_* が 0）。
+//    箱を小さくしても入れ子を変えても直らず、render() で Manifold の網にして描かせると直る。キャッシュされるので 2 回目からは速い。書き出しには影響しない
+module slab_floor() render() intersection() { env(); difference() { translate([OUT_X0 - 1, OUT_Y0 - 1, -FLOOR_T - 1]) cube([OUT_X1 - OUT_X0 + 2, OUT_Y1 - OUT_Y0 + 2, FLOOR_T + 1]); floor_wedges(); } }
+module slab_top()   render() intersection() { env(); difference() { translate([OUT_X0 - 1, OUT_Y0 - 1, Z_TOP]) cube([OUT_X1 - OUT_X0 + 2, OUT_Y1 - OUT_Y0 + 2, TOP_T + 1]); top_wedges(); } }
+module slab_lwall() render() intersection() { env(); difference() { translate([OUT_X0 - 1, OUT_Y0 - 1, -FLOOR_T - 1]) cube([WALL + 1, OUT_Y1 - OUT_Y0 + 2, Z_TOP + TOP_T + FLOOR_T + 2]); lwall_wedges(); } }
+module slab_rwall() render() intersection() { env(); difference() { translate([IN_X, OUT_Y0 - 1, -FLOOR_T - 1]) cube([WALL + 1, OUT_Y1 - OUT_Y0 + 2, Z_TOP + TOP_T + FLOOR_T + 2]); rwall_wedges(); } }
+module slab_front() render() intersection() { env(); difference() { translate([OUT_X0 - 1, OUT_Y0 - 1, -FLOOR_T - 1]) cube([OUT_X1 - OUT_X0 + 2, FRONT_T + 1, Z_TOP + TOP_T + FLOOR_T + 2]); front_wedges(); } }
+module slab_hatch() render() intersection() { env(); difference() { translate([OUT_X0 - 1, IN_Y, -FLOOR_T - 1]) cube([OUT_X1 - OUT_X0 + 2, HATCH_T + 1, Z_TOP + TOP_T + FLOOR_T + 2]); hatch_wedges(); } }
 
 // ---- 左の壁: ジャックの丸い口・ReSpeaker の USB-C の盲ポケット ----
 // 🔒 ユーザー 2026-09-14「ReSpeaker の USB 口が移動できてない」: 板を Y 軸 180° 回したぶん、壁の口も回す。
