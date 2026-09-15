@@ -629,7 +629,7 @@ function rflip_x(x) = 2 * RSP_CX - x;
 function rflip_z(z) = 2 * RSP_CZ - z;
 JACK_C = [IN_X + WALL / 2, RSP_Y1 + 2.485, rflip_z(RSP_Z + 6.502)];   // 右の壁   // 筒の軸（respeaker_lite: 面から 2.485・下から 6.502）
 JACK_D = 7.0;                                                 // 口の径（プラグの胴 φ5.5〜6 ＋ 逃げ・AI の値）
-USB1_POCKET = [IN_X - 0.01, RSP_Y1 - 0.2, rflip_z(RSP_Z + 23.0 + 9.7), 0.9 + 0.01, 3.9, 9.7];   // 右の壁の内面に 0.9 の盲ポケット   // [x0, y0, z0, dx, dy, dz] 壁の内面に 0.9 の盲ポケット（USB1 の殻が 0.6 入る）
+USB1_POCKET = [IN_X - 0.01, RSP_Y1 - 0.2, rflip_z(RSP_Z + 23.0 + 9.7), 0.75 + 0.01, 3.9, 9.7];   // 右の壁の内面に 0.75 の盲ポケット（USB1 の殻が 0.6 入る・逃げ 0.15・外面まで 0.85）。v6.1n 2026-09-15: 0.9 → 0.75（残りが 0.7 で MJF の最薄 0.8 を割っていた。0.8 ちょうどは検査で境界に乗るので 0.85 に）。壁を外へ動かす手（RIGHT_CL）は、充電の USB-C の口が外面の 0.8 裏より奥に落ちるので使えない   // [x0, y0, z0, dx, dy, dz]
 JACK_COVER_POCKET = [IN_X - 0.01, RSP_Y1 + 3.14 - 0.3, rflip_z(RSP_Z + 3.65 - 0.3 + (8.9 - 3.65 + 0.6)), 0.7 + 0.01, 7.52 - 3.14 + 0.6, 8.9 - 3.65 + 0.6];   // 右の壁   // ジャックの金属カバー（面から 3.14〜7.52・下から 3.65〜8.9・板の端から 0.68 出る）の盲ポケット 0.7
 // Type-C 基板の半田面の逃げ（板の裏が左の壁の内面にベタ付けで、ヘッダと 5.1kΩ の足の出る先が無い）。
 //   ほかの板は逃げを持っている（ReSpeaker 2.5・ハブ 2.5・電流計 1.5・OLED と AS5600 は足の出を模型が持つ）。ここだけ 0 だった。
@@ -815,6 +815,8 @@ HFOOT_W = 6.0; HFOOT_D = 6.0; HFOOT_FLOOR = 0.6; HFOOT_SKIN = 1.0;
 HFOOT_H = HFOOT_FLOOR + NUT_T + HFOOT_SKIN;                   // 足の高さ 3.4
 HFOOT_Y = IN_Y - HFOOT_D / 2;                                 // ねじの芯 Y（ハッチの内面から 3.0 前）
 POST_W = 6.0;                          // 柱の一辺（v4 BOSS 7.0。OLED の板の端 X 8.0 との隙間を 0.3 取るため 6.0）
+POST_W_TR = 6.6;      // v6.1n 2026-09-15: 後ろの上の柱 2 本だけ 6.0 → 6.6。ナットの溝（二面幅 4.6・角は Y）の両脇の肉が 0.7 → 1.0（MJF の最薄 0.8。`--mat nylon` で X 6.99 / 79.15 に 🔴）。
+                      //   前の上の柱は OLED の板の端まで 0.3 の制約、下の柱は PCB（katanori61）の欠きが確定しているので動かさない
 POST_W_F = 5.0;       // 前の上の柱（耳の柱）の幅。OLED の L の足（X 7.0〜13.0 / 73.1〜79.1）まで 0.3（v4 の耳 4.96 と同じ理由・2026-09-05）
 POST_D_F_T = 8.0;     // 前の上の柱の奥行き（Y 1.0〜9.0）。2026-09-14: ReSpeaker を 7.5 に戻したので 7.0 → 8.0 に戻す
 POST_T_H_F = 5.0;     // 前の上の柱の高さ（裾 Z 42.25）。ナットの溝（頭から 3.4）は入る
@@ -826,12 +828,12 @@ FLOOR_BOSS = 1.0;                      // 下の柱 3 本の耳の下に足す�
 FY_IN = OUT_Y0 + FRONT_T;   // フロント板の内面 Y 1.0
 POSTS_B = [[LW_X, FY_IN], [IN_X - POST_W, FY_IN], [IN_X - POST_W, IN_Y - POST_W], [LW_X, IN_Y - POST_W]];   // 2026-09-14: 左後ろを足して 4 隅そろえた（v5 は Type-C 基板の席で立てられなかった）
 // 上の柱 4 本 [x0, y0, 耳の有無]（後ろ 2 本は天板 → 柱、前 2 本は 天板 → フロントの耳 → 柱）
-POSTS_T = [[LW_X, IN_Y - POST_W, true], [IN_X - POST_W, IN_Y - POST_W, true], [LW_X, FY_IN, true], [IN_X - POST_W_F, FY_IN, true]];   // 4 本とも耳付き: 前 2 はフロントの上の耳、後ろ 2 はハッチの上の耳（🔒 ユーザー 2026-09-05「同じ仕組みでハッチにも羽根を」）
+POSTS_T = [[LW_X, IN_Y - POST_W, true], [IN_X - POST_W_TR, IN_Y - POST_W, true], [LW_X, FY_IN, true], [IN_X - POST_W_F, FY_IN, true]];   // 後ろ 2 本の幅は POST_W_TR（post_w）   // 4 本とも耳付き: 前 2 はフロントの上の耳、後ろ 2 はハッチの上の耳（🔒 ユーザー 2026-09-05「同じ仕組みでハッチにも羽根を」）
 module hex_pocket(af, t) rotate([0, 0, 30]) cylinder(d = (af + 0.1) / cos(30), h = t, $fn = 6);
 POST_D_FRONT = 4.5;   // 前の下の柱の奥行き（フロント板の内面 Y 1.0 から 5.5。ReSpeaker のボタン K1 が Y 5.6 まで来る）
 function post_front(p) = (p[1] == FY_IN);
 function post_dy(p) = post_front(p) ? (p[2] == true ? POST_D_F_T : POST_D_FRONT) : POST_W;
-function post_w(p) = (post_front(p) && p[2] == true) ? POST_W_F : POST_W;   // 前の上の柱（フロントの耳付き）だけ細い
+function post_w(p) = (post_front(p) && p[2] == true) ? POST_W_F : ((!post_front(p) && p[2] == true) ? POST_W_TR : POST_W);   // 前の上の柱（フロントの耳付き）だけ細い。後ろの上の柱は POST_W_TR（下の柱は p[2] が無いので POST_W）
 POST_T_SKIN = 1.6;   // 上の柱: ナットの上に残す肉。ねじは上から締めるので、ナットはこの肉を掴む（🔴 上向きのポケットだと天板＋ねじ＋ナットが一緒に上へ抜ける。ユーザー 2026-09-05「前にナットと天板が上に抜けた」）
 POST_B_SKIN = POST_T_SKIN;   // 下の柱: ナットの上に残す肉（上の柱と同じ 1.6）。🔴 2026-09-07 実機: 頭の上向きポケットだと、床の裏から M2×15 をねじ込む力でナットがポケットから上へ押し出されて空回りし、組めなかった（ユーザー「止まらない・浮き上がる」）。上の柱の 09-05 と同じ症状なので同じ横差しの溝に
 module post_b(p) difference() {   // 下の柱: 床から POST_B_H。ナットは頭の 1.6 下の横差しの溝（口は挟む板の側: 前の 2 本は前板へ −Y・後ろ右はハッチへ +Y。板の内面が口を塞ぐ）・通し。前の 2 本はフロントの下の耳（EAR_T）のぶん床から浮く（v4 front_ears_low・2026-09-05 ユーザー「下も同じように止められないんですか」）

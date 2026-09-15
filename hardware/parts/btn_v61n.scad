@@ -181,7 +181,7 @@ B3_Z_WIN_B = B3_Z_FLG_B - B3_TRAVEL - 0.10;    // -5.75 ツバの部屋の底 �
 B3_PRELOAD  = 0.3;
 B3_Z_SW_BOT = B3_Z_FLG_B - B3_PILLAR_H - b3_lever_z(B3_PUSH_X) + B3_PRELOAD;   // -14.14（バスタブは 0537 で刷った物のまま。レバーの較正は押し子の側 P2_CUT に入れる）
 B3_Z_SW_TOP = B3_Z_SW_BOT + B3_SW[2];          // -7.785
-B3_SKIRT    = 0.8;                             // 端子と線の逃げ
+B3_SKIRT    = 1.3;                             // 端子と線の逃げ ＝ バスタブの床の厚み。v6.1n 2026-09-15: 0.8 → 1.3（MJF の最薄 0.8・壁 1.2。0.8 の床は境界で、スイッチのねじのナットの座の下の床も 0.55 しか無かった → 1.05）。底が 0.5 下がる（筐体の逃げは元から底の 1.0 下まで・btn3_keepout）
 B3_Z_TUB_B  = B3_Z_SW_BOT - B3_SKIRT;          // -15.085 バスタブの底（world の下限に効く）
 B3_FINGER_CLICK = B3_CLICK - B3_PRELOAD;       // 指が動く量（予圧のぶんは既に食われている）
 // レバーの先の高さ（予圧のぶん柱が押す点を下げているので、先端は 予圧/てこ比 だけ下がる）
@@ -239,12 +239,12 @@ B3_WALL_YN = 1.6;                        // -Y の壁（スイッチのねじの
 //   原因: バスタブの芯 B3_TUB_CY が (WALL_YP - WALL_YN)/2 だけ +Y へずれているので、
 //   床の実寸は WALL_YP - NUT_T ではなく **(WALL_YP + WALL_YN)/2 - NUT_T**。
 //   2.2 では 0.30 にしかならない。0.6 を確保するには 2.8 が要る。
-B3_WALL_YP = 2.8;                        // +Y の壁
+B3_WALL_YP  = 3.2;                        // +Y の壁。v6.1n 2026-09-15: 2.8 → 3.2（ナットの座 1.6 の底と器の内面の肉が 0.6 → 1.0。MJF の最薄 0.8）
 B3_TUB_OX  = B3_TUB_IX + B3_WALL_X * 2;              // 18.20
 B3_TUB_Y0  = -(B3_TUB_IY / 2 + B3_WALL_YN);          // -4.65
 B3_TUB_Y1  =   B3_TUB_IY / 2 + B3_WALL_YP;           // +5.25
 B3_TUB_OY  = B3_TUB_Y1 - B3_TUB_Y0;                  //  9.90
-B3_TUB_CY  = (B3_TUB_Y0 + B3_TUB_Y1) / 2;            // +0.30
+B3_TUB_CY  = (B3_TUB_Y0 + B3_TUB_IY / 2 + 2.8) / 2;   // +0.60 器の中（部屋・胴のポケット・裾・耳）の芯。v6.1n 2026-09-15: +Y の壁を 2.8 → 3.2 にしても中は動かさない（レジン版 btn_v3 と同じ芯）。厚くしたぶんは全部ナットの座の底の肉になる（0.6 → 1.0）。それまでは (Y0 + Y1) / 2
 B3_TUB_TOP = B3_Z_WIN_B;                             // -5.75 天板の裏に当たる面
 B3_TUB_R   = 1.6;
 
@@ -425,6 +425,10 @@ module btn3_v_screw_cut() for (i = [0, 1]) mirror([i, 0, 0]) translate([0, B3_BL
         cylinder(d = B3_V_SCR_D, h = B3_EAR_Z1 - b3_ear_foot_z0(i) + 2, $fn = 24);
     translate([B3_V_SCR_X, 0, b3_ear_foot_z0(i) - 0.01])                                   // 頭のザグリ
         cylinder(d = B3_CB_D, h = B3_CB_H + (b3_ear_z0(i) - b3_ear_foot_z0(i)) + 0.01, $fn = 32);
+    // v6.1n 2026-09-15: ザグリを耳の外面（X 16.50）へ開く。芯 14.15 ＋ φ4.2/2 ＝ 16.25 で外面との肉が 0.25 の刃になっていた
+    //   （`--mat nylon` で左右 2 か所）。頭が載る座の床はそのまま。外へ開いても頭は座で止まる
+    translate([B3_V_SCR_X, -B3_CB_D / 2, b3_ear_foot_z0(i) - 0.01])
+        cube([B3_EAR_XO - B3_V_SCR_X + 1, B3_CB_D, B3_CB_H + (b3_ear_z0(i) - b3_ear_foot_z0(i)) + 0.01]);
 }
 
 
@@ -458,7 +462,8 @@ module btn3_block_cut() {
             cylinder(d = (B3_NUT_AF + B3_SHRINK) / cos(30), h = B3_NUT_T, $fn = 6);
     // v6.1n: 溝の口を六角の角いっぱいに開ける（六角の斜めの辺と外面がすれ違う所に刃を残さない）。
     //   ナットを keying する六角の面は芯から ±2.0 に残る。⚠ これは天板側のブロックの溝。
-    //   バスタブ側の溝は別に彫られていて、そちらには X −16.50 に 0.27 の刃が残っている（未処理）
+    //   バスタブ側の「刃」（X ±16.5・0.25〜0.27）はナットの溝ではなく、縦ねじの頭のザグリ φ4.2 と耳の外面の間の肉だった。
+    //   2026-09-15 に btn3_v_screw_cut でザグリを外面へ開いて消した
     translate([B3_V_SCR_X + 2.0, -((B3_NUT_AF + B3_SHRINK) / cos(30) / 2 + 0.3), B3_NUT_Z0])
         cube([10, (B3_NUT_AF + B3_SHRINK) / cos(30) + 0.6, B3_NUT_T]);
 }

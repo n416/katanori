@@ -1,8 +1,13 @@
 # -*- coding: utf-8 -*-
 """刷る前に STL を機械で検算する（docs/PRINT.md ＋ 記憶 stl-preflight-check）。
-  使い方: python hardware/_stl_preflight.py "hardware/_pf/print_*.stl" [薄肉のしきい値 mm]
+  使い方: python hardware/tools/_stl_preflight.py "hardware/stl/v5/*.stl" [薄肉のしきい値 mm] [--mat resin|nylon]
   見るもの ①底の Z が 0 か ②中身が 1 個か（宙に浮いた欠片が無いか）③しきい値より薄い面
   ③は「平行」（= 本物の薄肉）と「先細り」（= 面取りやツメの先端。不良ではない）を分けて出す。
+  🔒 材料で判定を分ける（2026-09-15・ユーザー「レジン版とナイロン版はスイッチできるわけで、それに応じてアラートを分けて」）:
+    resin … 自分の機械（光造形）。上の ①②③ と 接地・宙から始まる肉・急な立ち上がり
+    nylon … 外注 MJF PA12（JLC3DP）。粉の中で焼くので 底 Z・接地・宙から始まる肉・急な立ち上がりは**無い**。
+            見るのは 中身の数（入れ子＝閉じた空洞で粉が抜けない）・薄い肉（最薄 0.8 / 壁 1.2）・部品の最小寸法
+    --mat を省くと、道の名に v61n か nylon があれば nylon、それ以外は resin
 """
 import glob, os, struct, sys
 import numpy as np
@@ -22,7 +27,44 @@ def read_stl(p):
 
 PITCH=0.25      # レイの間隔
 COSMIN=0.75     # 面をかすめただけの当たりを捨てる（法線とレイの向きの内積）
-LIM=float(sys.argv[2]) if len(sys.argv)>2 else 0.30
+# ---- 材料（2026-09-15）----
+_args=list(sys.argv[1:]); MAT=None
+for _i,_a in enumerate(list(_args)):
+    if _a.startswith("--mat="): MAT=_a.split("=",1)[1]; _args[_i]=None
+    elif _a=="--mat" and _i+1<len(_args): MAT=_args[_i+1]; _args[_i]=None; _args[_i+1]=None
+_args=[a for a in _args if a is not None]
+sys.argv=[sys.argv[0]]+_args   # props_gen*.py は argv を [0] だけにして exec するので、あちらでは resin・0.30 のまま
+if MAT is None:
+    MAT="nylon" if (len(sys.argv)>1 and any(k in sys.argv[1].lower() for k in ("v61n","nylon","mjf"))) else "resin"
+assert MAT in ("resin","nylon"), "--mat は resin か nylon: %r" % MAT
+NYLON=(MAT=="nylon")
+# 薄肉のしきい値
+#   resin … 0.30 未満の面を拾い、0.42 で 🔴（0.42 の出どころは下の ⚠ のとおり無い）
+#   nylon … JLC3DP のアップロード画面の下限（docs/PRINT.md §9.5・2026-09-12 に実際に見た値）:
+#             最薄 0.8mm 以上 → 割れば 🔴 ／ 壁 1.2mm 超 → 届かなければ ⚠（ヒートマップの黄 0.5〜1.2）
+#           設計指針（jlc3dp.com/help/article/3d-printing-design-guideline）は壁 1.0（5×5）〜2.0（100×100 以上）、
+#             刻印は 0.8 深 × 0.8 幅、穴は φ1.5 以上、動く隙間 0.6、粉抜き穴 φ2.5（3 未満なら 2 つ）。形の検査からは測れないので、設計の側で見る
+MJF_THIN_RED=0.8; MJF_THIN_WARN=1.2
+LIM=float(sys.argv[2]) if len(sys.argv)>2 else (MJF_THIN_WARN if NYLON else 0.30)
+
+def mjf_head(p, tris, v, bd):
+    """MJF の見出しと、形だけで分かる判定（底 Z・接地・立ち上がりは無い）"""
+    ext=[v[:,i].max()-v[:,i].min() for i in range(3)]
+    print("== %-20s [MJF]  外形 %.2f x %.2f x %.2f  中身 %d 個" % (os.path.basename(p), ext[0], ext[1], ext[2], len(bd)))
+    sd=sorted(ext)
+    if not (sd[0]>=5.0 or (sd[0]>=2.0 and sd[1]>=2.0 and sd[2]>=10.0)):
+        print("   🔴 部品が小さい（JLC3DP の最小 5×5×5 または 10×2×2）")
+    def inside(a,b): return all(a[i]>b[i]+0.01 and a[3+i]<b[3+i]-0.01 for i in range(3))
+    nested=[a for a in bd if any(inside(a,b) for b in bd if b is not a)]
+    for m in nested:
+        print("   🔴 閉じた空洞（別の殻の中に殻）  X %.2f..%.2f  Y %.2f..%.2f  Z %.2f..%.2f ── 粉が抜けない。φ2.5 以上の粉抜き穴（3 未満なら 2 つ）か、空洞を無くす"
+              % (m[0],m[3],m[1],m[4],m[2],m[5]))
+    loose=[m for m in bd if m not in nested]
+    if len(loose)>1:
+        for m in sorted(loose, key=lambda m:-(m[3]-m[0])*(m[4]-m[1])*(m[5]-m[2]))[1:]:
+            print("   ⚠ 別の塊  X %.2f..%.2f  Y %.2f..%.2f  Z %.2f..%.2f（1 ファイル 1 部品。欠けた欠片ならファイルの側の不良）"
+                  % (m[0],m[3],m[1],m[4],m[2],m[5]))
+    print("   接地・宙から始まる肉・急な立ち上がりは見ない（粉の中で焼く）。薄い肉は 最薄 %.1f で 🔴・壁 %.1f 未満で ⚠" % (MJF_THIN_RED, MJF_THIN_WARN))
 
 def bodies(tris):
     """中身の数と、それぞれの bbox。頂点を丸めてつなぐ"""
@@ -297,66 +339,69 @@ def steep_rise(tris, pitch=0.25, dz=0.05):
 for p in sorted(glob.glob(sys.argv[1])):
     tris=read_stl(p); v=tris.reshape(-1,3)
     bd=bodies(tris)
-    z0=v[:,2].min()
-    flag=" 🔴 プレートから %.3f 浮いている" % z0 if z0>0.05 else ""
-    print("== %-20s 底 Z=%.3f%s  外形 %.2f x %.2f x %.2f  中身 %d 個" % (
-        os.path.basename(p), z0, flag, v[:,0].max()-v[:,0].min(), v[:,1].max()-v[:,1].min(), v[:,2].max()-v[:,2].min(), len(bd)))
-    # 🔴 2026-09-02 前は「中身が 2 個以上 ＝ 全部 🔴 欠片」だった。**壊れて欠けたのか、
-    #   元々別々の部品なのかを区別していない。** 六角ゲージ（独立した 7 マス）が 🔴 欠片 7 と出た
-    #   （ユーザー「欠片 7 ってなんですかその検算」）。
-    #   ⇒ 分ける材料は持っている: **プレートに着いていない塊が問題**で、着いている塊は別部品。
-    if len(bd)>1:
-        # ⚠ プレートに着いている塊は**何も言わない**。数は見出しの「中身 N 個」に出ている
-        #   （ユーザー「それを注意にする意味が分からない」）。言うのは浮いている物だけ。
-        for m in sorted([m for m in bd if m[2]>0.05], key=lambda m:m[2]):
-            print("   🔴 浮いている塊  X %.2f..%.2f  Y %.2f..%.2f  Z %.2f..%.2f（底が %.2f）"
-                  % (m[0],m[3],m[1],m[4],m[2],m[5],m[2]))
-    grip,long_mm,isl,ceil,hh,grip_max=grip_and_islands(tris)
-    # 🔒 2026-09-03 **接地の警告（585 / 1709）は消した。** ユーザー「この警告意味無いので消してください。
-    #   ビルドプレートを磨くようになってから失敗なんて一度もないのです」。
-    #   記録とも合う: あの 3 つの実績（base 1709・frame 585・bridge 513）は**傷のあるプレート**で取った値で、
-    #   2026-08-06 の研ぎ直しのあと同じ橋が「めっちゃ簡単に取れた。綺麗。」になり、**傷が原因だったことが
-    #   独立に裏付けられている**（PRINT.md §4「変わった変数はプレートだけ」）。⇒ 面積は数字だけ残す。
-    #   ⚠ 消したのは「剥がれにくさ」の警告だけ。LCD の 30%（土台のたわみ・rules.json の alone_grip_mm2）は別で、
-    #     あちらは刷るぞーが見ている。
-    print("   接地 %.0f mm2（1 枚あたり %.0f）" % (grip, grip_max))
-    # 🔒 2026-09-02 「支えの無い天井 ◯mm²」「島 ◯mm²」の 2 行を**急な立ち上がりに統合した**。
-    #   ユーザー「面積は惑わせ、混乱させる元凶だから急な立ち上がりに統合だね。だって無駄過ぎない？」。
-    #   🔴 **面積は合否に関係がない。** 落ちるかどうかを決めているのは、肉の厚み（mm）と、
-    #   支えからの出（mm）。面積はその 2 つを面で塗りつぶした数字なので、**同じ面積で刷れる形も
-    #   刷れない形も作れる。** データが増えても関係が出てくる種類の数字ではない。
-    #   ⇒ 面積は「どこにあるか」を指すのにだけ使う。判断には使わない。
-    # 🔴 2026-09-03 **開始点は立ち上がりと別に出す**（上の layer_starts の 🔴）。
-    #    しきい値は無い。宙から始まる肉は 1 か所でも刷れない。
-    st = layer_starts(tris)
-    if st is None:
-        print("   宙から始まる肉 … scipy が無いので測っていない")
-    elif st:
-        print("   🔴 **宙から始まる肉（開始点）が %d か所**。しきい値は無い ── 下に何も無いので差は ∞。" % len(st))
-        for z, x, y, a in sorted(st, key=lambda r: r[0])[:8]:
-            print("      Z %6.2f（層 %4d）  X %7.2f  Y %7.2f  面積 %.2fmm²" % (z, int(round(z / DZ)), x, y, a))
-        if len(st) > 8:
-            print("      … ほか %d か所" % (len(st) - 8))
-        print("      直す先は形か支柱。**ここに柱を立てるか、置き方を変える。**")
+    if NYLON:
+        mjf_head(p, tris, v, bd)
     else:
-        print("   宙から始まる肉 0 か所")
-    rs = steep_rise(tris)
-    if rs is None:
-        print("   急な立ち上がり … scipy が無いので測っていない")
-    elif rs[0] > RISE_WARN:
-        print("   🔴 急な立ち上がり **%.2fmm**（Z %.2f・X %.1f..%.1f Y %.1f..%.1f）" % (rs[0],rs[1],rs[3],rs[4],rs[5],rs[6]))
-        print("      実績: 無事は floor の %.2fmm まで／tub は 6.83mm で耳が斜めに出た" % RISE_WARN)
-        # 🔴 2026-09-02 **この数字だけで直すと外す。** 橋の 5.00mm は「幅 4.0mm の線で壁に
-        #   つながった、奥行き 5.0mm の棚」で、欠陥ではなかった（ユーザー「そこは壁自体の
-        #   立ち上がりがあるので柱いるんですか？」）。棚の奥行きも、片持ちの出っ張りも、
-        #   先端までの距離が同じなら同じ数字になる。⇒ **つながっている幅とセットで読む。**
-        #   落ちた tub の耳は「一辺だけで持たれて 7.25mm」。形が違う。
-        print("      ⚠ この数字は先端までの距離。**つながっている幅**と一緒に見ること。")
-        print("        幅広く壁につながった棚なら、同じ数字でも欠陥ではない（橋 5.00mm がその例）。")
-    else:
-        print("   急な立ち上がり %.2fmm（Z %.2f）。実績で無事な範囲（≤ %.2fmm）の内側" % (rs[0], rs[1], RISE_WARN))
-    if grip<40.0:
-        print("   🔴 点で立っている（接地 %.0f mm2 < つまみの棒の 1 層 38mm2）。あれは 1 個置きで軸がズレた → **置き方と、一緒に置く相手を決めてから刷る**" % grip)
+        z0=v[:,2].min()
+        flag=" 🔴 プレートから %.3f 浮いている" % z0 if z0>0.05 else ""
+        print("== %-20s 底 Z=%.3f%s  外形 %.2f x %.2f x %.2f  中身 %d 個" % (
+            os.path.basename(p), z0, flag, v[:,0].max()-v[:,0].min(), v[:,1].max()-v[:,1].min(), v[:,2].max()-v[:,2].min(), len(bd)))
+        # 🔴 2026-09-02 前は「中身が 2 個以上 ＝ 全部 🔴 欠片」だった。**壊れて欠けたのか、
+        #   元々別々の部品なのかを区別していない。** 六角ゲージ（独立した 7 マス）が 🔴 欠片 7 と出た
+        #   （ユーザー「欠片 7 ってなんですかその検算」）。
+        #   ⇒ 分ける材料は持っている: **プレートに着いていない塊が問題**で、着いている塊は別部品。
+        if len(bd)>1:
+            # ⚠ プレートに着いている塊は**何も言わない**。数は見出しの「中身 N 個」に出ている
+            #   （ユーザー「それを注意にする意味が分からない」）。言うのは浮いている物だけ。
+            for m in sorted([m for m in bd if m[2]>0.05], key=lambda m:m[2]):
+                print("   🔴 浮いている塊  X %.2f..%.2f  Y %.2f..%.2f  Z %.2f..%.2f（底が %.2f）"
+                      % (m[0],m[3],m[1],m[4],m[2],m[5],m[2]))
+        grip,long_mm,isl,ceil,hh,grip_max=grip_and_islands(tris)
+        # 🔒 2026-09-03 **接地の警告（585 / 1709）は消した。** ユーザー「この警告意味無いので消してください。
+        #   ビルドプレートを磨くようになってから失敗なんて一度もないのです」。
+        #   記録とも合う: あの 3 つの実績（base 1709・frame 585・bridge 513）は**傷のあるプレート**で取った値で、
+        #   2026-08-06 の研ぎ直しのあと同じ橋が「めっちゃ簡単に取れた。綺麗。」になり、**傷が原因だったことが
+        #   独立に裏付けられている**（PRINT.md §4「変わった変数はプレートだけ」）。⇒ 面積は数字だけ残す。
+        #   ⚠ 消したのは「剥がれにくさ」の警告だけ。LCD の 30%（土台のたわみ・rules.json の alone_grip_mm2）は別で、
+        #     あちらは刷るぞーが見ている。
+        print("   接地 %.0f mm2（1 枚あたり %.0f）" % (grip, grip_max))
+        # 🔒 2026-09-02 「支えの無い天井 ◯mm²」「島 ◯mm²」の 2 行を**急な立ち上がりに統合した**。
+        #   ユーザー「面積は惑わせ、混乱させる元凶だから急な立ち上がりに統合だね。だって無駄過ぎない？」。
+        #   🔴 **面積は合否に関係がない。** 落ちるかどうかを決めているのは、肉の厚み（mm）と、
+        #   支えからの出（mm）。面積はその 2 つを面で塗りつぶした数字なので、**同じ面積で刷れる形も
+        #   刷れない形も作れる。** データが増えても関係が出てくる種類の数字ではない。
+        #   ⇒ 面積は「どこにあるか」を指すのにだけ使う。判断には使わない。
+        # 🔴 2026-09-03 **開始点は立ち上がりと別に出す**（上の layer_starts の 🔴）。
+        #    しきい値は無い。宙から始まる肉は 1 か所でも刷れない。
+        st = layer_starts(tris)
+        if st is None:
+            print("   宙から始まる肉 … scipy が無いので測っていない")
+        elif st:
+            print("   🔴 **宙から始まる肉（開始点）が %d か所**。しきい値は無い ── 下に何も無いので差は ∞。" % len(st))
+            for z, x, y, a in sorted(st, key=lambda r: r[0])[:8]:
+                print("      Z %6.2f（層 %4d）  X %7.2f  Y %7.2f  面積 %.2fmm²" % (z, int(round(z / DZ)), x, y, a))
+            if len(st) > 8:
+                print("      … ほか %d か所" % (len(st) - 8))
+            print("      直す先は形か支柱。**ここに柱を立てるか、置き方を変える。**")
+        else:
+            print("   宙から始まる肉 0 か所")
+        rs = steep_rise(tris)
+        if rs is None:
+            print("   急な立ち上がり … scipy が無いので測っていない")
+        elif rs[0] > RISE_WARN:
+            print("   🔴 急な立ち上がり **%.2fmm**（Z %.2f・X %.1f..%.1f Y %.1f..%.1f）" % (rs[0],rs[1],rs[3],rs[4],rs[5],rs[6]))
+            print("      実績: 無事は floor の %.2fmm まで／tub は 6.83mm で耳が斜めに出た" % RISE_WARN)
+            # 🔴 2026-09-02 **この数字だけで直すと外す。** 橋の 5.00mm は「幅 4.0mm の線で壁に
+            #   つながった、奥行き 5.0mm の棚」で、欠陥ではなかった（ユーザー「そこは壁自体の
+            #   立ち上がりがあるので柱いるんですか？」）。棚の奥行きも、片持ちの出っ張りも、
+            #   先端までの距離が同じなら同じ数字になる。⇒ **つながっている幅とセットで読む。**
+            #   落ちた tub の耳は「一辺だけで持たれて 7.25mm」。形が違う。
+            print("      ⚠ この数字は先端までの距離。**つながっている幅**と一緒に見ること。")
+            print("        幅広く壁につながった棚なら、同じ数字でも欠陥ではない（橋 5.00mm がその例）。")
+        else:
+            print("   急な立ち上がり %.2fmm（Z %.2f）。実績で無事な範囲（≤ %.2fmm）の内側" % (rs[0], rs[1], RISE_WARN))
+        if grip<40.0:
+            print("   🔴 点で立っている（接地 %.0f mm2 < つまみの棒の 1 層 38mm2）。あれは 1 個置きで軸がズレた → **置き方と、一緒に置く相手を決めてから刷る**" % grip)
     any_=False
     for ax in (0,1,2):
         hits,u,vv=scan(tris,ax)
@@ -391,12 +436,20 @@ for p in sorted(glob.glob(sys.argv[1])):
             #      「0.30 と 0.42 の両方を超える形にする」という運用で揃えた（争わない方が安い）。
             #   ⬜ 由来が分かったら、ここか PRINT.md §2 に書くこと。
             if (mx-mn)<0.06:
-                mark = "🔴 " if mn < 0.42 else ""
+                if NYLON:
+                    # 🔒 しきい値ちょうど（0.80 の床）を浮動小数の誤差で 🔴 にしない（2026-09-15 に実際に出た）。0.01 の遊びを取る
+                    red = mn < MJF_THIN_RED - 0.01
+                    mark = "🔴 " if red else ("⚠ " if mn < MJF_THIN_WARN - 0.01 else "")
+                    note = ("（JLC3DP の最薄 %.1f を割る＝向こうで赤・焼けずに欠ける）" % MJF_THIN_RED) if red else \
+                           ("（壁の下限 %.1f に届かない＝向こうで黄）" % MJF_THIN_WARN) if mn < MJF_THIN_WARN - 0.01 else ""
+                else:
+                    mark = "🔴 " if mn < 0.42 else ""
+                    note = "（実績の下限 0.42 を割る）" if mn < 0.42 else "（0.42 は超えている）"
                 what = "%s平たい肉 %.2fmm" % (mark, me)
-                note = "（実績の下限 0.42 を割る）" if mn < 0.42 else "（0.42 は超えている）"
             elif me<(mn+mx)*0.62:
                 what = "先細りの縁 %.2f→%.2fmm" % (mn, mx)
-                note = "（面取りやツメの先端なら不良ではない。立った壁なら 0.42 を割っている）"
+                note = ("（面取りやツメの先端なら不良ではない。立った壁なら最薄 %.1f を割っている）" % MJF_THIN_RED) if NYLON else \
+                       "（面取りやツメの先端なら不良ではない。立った壁なら 0.42 を割っている）"
             else:
                 what = "?（平行でも先細りでもない）%.2f..%.2fmm" % (mn, mx)
                 note = ""

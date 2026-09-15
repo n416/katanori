@@ -54,3 +54,4 @@ en/
 
 # 基板の道具が書き出す途中のファイル（Voice PE のネットリストなど）
 hardware/pcb/build/
+hardware/_tmp_v61n/
