@@ -4,7 +4,8 @@
   python check_sch_voice.py
 
 回路図は kicad-cli でネットリストに書き出してから読む（生成側の座標や辞書を信じない）。
-主の板とライザーは、口（J15 ↔ J1）の同じ番号どうしを 1 本の線とみなしてつなぐ。
+音声の板とハブは、ライザー（音声の板の J21 の k 番 ↔ ハブの J1 の 2k−1 番、J22 の k 番 ↔ J1 の 2k 番）を
+1 本の線とみなしてつなぐ。
 
 1. Voice PE から写した部品 — Voice PE で同じネットだったピンは同じネットに、違うネットだったピンは
    違うネットにいるか。例外は OVERRIDE（つなぎ方を変えた所）と MERGE（名前をまとめた電源）だけ。
@@ -55,8 +56,8 @@ def netlist(sch):
 
 
 V = voicepe.VoicePE()
-main, main_fn = netlist(HERE / "katanori61_voice" / "katanori61_voice.kicad_sch")
-mic, mic_fn = netlist(HERE / "katanori61_mic" / "katanori61_mic.kicad_sch")
+audio, audio_fn = netlist(HERE / "katanori61_audio" / "katanori61_audio.kicad_sch")
+hub, hub_fn = netlist(HERE / "katanori61_hub" / "katanori61_hub.kicad_sch")
 v61, _ = netlist(HERE / "katanori61" / "katanori61.kicad_sch")
 
 # ---- 2 枚を 1 つのネットの集まりにする（ライザーの口でつなぐ） ----
@@ -76,15 +77,16 @@ def union(a, b):
 
 
 NODE = {}      # (板, ref, pin) → ネットの代表（未接続なら None）
-for board, pn in (("main", main), ("mic", mic)):
+for board, pn in (("audio", audio), ("hub", hub)):
     for (ref, pin), net in pn.items():
         NODE[(board, ref, pin)] = find((board, net)) if net else None
-for k in "12345":
-    a, b = main.get(("J15", k)), mic.get(("J1", k))
-    if a and b:
-        union(("main", a), ("mic", b))
-    else:
-        err(f"ライザーの口の {k} 番が片側で未接続")
+for k in range(1, 8):
+    for jref, hp in (("J21", 2 * k - 1), ("J22", 2 * k)):
+        a, b = audio.get((jref, str(k))), hub.get(("J1", str(hp)))
+        if a and b:
+            union(("audio", a), ("hub", b))
+        else:
+            err(f"ライザー: 音声の板の {jref}.{k} ↔ ハブの J1.{hp} が片側で未接続")
 
 
 def net_of(board, ref, pin):
@@ -96,12 +98,11 @@ def label(rep):
     return f"{rep[1]}" if rep else "未接続"
 
 
-RISER = set(gv.RISER.split())
-COPIED = {r for refs in gv.COPY.values() for r in refs.split()} | RISER
+COPIED = {r for refs in gv.COPY.values() for r in refs.split()}
 
 
 def where(r):
-    return "mic" if r in RISER else "main"
+    return "audio"
 
 
 # ======== 1. Voice PE から写した部品 ========
@@ -149,7 +150,7 @@ def pinname(fn, pin):
     return fn[: -len(pin) - 1] if fn.endswith("_" + pin) else fn
 
 
-esp_pin = {pinname(fn, pin): (ref, pin) for (ref, pin), fn in main_fn.items() if ref == "U5"}
+esp_pin = {pinname(fn, pin): (ref, pin) for (ref, pin), fn in audio_fn.items() if ref == "U5"}
 seen = 0
 for (r, p), vnet in V.pin_net.items():
     if r != "U1":
@@ -172,61 +173,72 @@ for (r, p), vnet in V.pin_net.items():
         err(f"GPIO{gpio} は写さない約束（{NOT_COPIED_GPIO[gpio]}）なのに、写した部品が乗っている")
         continue
     ref, pin = esp_pin.get(f"IO{gpio}", (None, None))
-    got = net_of("main", "U5", pin) if pin else "missing"
+    got = net_of("audio", "U5", pin) if pin else "missing"
     if got not in targets:
         err(f"GPIO{gpio}: Voice PE では {sorted(label(t) for t in targets)} につながっていたが、U5 の IO{gpio} は {label(got) if got != 'missing' else '無い'}")
 print(f"  Voice PE の ESP32 から写した相手があるピン {seen} 本")
-# つなぎ方を変えたピン（Voice PE とは違う）: 名前 → 同じネットに居るべき相手
+# つなぎ方を変えたピン（Voice PE とは違う）: 名前 → 同じネットに居るべき相手（板・部品・ピン）
 ESP_CHANGED = {
-    "USB_D+": ("R157", "2", "USB の 22Ω の ESP32 側（Voice PE は USB の切替 U17 を挟んでいた）"),
-    "USB_D-": ("R156", "2", "同上"),
-    "IO2": ("R214", "1", "マイクのミュート（Voice PE はスライドスイッチ SW1）"),
-    "IO40": ("J6", "2", "会話ボタン（v6.1 の J6）"),
-    "IO16": ("J2", "3", "画面の SCL"), "IO17": ("J2", "4", "画面の SDA"),
-    "IO18": ("J2", "5", "画面の RES"), "IO21": ("J2", "6", "画面の DC"), "IO48": ("J2", "7", "画面の CS"),
-    "TXD0": ("TP1", "1", "UART0 はテストパッドだけ"), "RXD0": ("TP2", "1", "同上"),
-    "IO0": ("TP3", "1", "書き込みモード"), "EN": ("TP4", "1", "リセット"),
+    "USB_D+": ("audio", "R157", "2", "USB の 22Ω の ESP32 側（Voice PE は USB の切替 U17 を挟んでいた）"),
+    "USB_D-": ("audio", "R156", "2", "同上"),
+    "IO2": ("audio", "R214", "1", "マイクのミュート（Voice PE はスライドスイッチ SW1）"),
+    "IO40": ("hub", "J6", "2", "会話ボタン（ハブの J6・ライザー越し）"),
+    "IO16": ("hub", "J2", "3", "画面の SCL（ハブの J2・ライザー越し）"), "IO17": ("hub", "J2", "4", "画面の SDA"),
+    "IO18": ("hub", "J2", "5", "画面の RES"), "IO21": ("hub", "J2", "6", "画面の DC"), "IO48": ("hub", "J2", "7", "画面の CS"),
+    "IO5": ("hub", "U3", "4", "共用の I2C の SDA（ハブの INA226・ライザー越し）"),
+    "IO6": ("hub", "U3", "5", "共用の I2C の SCL"),
+    "TXD0": ("audio", "TP1", "1", "UART0 はテストパッドだけ"), "RXD0": ("audio", "TP2", "1", "同上"),
+    "IO0": ("audio", "TP3", "1", "書き込みモード"), "EN": ("audio", "TP4", "1", "リセット"),
 }
-for fn, (ref, pin, why) in ESP_CHANGED.items():
-    a = net_of("main", "U5", esp_pin[fn][1])
-    b = net_of("main", ref, pin)
+for fn, (board, ref, pin, why) in ESP_CHANGED.items():
+    a = net_of("audio", "U5", esp_pin[fn][1])
+    b = net_of(board, ref, pin)
     if a is None or a != b:
         err(f"U5 の {fn} が {ref}.{pin} と同じネットにいない（{why}）")
 print(f"  変えたピン {len(ESP_CHANGED)} 本を確かめた")
+# ライザーを越える電源と USB（名前が同じでも、ライザーの番号がずれていれば別のネットになる）
+ACROSS = [(("hub", "J13", "A6"), "USB_DP"), (("hub", "J13", "A7"), "USB_DN"), (("hub", "U1", "1"), "V5"),
+          (("hub", "U3", "1"), "V33"), (("hub", "U3", "2"), "GND")]
+audio_names = set(audio.values())
+for (board, ref, pin), anet in ACROSS:
+    full = next((n for n in ("/" + anet, anet) if n in audio_names), None)   # ラベルのネットは "/名前"・電源の記号は "名前"
+    if full is None or net_of(board, ref, pin) != find(("audio", full)):
+        err(f"ハブの {ref}.{pin} が音声の板の {anet} とつながっていない（ライザーの並び）")
+print(f"  ライザーを越える電源と USB {len(ACROSS)} 本を確かめた")
 # XU316 の JTAG はテストパッド J16（Voice PE の J5 の代わり）。XU316 のピンの名前で突き合わせる
 JTAG = {"2": "TMS", "3": "TCK", "4": "TDI", "5": "TDO", "6": "RST_N", "1": "VDDIOB18", "7": "GND"}
-u2_pin = {pinname(fn, pin): pin for (ref, pin), fn in main_fn.items() if ref == "U102"}
+u2_pin = {pinname(fn, pin): pin for (ref, pin), fn in audio_fn.items() if ref == "U102"}
 for jp, sig in JTAG.items():
-    a = net_of("main", "J16", jp)
-    b = net_of("main", "U102", u2_pin.get(sig, "?"))
+    a = net_of("audio", "J16", jp)
+    b = net_of("audio", "U102", u2_pin.get(sig, "?"))
     if a is None or a != b:
         err(f"JTAG のパッド J16.{jp} が XU316 の {sig} と同じネットにいない")
-if net_of("main", "J16", "8") not in (None, "missing"):
+if net_of("audio", "J16", "8") not in (None, "missing"):
     err("JTAG のパッド J16.8 は空きのはず")
 print(f"  JTAG のテストパッド {len(JTAG)} 個を XU316 のピンと確かめた")
 
 # ======== 3. 爆音の穴 ========
 print("3. 爆音の穴")
-shut = net_of("main", "U109", "1")
-on_shut = sorted(f"{r}.{p}" for (b, r, p), n in NODE.items() if b == "main" and n and find(n) == shut)
+shut = net_of("audio", "U109", "1")
+on_shut = sorted(f"{r}.{p}" for (b, r, p), n in NODE.items() if b == "audio" and n and find(n) == shut)
 want = ["C129.1", "R125.1", "R135.2", "U109.1"]
 if on_shut != want:
     err(f"アンプの SHUTDOWN に乗っている物が違う: {on_shut}（あるべき: {want}）")
 else:
     print("  SHUTDOWN: 470kΩ（R135）で引き下げ・4.7kΩ（R125）の向こうは ESP32 だけ・ヘッドホン検出の Q が居ない")
-if net_of("main", "R135", "1") != net_of("main", "U5", "1"):
+if net_of("audio", "R135", "1") != net_of("audio", "U5", "1"):
     err("R135（470kΩ）の反対側が GND ではない")
-en_side = net_of("main", "R125", "2")
-on_en = sorted(f"{r}.{p}" for (b, r, p), n in NODE.items() if b == "main" and n and find(n) == en_side)
+en_side = net_of("audio", "R125", "2")
+on_en = sorted(f"{r}.{p}" for (b, r, p), n in NODE.items() if b == "audio" and n and find(n) == en_side)
 if on_en != ["R125.2", "R136.2"]:
     err(f"R125 の向こう側に余計な物がいる: {on_en}")
-pa = net_of("main", "R136", "1")
-on_pa = sorted(f"{r}.{p}" for (b, r, p), n in NODE.items() if b == "main" and n and find(n) == pa)
+pa = net_of("audio", "R136", "1")
+on_pa = sorted(f"{r}.{p}" for (b, r, p), n in NODE.items() if b == "audio" and n and find(n) == pa)
 if on_pa != ["R136.1", f"U5.{esp_pin['IO47'][1]}"]:
     err(f"アンプの EN（R136 の手前）に ESP32 の IO47 以外が乗っている: {on_pa}（XU316 に握らせない）")
 for fn in ("TXD0", "RXD0"):
-    n = net_of("main", "U5", esp_pin[fn][1])
-    on = sorted(f"{r}.{p}" for (b, r, p), nn in NODE.items() if b == "main" and nn and find(nn) == n)
+    n = net_of("audio", "U5", esp_pin[fn][1])
+    on = sorted(f"{r}.{p}" for (b, r, p), nn in NODE.items() if b == "audio" and nn and find(nn) == n)
     if len(on) != 2 or not any(x.startswith("TP") for x in on):
         err(f"{fn}（GPIO43/44）にテストパッド以外が乗っている: {on}")
 print("  UART0 はテストパッドだけ")
@@ -234,13 +246,13 @@ print("  UART0 はテストパッドだけ")
 # ======== 4. v6.1 から残した部品 ========
 print("4. v6.1 から残した部品")
 CHANGED_V61 = {("J13", "A6"), ("J13", "B6"), ("J13", "A7"), ("J13", "B7"), ("R42", "2"), ("R43", "2")}
-CHANGED_V61 |= {("J2", str(i)) for i in range(1, 8)}
-kept = {(r, p) for (r, p) in v61 if (r, p) in main and (r, p) not in CHANGED_V61 and not r.startswith("#")}
+CHANGED_V61 |= {("J2", str(i)) for i in range(1, 8)} | {("J1", str(i)) for i in range(1, 15)}   # 画面の口・ライザー
+kept = {(r, p) for (r, p) in v61 if (r, p) in hub and (r, p) not in CHANGED_V61 and not r.startswith("#")}
 by_old = collections.defaultdict(set)
 by_new = collections.defaultdict(set)
 for r, p in kept:
-    by_old[v61[(r, p)]].add(net_of("main", r, p))
-    by_new[net_of("main", r, p)].add(v61[(r, p)])
+    by_old[v61[(r, p)]].add(net_of("hub", r, p))
+    by_new[net_of("hub", r, p)].add(v61[(r, p)])
 for old, news in by_old.items():
     if len(news) > 1:
         err(f"v6.1 の {old} が割れた: {sorted(map(label, news))}")
@@ -248,7 +260,7 @@ for new, olds in by_new.items():
     olds.discard(None)
     if new and len(olds) > 1:
         err(f"v6.1 の違うネット {sorted(olds)} が {label(new)} で 1 つになった")
-gone = sorted({r for (r, p) in v61 if (r, p) not in main and not r.startswith("#")})
+gone = sorted({r for (r, p) in v61 if (r, p) not in hub and not r.startswith("#")})
 print(f"  残したピン {len(kept)} 本を照合。外した部品: {' '.join(gone)}")
 
 print(f"結果: 合わない所は {len(errors)} 件")

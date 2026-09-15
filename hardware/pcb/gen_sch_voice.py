@@ -1,13 +1,16 @@
 # -*- coding: utf-8 -*-
-"""v6.1 の板に Voice PE の音声部を統合した回路図を作る（docs/VOICE-BOARD.md）。
+"""音声の板とハブの 2 枚の回路図を作る（docs/VOICE-BOARD.md）。
 
-  python gen_sch_voice.py  → hardware/pcb/katanori61_voice/katanori61_voice.kicad_sch（主の板）
-                              hardware/pcb/katanori61_mic/katanori61_mic.kicad_sch（前のマイクのライザー）
+  python gen_sch_voice.py  → hardware/pcb/katanori61_audio/katanori61_audio.kicad_sch（音声の板・ReSpeaker Lite の場所）
+                              hardware/pcb/katanori61_hub/katanori61_hub.kicad_sch（ハブ・v6.1 の場所）
+
+🔒 ユーザー 2026-09-15 夜: 1 枚にまとめる案をやめ、2 枚に分けた。ESP32 は音声の板に載る。
+2 枚はライザーでつなぐ（音声の板の J21・J22 の 2 列 ↔ ハブの J1 の 2x07）。
 
 出どころは 2 つで、ここで新しく設計した回路はわずか（ESP32 モジュールの周りと口だけ）。
-  v6.1 の板 : gen_sch.py の PARTS（リレーまわり・XIAO の受け・SPK IN を外す）
-  音声部    : Home Assistant Voice PE（hardware/ref/voice_pe/・CERN-OHL-P v2・© Nabu Casa）の
-              XMOS・DAC・Power シートと、ESP32 シートの I2S の直列抵抗と I2C の引き上げ
+  ハブ      : gen_sch.py の PARTS（リレーまわり・XIAO の受け・SPK IN・SPK OUT を外す）
+  音声の板  : Home Assistant Voice PE（hardware/ref/voice_pe/・CERN-OHL-P v2・© Nabu Casa）の
+              XMOS・DAC・Power シートと、ESP32 シートの I2S の直列抵抗と I2C の引き上げ、マイク 2 個
 
 Voice PE の部品は、部品番号に 100 を足して写す（R36 → R136）。v6.1 の番号とぶつからない。
 どの部品を写し、どのネットを付け替えたかは check_sch_voice.py が Voice PE のネットリストと突き合わせる。
@@ -92,9 +95,9 @@ COPY = {
     # ESP32 シートから、XU316 とのあいだの直列抵抗（0Ω）と I2C の引き上げだけ
     "ESP32": "R92 R93 R94 R95 R96 R97 R101 R102 R9 R146 R123 R128",
 }
-# 前のライザーに載る物（マイク 2 個・ESD・直列抵抗）
-RISER = "U4 U5 D1 D4 D10 D12 D18 D19 R5 R109 R6 R112 R30 R110"
-FP_NAME = voicepe.fp_names([r for refs in COPY.values() for r in refs.split()] + RISER.split())
+# マイク 2 個とその足元（ESD・直列抵抗）。1 枚案ではライザーに載せていた。今は音声の板のマイク面
+COPY["MIC"] = "U4 U5 D1 D4 D10 D12 D18 D19 R5 R109 R6 R112 R30 R110"
+FP_NAME = voicepe.fp_names([r for refs in COPY.values() for r in refs.split()])
 
 # ======== ネットの付け替え（Voice PE の名前 → この板の名前） ========
 RENAME = {
@@ -144,37 +147,40 @@ def vpart(r, grp):
                 note=f"Voice PE {r}（{c['sheet']}）", src=r)
 
 
+# ハブの gen_sch の組と見出し（run() が gs.GROUPS・gs.SHEET を書き換える前に取っておく）
+HUB_GROUPS = {k: v for k, v in gs.GROUPS.items() if k != "hub"}
+HUB_HEADS = [h for h in gs.SHEET["heads"] if h[1] != "hub"]
+FP_R0402, FP_C0402, FP_C0603 = ("Resistor_SMD:R_0402_1005Metric", "Capacitor_SMD:C_0402_1005Metric",
+                                "Capacitor_SMD:C_0603_1608Metric")
+
+
 def part(ref, lib, value, nets, fp="", lcsc="", note="", grp="", dnp=False):
     return dict(ref=ref, lib=lib, value=value, x=0.0, y=0.0, nets=nets, fp=fp, lcsc=lcsc,
                 note=note, dnp=dnp, grp=grp, src=None)
 
 
-# ======== 主の板 ========
+# ======== ライザー（音声の板 ↔ ハブ） ========
+# 音声の板には、XIAO のピンがあった 2 列（ReSpeaker Lite の b 24.627 と b 9.397・各 7 本）にオスを立てる。
+# 今のライザー（筐体の riser61()）がその 2 列を受け、ハブの J1（2x07）へ下ろす。奇数番 ＝ J21、偶数番 ＝ J22。
+# USB の D± は GND の隣に並べる。画面の 5 本は後から SPI に替える分（docs/VOICE-BOARD.md 6 章）
+RISER_J21 = ["V5", "GND", "V33", "BTN", "OLED_RES", "OLED_DC", "OLED_CS"]       # 電源の列（XIAO の 5V・GND・3V3 の列）
+RISER_J22 = ["GND", "USB_DN", "USB_DP", "SDA", "SCL", "OLED_SCL", "OLED_SDA"]   # 信号の列（XIAO の D2・D3・SDA・SCL の列）
+RISER_HUB = {str(2 * i + 1): n for i, n in enumerate(RISER_J21)} | {str(2 * i + 2): n for i, n in enumerate(RISER_J22)}
+
+# ======== ハブ（v6.1 の場所） ========
 DROP_V61 = {"K31", "Q31", "D31", "R31", "R32", "C31",   # ミュートリレー（アンプの SHUTDOWN が代わる）
-            "J4",                                        # SPK IN（アンプが板に載る）
-            "J1"}                                        # XIAO の受け（ESP32 が板に載る）
-MAIN = [copy.deepcopy(P) for P in gs.PARTS if P["ref"] not in DROP_V61]
-# 🔒 ユーザー 2026-09-15（「ごっちゃごちゃ。簡単にショートしそう」）: v6.1 の電源部の受動部品を小さくして、
-#    空いた面積を配線の余裕（すきま 0.15・線 0.2）に回す。0805 は v6.1 が手はんだを前提にしていた名残。
-#    10µF・2.2µF は 5V・VBUS に付くので、0402 では耐圧が足りない ⇒ 0603。47µF と 10mΩ（1206）はそのまま。
-#    ⚠ 大きさを変えた部品の LCSC 番号は 0805 の物なので消す（発注の前に在庫と一緒に引き直す・fab.py が止める）
-SHRINK = {"Resistor_SMD:R_0805_2012Metric": "Resistor_SMD:R_0402_1005Metric",
-          "LED_SMD:LED_0805_2012Metric": "LED_SMD:LED_0603_1608Metric"}
-for P in MAIN:
+            "J4", "J5",                                  # SPK IN・SPK OUT（アンプとスピーカーの口は音声の板）
+            "J1"}                                        # XIAO の受け（下の 2x07 に替える）
+HUB = [copy.deepcopy(P) for P in gs.PARTS if P["ref"] not in DROP_V61]
+# 受動部品は v6.1 のまま（0805）。1 枚案で 0402 に縮めたのは面積のためで、ハブだけなら v6.1 と同じ混み方に戻る
+for P in HUB:
     P.setdefault("src", None)
-    old = P["fp"]
-    if old == "Capacitor_SMD:C_0805_2012Metric":
-        big = P["value"] in ("10uF", "2.2uF")
-        P["fp"] = "Capacitor_SMD:C_0603_1608Metric" if big else "Capacitor_SMD:C_0402_1005Metric"
-    elif old in SHRINK:
-        P["fp"] = SHRINK[old]
-    if P["fp"] != old:
-        P["lcsc"] = ""
-        P["note"] = (P["note"] + "・" if P["note"] else "") + f"統合基板で {old.split(':')[1].split('_')[1]} → {P['fp'].split(':')[1].split('_')[1]}（LCSC 番号は引き直し）"
+    if P["ref"] == "C32":
+        P["grp"] = "ports"          # リレーの組が無くなったので、EN の口（J7）の組へ
     if P["ref"] == "J13":
-        # 🔒 ユーザー 2026-09-15: USB-C を 1 つにして充電と書き込みを兼ねる
+        # 🔒 ユーザー 2026-09-15: USB-C を 1 つにして充電と書き込みを兼ねる。D± はライザーを通って音声の板の ESP32 へ
         P["nets"].update({"A6": "USB_DP", "B6": "USB_DP", "A7": "USB_DN", "B7": "USB_DN"})
-        P["note"] = "充電と書き込みの口（D+/D− は ESD と 22Ω を通って ESP32 の USB へ）"
+        P["note"] = "充電と書き込みの口（D+/D− はライザーを通り、音声の板の ESD と 22Ω を経て ESP32 の USB へ）"
     if P["ref"] == "J2":
         # 🔒 ユーザー 2026-09-15: 画面の口は後から SPI に替えられる 1x07。1〜4 番は今の OLED の並び
         P["lib"] = "Connector_Generic:Conn_01x07"
@@ -184,13 +190,24 @@ for P in MAIN:
         P["fp"] = "Connector_PinHeader_2.54mm:PinHeader_1x07_P2.54mm_Vertical"
         P["note"] = "1 GND・2 3V3・3 SCL/SCK・4 SDA/MOSI・5 RES・6 DC・7 CS。今の I2C の OLED は 1〜4 だけ挿す"
     if P["ref"] in ("R42", "R43"):
-        # 画面は専用の I2C（GPIO16/17）に移ったので、v6.1 の引き上げはそちらへ回す
+        # 画面は専用の I2C（GPIO16/17）に移ったので、v6.1 の引き上げはそちらへ回す。
+        # 共用の I2C（INA226・AS5600・XU316・コーデック）の引き上げは音声の板の R223・R228（Voice PE の R123・R128）
         P["nets"] = {"1": "V33", "2": "OLED_SDA" if P["ref"] == "R42" else "OLED_SCL"}
         P["note"] = "画面の I2C の引き上げ"
+HUB.append(part("J1", "Connector_Generic:Conn_02x07_Odd_Even", "RISER", RISER_HUB,
+                "Connector_PinHeader_2.54mm:PinHeader_2x07_P2.54mm_Vertical", grp="xiao",
+                note="ライザーへ。奇数番 ＝ 音声の板の J21（電源の列）、偶数番 ＝ J22（信号の列）。3.3V は音声の板が作る"))
 
+# ======== 音声の板（ReSpeaker Lite の場所） ========
+AUDIO = []
 for sheet, refs in COPY.items():
-    grp = {"Power": "vpower", "DAC": "codec", "XMOS": "xmos", "ESP32": "esp"}[sheet]
-    MAIN += [vpart(r, grp) for r in refs.split()]
+    grp = {"Power": "vpower", "DAC": "codec", "XMOS": "xmos", "ESP32": "esp", "MIC": "mic"}[sheet]
+    AUDIO += [vpart(r, grp) for r in refs.split()]
+for P in AUDIO:
+    if P["ref"] in ("U104", "U105"):
+        P["lcsc"] = "C22390138"
+    if P["ref"] in ("D101", "D104", "D110", "D112", "D118", "D119"):
+        P["value"], P["lcsc"] = "SLESDPSA0402V05", "C7496591"
 
 # ---- ESP32-S3-WROOM-1U（新しく足した物）----
 ESP_PINS = {
@@ -204,16 +221,16 @@ ESP_PINS = {
     "3V3": "V33", "GND": "GND",
 }
 esp_nets = {num: ESP_PINS.get(nm) for num, (nm, *_rest) in kisym.pins("RF_Module:ESP32-S3-WROOM-1").items()}
-MAIN += [
+AUDIO += [
     part("U5", "RF_Module:ESP32-S3-WROOM-1", "ESP32-S3-WROOM-1U-N16R8", esp_nets,
          "RF_Module:ESP32-S3-WROOM-1U", "C3013946", grp="esp",
          note="外付けアンテナ（u.FL）。IO35〜37 は Octal PSRAM で使えない。ピンは docs/VOICE-BOARD.md 5 章"),
-    part("R46", "Device:R_Small", "10K", {"1": "V33", "2": "ESP_EN"}, gs.FP_R, grp="esp", note="EN の引き上げ"),
-    part("C43", "Device:C_Small", "1uF", {"1": "ESP_EN", "2": "GND"}, gs.FP_C, grp="esp", note="EN の遅延"),
-    part("R47", "Device:R_Small", "10K", {"1": "V33", "2": "ESP_BOOT"}, gs.FP_R, grp="esp", note="IO0 の引き上げ"),
-    part("C44", "Device:C_Small", "10uF", {"1": "V33", "2": "GND"}, gs.FP_C, grp="esp", note="ESP32 のパスコン"),
-    part("C45", "Device:C_Small", "0.1uF", {"1": "V33", "2": "GND"}, gs.FP_C, grp="esp", note="ESP32 のパスコン"),
-    part("R48", "Device:R_Small", "10K", {"1": "MUTE_ON", "2": "GND"}, gs.FP_R, grp="esp",
+    part("R46", "Device:R_Small", "10K", {"1": "V33", "2": "ESP_EN"}, FP_R0402, grp="esp", note="EN の引き上げ"),
+    part("C43", "Device:C_Small", "1uF", {"1": "ESP_EN", "2": "GND"}, FP_C0402, grp="esp", note="EN の遅延"),
+    part("R47", "Device:R_Small", "10K", {"1": "V33", "2": "ESP_BOOT"}, FP_R0402, grp="esp", note="IO0 の引き上げ"),
+    part("C44", "Device:C_Small", "10uF", {"1": "V33", "2": "GND"}, FP_C0603, grp="esp", note="ESP32 のパスコン"),
+    part("C45", "Device:C_Small", "0.1uF", {"1": "V33", "2": "GND"}, FP_C0402, grp="esp", note="ESP32 のパスコン"),
+    part("R48", "Device:R_Small", "10K", {"1": "MUTE_ON", "2": "GND"}, FP_R0402, grp="esp",
          note="マイクのミュートの引き下げ。ESP32 がリセット中でもマイクは有効"),
     part("TP1", "Connector:TestPoint", "TXD0", {"1": "ESP_TXD"}, "TestPoint:TestPoint_Pad_D1.0mm", grp="esp",
          note="🔒 UART0 はテストパッドだけ（I2S に使わない・ROM ログを読む最後の経路）"),
@@ -222,19 +239,30 @@ MAIN += [
          note="GND に当てながら電源を入れるとダウンロードモード"),
     part("TP4", "Connector:TestPoint", "EN", {"1": "ESP_EN"}, "TestPoint:TestPoint_Pad_D1.0mm", grp="esp"),
     # ERC 用の電源の印。フェライトビーズ（FB106・FB107・FB109）と、記号のピンが passive の LDO（U111）の
-    #   先は KiCad から「電源が来ていない」に見える（回路の誤りではない）。Q1 の B の警告は v6.1 から同じ
+    #   先は KiCad から「電源が来ていない」に見える（回路の誤りではない）。V5 と GND はライザーから来る
     *[part(f"#FLG{i:02d}", "power:PWR_FLAG", "PWR_FLAG", {"1": n}, grp="flags")
-      for i, n in enumerate(["VDD", "VDDIO", "V18", "N_U102_PLL_AVDD"], 5)],
+      for i, n in enumerate(["VDD", "VDDIO", "V18", "N_U102_PLL_AVDD", "V5", "GND", "V33"], 5)],
     # XU316 の JTAG はテストパッド（2 列 × 4・2.54mm）。ポゴピンの治具を当てて XTAG4 から最初の 1 回だけ書く。
     #   1 番の V18 は XTAG4 が相手の電圧を知る基準（Voice PE の J5 の 1 番と同じ）。8 番は空き（治具の向きの目印）
     part("J16", "Connector_Generic:Conn_02x04_Odd_Even", "XU316 JTAG",
          {"1": "V18", "2": "TMS", "3": "TCK", "4": "TDI", "5": "TDO", "6": "RST_N", "7": "GND", "8": None},
          "katanori:JTAG_TP_2x4_P2.54mm", grp="xmos", dnp=True,
          note="部品は付けない（パッドだけ）。1 V18・2 TMS・3 TCK・4 TDI・5 TDO・6 RST_N・7 GND・8 空き"),
-    part("J15", "Connector_Generic:Conn_01x05", "MIC RISER",
-         {"1": "GND", "2": "MIC_CLK_M", "3": "GND", "4": "MIC_DATA_M", "5": "VDD_MIC"},
-         "Connector_PinHeader_2.54mm:PinHeader_1x05_P2.54mm_Vertical", grp="esp",
-         note="前のマイクのライザー。PDM のクロックの隣を GND にした"),
+    part("J21", "Connector_Generic:Conn_01x07", "RISER PWR", {str(i + 1): n for i, n in enumerate(RISER_J21)},
+         "Connector_PinHeader_2.54mm:PinHeader_1x07_P2.54mm_Vertical", grp="ports",
+         note="ライザーの電源の列（XIAO の 5V・GND・3V3 の列の位置）。ハブの J1 の奇数番"),
+    part("J22", "Connector_Generic:Conn_01x07", "RISER SIG", {str(i + 1): n for i, n in enumerate(RISER_J22)},
+         "Connector_PinHeader_2.54mm:PinHeader_1x07_P2.54mm_Vertical", grp="ports",
+         note="ライザーの信号の列（XIAO の D2・D3・SDA・SCL の列の位置）。ハブの J1 の偶数番"),
+    part("J23", "Connector_Generic:Conn_01x02", "SPK", {"1": "SPKM", "2": "SPKO"},
+         "Connector_JST:JST_PH_B2B-PH-K_1x02_P2.00mm_Vertical", grp="ports",
+         note="スピーカーの口（PH2.0・上から挿す。ReSpeaker Lite の J2 と同じ形）。1 − SPKM・2 + SPKO（v6.1 の J5 と同じ並び）"),
+    # Voice PE は 100Ω だけでマイクの足元にコンデンサが無い（板の上で近いから）。この板のマイクは XU316 から
+    #   約 35mm 離れるので RC にする（1 枚案でライザーに足した物をそのまま残す）
+    part("C301", "Device:C_Small", "100nF", {"1": net_name("/XMOS/Net-(U4-L/R)"), "2": "GND"},
+         FP_C0402, grp="mic", note="U104 の電源の足元（R210 100Ω と RC）。私が足した"),
+    part("C302", "Device:C_Small", "100nF", {"1": net_name("/XMOS/Net-(U5-VDD)"), "2": "GND"},
+         FP_C0402, grp="mic", note="U105 の電源の足元（R130 100Ω と RC）。私が足した"),
 ]
 
 # ---- JLCPCB（LCSC）の部品番号（2026-09-15 に JLCPCB の部品 API で取った） ----
@@ -250,28 +278,9 @@ LCSC_V = {
     "L101": ("0.47uH", "C97014"), "L102": ("1uH", "C395545"),
     "D106": ("SLESDPSA0402V05", "C7496591"), "D107": ("SLESDPSA0402V05", "C7496591"),
 }
-for P in MAIN:
+for P in AUDIO:
     if P["ref"] in LCSC_V:
         P["value"], P["lcsc"] = LCSC_V[P["ref"]]
-
-# ======== 前のマイクのライザー ========
-MIC = [vpart(r, "mic") for r in RISER.split()]
-for P in MIC:
-    if P["ref"] in ("U104", "U105"):
-        P["lcsc"] = "C22390138"
-    if P["ref"].startswith("D1"):
-        P["value"], P["lcsc"] = "SLESDPSA0402V05", "C7496591"
-MIC += [
-    part("J1", "Connector_Generic:Conn_01x05", "MIC RISER",
-         {"1": "GND", "2": "MIC_CLK_M", "3": "GND", "4": "MIC_DATA_M", "5": "VDD_MIC"},
-         "Connector_PinSocket_2.54mm:PinSocket_1x05_P2.54mm_Horizontal", grp="mic",
-         note="主の板の J15 に挿さる（L 字のメス）"),
-    # Voice PE は 100Ω だけでマイクの足元にコンデンサが無い（板の上で近いから）。線を挟むので RC にする
-    part("C1", "Device:C_Small", "100nF", {"1": net_name("/XMOS/Net-(U4-L/R)"), "2": "GND"},
-         "Capacitor_SMD:C_0402_1005Metric", grp="mic", note="U104 の電源の足元（R210 100Ω と RC）。私が足した"),
-    part("C2", "Device:C_Small", "100nF", {"1": net_name("/XMOS/Net-(U5-VDD)"), "2": "GND"},
-         "Capacitor_SMD:C_0402_1005Metric", grp="mic", note="U105 の電源の足元（R130 100Ω と RC）。私が足した"),
-]
 
 
 def prune(parts):
@@ -306,23 +315,23 @@ def run(name, parts, groups, title, heads, comments, paper):
 
 if __name__ == "__main__":
     sys.stdout.reconfigure(encoding="utf-8")
-    lonely = prune(MAIN)
-    print("未接続にしたネット（写さなかった部品の向こう側）:", " ".join(lonely))
-    groups = dict(gs.GROUPS)
-    groups.pop("xiao")
-    groups.update({"xmos": (15, 300, 400), "codec": (440, 30, 390), "vpower": (440, 250, 390),
-                   "esp": (440, 420, 390)})
     lic = "音声部は Home Assistant Voice PE（CERN-OHL-P v2・© Nabu Casa）の写し"
-    run("katanori61_voice", MAIN, groups, "katanori 主の板（v6.1 ＋ 音声部）",
-        gs.SHEET["heads"][:3] + [
-            ("口 — v6.1 の口（SPK IN・XIAO の受けを外し、OLED を 1x07 に）", "ports"),
-            ("XU316 — Voice PE の XMOS シートの写し（CERN-OHL-P v2）", "xmos"),
-            ("コーデックとアンプ — Voice PE の DAC シートの写し", "codec"),
-            ("電源 0.9V・1.8V・3.3V — Voice PE の Power シートの写し", "vpower"),
-            ("ESP32-S3-WROOM-1U とその周り", "esp")],
-        ["電源は Adafruit PowerBoost 1000C Rev B（CC BY-SA 3.0）の写し", lic,
-         "gen_sch_voice.py が生成（docs/VOICE-BOARD.md）"], "A1")
-    lonely_mic = prune(MIC)
-    run("katanori61_mic", MIC, {"mic": (15, 30, 250)}, "katanori 前のマイクのライザー",
-        [("マイク 2 個（71.0mm）— Voice PE の XMOS シートの写し（CERN-OHL-P v2）", "mic")],
-        [lic, "gen_sch_voice.py が生成（docs/VOICE-BOARD.md）"], "A4")
+    lonely = prune(AUDIO)
+    print("音声の板で未接続にしたネット（写さなかった部品の向こう側）:", " ".join(lonely))
+    run("katanori61_audio", AUDIO,
+        {"xmos": (15, 30, 400), "mic": (15, 330, 400), "codec": (440, 30, 390), "vpower": (440, 250, 390),
+         "esp": (440, 420, 390), "ports": (15, 470, 250), "flags": (300, 470, 100)},
+        "katanori 音声の板（ReSpeaker Lite の場所）",
+        [("XU316 — Voice PE の XMOS シートの写し（CERN-OHL-P v2）", "xmos"),
+         ("マイク 2 個（71.0mm）— Voice PE の XMOS シートの写し", "mic"),
+         ("コーデックとアンプ — Voice PE の DAC シートの写し", "codec"),
+         ("電源 0.9V・1.8V・3.3V — Voice PE の Power シートの写し", "vpower"),
+         ("ESP32-S3-WROOM-1U とその周り", "esp"),
+         ("口 — ライザー（ハブへ）・スピーカー", "ports")],
+        [lic, "gen_sch_voice.py が生成（docs/VOICE-BOARD.md）"], "A1")
+    lonely_hub = prune(HUB)
+    print("ハブで未接続にしたネット:", " ".join(lonely_hub))
+    run("katanori61_hub", HUB, HUB_GROUPS, "katanori ハブ（電源・電流計・つまみ・口）",
+        HUB_HEADS + [("ライザー — 音声の板へ（2x07）", "xiao")],
+        ["電源は Adafruit PowerBoost 1000C Rev B（CC BY-SA 3.0）の写し",
+         "gen_sch_voice.py が生成（docs/VOICE-BOARD.md）"], "A3")
