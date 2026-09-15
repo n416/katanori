@@ -6,7 +6,7 @@
 
 ```
 part = "all";
-MAT = "resin";   // ← ここを "nylon" にすると下の形になる（GUI・Customizer・CLI の -D MAT="nylon" のどれでも）
+MAT = "nylon";   // ← 既定は "nylon"（2026-09-16 ユーザー・現行は MJF）。"resin" にすると板 6 枚のレジン版。GUI・Customizer・CLI の -D MAT= のどれでも
 ```
 
 `skin`・`all`・`explode` は MAT に追従する（nylon ならシェル＋天板の 2 部品、explode はシェルを置いたまま PCB と天板の小組だけ上げる）。
