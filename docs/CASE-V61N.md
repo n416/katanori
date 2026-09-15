@@ -1,17 +1,22 @@
 # 筐体 v6.1n（ナイロン・一体シェル版）
 
 2026-09-15 起こし。**ファイルは v6.1 と同じ `hardware/case_v6_1.scad` で、切り替えは
-`hardware/parts/mat.scad` の 1 行だけ**（🔒 ユーザー「ナイロン版とレジン版があっていいんだよ。
-まさか・・・スイッチになってない？」）。
+その先頭の `MAT` 1 行**（🔒 ユーザー 2026-09-15「ナイロン版とレジン版があっていいんだよ。まさか・・・スイッチになってない？」、
+2026-09-16「ナイロンとレジンは別パラメーターであるべきでは？でないと explode もそれに応じた形にできないのでは？」）。
 
 ```
-MAT = "resin";   // ← ここを "nylon" にすると下の形になる
+part = "all";
+MAT = "resin";   // ← ここを "nylon" にすると下の形になる（GUI・Customizer・CLI の -D MAT="nylon" のどれでも）
 ```
 
-🔴 `-D MAT=...` で渡してはいけない。-D は呼んだファイルの scope にしか届かず、`use` した部品
-（つまみ・会話ボタン・スピーカー）は resin のままになる。case_v6_1.scad の assert がそれを捕まえる。
+`skin`・`all`・`explode` は MAT に追従する（nylon ならシェル＋天板の 2 部品、explode はシェルを置いたまま PCB と天板の小組だけ上げる）。
 
-部品側も同じ 1 行を読む: `parts/knob_v61.scad`・`parts/btn_v61.scad`・`parts/spk_v61.scad`
+仕組み（2026-09-16）: case が `$mat = MAT;` を置き、`$` 付きの変数が呼び出しの連鎖を伝わる性質で `use` した部品
+（つまみ・会話ボタン・スピーカー）の先頭の代入にも届く。部品ファイルは include の直後に `$mat = is_undef($mat) ? "resin" : $mat;` を持ち、
+単体で開けば resin、`-D '$mat="nylon"'` で nylon、case から use されれば case の値になる。case の assert が食い違い（`-D $mat=` だけ渡した等）を捕まえる。
+🔴 2026-09-15 までは `parts/mat.scad` の `MAT = "resin";` を書き換える方式だった（-D が use 先に届かないため）。書き出しスクリプトはその行を一時的に書き換えていたが、いまは -D で渡す。
+
+部品側も同じ `nylon()` を読む: `parts/knob_v61.scad`・`parts/btn_v61.scad`・`parts/spk_v61.scad`
 （前者 2 つは v5 と共用の knob_v5 / btn_v3 の写し。v5 は触らない）。
 
 ## 1. なぜ形が違うのか
@@ -105,7 +110,7 @@ python hardware/tools/_stl_preflight.py "hardware/stl/v5/*.stl"            # res
 
 ### 5.1 MJF の判定で出た 🔴 と、その直し（2026-09-15・同日に全部直して 🔴 0）
 
-書き出しは `python hardware/tools/stl_v61n.py`（7 点。書き出す間だけ `parts/mat.scad` を "nylon" にして戻す）、当たり検査は同じ道具の `--check`（下の 5.2。`--resin-check` はレジンのまま）。直しはどれも `nylon()` の分岐で、レジンの形は変えていない（ザグリを開く 1 件だけ両方）。
+書き出しは `python hardware/tools/stl_v61n.py`（7 点。case には `-D MAT="nylon"`、部品ファイルには `-D '$mat="nylon"'` を渡す）、当たり検査は同じ道具の `--check`（下の 5.2。`--resin-check` はレジンのまま）。直しはどれも `nylon()` の分岐で、レジンの形は変えていない（ザグリを開く 1 件だけ両方）。
 
 | 部品 | 🔴 だった物 | 正体 | 直し |
 |---|---|---|---|

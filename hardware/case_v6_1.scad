@@ -23,13 +23,15 @@
 //   seam_<板>_<板> … 板 2 枚の重なり（例 seam_top_front。0 が正）
 //   （皮・板・検査の語は皮を起こすときにここへ足す。既にある語の意味は変えない）
 // ============================================================
-part = "all";
+part = "explode";
+MAT = "resin";   // ["resin", "nylon"]   刷り方。"resin" = 自分の光造形（板 6 枚）／"nylon" = 外注 MJF（一体シェル＋天板）。GUI ではこの行を書き換える（Customizer でも選べる）。CLI は -D MAT="nylon"
+$mat = MAT;      // 🔴 部品ファイル（use）へ材料を配る。$ 付きは呼び出しの連鎖を伝わる（parts/mat.scad の説明）。PROPS_OFF などより前に置くこと
 // ---- 刷り方（🔒 ユーザー 2026-09-14「ナイロンで印刷する場合のモードが欲しいね」）----
 //   "resin" … 自分の機械（光造形）。いまの既定。板厚も格子も支柱も、この機械の癖を避けるための形
 //   "nylon" … 外注 MJF PA12（docs/PRINT.md の §「レジンと MJF の値段の差」）
 //   ここで切り替わるのは**刷り方だけで決まる物**（支柱・ラフト・格子）。板厚と嵌め合いはまだ resin の値のまま。
 //   ⚠ ナイロンで書き出すときは FIT_PRINT を渡さないこと（初層の太りの打ち消しは光造形の話。粉の中で焼く MJF には無い）
-include <parts/mat.scad>   // 🔴 材料のスイッチはこのファイルの 1 行だけ（-D で渡さないこと。下の assert が半分だけの切り替えを捕まえる）
+include <parts/mat.scad>   // nylon() / mat_name()。スイッチは上の MAT（2026-09-16 までは mat.scad の 1 行だった）
 PROPS_OFF = nylon();   // 粉が支えるので支柱もラフトも要らない   // true: 刷る向きの素の形（支柱・ラフト無し）。tools/props_gen.py がこれで焼いて支柱の位置を決める
 
 include <parts/fit.scad>   // 嵌め合いの数式（穴 = ダボ + 向きで決まる差。🔒 2026-09-10 ゲージ）
@@ -46,9 +48,9 @@ use <parts/btn_v61.scad>    // 会話ボタン v3（🔒 2026-08-30）。原点 
 use <parts/knob_v61.scad>   // つまみ v5。原点 = 軸・z0 = 天板の外面
 use <parts/spk_v61.scad>   // スピーカー v6.1（parts/spk_v5.scad の写し。いまは中身も同じ・v6.1 の直しはこちらへ）。原点 = スピーカーの中心・z0 = 天板の外面
 use <parts/mts102_v61.scad>   // トグル MTS-102（📄 図面から起こした v6.1 用。parts/parts.scad の mts102 は v5 と共用なので触らない）
-// 🔴 半分だけ切り替わっていないか（-D MAT=... で渡すと case だけ切り替わり、use した部品は resin のまま）
+// 🔴 半分だけ切り替わっていないか（部品は $mat で見る。-D '$mat=…' だけ渡して MAT を変えないと食い違う）
 assert(MAT == knob_mat() && MAT == btn_mat() && MAT == spk_mat(),
-       "材料のスイッチが食い違っている。parts/mat.scad の 1 行だけで切り替えること（-D MAT= は使わない）");
+       "材料のスイッチが食い違っている。先頭の MAT（または -D MAT=\"nylon\"）で切り替えること（-D $mat= を case に渡さない）");
 include <parts/hub_board_parts.scad>   // HUB_HEADERS（口の表・自動生成）。数字はここから読む
 include <icons/icon_wrench_u.scad>   // スパナ（🔒 ユーザーの絵 uuu.svg から）
 include <icons/icon_headphone.scad>  // ヘッドホン（ユーザーの EPS から）
@@ -812,7 +814,11 @@ CRADLE_GAP = 2.2;   // 前の当ての、端子の両脇の切れ目（軸から
 module floor_bosses() for (p = POSTS_B) translate([p[0], p[1], -0.01]) cube([POST_W, post_dy(p), FLOOR_BOSS + 0.01]);   // 耳の下の台（柱と同じ足跡）
 module p_floor() difference() { union() { slab_floor(); inner_fillets(); hub_posts(); rsp_seat(); oled_rib(); if (!nylon()) floor_bosses(); } if (!nylon()) { floor_screw_cuts(); floor_hatch_screw_cuts(); } hub_screw_cuts(); }   // v6.1: Type-C の受けと前板の溝は無い   // Type-C の受け・ハブの柱・ReSpeaker の座・OLED のリブ・ハッチの爪の帯は床と一体
 // 刷る部品ごとの色（同じ色 = 同じ部品として刷る）
-module skin(a = 0.5) { color("#e0a040", a) p_floor(); color("#c9d0d8", a) p_top(); color("#4a90d9", a) p_lwall(); color("#4a90d9", a) p_rwall(); color("#9b59b6", a) p_front(); color("#27ae60", a) p_hatch(); ribs(); }   // リブ込み（skin / all で見える）
+module skin(a = 0.5) {
+    if (nylon()) { color(C_SHELL) shell(); color(C_TOP61) p_top(); }   // ナイロン: シェル＋天板の 2 部品・不透明（2026-09-16）
+    else { color("#e0a040", a) p_floor(); color("#c9d0d8", a) p_top(); color("#4a90d9", a) p_lwall(); color("#4a90d9", a) p_rwall(); color("#9b59b6", a) p_front(); color("#27ae60", a) p_hatch(); ribs(); }   // レジン: 板 6 枚を色分け・半透明
+}
+C_SHELL = "#8fb8a0"; C_TOP61 = "#b4d2c0";   // ナイロンの 2 部品の色（同じ系統。分けるのは explode で見分けるため）   // リブ込み（skin / all で見える）
 
 // ============================================================
 // 締結（v4 §5 の流儀: 樹脂にねじを切らない・貫通＋ナット。ビスは M2×15 / M2×6 / M2×8・ナット M2）
@@ -1146,8 +1152,8 @@ if (starts(part, "hit_w_")) intersection() { w_one(tail(part, 6)); all_solid(); 
 if (starts(part, "only_w_")) w_one(tail(part, 7));
 if (part == "plugs") plugs();
 module shell() { p_floor(); p_lwall(); p_rwall(); p_front(); p_hatch(); }   // ナイロン: 床＋4 壁を 1 部品に
-if (part == "shell") { assert(nylon(), "shell はナイロンの形。parts/mat.scad の MAT を \"nylon\" にすること"); color("#8fb8a0") shell(); }
-if (part == "print_shell") { assert(nylon(), "print_shell はナイロンの形。parts/mat.scad の MAT を \"nylon\" にすること"); shell(); }
+if (part == "shell") { assert(nylon(), "shell はナイロンの形。先頭の MAT を \"nylon\" にすること"); color("#8fb8a0") shell(); }
+if (part == "print_shell") { assert(nylon(), "print_shell はナイロンの形。先頭の MAT を \"nylon\" にすること"); shell(); }
 if (part == "seam_shell_top") intersection() { shell(); p_top(); }   // ナイロンの継ぎ目はここ 1 か所だけ（0 が正）
 if (part == "skin")   skin();
 // ---- 板 6 枚とブリッジを刷る向き（v4 と同じ）。板は外面を下（柱・棚・耳・格子・台座は全部上を向く）・ブリッジは皿の裏を下。前板（brg_front）と蓋一式（shutter_v4）は未定
@@ -1180,7 +1186,12 @@ if (part == "p_front") { color("#9b59b6") p_front(); panel_ribs("front"); }
 if (part == "p_hatch") { color("#27ae60") p_hatch(); panel_ribs("hatch"); }
 if (part == "fasten") { color("#4a90d9") p_lwall(); color("#4a90d9") p_rwall(); color("#e0a040", 0.35) p_floor(); color("#c9d0d8", 0.35) p_top(); color("#9b59b6", 0.35) p_front(); }
 if (part == "all")    { skin(); innards(); }
-if (part == "explode") {   // 箱全体の分解。🔒 ユーザー 2026-09-05「explode がブリッジだけになっている」
+if (part == "explode" && nylon()) {   // ナイロン: シェル（床＋4 壁＋トグルの座）は置いたまま、PCB と天板の小組だけ上へ（2026-09-16）
+    color(C_SHELL) shell(); one("bat"); one("rsp"); one("oled"); one("tgl");
+    translate([0, 0, 20])  one("hub");
+    translate([0, 0, 60])  { color(C_TOP61) p_top(); one("knob"); one("btn"); one("spk"); one("spktub"); }
+}
+if (part == "explode" && !nylon()) {   // レジン: 箱全体の分解。🔒 ユーザー 2026-09-05「explode がブリッジだけになっている」
     color("#e0a040") p_floor(); one("bat"); one("rsp"); one("oled");                                       // 置いたまま（床・電池・ReSpeaker・OLED）
     translate([-30, 0, 0]) { color("#4a90d9") p_lwall(); panel_ribs("lwall"); }                                      // 左の壁は左へ
     translate([30, 0, 0])  { color("#4a90d9") p_rwall(); panel_ribs("rwall"); }                                      // 右の壁は右へ

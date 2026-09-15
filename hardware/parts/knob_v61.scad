@@ -1,4 +1,5 @@
-include <mat.scad>   // 材料のスイッチ（case と同じ 1 行を読む）
+include <mat.scad>   // nylon() / mat_name()。スイッチは case_v6_1.scad 先頭の MAT（$mat で届く）
+$mat = is_undef($mat) ? "resin" : $mat;   // 🔴 単体で開く・書き出すときの既定（-D '$mat="nylon"' で上書き）。case から use されたときは呼び出し側の $mat を引き継ぐ。無いと -D が末尾に付いて上の代入が resin のまま焼かれる（2026-09-16 に踏んだ）
 function knob_mat() = mat_name();
 // ============================================================
 // つまみ v6.1n — parts/knob_v5.scad の写し（v6.1n・MJF ナイロン用）
