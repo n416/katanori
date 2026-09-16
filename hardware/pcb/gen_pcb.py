@@ -363,7 +363,9 @@ POWER_V61 = {
     #   スイッチングノードが U1 を回り込んで 18.9mm になった（600kHz・1A を切る節点）。
     #   180 に回すと SW が右＝ L1 の側に出る。V5（1・15・16 番）は少し遠回りになるが直流の道
     "U1":  (22.0, 13.5, 180),   # 昇圧 TPS61090
-    # ⚠ 27.5 だと U1 のシルクの角が L1 の 1 番パッドに 0.1 乗る（silk_over_copper・警告）。
+    # ⚠ 27.5 だと U1 の **1 番ピンの印の三角**（F.SilkS の fp_poly）が L1 の 1 番パッドに掛かる
+    #   （silk_over_copper・警告）。三角の右端は KiCad X 64.970、L1 のパッドの左端は 65.007 で、
+    #   図形どうしは 0.037 離れている。掛かるのは**線の太さ 0.15 の半分**が出るぶん。
     #   28.1 へ逃がすと今度は自動配線が未接続を 2 本出した。**警告のほうを取る**。
     #   JLCPCB はパッドに掛かったシルクを削って作るので実害は小さい（旧板にも 22 か所ある）
     "L1":  (27.5, 13.5, 0),     # インダクタ
@@ -825,7 +827,18 @@ def outline():
 
 
 def mounting_holes():
-    """M2（φ2.2）4 つ。板 X 3.5 と 40.5・Y 3.5 と 69.5（37 × 66 の格子・🔒 筐体側 2026-09-13）。"""
+    """M2（φ2.2）4 つ。板 X 3.5 と 40.5・Y 3.5 と 69.5（37 × 66 の格子・🔒 筐体側 2026-09-13）。
+
+    ⚠ DRC の lib_footprint_mismatch がこの 4 つで出る（2026-09-16・fp-lib-table を置いて
+      検査が動くようになってから見えた）。**既知の差で、工場に出る物は一致している。**
+        穴       np_thru_hole・円・(size 2.2 2.2)・(drill 2.2)  ← 元と完全に同じ
+        layers   ここは "F&B.Cu"、元は "*.Cu"。2 層なので同じ意味
+        欠け     元にある fp_circle 2 つ（Cmts.User の目印・F.CrtYd の枠）と fp_text と
+                 attr の exclude_from_pos_files。どれもガーバーにもドリルにも出ない
+      exclude_from_pos_files が無くても実装の位置ファイルには入らない。fab.py が
+      --smd-only で出しているので、非メッキ穴はそもそも対象外（cpl.csv 48 行に留め穴は無い）。
+      ⇒ この 4 件は残してよい。**別の名前の足形で mismatch が出たら、そちらは本物。**
+    """
     o = []
     for mx, my in MOUNT:
         x, y = bx(mx, my)
@@ -1077,6 +1090,28 @@ def vbus_zone():
              ["min_thickness", "0.25"], ["filled_areas_thickness", "no"],
              ["fill", "yes", ["thermal_gap", "0.2"], ["thermal_bridge_width", "0.5"]],
              poly]]
+
+
+def fp_lib_table(items):
+    """足形のライブラリの表（fp-lib-table）を板から作る（2026-09-16）。
+
+    ⭐ これが無いと kicad-cli の DRC は「ライブラリが構成に含まれていません」を足形の数だけ出して、
+      **「板の足形が元のライブラリと同じ形か」の検査を丸ごと諦める**（v6.1 では 59 件＝全数）。
+      59 件は「問題が 59 個」ではなく「1 度も検査していない」という意味だった。
+    置くだけで検査が動く。⚠ 警告 0 になるのではなく、**本当の差が出るようになる**のが目的。
+    パスは ${KICAD10_FOOTPRINT_DIR}（KiCad が解く）で書く。PC ごとに KiCad の場所が違うので
+    絶対パスにしない（kicad_paths.py の注と同じ理由）。
+    """
+    # ⚠ placed だけでは足りない。留め穴は mounting_holes() が別に足すので、板の全体から拾う
+    libs = sorted({str(e[1]).split(":")[0] for e in items
+                   if isinstance(e, list) and e and e[0] == "footprint"})
+    rows = ["(fp_lib_table", "  (version 7)"]
+    for n in libs:
+        uri = ("${KIPRJMOD}/../%s.pretty" % n) if n == "katanori" else ("${KICAD10_FOOTPRINT_DIR}/%s.pretty" % n)
+        rows.append('  (lib (name "%s")(type "KiCad")(uri "%s")(options "")(descr ""))' % (n, uri))
+    rows.append(")")
+    (OUT / "fp-lib-table").write_text(chr(10).join(rows) + chr(10), encoding="utf-8")
+    return libs
 
 
 def ep_vias(placed, nets):
@@ -1593,6 +1628,8 @@ def build():
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT / f"{NAME}.kicad_pcb").write_text(kisym.dump(doc) + "\n", encoding="utf-8")
     print(f"{len(placed)} 部品・ネット {len(nets)} 本 → {OUT / (NAME + '.kicad_pcb')}")
+    print(f"  足形のライブラリの表: {len(fp_lib_table(doc))} 本 → {OUT / 'fp-lib-table'}")
+
     # 自動配線に渡す DSN。パネルの外形を囲い、板と板のあいだ・空いている所は銅を置かせない
     bnd = [bx(*q) for q in outline_pts()]
     ko = []
