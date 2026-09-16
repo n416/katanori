@@ -58,10 +58,10 @@ for n in B.NOTCHES:
     rect(n[0], n[1], n[2] - n[0], n[3] - n[1], "#f7f8fa", "#b23", 1.2, "4 3")
 for n in B.NOTCHES:
     txt((n[0] + n[2]) / 2, n[1] - 2.2, "欠き", 9, "#b23")
-for i, (bx, by, bw, bh) in enumerate(B.BACK_BANDS):
-    rect(bx, by, bw, bh, "#7a8699", "#7a8699", 1.0, "2 4", op=0.07)
-txt(B.BACK_BANDS[0][0] + 8.0, 8.8, "裏に胴 6.0 が入る帯", 9, "#5a6a85")
-txt(B.BACK_BANDS[1][0] + 8.0, 8.8, "裏に胴 6.0 が入る帯", 9, "#5a6a85")
+bx0, by0, bx1, by1 = B.BAT_BOX
+rect(bx0, by0, bx1 - bx0, by1 - by0, "#7a8699", "#7a8699", 1.0, "2 4", op=0.07)
+txt((bx0 + bx1) / 2, by1 - 2.4, "電池の真上（板の裏まで %.1f）" % (B.BOARD_UNDER_Z - B.BAT_T), 9, "#5a6a85")
+txt((bx0 + bx1) / 2, by1 - 5.0, "この外は床まで %.1f" % B.BOARD_UNDER_Z, 9, "#5a6a85")
 
 # 電源の区画
 for (x, y, w, h) in B.POWER_AREAS:
@@ -166,16 +166,13 @@ for nm, r in MINE:
         a = _ov(r, fr)
         if a > 1e-9:
             bad.append("%s x %s: %.2fmm2" % (nm, fn, a))
-for p_ in [q for q in B.PORTS if q[6] == "B"]:
-    r = fp_box(p_)
-    if not any(r[0] >= b[0] - 1e-9 and r[1] >= b[1] - 1e-9 and r[0] + r[2] <= b[0] + b[2] + 1e-9
-               and r[1] + r[3] <= b[1] + b[3] + 1e-9 for b in B.BACK_BANDS):
-        bad.append("口 %s: 裏の帯（嵌合 8.0 が入る所）から出る" % p_[0])
+# 裏の物は「帯の中か」ではなく「下に何 mm 空いているか」で見る（電池の箱から引き算）
 for nm, r in BACK:
-    inband = any(r[0] >= b[0] - 1e-9 and r[1] >= b[1] - 1e-9 and r[0] + r[2] <= b[0] + b[2] + 1e-9
-                 and r[1] + r[3] <= b[1] + b[3] + 1e-9 for b in B.BACK_BANDS)
-    if not inband:
-        bad.append("%s: 裏の帯（胴が入る所）から出る" % nm)
+    have = B.back_clear(r[0], r[1], r[0] + r[2], r[1] + r[3])
+    need = B.PH_TOP_MATED_H
+    if have < need - 1e-9:
+        bad.append("%s: 板の裏に %.1f しか無い（縦の PH は挿して %.1f 要る。横出し S2B-PH-K なら %.1f）"
+                   % (nm, have, need, B.PH_SIDE_H))
     for fn, fr in FLOOR_POSTS + BACK:
         if fn == nm: continue
         a = _ov(r, fr)

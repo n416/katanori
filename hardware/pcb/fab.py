@@ -24,6 +24,22 @@ from kisym import find, find1  # noqa: E402
 from kicad_paths import CLI  # noqa: E402
 OUT = HERE / "katanori61"
 FAB = OUT / "fab"
+def board_copper(pcb):
+    """板の .kicad_pcb に書いてある銅の層を、上から順に返す。"""
+    import re as _re
+    t = pathlib.Path(pcb).read_text(encoding="utf-8")
+    i = t.index("(layers")
+    j = t.index("Edge.Cuts", i)
+    lays = _re.findall('"((?:F|B|In[0-9]+)[.]Cu)"', t[i:j])
+    def rank(n):                      # F.Cu → 0 / In1.Cu → 1 / … / B.Cu → 99
+        if n == "F.Cu":
+            return 0
+        if n == "B.Cu":
+            return 99
+        return int(n[2:n.index(".")])
+    return sorted(set(lays), key=rank)
+
+
 GERBER = FAB / "gerber"      # zip にするのはここだけ（部品表と実装位置は別に上げる）
 NAME = "katanori61"
 
@@ -61,7 +77,10 @@ def main():
     pcb = str(OUT / f"{NAME}.kicad_pcb")
     # 🔴 --check-zones: 基板ファイルにはベタの塗りを保存していないので、書き出しのとき塗り直す。無いと GND ベタが空のガーバーになる（2026-09-16 夕に発見。それまでの fab の B_Cu は塗り 0 面だった）
     run("pcb", "export", "gerbers", "-o", str(GERBER) + "\\", "--no-protel-ext", "--check-zones",
-        "--layers", "F.Cu,B.Cu,F.Paste,B.Paste,F.Silkscreen,B.Silkscreen,F.Mask,B.Mask,Edge.Cuts", pcb)
+        # ⚠ 層は **板から読む**。ここに書き写すと、4 層にしたとき内層が黙って落ちる
+        #   （2026-09-17・In1/In2 のガーバーが出ないまま zip ができていた）
+        "--layers", ",".join(board_copper(pcb))
+        + ",F.Paste,B.Paste,F.Silkscreen,B.Silkscreen,F.Mask,B.Mask,Edge.Cuts", pcb)
     run("pcb", "export", "drill", "-o", str(GERBER) + "\\", "--format", "excellon",
         "--drill-origin", "absolute", "--excellon-units", "mm", "--excellon-separate-th", pcb)
 

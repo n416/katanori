@@ -50,6 +50,19 @@ NAME = "katanori61"
 # ⭐ 2026-09-16: 並べ直して電池の道が 107mm → 12mm になったので、0.8 で押し通す必要が消えた。
 #   0.6mm で 0.819mΩ/mm・IPC 許容 1.65A。道が 12mm なら 10mΩ ＝ 充電上限 1A でも 10mV。
 #   0.8 のままだと U2（QFN-20・0.5mm ピッチ）の 14〜16 番から VLIPO が逃げられず未接続が出る。
+# ---- 4 層（2026-09-17）----
+# 2 層では U2（QFN-20・4×4）の 20 ピンが出入りできず、部品を動かすたびに別のネットが切れた
+# （L1 の枠と U2 の枠の間が 0.4mm）。JLCPCB の見積もりで 82×38・5 枚が 2 層 $4.00 / 4 層 $7.00。
+# In1 を GND の面にすると GND の 47 パッドが配線から消え、In2 が 3 枚目の配線層になる。
+# ⚠ 内層を DSN の plane にすると Freerouting が落ちる（drillShapes is null・docs/VOICE-BOARD.md 10 章）。
+#   ⇒ **plane は使わない。**自動配線には F.Cu / In2.Cu / B.Cu の 3 層だけ見せ、In1 は KiCad のベタで敷く。
+COPPER = ["F.Cu", "In1.Cu", "In2.Cu", "B.Cu"]
+ROUTE_COPPER = ["F.Cu", "In2.Cu", "B.Cu"]   # In1 は GND の面なので自動配線に見せない
+# 貫通穴は 2 層のときと同じ 0.6/0.3。統合基板の 0.45/0.2 は XU316 の細ピッチのために
+# 落とした値で、この板には要らない。0.2 の穴はこの板の規則（min_through_hole_diameter 0.3・
+# min_via_annular_width 0.13）に掛かり、DRC が 69 件ずつエラーを出した（2026-09-17）。
+VIA4 = (0.6, 0.3)
+
 BAT_NETS = {"BATRAW", "BATP", "VLIPO"}
 BAT_W = 0.6
 #   ⚠ VBUS はこの組に**入れない**。U2（QFN-20・0.5mm ピッチ）に VBUS のパッドが 6 本あり、
@@ -326,19 +339,23 @@ BOX_PLACE = {
     #    ⚠ Y へ並べる（270）も試したが、はんだ足が J4 に挿さったプラグの下に入って置けなかった（v61_board.py の注）
     # ⭐⭐ 角度 270 でパッドが **Y** へ並ぶ（手前が 2 番 ＝ VBAT ＋・奥が 1 番 ＝ GND）。
     #     180（X 並び）にしていたのは J4 のプラグに塞がれていたため。J4 を縦にして戻した
-    # ⭐ 2026-09-16: 電池の口を **Q2 の隣**へ。旧位置は X 76.25（v61_board.py の裏の帯）で、
-    #   そこから R41（X 30）まで電池の電流が板を横断していた。筐体が板に合わせる（ユーザー）ので、
-    #   電源部の列の右端へ置く。電池からの線は板の裏を這う（線の抵抗は 0.2mm の銅の 1/30）。
-    "J10": (PH_V2, 270, 46.5, 10.05, 52.0, 16.95),   # 縦 2 ピン（板の裏・口は下 ＝ 電池の側）
+    # 電池の口は **電池の外**に置く。電池は板の座標 X 16.05〜66.05 を占め、その上は
+    # 板の裏まで 12.0 − 6.0 = 6.0 しか無い。縦の PH は挿して 8.0 要る（📄 ePH.pdf 1 ページ）。
+    # 電池の外なら床まで 12.0。電池のタブも X 66.05 から出るので、その右が線としても短い。
+    # 判定は v61_board.back_clear() が電池の箱から引き算して出す。
+    "J10": (PH_V2, 270, 73.5, 12.5, 79.0, 19.4),     # 縦 2 ピン（板の裏・口は下 ＝ 電池の側）
     # ライザーの縦ソケット（パッドが板の +X へ 2.54 間隔で並ぶ向き）
     "J1": (SOCK7, 90, -0.01, VB.RISER_XIAO[2] - VB.RISER_D / 2, 18.79, VB.RISER_XIAO[2] + VB.RISER_D / 2),
     "J2": (SOCK4, 90, 35.47, VB.RISER_OLED[2] - VB.RISER_D / 2, 46.63, VB.RISER_OLED[2] + VB.RISER_D / 2),
     # 充電の USB-C（口が板の右の縁から 1.53 出る）
     # 🔴 2026-09-14: 270 度で置いたらパッドが板の外（板 X 82.8）へ出て、縁までの距離の違反が
     #    18 件出た。図面の Y は下向きなので、板の座標で見ると回る向きが逆になる。⇒ 90 度。
-    # ⭐ 2026-09-16: USB-C を **U2 のすぐ前の縁**へ（右の縁 X 80 → 前の縁 X 21.5〜32.1）。
-    #   旧位置では VBUS が 52mm 走っていた。角度 0 で口が −Y（前の壁）を向く。
-    "J13": ("Connector_USB:USB_C_Receptacle_USB2.0_16P", 0, 21.5, -2.03, 32.14, 7.39),
+    # USB-C は **壁のある縁**にしか置けない（🔒 ユーザー 2026-09-16「壁であればどこでもいいですよ。
+    # ハッチ側でもいいです」）。前の縁は壁ではなく ReSpeaker の板が立っていて、板の縁から
+    # 背面まで 3.465・胴を 1.53 出すと残り 1.935 でプラグが入らない。
+    # ⇒ **後ろの縁（ハッチ側）**。U2（板 X 33）に一番近い壁で、VBUS が短い。
+    # 角度 180 で口が +Y（ハッチ）を向く。
+    "J13": ("Connector_USB:USB_C_Receptacle_USB2.0_16P", 180, 26.0, 29.51, 36.64, 38.93),
     # ミュートリレー（背 9.33）
     "K31": ("Relay_SMD:Relay_DPDT_Omron_G6S-2F", 90) + VB.RELAY[:2]
            + (VB.RELAY[0] + VB.RELAY[2], VB.RELAY[1] + VB.RELAY[3]),
@@ -356,7 +373,8 @@ BOX_PLACE = {
 #      U3（INA226）は R41 の真上に置く。J13（USB-C）は U2 のすぐ前の縁へ。
 # 🔒 2026-09-16 ユーザー「この板が成立しなければ筐体は作り直し。ここが中枢」。
 #    固定は **板の外形・取付穴・J1（XIAO のライザー）** の 3 つだけ。
-#    v61_board.py の裏の帯（BACK_BANDS）・USBC_Y・電池のタブの位置は**もう生きていない**。
+#    v61_board.py の USBC_Y・電池のタブの位置は筐体側の都合なので縛らない。板の裏に何が入るかは
+#    v61_board.py の back_clear()（電池の箱からの引き算）で毎回出す。
 POWER_V61 = {
     # ---- 主の道（Y 13.5 の帯・右から左へ流れる）----
     # 🔴 180°: TPS61090 の SW は 3・4 番で、0° だと U1 の **左**に出る。L1 は右にあるので
@@ -368,7 +386,9 @@ POWER_V61 = {
     #   図形どうしは 0.037 離れている。掛かるのは**線の太さ 0.15 の半分**が出るぶん。
     #   28.1 へ逃がすと今度は自動配線が未接続を 2 本出した。**警告のほうを取る**。
     #   JLCPCB はパッドに掛かったシルクを削って作るので実害は小さい（旧板にも 22 か所ある）
-    "L1":  (27.5, 13.5, 0),     # インダクタ
+    # 🔴 180°: 1 番（VSYS）を U2 の側＝右へ、2 番（SW）を U1 の側＝左へ。0° だと SW の
+    #    パッドが U1 と反対側を向き、スイッチングノードが L1 を回り込む
+    "L1":  (27.5, 13.5, 180),   # インダクタ
     # ⭐ 2026-09-16: Y 13.5 → 15.2。下の辺（6〜10 番＝NC・STAT2・STAT1・VBUS・GND）が
     #   5 本まとめて下へ逃げるのに、前の帯（Y 9.2）まで 2mm しか無く、VBUS の 9 番が毎回浮いた。
     #   先に手で引いた逃げ道で通すと、今度は隣の STAT1 と GND を押し出す。⇒ **帯を広げる**
@@ -379,14 +399,14 @@ POWER_V61 = {
     "Q2":  (43.0, 13.5, 0),     # 逆接保護 P-ch
     # ---- 前の帯（Y 9.2・USB-C のすぐ内側）----
     # U2 の 6〜10 番は **下の辺**（板の Y 11.5）なので、そこへ行く物をこの帯に並べる
-    "R44": (19.0, 9.3, 0), "R45": (26.0, 9.3, 0),    # CC 5.1k（USB-C の足元）
+    "R44": (19.0, 5.0, 0), "R45": (26.0, 5.0, 0),    # CC 5.1k（USB-C の足元）
     # ⭐ C2（昇圧の出力 2.2µF）は U1 の 15・16 番（V5・下の辺 板 Y 11.22）の真下。
     #   ホットループ（SW → 出力コンデンサ → GND）はここが長いと 600kHz で鳴る。旧 7.4mm
     "C2": (22.6, 9.3, 0),
-    "LED3": (28.0, 9.2, 0), "R14": (30.7, 9.2, 0),   # 充電済み（STAT2 = U2 7 番・下の辺）
-    "R15": (33.4, 9.2, 0),                            # THERM（5 番・左の辺）
-    "LED4": (36.1, 9.2, 0), "R8": (38.8, 9.2, 0),    # 充電中（STAT1 = U2 8 番・下の辺）
-    "R46": (43.0, 9.2, 0),                            # Q2 のゲート
+    "LED3": (28.0, 5.0, 0), "R14": (30.7, 5.0, 0),   # 充電済み（STAT2 = U2 7 番・下の辺）
+    "R15": (33.4, 5.0, 0),                            # THERM（5 番・左の辺）
+    "LED4": (36.1, 5.0, 0), "R8": (38.8, 5.0, 0),    # 充電中（STAT1 = U2 8 番・下の辺）
+    "R46": (43.0, 5.0, 0),                            # Q2 のゲート
     # ---- U2 の右の辺（11〜15 番）に付く設定抵抗。⭐ 遠いと 1 本つながらない（2026-09-14 の R16）
     "R16": (35.0, 11.0, 0),     # PROG1 1k（充電電流 1A・13 番）
     "R17": (36.8, 17.2, 0),     # PROG3 100k（12 番）
@@ -557,18 +577,17 @@ CHECK_PADS = {
     # 🔴🔴 電池の極性。裏面なので足形が鏡になる。ここが入れ替わると逆接で煙が出る
     #    （2026-09-11 に実機で INA226 から煙・PowerBoost が発熱している）。
     #    **奥（Y 大）が GND ／ 手前（Y 小）が VBAT（＋）** — PowerBoost B1 と同じ言い方。
-    #    ⭐ 2026-09-16: 口を Q2 の隣（枠 X 46.5〜52.0・Y 10.05〜16.95）へ移した。旧位置は X 75.7。
-    #    🔴 1 番 GND が**奥**（Y 14.500）・2 番 VBAT ＋ が**手前**（Y 12.500）
-    ("J10", "1"): (48.700, 14.500), ("J10", "2"): (48.700, 12.500),
+    #    🔴 1 番 GND が**奥**（Y 16.950）・2 番 VBAT ＋ が**手前**（Y 14.950）
+    ("J10", "1"): (75.700, 16.950), ("J10", "2"): (75.700, 14.950),
     # ⭐ 2026-09-16 夕: 逆接保護の P-ch（Q2）の向き。ここが回ると保護にならないので位置で縛る。
     #    SOT-23 は 1 番（G）と 2 番（S）が片側・3 番（D）が反対側で、**3 番＝ドレイン＝電池側**である。
-    #    角度 0 で 3 番が +X 側（44.120）・1/2 番が −X 側（42.240）に並ぶ。J10 は Q2 の +X 側（X 48.7）
-    #    なので、電池は 3 番（ドレイン）から入る。ネットの対応（3=BATRAW・2=BATP・1=BATG）は check_sch.py が見る
+    #    角度 0 で 3 番が +X 側（44.120）・1/2 番が −X 側（42.240）に並ぶ。J10（X 75.7）は Q2 の
+    #    +X 側なので、電池は 3 番（ドレイン）から入る。ネットの対応（3=BATRAW・2=BATP・1=BATG）は check_sch.py が見る
     ("Q2", "1"): (42.240, 14.450), ("Q2", "2"): (42.240, 12.550), ("Q2", "3"): (44.120, 13.500),
     # USB-C は「パッドの列が板の内側」だけが条件（A1 と B1 のどちらが上かは足形が決める）。
-    # ⭐ 2026-09-16: 右の縁（X 80）から **前の縁**（X 21.5〜32.1）へ移した。縁が変わったので見る軸も
-    #    X から **Y** へ変わる。板の縁は Y 0 で、パッドの列が Y 6.159 ＝ 板の内側にある
-    ("J13", "A1"): (None, 6.159), ("J13", "B1"): (None, 6.159),
+    # 2026-09-16: 右の縁 → 後ろの縁（ハッチ側）。板の縁は Y 37.4 で、パッドの列が
+    #    Y 30.730 ＝ 板の内側。X は足形の並びに任せる
+    ("J13", "A1"): (None, 30.730), ("J13", "B1"): (None, 30.730),
 }
 
 
@@ -1187,7 +1206,7 @@ def gnd_zone():
              ["connect_pads", "yes", ["clearance", "0.3"]],
              ["min_thickness", "0.25"], ["filled_areas_thickness", "no"],
              ["fill", "yes", ["thermal_gap", "0.2"], ["thermal_bridge_width", "0.5"]],
-             [x for x in poly]] for lay in ("F.Cu", "B.Cu")]
+             [x for x in poly]] for lay in ("F.Cu", "In1.Cu", "B.Cu")]
 
 
 NETNUM = {}
@@ -1597,7 +1616,8 @@ def build():
            ["general", ["thickness", "1.6"], ["legacy_teardrops", "no"]],
            ["paper", Str("A3")],
            ["layers",
-            ["0", Str("F.Cu"), "signal"], ["2", Str("B.Cu"), "signal"],
+            ["0", Str("F.Cu"), "signal"], ["4", Str("In1.Cu"), "power"],
+            ["6", Str("In2.Cu"), "signal"], ["2", Str("B.Cu"), "signal"],
             ["9", Str("F.Adhes"), "user", Str("F.Adhesive")], ["11", Str("B.Adhes"), "user", Str("B.Adhesive")],
             ["13", Str("F.Paste"), "user"], ["15", Str("B.Paste"), "user"],
             ["5", Str("F.SilkS"), "user", Str("F.Silkscreen")], ["7", Str("B.SilkS"), "user", Str("B.Silkscreen")],
@@ -1608,7 +1628,18 @@ def build():
             ["25", Str("Edge.Cuts"), "user"], ["27", Str("Margin"), "user"],
             ["31", Str("F.CrtYd"), "user", Str("F.Courtyard")], ["29", Str("B.CrtYd"), "user", Str("B.Courtyard")],
             ["35", Str("F.Fab"), "user"], ["33", Str("B.Fab"), "user"]],
-           ["setup", ["pad_to_mask_clearance", "0"],
+           ["setup",
+            # 積層は 1.6mm（プリプレグ 0.1 ＋ コア 1.24 ＋ プリプレグ 0.1）。統合基板と同じ
+            ["stackup",
+             ["layer", Str("F.Cu"), ["type", Str("copper")], ["thickness", "0.035"]],
+             ["layer", Str("dielectric 1"), ["type", Str("prepreg")], ["thickness", "0.1"], ["material", Str("FR4")]],
+             ["layer", Str("In1.Cu"), ["type", Str("copper")], ["thickness", "0.035"]],
+             ["layer", Str("dielectric 2"), ["type", Str("core")], ["thickness", "1.24"], ["material", Str("FR4")]],
+             ["layer", Str("In2.Cu"), ["type", Str("copper")], ["thickness", "0.035"]],
+             ["layer", Str("dielectric 3"), ["type", Str("prepreg")], ["thickness", "0.1"], ["material", Str("FR4")]],
+             ["layer", Str("B.Cu"), ["type", Str("copper")], ["thickness", "0.035"]],
+             ["copper_finish", Str("None")], ["dielectric_constraints", "no"]],
+            ["pad_to_mask_clearance", "0"],
             ["pcbplotparams", ["layerselection", "0x00000000_00000000_55555555_5755f5ff"],
              ["disableapertmacros", "no"], ["usegerberextensions", "no"], ["usegerberattributes", "yes"],
              ["usegerberadvancedattributes", "yes"], ["creategerberjobfile", "yes"],
@@ -1652,7 +1683,11 @@ def build():
     for (ref, pin), net in pads.items():
         netpins.setdefault(net, []).append((ref, pin))
     cls = [("battery", BAT_NETS, BAT_W), ("power", POWER_NETS, POWER_W)]
-    n_part, n_net = dsn.write_dsn(OUT / f"{NAME}.dsn", NAME, INSTS, netpins, bnd, ko, classes=cls)
+    # ⚠ 4 層にしても **GND は自動配線に渡したまま**にする。2026-09-17 に外してみたら、
+    #   U3（INA226・TSSOP-10）の 2 番と 7 番へ表のベタが届かず、島が 4 つ残った。
+    #   ベタ 3 枚と縫いのビアだけでは細ピッチのパッドを拾えない（2 層のときと同じ症状）。
+    n_part, n_net = dsn.write_dsn(OUT / f"{NAME}.dsn", NAME, INSTS, netpins, bnd, ko, classes=cls,
+                                  copper=ROUTE_COPPER, via=VIA4)
     # 先に引いた線と、EP の放熱ビアを protect で渡す（自動配線が動かさない・避けて引く）
     # 🔴 ビアを渡し忘れると、自動配線がその上に別のネットを通して短絡になる（2026-09-16・3 件出た）
     rows = []
@@ -1663,7 +1698,11 @@ def build():
     for v in ep_vias(placed, nets):
         at = find1(v, "at")
         vnet = next(nm for nm, num in nets.items() if str(num) == str(find1(v, "net")[1]))
-        rows.append(f'    (via {dsn.VIA} {dsn._x(float(at[1]))} {dsn._y(float(at[2]))} '
+        # ⚠ 穴の名前は **この板の層数と穴径から作る**。dsn.VIA（2 層の Via[0-1]_800:400）を
+        #   そのまま渡すと DSN に定義の無い穴を指すことになり、Freerouting が黙って
+        #   空の SES を返す（2026-09-17・4 層にした直後に起きた）
+        vianame = f'Via[0-{len(ROUTE_COPPER) - 1}]_{round(VIA4[0] * 1000)}:{round(VIA4[1] * 1000)}_um'
+        rows.append(f'    (via {vianame} {dsn._x(float(at[1]))} {dsn._y(float(at[2]))} '
                     f'(net "{vnet}") (type protect))')
     if rows:
         f = OUT / f"{NAME}.dsn"
