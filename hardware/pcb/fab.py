@@ -76,8 +76,10 @@ JLC_ROT = {
     "SOIC-8_3.9x4.9mm_P1.27mm": (270, "📄 `^SOIC-`"),
     "Texas_RSA_VQFN-16-1EP_4x4mm_P0.65mm_EP2.7x2.7mm":
         (270, "⚠ 表の VQFN の行に当たらない。QFN の系統から 270 と置いた"),
-    "USB_C_HRO_TYPE-C-31-M-12_NoFrontLegs":
-        (180, "⚠ 元の名前 `USB_C_Receptacle_HRO_TYPE-C-31-M-12` なら表の 180 に当たる。改名したので外れる"),
+    # ⭐ 2026-09-17: 足形を自作の NoFrontLegs から **素の 4 本足**へ戻した（胴の出が 1.3 に下がり、
+    #   前寄りのシェルの足が板に載るようになったため）。改名していないので表にそのまま当たる。
+    "USB_C_Receptacle_HRO_TYPE-C-31-M-12":
+        (180, "📄 `^USB_C_Receptacle_HRO_TYPE-C-31-M-12*`"),
     "D_SOD-123": (0, "? 表に項目が無い（＝揃っているとみる）"),
     "LED_0805_2012Metric": (0, "? 表に項目が無い（＝揃っているとみる）"),
     "Relay_DPDT_Omron_G6S-2F": (0, "? 表にあるのは G6K-2F-Y（別品）で G6S には当たらない"),
