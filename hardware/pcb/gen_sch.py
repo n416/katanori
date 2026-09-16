@@ -264,7 +264,11 @@ FP_PORT = {
     #    パネルと 1 対 1 のまま変えない。口は PH の横型 → 2.54 の縦のメス → **オスのピンヘッダ**と替わった
     #    （メスの背 8.5 ではライザーの板が XIAO の下のメスに 2.49 届かなかった）
     "OLED": "Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical",
-    "PHIN": "Connector_JST:JST_PH_S2B-PH-K_1x02_P2.00mm_Horizontal",
+    # ⭐ 2026-09-16 夕 🔒 ユーザー「J4とJ6を縦にして」: SPK IN（J4）を横出し → **縦 B2B-PH-K**。
+    #    横出しは口が盤面の内側（+Y）を向いていて、挿したプラグの胴が板の上に 2.0 出て
+    #    Y 14.30〜16.30 を塞いでいた。SPK OUT（J5）は口が板の**左の縁**（−X）を向いていて
+    #    盤面を食わないので横出しのまま
+    "PHIN": "Connector_JST:JST_PH_B2B-PH-K_1x02_P2.00mm_Vertical",
     "PHOUT": "Connector_JST:JST_PH_S2B-PH-K_1x02_P2.00mm_Horizontal",
 }
 group("ports")
@@ -290,8 +294,10 @@ for p in hub_ports.ports():
 #    同日、いったん J6 を外して 1 時間後に戻した（外したのは伝言の読み違い）。
 part("J6", "Connector_Generic:Conn_01x02", "BTN2", 0, 0,
      {"1": "GND", "2": "BTN"},
-     "Connector_JST:JST_PH_S2B-PH-K_1x02_P2.00mm_Horizontal",
-     note="天板の会話ボタンへ 2 本", grp="ports")
+     "Connector_JST:JST_PH_B2B-PH-K_1x02_P2.00mm_Vertical",
+     note="天板の会話ボタンへ 2 本。⭐ 2026-09-16 夕に横出し → **縦**（🔒 ユーザー「J4とJ6を縦にして」）。"
+          "横出しは −Y（盤面の内側）で、指の所に J1（背 8.5 のライザー）が居て、通り道が電池の下にも当たっていた",
+     grp="ports")
 part("J7", "Connector_Generic:Conn_01x04", "REED+TOGGLE", 0, 0,
      {"1": "EN", "2": "GND", "3": "EN", "4": "GND"},
      "Connector_JST:JST_PH_B4B-PH-K_1x04_P2.00mm_Vertical",

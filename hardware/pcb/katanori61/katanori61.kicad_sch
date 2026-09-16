@@ -12196,7 +12196,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "Connector_JST:JST_PH_S2B-PH-K_1x02_P2.00mm_Horizontal"
+		(property "Footprint" "Connector_JST:JST_PH_B2B-PH-K_1x02_P2.00mm_Vertical"
 			(at 30.48 243.84 0)
 			(effects
 				(font
@@ -12577,7 +12577,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "Connector_JST:JST_PH_S2B-PH-K_1x02_P2.00mm_Horizontal"
+		(property "Footprint" "Connector_JST:JST_PH_B2B-PH-K_1x02_P2.00mm_Vertical"
 			(at 109.22 243.84 0)
 			(effects
 				(font
@@ -12595,7 +12595,7 @@
 				(hide yes)
 			)
 		)
-		(property "Note" "天板の会話ボタンへ 2 本"
+		(property "Note" "天板の会話ボタンへ 2 本。⭐ 2026-09-16 夕に横出し → **縦**（🔒 ユーザー「J4とJ6を縦にして」）。横出しは −Y（盤面の内側）で、指の所に J1（背 8.5 のライザー）が居て、通り道が電池の下にも当たっていた"
 			(at 109.22 243.84 0)
 			(effects
 				(font

@@ -136,19 +136,19 @@
       (place LED2 869687.9 -593127.5 front 0)
     )
     (component C31
-      (place C31 575900.0 -442500.0 front 0)
+      (place C31 620800.0 -463500.0 front 0)
     )
     (component R32
-      (place R32 620500.0 -497300.0 front 0)
+      (place R32 575900.0 -518837.5 front 0)
     )
     (component R31
-      (place R31 621000.0 -532400.0 front 0)
+      (place R31 575900.0 -553937.5 front 0)
     )
     (component D31
-      (place D31 550234.4 -603500.0 front 0)
+      (place D31 551000.0 -574264.1 front 0)
     )
     (component Q31
-      (place Q31 580234.4 -617450.0 front 0)
+      (place Q31 556500.0 -618564.1 front 0)
     )
     (component C32
       (place C32 823996.0 -557674.2 front 0)
@@ -166,19 +166,19 @@
       (place R46 705000.0 -679000.0 front 0)
     )
     (component J4
-      (place J4 1163000.0 -693500.0 front 0)
+      (place J4 1143000.0 -678500.0 front 0)
     )
     (component J5
       (place J5 519500.0 -593000.0 front 0)
     )
     (component J6
-      (place J6 565000.0 -479500.0 front 0)
+      (place J6 565000.0 -468500.0 front 0)
     )
     (component J7
       (place J7 1005000.0 -437500.0 front 0)
     )
     (component J10
-      (place J10 1174500.0 -596250.0 front 0)
+      (place J10 1157000.0 -604500.0 front 0)
     )
     (component J1
       (place J1 417700.0 -655950.0 front 0)
@@ -430,8 +430,8 @@
       (pin Rect[T]Pad_10250x14000um 2 9125.0 -0.0)
     )
     (image J4
-      (pin Rect[A]Pad_12000x17500um (rotate 180) 1 -0.0 0.0)
-      (pin Rect[A]Pad_12000x17500um (rotate 180) 2 -20000.0 0.0)
+      (pin Rect[A]Pad_12000x17500um 1 0.0 -0.0)
+      (pin Rect[A]Pad_12000x17500um 2 20000.0 -0.0)
     )
     (image J5
       (pin Rect[A]Pad_17500x12000um 1 -0.0 -0.0)
@@ -448,8 +448,8 @@
       (pin Rect[A]Pad_12000x17500um 4 60000.0 -0.0)
     )
     (image J10
-      (pin Rect[A]Pad_12000x17500um (rotate 180) 1 -0.0 -0.0)
-      (pin Rect[A]Pad_12000x17500um (rotate 180) 2 -20000.0 -0.0)
+      (pin Rect[A]Pad_17500x12000um 1 0.0 -0.0)
+      (pin Rect[A]Pad_17500x12000um 2 0.0 -20000.0)
     )
     (image J1
       (pin Rect[A]Pad_17000x17000um 1 0.0 0.0)

@@ -53,9 +53,9 @@ CASE_NAME = {"J4": "J4  SPK IN", "J5": "J5  SPK OUT", "J6": "J6  BTN2",
              "J7": "J7  REED+TGL", "J10": "J10 BAT",
              "J1": "J1  RISER XIAO", "J2": "J2  RISER OLED", "K31": "K31 RELAY"}
 PORTS = {
-    "J4":  (1,  PH_MATE_OUT, TH_LEG, "スピーカー IN。横出し・口は +Y（盤面の内側）"),
+    "J4":  (2,  PH_MATE_OUT, TH_LEG, "スピーカー IN。**縦**・上へ抜く（2026-09-16 夕に横出しから）"),
     "J5":  (-3, PH_MATE_OUT, TH_LEG, "スピーカー OUT。横出し・口は −X（左の縁）"),
-    "J6":  (-1, PH_MATE_OUT, TH_LEG, "会話ボタン。横出し・口は −Y（盤面の内側）"),
+    "J6":  (2,  PH_MATE_OUT, TH_LEG, "会話ボタン。**縦**・上へ抜く（2026-09-16 夕に横出しから）"),
     "J7":  (2,  PH_MATE_OUT, TH_LEG, "リード＋トグル。縦・上へ抜く"),
     "J10": (-2, PH_MATE_OUT, TH_LEG, "電池。板の裏・縦・下へ抜く"),
     "J1":  (0,  0.0, RISER_LEG, "XIAO のライザーを受けるオスのピンヘッダ 1x07"),
