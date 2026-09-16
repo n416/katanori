@@ -653,6 +653,33 @@ def place_footprint(ref, comp, x, y, ang, pads, back=False):
                     elif "mirror" not in [str(t) for t in find1(eff, "justify")[1:]]:
                         j = list(find1(eff, "justify"))
                         eff[eff.index(find1(eff, "justify"))] = j + ["mirror"]
+            # 🔴 シルクに出る線と字は、製造の下限（SILK_T = 0.15）まで太らせる。
+            #    ⭐ 2026-09-16 夕。KiCad の標準ライブラリの枠線は 0.12 で、JLCPCB の
+            #    capabilities（Rigid PCB）の "Minimum Line Width ≥ 0.15mm — Characters width
+            #    less than 0.15mm will be unidentifiable" を下回っていた。
+            #    表のシルクの**長さの 84%**（のべ 489.3mm / 313 本）がこれだった。
+            #    ⚠ body は浅い複製で、中身はライブラリと**共有している**。中を書き換えると
+            #       同じ足形を使う他の部品にも伝染するので、節ごと作り直して差し替える
+            lay2 = find1(body, "layer")
+            if lay2 and "SilkS" in str(lay2[1]):
+                def _thicken(node, key):
+                    w = find1(node, key)
+                    if w is None or float(w[1]) >= SILK_T:
+                        return node
+                    return [c if not (isinstance(c, list) and c[0] == key) else [key, str(SILK_T)]
+                            for c in node]
+                st = find1(body, "stroke")
+                if st is not None:
+                    body[body.index(st)] = _thicken(st, "width")
+                elif find1(body, "width") is not None:      # 古い書き方の足形
+                    body = _thicken(body, "width")
+                eff = find1(body, "effects")                # fp_text の字の太さ
+                if eff is not None:
+                    fnt = find1(eff, "font")
+                    if fnt is not None and find1(fnt, "thickness") is not None:
+                        eff2 = list(eff)
+                        eff2[eff2.index(fnt)] = _thicken(fnt, "thickness")
+                        body[body.index(eff)] = eff2
             # uuid を持てるのは図形・文字・ゾーンだけ（他に足すと KiCad が読めない）
             if e[0].startswith("fp_") or e[0] == "zone":
                 body = body + [["uuid", Str(uid())]]
