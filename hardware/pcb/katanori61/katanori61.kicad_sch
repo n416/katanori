@@ -9601,7 +9601,7 @@
 				(hide yes)
 			)
 		)
-		(property "Note" "シャント 10mΩ（今のモジュールと同じ値）"
+		(property "Note" "シャント 10mΩ（今のモジュールと同じ値）。🔴 ケルビン必須 — gen_pcb.py の PRE_TRACKS を見よ"
 			(at 261.62 40.64 0)
 			(effects
 				(font

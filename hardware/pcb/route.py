@@ -46,7 +46,10 @@ def run_freerouting():
     #    **保存されて次の回にも残る**（2026-09-15、統合基板で切った最適化が v6.1 にも効く状態になっていた）。
     #    ⇒ どちらの板でも、使う設定は毎回ぜんぶ明示する
     if NAME == "katanori61":
-        passes, extra = "40", ["--router.optimizer.enabled=true", "--router.automatic_neckdown=true"]
+        # 🔴 2026-09-16: 最適化の段を切った。配線の段が **未接続 1 本**まで行ったのに、続く最適化の段が
+        #    **未接続 6 本の別の版から始めて**それを SES に書き出した（配線 1 → 最適化 6 → 板の上で 5）。
+        #    統合基板で 2026-09-15 に見たのと同じ Freerouting 2.4.1 の不具合。そのぶんパスを増やす。
+        passes, extra = "80", ["--router.optimizer.enabled=false", "--router.automatic_neckdown=true"]
     else:
         # 統合基板:
         #  ・最適化の段を回さない。配線の段は「一番良い版（未接続 2 本）に戻す」と言いながら、続く最適化の段が
@@ -82,7 +85,7 @@ def seed_wiring():
     for s in find(pcb, "segment"):
         a, b = find1(s, "start"), find1(s, "end")
         net = names.get(str(find1(s, "net")[1]), "")
-        if not net:
+        if not net or find1(s, "locked"):      # locked は gen_pcb.py が既に protect で渡している
             continue
         w = float(find1(s, "width")[1])
         rows.append(f'    (wire (path {find1(s, "layer")[1]} {round(w * dsn.SCALE)} '
@@ -106,6 +109,13 @@ def seed_wiring():
 
 
 def merge():
+    # 🔴 Freerouting は protect で渡した線を SES にそのまま返す。取り込むと、板に書いた手の線（locked）と
+    #    二重になり、手の線を直した後は古い形が SES から戻ってくる。protect の物は捨てる
+    #    （2026-09-16・統合基板が 2026-09-16 に同じ手当てをしている）
+    ses = OUT / f"{NAME}.ses"
+    txt = re.sub(r"\(wire\s*\(path[^()]*\)\s*\(type protect\)\s*\)", "", ses.read_text(encoding="utf-8"))
+    txt = re.sub(r"\(via [^()]*\(type protect\)\s*\)", "", txt)
+    ses.write_text(txt, encoding="utf-8")
     pcb = kisym.parse((OUT / f"{NAME}.kicad_pcb").read_text(encoding="utf-8"))[0]
     nets = {str(e[2]): e[1] for e in find(pcb, "net")}
     refs = {}
@@ -115,7 +125,9 @@ def merge():
         if ref:
             refs[str(ref[0][2])] = (float(at[1]), float(at[2]))
     wires, vias = dsn.read_ses(OUT / f"{NAME}.ses", refs)
-    body = [e for e in pcb if not (isinstance(e, list) and e[0] in ("segment", "via"))]
+    # 🔴 locked の線（gen_pcb.py の PRE_TRACKS で先に引いた物）は残す。ここで消すと、
+    #    自動配線に protect で守らせた線が板から消えて、パッドが浮く（2026-09-16）
+    body = [e for e in pcb if not (isinstance(e, list) and e[0] in ("segment", "via") and not find1(e, "locked"))]
     n_seg = 0
     for net, layer, w, pts in wires:
         if net not in nets:

@@ -56,13 +56,15 @@ def padstack_of(pad, copper=("F.Cu", "B.Cu")):
 
 
 def write_dsn(path, name, insts, nets, boundary, keepouts=(), copper=("F.Cu", "B.Cu"), planes=None,
-              via=None, track_um=None, clear_um=None):
+              via=None, track_um=None, clear_um=None, classes=()):
     """insts: [{ref, fp, x, y, ang, pads:[{num,type,shape,size,at,rot,side}]}]
     nets: {ネット名: [(ref, パッド番号), ...]}
     boundary: [(x, y), ...]（閉じた多角形・mm）
     keepouts: [(x0, y0, x1, y1), ...]（銅を置かない四角・mm）
     copper: 銅の層（上から順）。planes: {層: ネット}（内層のベタ。自動配線はこの層に線を引かず、穴で落とす）
     via: (銅の直径 mm, 穴 mm)。track_um / clear_um: 既定の線幅と間隔（0.1µm 単位）。
+    classes: [(組の名前, {ネット名}, 線幅 mm), ...]。ここに入れたネットは kicad_default から外して
+             その組に入れ、組ごとの線幅で引かせる（電源の道を太くするため・2026-09-16）。
     引数を省けば 2 層の v6.1 と同じファイルになる。"""
     planes = planes or {}
     VIA_NAME = VIA if via is None else f"Via[0-{len(copper) - 1}]_{round(via[0] * 1000)}:{round(via[1] * 1000)}_um"
@@ -140,10 +142,21 @@ def write_dsn(path, name, insts, nets, boundary, keepouts=(), copper=("F.Cu", "B
         o.append(f'    (net "{net}"')
         o.append("      (pins " + " ".join(f"{r}-{p}" for r, p in pins) + ")")
         o.append("    )")
-    o.append('    (class kicad_default "" ' + " ".join(f'"{n}"' for n in sorted(nets) if len(nets[n]) > 1))
+    # 組に入れたネットは kicad_default から外す（両方に入れると Freerouting がどちらを使うか決まらない）
+    grouped = {n for _, ns, _ in classes for n in ns}
+    o.append('    (class kicad_default "" '
+             + " ".join(f'"{n}"' for n in sorted(nets) if len(nets[n]) > 1 and n not in grouped))
     o.append(f"      (circuit (use_via {VIA_NAME}))")
     o.append(f"      (rule (width {TR}) (clearance {CL}))")
     o.append("    )")
+    for cname, ns, w in classes:
+        mem = [n for n in sorted(ns) if n in nets and len(nets[n]) > 1]
+        if not mem:
+            continue
+        o.append(f'    (class {cname} "" ' + " ".join(f'"{n}"' for n in mem))
+        o.append(f"      (circuit (use_via {VIA_NAME}))")
+        o.append(f"      (rule (width {round(w * SCALE)}) (clearance {CL}))")
+        o.append("    )")
     o.append("  )")
     o.append("  (wiring")
     o.append("  )")
