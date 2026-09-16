@@ -708,14 +708,16 @@ SILK_T = 0.15         # 線の太さ [mm]。JLCPCB の下限ちょうど（記�
 SILK_GAP = 0.5        # 部品の枠から文字までの隙間 [mm]
 
 # ref → (板に書く名前, 名前を置く向き)。向きは板の図面で N=上 S=下 W=左 E=右
+# ⚠ 向きは**希望**。塞がっていれば silk() が残りの向きへ回し、回したことを画面に出す。
+#    ここに書いてあるのは「回さずに収まる向き」なので、⚠ が出たら板の方が変わった合図。
 SILK_PORT = {
     "J1":  ("XIAO",     "S"),
     "J2":  ("OLED",     "S"),
-    "J4":  ("SPK IN",   "W"),
+    "J4":  ("SPK IN",   "S"),   # W は U5 の枠に当たる。S は口の前の帯を外した下側
     "J5":  ("SPK OUT",  "N"),
-    "J6":  ("BTN2",     "S"),
+    "J6":  ("BTN2",     "W"),   # S は挿したプラグの胴が出る帯（📄 ePH.pdf 1 ページ）
     "J7":  ("REED/TGL", "S"),
-    "J10": ("BAT",      "S"),
+    "J10": ("BAT",      "W"),   # S は極性の ＋ − が先に座る
 }
 # 🔴 電池の極性。逆接で INA226 から煙が出た事故があるのに、板の上には一文字も無かった
 #    （足形が持つピン 1 の小さな印だけ）。ネット名を出どころにして (ref, pin) で書く。
@@ -742,20 +744,137 @@ def silk(placed, boxes):
     """自分で挿す口の名前と、電池の極性を置く。
 
     位置は**置いたあとの枠**（relax を回したあとの courtyard）から決める。口が動いても
-    文字が付いて回るように、数字をここに写さない。極性を先に置き、名前が同じ側へ来る
-    ときは極性の外側へ逃がす（重ねると両方読めなくなる）。
+    文字が付いて回るように、数字をここに写さない。
+
+    ⭐ 2026-09-16 夕に**当たり判定**を付けた。それまでは SILK_PORT に書いた向きへ黙って
+    置くだけで、`J5 SPK OUT` と `J6 BTN2` が 1.2mm しか離れず「J5 SPK OUTJ6 BTN2」と
+    一続きに読めていた（DRC は通る。文字どうしが触れてはいないので）。
+    向きは希望として使い、**他の文字・部品の枠・パッド・板の縁**に当たるなら残りの向きへ回す。
     """
     out, warn = [], []
     box = dict(boxes)
     lim = (ORG[0], ORG[1], ORG[0] + BOARD_L, ORG[1] + BOARD_W)
+    SIDES = ("N", "E", "S", "W")
+    CLR = 0.3        # 文字のまわりに空けるすきま [mm]
 
-    def inside(x0, y0, x1, y1):
-        return x0 >= lim[0] and y0 >= lim[1] and x1 <= lim[2] and y1 <= lim[3]
+    def inside(b):
+        return b[0] >= lim[0] and b[1] >= lim[1] and b[2] <= lim[2] and b[3] <= lim[3]
 
-    # ---- 先に極性。パッドの真ん中から、口の枠の外へ**まっすぐ**逃がす ----
+    def hit(a, b):
+        return a[0] < b[2] and b[0] < a[2] and a[1] < b[3] and b[1] < a[3]
+
+    # ---- 避ける物を集める（面ごと）----
+    pads = {"F": [], "B": []}
+    for f in placed:
+        at = find1(f, "at")
+        fx, fy = float(at[1]), float(at[2])
+        fa = float(at[3]) if len(at) > 3 else 0.0
+        for q in find(f, "pad"):
+            pa, sz = find1(q, "at"), find1(q, "size")
+            if not sz:
+                continue
+            dx, dy = rot_xy(float(pa[1]), float(pa[2]), fa)
+            r = max(float(sz[1]), float(sz[2])) / 2      # 向きを見ずに外接の丸で見る（安全側）
+            lay = str(find1(q, "layers"))
+            bb = (fx + dx - r, fy + dy - r, fx + dx + r, fy + dy + r)
+            for side, nm in (("F", "F.Cu"), ("B", "B.Cu")):
+                if nm in lay or "*.Cu" in lay:
+                    pads[side].append(bb)
+
+    # ---- 挿さったプラグの胴が板の上に出る帯 ----
+    # 🔴 横挿しの口は、プラグの胴が口の前へ **courtyard の縁から PLUG_BODY** 出る。
+    #    ここに文字を置くと DRC は通るのに**プラグで隠れて読めない**（📄 ePH.pdf 1 ページ）。
+    #    帯の作り方は通り道の検査（build）と同じ plug_band に閉じる。数字をここに写さない。
+    #    ⚠ plug_band と open_dir は **板の座標**で話すので、図面の座標へ直してから使う。
+    fps = {}
+    for f in placed:
+        rs = [pr[2] for pr in find(f, "property") if str(pr[1]) == "Reference"]
+        if rs:
+            fps[str(rs[0])] = f
+
+    def to_board(b):
+        return (b[0] - ORG[0], BOARD_W - (b[3] - ORG[1]), b[2] - ORG[0], BOARD_W - (b[1] - ORG[1]))
+
+    def to_draw(b):
+        return (b[0] + ORG[0], ORG[1] + BOARD_W - b[3], b[2] + ORG[0], ORG[1] + BOARD_W - b[1])
+
+    crt = {"F": [], "B": []}
+    for r, b in boxes:
+        crt["B" if r in BACK_SIDE else "F"].append((r, b))
+
+    plugs = {"F": [], "B": []}
+    for ref in CONN:
+        if ref not in box or ref not in fps:
+            continue
+        f = fps[ref]
+        at = find1(f, "at")
+        ang = float(at[3]) if len(at) > 3 else 0.0
+        d = open_dir(f, float(at[1]), float(at[2]), ang)
+        band = to_draw(plug_band(to_board(box[ref]), d, PLUG_BODY))
+        plugs["B" if ref in BACK_SIDE else "F"].append((ref, band))
+
+    def blocked(bb, back, soft=False):
+        """bb に何か居るか。soft=True なら部品の枠は見ない（最後の逃げ場）。"""
+        if not inside(bb):
+            return "板の外"
+        for t in texts:
+            if hit(bb, t):
+                return "別の文字"
+        for b in pads["B" if back else "F"]:
+            if hit(bb, b):
+                return "パッド"
+        for r, b in plugs["B" if back else "F"]:
+            if hit(bb, b):
+                return f"{r} に挿したプラグの胴"
+        if not soft:
+            # ⚠ 枠は**同じ面の物だけ**。板の反対側に居る部品の胴は、この面のシルクを隠さない
+            #    （これを面ごとにしないと、裏の J10 の極性が表の USB-C の枠に塞がれる）
+            for r, b in crt["B" if back else "F"]:
+                if hit(bb, b):
+                    return f"{r} の枠"
+        return None
+
+    texts = []       # 置いた文字の枠（次の文字はここを避ける）
+
+    def put(txt, ref, side, h, back, anchor):
+        """anchor（枠）の side 側へ txt を置く。当たるなら他の向きを試す。"""
+        x0, y0, x1, y1 = anchor
+        w = text_w(txt, h)
+        for soft in (False, True):
+            for sd in (side,) + tuple(t for t in SIDES if t != side):
+                if sd in ("N", "S"):
+                    cx = (x0 + x1) / 2
+                    cy = y0 - SILK_GAP - h / 2 if sd == "N" else y1 + SILK_GAP + h / 2
+                    just = ["mirror"] if back else None
+                    bb = (cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2)
+                else:
+                    cy = (y0 + y1) / 2
+                    cx = x0 - SILK_GAP if sd == "W" else x1 + SILK_GAP
+                    j = "right" if sd == "W" else "left"
+                    if back:                       # 裏は鏡なので左右の寄せも入れ替わる
+                        j = "left" if j == "right" else "right"
+                    just = [j] + (["mirror"] if back else [])
+                    bb = ((cx - w, cy - h / 2, cx, cy + h / 2) if sd == "W"
+                          else (cx, cy - h / 2, cx + w, cy + h / 2))
+                why = blocked((bb[0] - CLR, bb[1] - CLR, bb[2] + CLR, bb[3] + CLR), back, soft)
+                if why:
+                    continue
+                if sd != side:
+                    warn.append(f"{ref}「{txt}」は {side} が塞がっていたので {sd} へ回した")
+                if soft:
+                    warn.append(f"{ref}「{txt}」は部品の枠の上に乗せた（他に空きが無い）")
+                texts.append(bb)
+                out.append(silk_text(txt, cx, cy, "B.SilkS" if back else "F.SilkS", just, h=h))
+                return True
+        warn.append(f"{ref}「{txt}」を置く場所が無い")
+        return False
+
+    # ---- 先に極性。パッドの真ん中から、口の枠の外へまっすぐ逃がす ----
     pad_at = {}
     for f in placed:
-        r = [pr[2] for pr in find(f, "property") if str(pr[1]) == "Reference"][0]
+        rs = [pr[2] for pr in find(f, "property") if str(pr[1]) == "Reference"]
+        if not rs:
+            continue
         at = find1(f, "at")
         fx, fy = float(at[1]), float(at[2])
         fa = float(at[3]) if len(at) > 3 else 0.0
@@ -764,73 +883,33 @@ def silk(placed, boxes):
                 continue
             pa = find1(q, "at")
             dx, dy = rot_xy(float(pa[1]), float(pa[2]), fa)
-            pad_at[(str(r), str(q[1]))] = (fx + dx, fy + dy)
+            pad_at[(str(rs[0]), str(q[1]))] = (fx + dx, fy + dy)
 
-    pol_side = {}          # ref → 極性を置いた向き（名前はここを避ける）
-    pol_h = SILK_H * 1.4   # 極性は少し大きく（一番読めないと困る文字）
+    pol_h = SILK_H * 1.4        # 極性は少し大きく（一番読めないと困る文字）
     for (ref, pin), mark in sorted(SILK_POLARITY.items()):
         if (ref, pin) not in pad_at or ref not in box:
             warn.append(f"{ref}.{pin} が見つからないので極性を置けない")
             continue
-        back = ref in BACK_SIDE
         px, py = pad_at[(ref, pin)]
         x0, y0, x1, y1 = box[ref]
-        # 2 つのパッドが並んでいる軸を見て、**直角の向き**へ逃がす
+        # 2 つのパッドが並んでいる軸を見て、**直角の向き**へ逃がす。
+        # パッドの真上／真横に置きたいので、枠は「そのパッドの列」に細めて渡す
         pins = [v for (r, _), v in pad_at.items() if r == ref]
-        horiz = (max(p[0] for p in pins) - min(p[0] for p in pins)
-                 >= max(p[1] for p in pins) - min(p[1] for p in pins))
-        got = None
-        for sgn in (1, -1):
-            if horiz:
-                x, y = px, (y1 if sgn > 0 else y0) + sgn * (SILK_GAP + pol_h / 2)
-                side = "S" if sgn > 0 else "N"
-            else:
-                x, y = (x1 if sgn > 0 else x0) + sgn * (SILK_GAP + pol_h / 2), py
-                side = "E" if sgn > 0 else "W"
-            if inside(x - pol_h / 2, y - pol_h / 2, x + pol_h / 2, y + pol_h / 2):
-                got, pol_side[ref] = (x, y), side
-                break
-        if got is None:
-            warn.append(f"{ref}.{pin} の「{mark}」を置く場所が板の中に無い")
-            continue
-        out.append(silk_text(mark, got[0], got[1], "B.SilkS" if back else "F.SilkS",
-                             ["mirror"] if back else None, h=pol_h))
+        horiz = (max(q[0] for q in pins) - min(q[0] for q in pins)
+                 >= max(q[1] for q in pins) - min(q[1] for q in pins))
+        anchor = ((px, y0, px, y1) if horiz else (x0, py, x1, py))
+        put(mark, f"{ref}.{pin}", "S" if horiz else "E", pol_h, ref in BACK_SIDE, anchor)
 
     # ---- 口の名前（番号と一緒に「J5 SPK OUT」の形で置く）----
     for ref, (name, side) in sorted(SILK_PORT.items()):
         if ref not in box:
             warn.append(f"{ref} が板に無いので名前を置けない")
             continue
-        back = ref in BACK_SIDE
-        lay = "B.SilkS" if back else "F.SilkS"
-        x0, y0, x1, y1 = box[ref]
-        label = f"{ref} {name}"
-        w, h = text_w(label), SILK_H
-        # 極性を同じ側に置いたなら、その外側へ回る
-        gap = SILK_GAP + (SILK_GAP + pol_h if pol_side.get(ref) == side else 0)
-        if side in ("N", "S"):
-            x = (x0 + x1) / 2
-            y = y0 - gap - h / 2 if side == "N" else y1 + gap + h / 2
-            just = ["mirror"] if back else None
-            bb = (x - w / 2, y - h / 2, x + w / 2, y + h / 2)
-        else:
-            y = (y0 + y1) / 2
-            x = x0 - gap if side == "W" else x1 + gap
-            # 🔴 裏は鏡なので、左右の寄せも入れ替わる（left と書くと右へ伸びる）
-            side_j = "right" if side == "W" else "left"
-            if back:
-                side_j = "left" if side_j == "right" else "right"
-            just = [side_j] + (["mirror"] if back else [])
-            bb = ((x - w, y - h / 2, x, y + h / 2) if side == "W"
-                  else (x, y - h / 2, x + w, y + h / 2))
-        if not inside(*bb):
-            warn.append(f"{ref} の名前「{label}」が板からはみ出す（{side} 向き）")
-        out.append(silk_text(label, x, y, lay, just))
+        put(f"{ref} {name}", ref, side, SILK_H, ref in BACK_SIDE, box[ref])
 
-    print(f"  シルク: 口の名前 {len(SILK_PORT)} 個・極性 {len(SILK_POLARITY)} 個"
-          + ("" if not warn else f"（置けない物 {len(warn)}）"))
+    print(f"  シルク: 口の名前 {len(SILK_PORT)} 個・極性 {len(SILK_POLARITY)} 個")
     for w in warn:
-        print(f"  🔴 シルク {w}")
+        print(f"  ⚠ シルク {w}")
     return out
 
 

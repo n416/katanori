@@ -11637,7 +11637,7 @@
 		)
 	)
 	(gr_text "J10 BAT"
-		(at 116.450 65.825)
+		(at 112.500 60.175)
 		(layer "B.SilkS")
 		(uuid "ea8a5bdb-fb21-5f74-aef2-96bb32b057e9")
 		(effects
@@ -11645,7 +11645,7 @@
 				(size 1.0 1.0)
 				(thickness 0.15)
 			)
-			(justify mirror)
+			(justify left mirror)
 		)
 	)
 	(gr_text "J2 OLED"
@@ -11660,7 +11660,7 @@
 		)
 	)
 	(gr_text "J4 SPK IN"
-		(at 111.350 66.900)
+		(at 115.300 72.200)
 		(layer "F.SilkS")
 		(uuid "cf93d78f-07c6-510b-b04f-b2d62cf66060")
 		(effects
@@ -11668,7 +11668,6 @@
 				(size 1.0 1.0)
 				(thickness 0.15)
 			)
-			(justify right)
 		)
 	)
 	(gr_text "J5 SPK OUT"
@@ -11683,7 +11682,7 @@
 		)
 	)
 	(gr_text "J6 BTN2"
-		(at 57.500 55.700)
+		(at 53.550 50.400)
 		(layer "F.SilkS")
 		(uuid "faed5e9b-709f-568e-92ca-0d5361cb1c8d")
 		(effects
@@ -11691,6 +11690,7 @@
 				(size 1.0 1.0)
 				(thickness 0.15)
 			)
+			(justify right)
 		)
 	)
 	(gr_text "J7 REED/TGL"
