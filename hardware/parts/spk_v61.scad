@@ -32,6 +32,11 @@ use <parts.scad>   // speaker_112495() / spk_l() / spk_w() / spk_th() / spk_dia(
 
 part = "explode";
 
+// 🔴 $fn は case_v6_1.scad（48）と揃える。無いと offset()/circle() が**呼び出し側の $fn で変わり**、
+//   同じ S_NUT_ANG でも「部品単体では 🔴 0・天板では 🔴 1」という食い違いが出る（2026-09-16 に突き止めた）
+S_FN = 48;
+$fn = S_FN;
+
 S_DECK_T = 2.5;                 // 天板の厚み（case_v5 の TOP_T と同じ値。ここは形だけ）
 Z_IN = -S_DECK_T;               // 天板の内面 −2.5
 S_LIFT = 0.9; S_CL = 0.3;       // 座の深さ（内面から）・座の逃げ（片側）
@@ -100,7 +105,18 @@ module spk_hang_cut() for (h = S_HANDS) spk_at_hand(h) translate([S_R_NUT, 0, Z_
 module spk_driver_probe(d = 6.0, len = 45) for (h = S_HANDS) spk_at_hand(h) translate([S_R_W1, 0, Z_NUT_C]) rotate([0, 90, 0]) cylinder(d = d, h = len, $fn = 24);   // ドライバーの軸が要る空間（壁の外の面から外へ）
 module spk_nut_path(len) for (h = S_HANDS) spk_at_hand(h) translate([S_R_NUT - S_NUT_T / 2 - 0.15, -S_NUT_AF / 2 - 0.15, Z_FOOT_B - len]) cube([S_NUT_T + 0.3, S_NUT_AF + 0.3, len]);   // ナットが入る道（case_v5 の nutpath が呼ぶ）
 // ---- 天板側（case_v5 が at_spk() で呼ぶ）----
-module spk_station_add() { spk_rim(); spk_hang_arms(); }   // 後ろの角の R（spk_gussets）は 2026-09-08 に消した: 足 15 のうち 1.1 しか持たず意味が無い（ユーザー）
+// 🔒 2026-09-16 ユーザー「同心円上にナットが回転することはよくある部品だから、その度に薄肉を指摘されるのはかなわない」
+// 刃の出来る仕組み: 手の板の内の面は座の輪郭に**接する直線**（x = S_R_I）、縁 spk_rim の内の面は**同じ半径の曲面**。
+//   だから縁は手の内の面より内へ R − sqrt(R² − y²) だけ出る（手の縁 y = ±3.3 で 0.73）。
+//   その裏にナットのポケットの空が来ると厚さ 0 → 0.73 の楔になる。角度で深さが変わるので出たり消えたりしていた。
+// 直し方: **手のまわりの縁を丸ごと落とす**（薄くするのではなく無くす）。位置出しは手の板（2.8 厚）が持つ。
+//   ⚠ 落とす窓は手より S_RIM_GAP 広く取る。手とぴったり同じ幅にすると面が重なって厚さ 0.00 の板が出る（2026-09-16 に踏んだ）
+//   ⚠ 半径方向は縁の外まで通す。浅いと端に三日月が残る（同上。深さの式は R − sqrt(R² − y²) で、R + ではない）
+S_RIM_GAP = 0.6;
+module spk_rim_relief() for (h = S_HANDS) spk_at_hand(h)
+    translate([S_R_I - 2.0, -(S_ARM_W / 2 + S_RIM_GAP), Z_IN - S_RIM_H - 0.5])
+        cube([2.0 + S_RIM_T + 4.0, S_ARM_W + 2 * S_RIM_GAP, S_RIM_H + 1.0]);
+module spk_station_add() { difference() { spk_rim(); spk_rim_relief(); } spk_hang_arms(); }   // 後ろの角の R（spk_gussets）は 2026-09-08 に消した: 足 15 のうち 1.1 しか持たず意味が無い（ユーザー）
 // 座の壁とナットのポケットの間に残る楔を出さない（🔴 2026-09-14 刷る向きの検算: 厚さ 0.018〜0.213mm の刃が
 //   天板に残っていた。実績の下限 0.42 割れ＝刷れば折れて中に落ちる）。両方の空から S_THIN 届く所＝肉が 0.5 以下の所を削る
 S_THIN = 0.50;
