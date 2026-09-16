@@ -3,6 +3,7 @@
    python hardware/tools/stl_v61n.py                 全部（7 点）
    python hardware/tools/stl_v61n.py btn_tub top     名前を指定（stl/v61n/v61n_<名前>.stl）
    python hardware/tools/stl_v61n.py --check         筐体の当たり検査（seam_shell_lid・path_* ほか）を hardware/_tmp_v61n/ に出して体積を出す
+   python hardware/tools/stl_v61n.py --resin-check   同じくレジンで。ナイロン専用の検査（NYLON_ONLY）は回さない
    ⚠ 出力先は書き出す前に必ず消す（OpenSCAD は空だと STL を書かないので、古いファイルを読む事故が起きる）。
    支柱・ラフト・FIT_PRINT は渡さない（MJF。MAT="nylon" で PROPS_OFF・RIBS_OFF が true）。
    材料は -D で渡す（case: MAT="nylon"・部品ファイル: $mat="nylon"）。--resin-check はレジン（MAT="resin" を渡す）で検査だけ回す。
@@ -36,6 +37,13 @@ PARTS = [
 # 筐体の当たり検査（docs/CASE-V61N.md 5 章の表）。0 か、表の値が正
 CHECKS = ['seam_shell_lid', 'plugpath', 'hit_wires', 'nutpath', 'sk_rsp', 'sk_oled', 'sk_hub', 'sk_spktub', 'sk_tgl', 'sk_btn', 'hit_btn',
           'path_hub', 'path_oled', 'path_rsp', 'path_bat', 'path_lid']   # path_*: 入れる道の掃引（2026-09-16・全部 0 が正）
+# 🔴 ナイロンでしか意味を持たない検査（2026-09-16）。レジンでは回さない。
+#   seam_shell_lid … 底パーツ＋蓋の継ぎ目。レジンは板 6 枚なので、この分割自体が無い
+#   path_*         … 「左の窓から差して右へ滑らせる」ナイロンの入れ方の掃引。
+#                    レジンは床から柱で横差しの道が無い（case_v6_1.scad の PCB_LIFT の行）。
+#                    レジンに当てると板も部品も壁を突き抜けた量を数え、633 や 4520 が出るが不良の量ではない。
+#   ⇒ 過去のレジンの報告（コミット 434dee2 ほか）も sk_* と hit_wires だけを載せていた。道具をそれに合わせる。
+NYLON_ONLY = ['seam_shell_lid', 'path_hub', 'path_oled', 'path_rsp', 'path_bat', 'path_lid']
 NAMES = [k for k, _, _ in PARTS]
 
 def export(dst, src, pname, nylon=True):
@@ -48,12 +56,38 @@ def export(dst, src, pname, nylon=True):
         return None, time.time() - t, err
     return os.path.getsize(dst), time.time() - t, err
 
+def dup_defs():
+    """module / function の二重定義を探す（⭐ 2026-09-16 夕）。
+
+    OpenSCAD は**後の定義が勝つ**ので、同じ名前を 2 回書くと前の方が黙って消える。
+    今日 2 回踏んだ: rear_post（並走セッションとの編集の衝突）と
+    skin（「定義が無い」と見て色無しの 2 つ目を足し、箱が既定の黄色で出た）。
+    どちらも検査は通り、絵だけが違っていた。
+    """
+    import glob, re, collections
+    bad = []
+    for f in sorted(glob.glob(os.path.join(HW, '*.scad')) + glob.glob(os.path.join(HW, 'parts', '*.scad'))):
+        t = open(f, encoding='utf-8', errors='replace').read()
+        for kind, pat in (('module', r'^\s*module\s+([A-Za-z_]\w*)\s*\('),
+                          ('function', r'^\s*function\s+([A-Za-z_]\w*)\s*\(')):
+            for n, c in collections.Counter(re.findall(pat, t, re.M)).items():
+                if c > 1:
+                    bad.append('%s: %s %s が %d 回' % (os.path.basename(f), kind, n, c))
+    return bad
+
+
 if '--check' in sys.argv or '--resin-check' in sys.argv:
+    for b in dup_defs():
+        print('🔴 二重定義（後の方が勝つ）', b)
     tmp = os.path.join(HW, '_tmp_v61n'); os.makedirs(tmp, exist_ok=True)
     sys.path.insert(0, HERE); from stl_read import tris
-    for c in CHECKS:
+    nylon = '--resin-check' not in sys.argv
+    checks = CHECKS if nylon else [c for c in CHECKS if c not in NYLON_ONLY]
+    if not nylon:
+        print('レジン: ナイロン専用の %d 件は回さない（%s）' % (len(NYLON_ONLY), ' '.join(NYLON_ONLY)))
+    for c in checks:
         dst = os.path.join(tmp, c + '.stl')
-        size, dt, err = export(dst, CASE, c, nylon='--resin-check' not in sys.argv)
+        size, dt, err = export(dst, CASE, c, nylon=nylon)
         if size is None:
             print('%-16s EMPTY (0)   %5.1fs  %s' % (c, dt, err.strip().splitlines()[-1][:80] if 'ERROR' in err or 'assert' in err.lower() else '')); continue
         v = 0.0
