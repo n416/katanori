@@ -70,7 +70,9 @@ def main():
     allsegs = []
     for k in PLATES:
         svg = os.path.join(TMP, 'ribfree_%s.svg' % k)
-        r = subprocess.run([OPENSCAD, '--backend=manifold', '-D', 'part="ribfree_%s"' % k, '-o', svg, SCAD],
+        # 🔴 2026-09-16 夕: MAT を渡していなかった。格子は**レジンでしか使わない**（RIBS_OFF = nylon()）のに、
+        #   case_v6_1.scad 先頭の既定（いま "nylon"）で空きを計算していた。ナイロンの中身の配置で作った格子をレジンの箱に立てていた
+        r = subprocess.run([OPENSCAD, '--backend=manifold', '-D', 'MAT="resin"', '-D', 'part="ribfree_%s"' % k, '-o', svg, SCAD],
                            capture_output=True, text=True)
         if not os.path.exists(svg):
             print(k, 'SVG が出ない:', r.stderr[-400:]); continue
