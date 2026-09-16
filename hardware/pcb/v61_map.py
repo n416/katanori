@@ -56,7 +56,8 @@ raw('<rect x="0" y="0" width="%.0f" height="%.0f" fill="#f7f8fa"/>' % (Wp, Hp))
 rect(0, 0, B.L, B.W, "#16603a", "#0d3a23", 1.5, op=0.16)
 for n in B.NOTCHES:
     rect(n[0], n[1], n[2] - n[0], n[3] - n[1], "#f7f8fa", "#b23", 1.2, "4 3")
-txt(3.1, 33.8, "欠き", 9, "#b23"); txt(78.9, 33.8, "欠き", 9, "#b23")
+for n in B.NOTCHES:
+    txt((n[0] + n[2]) / 2, n[1] - 2.2, "欠き", 9, "#b23")
 for i, (bx, by, bw, bh) in enumerate(B.BACK_BANDS):
     rect(bx, by, bw, bh, "#7a8699", "#7a8699", 1.0, "2 4", op=0.07)
 txt(B.BACK_BANDS[0][0] + 8.0, 8.8, "裏に胴 6.0 が入る帯", 9, "#5a6a85")
@@ -134,18 +135,23 @@ def _ov(a, b):
     h = min(a[1] + a[3], b[1] + b[3]) - max(a[1], b[1])
     return w * h if w > 0 and h > 0 else 0.0
 
-FIXED = [("欠き左", (B.NOTCHES[0][0], B.NOTCHES[0][1], 6.194, 6.0)),
-         ("欠き右", (B.NOTCHES[1][0], B.NOTCHES[1][1], 6.17, 6.0)),
-         ("USB-C", (ux0, B.USBC_Y - B.USBC_SHELL_W / 2, B.USBC_BODY_D, B.USBC_SHELL_W)),
+# ⭐ 2026-09-16 夕: 欠きは「後ろの両隅に必ず 2 個」ではなくなったので、数えて並べる
+FIXED = [("欠き %d" % (i + 1), (n[0], n[1], n[2] - n[0], n[3] - n[1])) for i, n in enumerate(B.NOTCHES)]
+FIXED += [("USB-C", (ux0, B.USBC_Y - B.USBC_SHELL_W / 2, B.USBC_BODY_D, B.USBC_SHELL_W)),
          ("つまみの軸 φ7", B.SHAFT),
          ("XIAO ソケット 1x07", ((B.RISER_XIAO[0] + B.RISER_XIAO[1]) / 2 - 18.78 / 2, B.RISER_XIAO[2] - B.RISER_D / 2, 18.78, B.RISER_D)),
          ("OLED ソケット 1x04", ((B.RISER_OLED[0] + B.RISER_OLED[1]) / 2 - 11.16 / 2, B.RISER_OLED[2] - B.RISER_D / 2, 11.16, B.RISER_D))]
 FIXED += [("M2 %d" % (i + 1), (h[0] - B.HOLE_HEAD_D / 2, h[1] - B.HOLE_HEAD_D / 2, B.HOLE_HEAD_D, B.HOLE_HEAD_D))
           for i, h in enumerate(B.HOLES)]
 MINE = [("リレー", B.RELAY)]   # 電源の帯は区画の目安なので検算に入れない
-MINE += [("口 " + p[0], fp_box(p)) for p in B.PORTS]
+# ⭐ 2026-09-16 夕: **裏の口の枠を表の検算から外した**。それまで表と裏を 1 枚の紙として見ていて、
+#    板を挟んで別の側に居る物どうしを重なりと呼んでいた（J10 を裏の右の帯へ移したら、表の
+#    SPK IN の枠と 9.19mm² 重なると出た。物は板の反対側に居る）。裏の口は下の裏用の検算で見る。
+#    ⚠ 板を貫く足が相手の胴に突き出るかは、この地図では見られない（足形が要る）。gen_pcb.py が見る
+MINE += [("口 " + p[0], fp_box(p)) for p in B.PORTS if p[6] == "F"]
 MINE += [("通り道 " + p[0], plug_box(p)) for p in B.PORTS if plug_box(p) and p[6] == "F"]
-BACK = [("裏の通り道 " + p[0], plug_box(p)) for p in B.PORTS if plug_box(p) and p[6] == "B"]
+BACK = [("裏の口 " + p[0], fp_box(p)) for p in B.PORTS if p[6] == "B"]
+BACK += [("裏の通り道 " + p[0], plug_box(p)) for p in B.PORTS if plug_box(p) and p[6] == "B"]
 # 裏の通り道は板の下（表の口やその通り道とは当たらない）。床から立つ柱と、裏の帯の外だけを見る
 FLOOR_POSTS = [("床の柱 %d" % (i + 1), (h[0] - 3.5, h[1] - 3.5, 7.0, 7.0)) for i, h in enumerate(B.HOLES)]
 
@@ -183,7 +189,7 @@ for b in uniq:
     print("NG ", b)
 print("重なり", "なし" if not uniq else "%d 件" % len(uniq))
 
-foot(0, "配線まで通っている（2026-09-14）: 53 部品・ネット 49 本・配線 810 本・ビア 63 ＋ GND を縫う 104。DRC のエラー 0・未接続 0。")
+foot(0, "配線まで通っている（2026-09-16 夕に J10 を縦へ移して引き直し）: 53 部品・ネット 49 本・配線 742 本・ビア 64 ＋ GND を縫う 103。DRC のエラー 0・未接続 0。")
 foot(1, "高さ: 表の縦の口の上は 33 まで空く（筐体の実測）。裏は床まで 12.0 だが、電池の真上は 6.0 しか無いので、裏の口は左右の帯にしか置けない。")
 foot(2, "重なり: 区画・口・プラグの通り道 × 動かせない物 を機械で数えて 0 件。" if not uniq else "⚠ 重なり %d 件（直していない）" % len(uniq),
      "#1b2430" if not uniq else "#8a1c1c")

@@ -46,9 +46,9 @@ sys.path.insert(0, str(HERE))
 import v61_board as VB
 
 BOARD_L, BOARD_W = VB.L, VB.W                      # 82.024 × 37.4
-# 後ろの両隅の欠き（箱の隅の柱が板の面を通る）。x0, x1, この y から後ろの縁まで
-NOTCHES = [(VB.NOTCHES[0][0], VB.NOTCHES[0][2], VB.NOTCHES[0][1]),
-           (VB.NOTCHES[1][0], VB.NOTCHES[1][2], VB.NOTCHES[1][1])]
+# 後ろの縁の欠き。x0, x1, この y から後ろの縁まで。
+# ⭐ 2026-09-16 夕: 数を 2 個に決め打ちしていたのをやめた（欠きが 1 個になったため）
+NOTCHES = [(n[0], n[2], n[1]) for n in VB.NOTCHES]
 MOUNT = list(VB.HOLES)            # M2 × 4（床から立つ柱 φ7 の上）
 MOUNT_D = VB.HOLE_D               # φ2.2
 MOUNT_KEEP = 0.5                  # 穴のまわりに **銅** を置かせない幅
@@ -66,10 +66,22 @@ BOX = VB.ORG_W
 
 
 def outline_pts():
-    """外形の頂点（板の座標・反時計回り）。後ろの縁の両隅が欠けている。"""
-    (lx0, lx1, ly), (rx0, rx1, ry) = NOTCHES
-    return [(0, 0), (BOARD_L, 0), (BOARD_L, ry), (rx0, ry), (rx0, BOARD_W),
-            (lx1, BOARD_W), (lx1, ly), (0, ly)]
+    """外形の頂点（板の座標・反時計回り）。後ろの縁に欠きが 0 個以上ある。
+
+    ⭐ 2026-09-16 夕に一般化した。それまで「後ろの両隅に必ず 2 個」と決め打ちで、
+    欠きが 1 個になったら書き換えるしかなかった。右の縁から左へ回りながら、
+    欠きを右から順に落としていく。
+    """
+    pts = [(0, 0), (BOARD_L, 0), (BOARD_L, BOARD_W)]
+    left_open = False
+    for x0, x1, yf in sorted(NOTCHES, key=lambda n: -n[1]):
+        pts += [(x1, BOARD_W), (x1, yf), (x0, yf)]
+        left_open = x0 <= 1e-9
+        if not left_open:
+            pts += [(x0, BOARD_W)]
+    if not left_open:
+        pts += [(0, BOARD_W)]
+    return pts
 
 
 def bx(x, y):
@@ -262,9 +274,12 @@ BOX_PLACE = {
     "J5": (PH_H2, 270) + _fb("SPK OUT"),
     "J6": (PH_H2, 0) + _fb("会話ボタン"),
     "J7": (PH_V4, 0) + _fb("リード＋トグル"),      # 縦 4 ピン（上から挿す）
-    # 🔴 裏面は足形が鏡になるので、表と同じ角度だと口が逆（−X）を向く。180 度回して
-    #    電池の側（+X）へ向ける。2026-09-14 に測って確かめた
-    "J10": (PH_H2, 270) + _fb("電池"),             # 横出し 2 ピン（板の裏・口は +X ＝ 電池の側）
+    # ⭐ 2026-09-16 夕 🔒 ユーザー「ケーシング作ったから垂直のがいい。結局一番穴は小さくなる」:
+    #    サイド型 S2B-PH-K（横出し・左の帯）→ **トップ型 B2B-PH-K を板の裏に下向き**、右の帯へ。
+    #    角度 180 は「パッドを **X** へ並べる」ため（枠は PH2_V 6.9 × 5.5）。裏なので足形は鏡になるが、
+    #    縦の口は口の向きが ±Z で鏡に関係しない。**効くのはパッドの並びだけ**なので CHECK_PADS で見る。
+    #    ⚠ Y へ並べる（270）も試したが、はんだ足が J4 に挿さったプラグの下に入って置けなかった（v61_board.py の注）
+    "J10": (PH_V2, 180) + _fb("電池"),             # 縦 2 ピン（板の裏・口は下 ＝ 電池の側）
     # ライザーの縦ソケット（パッドが板の +X へ 2.54 間隔で並ぶ向き）
     "J1": (SOCK7, 90, -0.01, VB.RISER_XIAO[2] - VB.RISER_D / 2, 18.79, VB.RISER_XIAO[2] + VB.RISER_D / 2),
     "J2": (SOCK4, 90, 35.47, VB.RISER_OLED[2] - VB.RISER_D / 2, 46.63, VB.RISER_OLED[2] + VB.RISER_D / 2),
@@ -279,6 +294,14 @@ BOX_PLACE = {
 FIXED_V61 = {
     # つまみ（磁石と軸がこの真上に降りる）。AS5600 は芯で置く
     "U4": (65.700, 13.800, 0), "C42": (57.500, 13.800, 0),
+    # ⭐ 2026-09-16 夕: 逆接保護の P-ch（Q2）とそのゲートの抵抗（R46）。
+    #   置き場所は **シャント R41 の隣**（電源の区画）。最初 J10 のすぐ横に置こうとしたが、
+    #   表のその帯は J4 に挿さるプラグの逃げ（y 〜17.9）と USB-C の courtyard（y 20.68〜）に挟まれて
+    #   **2.78 しか無く**、SOT-23 の courtyard 3.40 が入らなかった。
+    #   🔴 経路は伸びない: 電池の電流はいまも J10（x 76）から R41（x 30）まで板を横断している。
+    #      Q2 をシャントの手前に置けば、その長い線が BATRAW（保護の手前）に変わるだけである。
+    #      逆接で電池がかかるのは **BATRAW の線と Q2 のドレインだけ**で、その先には何も無い
+    "Q2": (26.000, 9.500, 0), "R46": (30.500, 9.500, 0),
 }
 def solve_fixed():
     """枠で指定した物の原点を足形から逆算して PLACE を仕上げる（load_fp が要るので実行時に呼ぶ）。"""
@@ -317,8 +340,17 @@ CONN = {
 #    ⇒ **パッドの重心から枠の中心へ向かう向き＝開いている向き。**
 #      PH 2 ピン横で ±2.45 出る（枠 8.60 の中心とパッドのずれ）。X と Y のどちらが
 #      大きいかで 4 方向に丸める。
-PLUG_BODY = 3.1   # 相手のハウジングが枠の縁から出る量。📄 ePH.pdf 2 ページ (9.6) −
-                  # 📄 4 ページ 6 = 3.6 から、courtyard の逃げ 0.5 を引いた値
+# ⭐ 2026-09-16 夕に引き直した。🔴 **旧 3.1 は導出そのものが間違っていた。**
+#   旧: 📄 2 ページ（SMT の図）の (9.6) − 6.0 − 逃げ 0.5 = 3.1。引いた 6.0 は**トップ型の背**で、
+#       (9.6) が載っている**サイド型の奥行き 7.6** ではない。層の違う数どうしを引いていた。
+#   正: 📄 1 ページ（Through-hole の組立図）  サイド型 (9.6) − 胴の奥行き 7.6 = **2.0**
+#                                             トップ型 (8)   − 胴の背     6.0 = **2.0**
+#   この表は courtyard の枠から測るので、逃げ 0.5 を引いて 1.5 を渡す（＝胴の縁から 2.0）。
+PLUG_BODY = 1.5   # 相手のハウジングが **courtyard の縁**から出る量（胴の縁からは 2.0）
+# ⚠ 押し離し（relax）だけは 3.1 のまま予約する。**検査の値ではなく置き方の手加減**である。
+#    1.5 に詰めたら電源の区画の小物が流れ込み、D31 と Q31 が 2.3 × 1.29 重なって落ち着いた（2026-09-16 夕）。
+#    口の前は指も取り付くので、置く段階では広めに空けておく方が結果が良い
+PLUG_KEEP = 3.1
 
 
 def plug_band(rect, d, n):
@@ -369,7 +401,9 @@ HEIGHT = {
     "J4":   (4.8,  "📄 同"),
     "J5":   (4.8,  "📄 同"),
     "J6":   (4.8,  "📄 同"),
-    "J10":  (4.8,  "📄 同"),
+    # ⭐ 2026-09-16 夕にトップ型へ。📄 ePH.pdf 3 ページ Top entry の図で胴の背は 6.0、
+    #    1 ページ「mounting height of 8 mm」で**嵌合した高さは 8.0**。板の裏が Z 12.0 なので床まで 4.0 余る
+    "J10":  (6.0,  "📄 ePH.pdf 3 ページ Top entry（嵌合は 8.0・1 ページ）"),
     "SW1":  (4.0,  "📄 MST-12D18G3.pdf（胴 3.5 ＋ 浮き 0.5。レバーは Z 2.3〜3.8）"),
     "J13":  (3.16, "⚠ 二次資料（PCBWiki）・メーカー図は未取得"),
     # 🔒 2026-09-13、JLCPCB の部品ページ（C79815）の仕様欄 `Height 1.75mm` で裏が取れた。
@@ -400,7 +434,15 @@ CHECK_PADS = {
     # 🔴🔴 電池の極性。裏面なので足形が鏡になる。ここが入れ替わると逆接で煙が出る
     #    （2026-09-11 に実機で INA226 から煙・PowerBoost が発熱している）。
     #    **奥（ハッチ側・Y 大）が GND ／ 手前（OLED 側・Y 小）が VBAT（＋）**
-    ("J10", "1"): (3.550, 26.550), ("J10", "2"): (3.550, 24.550),
+    #    ⭐ 2026-09-16 夕にトップ型 B2B-PH-K・角度 180 へ。パッドは **X に 2.0 間隔**で並び、Y は同じ 17.770
+    #    （枠 Y 14.475〜19.975 の芯 17.225 から +0.545。B2B の足形はパッドが courtyard の芯に無い）。
+    #    🔴🔴 並びが前後から**左右**に変わった: 1 番 GND が**右**（X 77.450）・2 番 VBAT ＋ が**左**（X 75.450）
+    ("J10", "1"): (77.450, 17.770), ("J10", "2"): (75.450, 17.770),
+    # ⭐ 2026-09-16 夕: 逆接保護の P-ch（Q2）の向き。ここが回ると保護にならないので位置で縛る。
+    #    SOT-23 は 1 番（G）と 2 番（S）が片側・3 番（D）が反対側で、**3 番＝ドレイン＝電池側**である。
+    #    角度 0 で 3 番が +X 側（板の座標 x 26.938）・1/2 番が −X 側（25.062）に並ぶ。
+    #    ネットの対応（3=BATRAW・2=BATP・1=BATG）は check_sch.py が別に見ている
+    ("Q2", "1"): (25.062, 10.450), ("Q2", "2"): (25.062, 8.550), ("Q2", "3"): (26.938, 9.500),
     # USB-C は「パッドの列が板の内側」だけが条件（A1 と B1 のどちらが上かは足形が決める）。
     #    列の X だけを見る。板の縁は 82.024
     ("J13", "A1"): (75.859, None), ("J13", "B1"): (75.859, None),
@@ -444,14 +486,20 @@ def rot_xy(x, y, ang):
     return (x * math.cos(a) + y * math.sin(a), -x * math.sin(a) + y * math.cos(a))
 
 
-def courtyard(fp, x, y, ang):
+def courtyard(fp, x, y, ang, key="CrtYd"):
+    """置いた足形の外接枠。key="Fab" にすると **胴（F.Fab／B.Fab）**の枠になる。
+
+    ⭐ 2026-09-16 夕に key を足した。courtyard は KiCad が周りに 0.3〜0.5 の逃げを付けた
+    **置き場所の予約**で、物の形ではない。板を貫いた足が板の反対側の物に当たるかは
+    逃げではなく胴で見る（J10 を裏へ回して、J4 の逃げに 0.00 で触れる置き方が出た）。
+    """
     xs, ys = [], []
 
     def walk(n):
         if isinstance(n, list):
             if n and n[0] in ("fp_line", "fp_poly", "fp_rect", "fp_circle"):
                 lay = find1(n, "layer")
-                if lay and "CrtYd" in str(lay[1]):
+                if lay and key in str(lay[1]):
                     for k in ("start", "end", "center", "mid"):
                         for e in find(n, k):
                             xs.append(float(e[1]))
@@ -464,6 +512,8 @@ def courtyard(fp, x, y, ang):
                 if isinstance(e, list):
                     walk(e)
     walk(fp)
+    if not xs and key != "CrtYd":   # その層が無い足形は courtyard で代用（安全側）
+        return courtyard(fp, x, y, ang)
     if not xs:   # CrtYd の無い足形（自作）はパッドの範囲で代用
         for p in find(fp, "pad"):
             at = find1(p, "at")
@@ -517,20 +567,31 @@ def place_footprint(ref, comp, x, y, ang, pads, back=False):
         #    パッドも図形も枠（courtyard）も同じ物を見る。返す fp も反転済みなので、
         #    呼び出し側の当たり判定が「反転前の枠」を見る事故が起きない（2026-09-14 に踏んだ）
         fp = mirror_y(fp)
+    # 🔴 記号（R15・C42…）は**一つも印刷しない**（2026-09-16 夕・ユーザー
+    #    「口の名前と極性を入れて、SMD の記号は消してください」）。
+    #    足形が持つ記号は「原点から上へ 2.5」の決め打ちにしか置けず、この密度では
+    #    隣の部品やパッドの上に乗ってシルクが読めなくなっていた（R5 と R33 が
+    #    重なって「R5-3R3」に見えていた）。自分で挿す口の番号は捨てずに、
+    #    silk() が「J5 SPK OUT」の形で**名前と一緒に**置き直す。
+    #    記号そのものは Value と同じく F.Fab／B.Fab へ回して隠す（部品表と実装位置は
+    #    property を読むので、層を変えても壊れない）。
+    tht = bool(find1(fp, "attr")) and "through_hole" in str(find1(fp, "attr")[1:])
+    fab_lay = "B.Fab" if back else "F.Fab"
+    # ⚠ 裏の層に置く文字は、隠してあっても鏡にしておく（KiCad の DRC が
+    #    nonmirrored_text_on_back_layer で拾う）
+    mir = [["justify", "mirror"]] if back else []
+
+    def hidden_prop(nm, val, dy):
+        return ["property", Str(nm), Str(val), ["at", "0", f"{dy}", "0"],
+                ["layer", Str(fab_lay)], ["hide", "yes"], ["uuid", Str(uid())],
+                ["effects", ["font", ["size", "0.8", "0.8"], ["thickness", "0.12"]]] + mir]
+
     out = ["footprint", Str(comp["fp"]), ["layer", Str("B.Cu" if back else "F.Cu")], ["uuid", Str(uid())],
            ["at", f"{x:.3f}", f"{y:.3f}"] + ([f"{ang:.0f}"] if ang else []),
-           ["property", Str("Reference"), Str(ref), ["at", "0", "-2.5", "0"],
-            ["layer", Str("B.SilkS" if back else "F.SilkS")], ["uuid", Str(uid())],
-            ["effects", ["font", ["size", "0.8", "0.8"], ["thickness", "0.12"]]]
-            + ([["justify", "mirror"]] if back else [])],
-           ["property", Str("Value"), Str(comp["value"]), ["at", "0", "2.5", "0"],
-            ["layer", Str("B.Fab" if back else "F.Fab")], ["hide", "yes"], ["uuid", Str(uid())],
-            ["effects", ["font", ["size", "0.8", "0.8"], ["thickness", "0.12"]]]],
-           ["property", Str("LCSC"), Str(comp.get("lcsc", "")), ["at", "0", "3.5", "0"],
-            ["layer", Str("B.Fab" if back else "F.Fab")], ["hide", "yes"], ["uuid", Str(uid())],
-            ["effects", ["font", ["size", "0.8", "0.8"], ["thickness", "0.12"]]]],
-           ["attr", "through_hole" if find1(fp, "attr") and "through_hole" in str(find1(fp, "attr")[1:])
-            else "smd"]]
+           hidden_prop("Reference", ref, -2.5),
+           hidden_prop("Value", comp["value"], 2.5),
+           hidden_prop("LCSC", comp.get("lcsc", ""), 3.5),
+           ["attr", "through_hole" if tht else "smd"]]
     for e in fp[2:]:
         if not isinstance(e, list) or e[0] in ("version", "generator", "generator_version", "layer",
                                                "descr", "tags", "attr", "property", "uuid", "embedded_fonts"):
@@ -569,6 +630,21 @@ def place_footprint(ref, comp, x, y, ang, pads, back=False):
                 lay = find1(body, "layer")
                 if lay:
                     body[body.index(lay)] = ["layer", Str(flip_layer(str(lay[1])))]
+                # ⚠ 足形が自分で持っている文字（JST の "${REFERENCE}" など）も、裏へ回したら
+                #    鏡にする。付け忘れると DRC が nonmirrored_text_on_back_layer で拾う
+                if e[0] == "fp_text":
+                    eff = find1(body, "effects")
+                    if eff is None:
+                        eff = ["effects"]
+                        body = body + [eff]
+                    elif not find1(eff, "justify"):
+                        eff = list(eff)
+                        body[body.index(find1(body, "effects"))] = eff
+                    if not find1(eff, "justify"):
+                        eff.append(["justify", "mirror"])
+                    elif "mirror" not in [str(t) for t in find1(eff, "justify")[1:]]:
+                        j = list(find1(eff, "justify"))
+                        eff[eff.index(find1(eff, "justify"))] = j + ["mirror"]
             # uuid を持てるのは図形・文字・ゾーンだけ（他に足すと KiCad が読めない）
             if e[0].startswith("fp_") or e[0] == "zone":
                 body = body + [["uuid", Str(uid())]]
@@ -611,6 +687,143 @@ def mounting_holes():
                    ["size", f"{MOUNT_D}", f"{MOUNT_D}"], ["drill", f"{MOUNT_D}"],
                    ["layers", Str("F&B.Cu"), Str("*.Mask")], ["uuid", Str(uid())]]])
     return o
+
+
+# ---- シルク（読む人のための文字）----
+# 🔴 板の上の文字は「自分で挿す口」のためだけに置く（2026-09-16 夕・ユーザー
+#    「口の名前と極性を入れて、SMD の記号は消してください」）。
+#    表面実装は JLCPCB が付けるので R15・C42 の記号は誰も読まない。読むのは
+#    スルーホールの口を手で挿すときで、そこには番号（J4）しか出ていなかった。
+#    名前は netlist の Value（"SPK IN" など）と同じ物を、印刷される層に出す。
+SILK_H = 1.0          # 文字の高さ [mm]。製造の下限 0.8 に余裕を足す
+SILK_T = 0.15         # 線の太さ [mm]。JLCPCB の下限ちょうど（記号の 0.12 は細すぎた）
+SILK_GAP = 0.5        # 部品の枠から文字までの隙間 [mm]
+
+# ref → (板に書く名前, 名前を置く向き)。向きは板の図面で N=上 S=下 W=左 E=右
+SILK_PORT = {
+    "J1":  ("XIAO",     "S"),
+    "J2":  ("OLED",     "S"),
+    "J4":  ("SPK IN",   "W"),
+    "J5":  ("SPK OUT",  "N"),
+    "J6":  ("BTN2",     "S"),
+    "J7":  ("REED/TGL", "S"),
+    "J10": ("BAT",      "S"),
+}
+# 🔴 電池の極性。逆接で INA226 から煙が出た事故があるのに、板の上には一文字も無かった
+#    （足形が持つピン 1 の小さな印だけ）。ネット名を出どころにして (ref, pin) で書く。
+#    J10 は**裏**にあるので文字も B.SilkS に出る（鏡文字にする）。
+SILK_POLARITY = {("J10", "2"): "+", ("J10", "1"): "-"}
+
+
+def silk_text(txt, x, y, layer, just=None, h=SILK_H):
+    e = ["effects", ["font", ["size", f"{h}", f"{h}"], ["thickness", str(SILK_T)]]]
+    if just:
+        # ⚠ justify の left／right／mirror は**裸の語**で書く。Str() で括ると KiCad が
+        #    「'quoted string' が来た」と言って板ごと読めなくなる（2026-09-16 夕に踏んだ）
+        e.append(["justify"] + list(just))
+    return ["gr_text", Str(txt), ["at", f"{x:.3f}", f"{y:.3f}"], ["layer", Str(layer)],
+            ["uuid", Str(uid())], e]
+
+
+def text_w(txt, h=SILK_H):
+    """KiCad の線の書体のおおよその幅 [mm]（板からはみ出していないかを見るだけ）。"""
+    return len(txt) * h * 0.8
+
+
+def silk(placed, boxes):
+    """自分で挿す口の名前と、電池の極性を置く。
+
+    位置は**置いたあとの枠**（relax を回したあとの courtyard）から決める。口が動いても
+    文字が付いて回るように、数字をここに写さない。極性を先に置き、名前が同じ側へ来る
+    ときは極性の外側へ逃がす（重ねると両方読めなくなる）。
+    """
+    out, warn = [], []
+    box = dict(boxes)
+    lim = (ORG[0], ORG[1], ORG[0] + BOARD_L, ORG[1] + BOARD_W)
+
+    def inside(x0, y0, x1, y1):
+        return x0 >= lim[0] and y0 >= lim[1] and x1 <= lim[2] and y1 <= lim[3]
+
+    # ---- 先に極性。パッドの真ん中から、口の枠の外へ**まっすぐ**逃がす ----
+    pad_at = {}
+    for f in placed:
+        r = [pr[2] for pr in find(f, "property") if str(pr[1]) == "Reference"][0]
+        at = find1(f, "at")
+        fx, fy = float(at[1]), float(at[2])
+        fa = float(at[3]) if len(at) > 3 else 0.0
+        for q in find(f, "pad"):
+            if not str(q[1]):
+                continue
+            pa = find1(q, "at")
+            dx, dy = rot_xy(float(pa[1]), float(pa[2]), fa)
+            pad_at[(str(r), str(q[1]))] = (fx + dx, fy + dy)
+
+    pol_side = {}          # ref → 極性を置いた向き（名前はここを避ける）
+    pol_h = SILK_H * 1.4   # 極性は少し大きく（一番読めないと困る文字）
+    for (ref, pin), mark in sorted(SILK_POLARITY.items()):
+        if (ref, pin) not in pad_at or ref not in box:
+            warn.append(f"{ref}.{pin} が見つからないので極性を置けない")
+            continue
+        back = ref in BACK_SIDE
+        px, py = pad_at[(ref, pin)]
+        x0, y0, x1, y1 = box[ref]
+        # 2 つのパッドが並んでいる軸を見て、**直角の向き**へ逃がす
+        pins = [v for (r, _), v in pad_at.items() if r == ref]
+        horiz = (max(p[0] for p in pins) - min(p[0] for p in pins)
+                 >= max(p[1] for p in pins) - min(p[1] for p in pins))
+        got = None
+        for sgn in (1, -1):
+            if horiz:
+                x, y = px, (y1 if sgn > 0 else y0) + sgn * (SILK_GAP + pol_h / 2)
+                side = "S" if sgn > 0 else "N"
+            else:
+                x, y = (x1 if sgn > 0 else x0) + sgn * (SILK_GAP + pol_h / 2), py
+                side = "E" if sgn > 0 else "W"
+            if inside(x - pol_h / 2, y - pol_h / 2, x + pol_h / 2, y + pol_h / 2):
+                got, pol_side[ref] = (x, y), side
+                break
+        if got is None:
+            warn.append(f"{ref}.{pin} の「{mark}」を置く場所が板の中に無い")
+            continue
+        out.append(silk_text(mark, got[0], got[1], "B.SilkS" if back else "F.SilkS",
+                             ["mirror"] if back else None, h=pol_h))
+
+    # ---- 口の名前（番号と一緒に「J5 SPK OUT」の形で置く）----
+    for ref, (name, side) in sorted(SILK_PORT.items()):
+        if ref not in box:
+            warn.append(f"{ref} が板に無いので名前を置けない")
+            continue
+        back = ref in BACK_SIDE
+        lay = "B.SilkS" if back else "F.SilkS"
+        x0, y0, x1, y1 = box[ref]
+        label = f"{ref} {name}"
+        w, h = text_w(label), SILK_H
+        # 極性を同じ側に置いたなら、その外側へ回る
+        gap = SILK_GAP + (SILK_GAP + pol_h if pol_side.get(ref) == side else 0)
+        if side in ("N", "S"):
+            x = (x0 + x1) / 2
+            y = y0 - gap - h / 2 if side == "N" else y1 + gap + h / 2
+            just = ["mirror"] if back else None
+            bb = (x - w / 2, y - h / 2, x + w / 2, y + h / 2)
+        else:
+            y = (y0 + y1) / 2
+            x = x0 - gap if side == "W" else x1 + gap
+            # 🔴 裏は鏡なので、左右の寄せも入れ替わる（left と書くと右へ伸びる）
+            side_j = "right" if side == "W" else "left"
+            if back:
+                side_j = "left" if side_j == "right" else "right"
+            just = [side_j] + (["mirror"] if back else [])
+            bb = ((x - w, y - h / 2, x, y + h / 2) if side == "W"
+                  else (x, y - h / 2, x + w, y + h / 2))
+        if not inside(*bb):
+            warn.append(f"{ref} の名前「{label}」が板からはみ出す（{side} 向き）")
+        out.append(silk_text(label, x, y, lay, just))
+
+    print(f"  シルク: 口の名前 {len(SILK_PORT)} 個・極性 {len(SILK_POLARITY)} 個"
+          + ("" if not warn else f"（置けない物 {len(warn)}）"))
+    for w in warn:
+        print(f"  🔴 シルク {w}")
+    return out
 
 
 def vbus_zone():
@@ -740,7 +953,7 @@ def relax(placed, boxes, rounds=3000):
         # 🔴 押し離すのは**相手の胴 3.1** だけ。残り（指と曲がり）まで押すと、
         #    板の真ん中に 10mm の空き地が 5 つできて押し離しが発散した（2026-09-13）。
         #    指の側は検査で「何が下に居るか」を出すだけにする
-        need = PLUG_BODY
+        need = PLUG_KEEP
         if dx:
             r = (b[2], b[1], b[2] + need, b[3]) if dx > 0 else (b[0] - need, b[1], b[0], b[3])
         else:   # 板の座標の +Y は図面の −Y
@@ -760,6 +973,11 @@ def relax(placed, boxes, rounds=3000):
         moved = False
         pairs = [(boxes[i], boxes[j]) for i in range(len(boxes)) for j in range(i + 1, len(boxes))]
         for (ra, a), (rb, b) in pairs:
+            # ⭐ 2026-09-16 夕: **表と裏の物どうしは押し離さない**。板を挟んで別の側に居るので当たらない。
+            #    入れていなかったとき、J10（裏）から押される Q2 が板の縁にも押し返されて
+            #    「押し離しが収束しなかった」になった
+            if (ra in BACK_SIDE) != (rb in BACK_SIDE):
+                continue
             a = boxes[idx[ra]][1]
             b = boxes[idx[rb]][1]
             ov_x = min(a[2], b[2]) - max(a[0], b[0])
@@ -802,12 +1020,15 @@ def build():
     comps, pads, nets = netlist()
     NETNUM.update(nets)
     placed, boxes = [], []
+    THPAD = {}          # ref → 板を貫くパッドの枠（図面の座標）。裏表が違う部品どうしの当たりに使う
+    FABBOX = {}         # ref → 胴の枠（図面の座標・F.Fab／B.Fab）
 
     def add(ref, x, y, ang):
         back = ref in BACK_SIDE
         fpnode, raw = place_footprint(ref, comps[ref], x, y, ang, pads, back=back)
         placed.append(fpnode)
         boxes.append((ref, courtyard(raw, x, y, ang)))
+        FABBOX[ref] = courtyard(raw, x, y, ang, key="Fab")   # 胴（逃げ抜き）。裏表が違う物どうしの当たりに使う
         INSTS.append(dict(ref=ref, fp=comps[ref]["fp"], x=x, y=y, ang=ang,
                           pads=[fp_pad(p) for p in find(raw, "pad")
                                 if str(p[1]) and str(p[2]) != "np_thru_hole"]))
@@ -819,12 +1040,25 @@ def build():
             d = fp_pad(q)
             dx, dy = rot_xy(d["at"][0], d["at"][1], ang)
             NPTH.append((ref, dx, dy, max(d["size"]) / 2 + 0.3))
+        # 🔴 板を**貫く**パッド（thru_hole と np_thru_hole）。裏表が違う部品どうしの当たりは
+        #    これだけが本物になる（胴は板を挟んで別の側に居るので当たらない）
+        th = []
+        for q in find(raw, "pad"):
+            if str(q[2]) not in ("thru_hole", "np_thru_hole"):
+                continue
+            d = fp_pad(q)
+            dx, dy = rot_xy(d["at"][0], d["at"][1], ang)
+            w, h = d["size"]
+            if abs(ang) % 180 == 90:
+                w, h = h, w
+            th.append((x + dx - w / 2, y + dy - h / 2, x + dx + w / 2, y + dy + h / 2))
+        THPAD[ref] = th
 
     # 置く（板の座標 → 図面の座標）
     # 🔴 縦のピンソケットの足形のパッドは**局所 +Y** に並ぶ（+X ではない）。板の +X へ並べるには 270 度。
-    # ⚠ J10 は物としては**板の裏**に付くが、いまは表（F.Cu）に置いている。
-    #    裏へ回すと足形が鏡になり、2 ピンの並び（どちらが VBAT か）が入れ替わる。
-    #    電池の極性を間違えると煙が出るので、裏返しは向きを検算してから入れる（docs/PCB-V61.md 5 章）。
+    # 🔴 J10 は**板の裏（B.Cu）**に置いてある（BACK_SIDE）。足形が鏡になって 2 ピンの並び
+    #    （どちらが VBAT か）が入れ替わるので、置いたあとの座標を CHECK_PADS で必ず検算する。
+    #    電池の極性を間違えると煙が出る（docs/PCB-V61.md 8 章）。
     for ref, v in PLACE.items():
         x, y, ang = v
         X, Y = bx(x, y)
@@ -956,6 +1190,18 @@ def build():
         for r2, b2 in box.items():
             if r2 == ref:
                 continue
+            # ⭐ 2026-09-16 夕: 通り道は**その面の上**にしかないので、板の反対側の物の**胴**は相手にならない。
+            #    🔴 ただし**板を貫いた足**は相手の面へ出る。裏の物の足がこの面のプラグの下に居たら本物の当たり。
+            #       （J10 を裏の右へ移したら、そのはんだ足 2 本が表の J4 の嵌合したプラグの真下に来た。
+            #        筐体側の hit_wires が先に見つけた ── ここで捕まえられていなかった）
+            if (r2 in BACK_SIDE) != (ref in BACK_SIDE):
+                for t in THPAD.get(r2, ()):
+                    tb = (t[0] - ORG[0], BOARD_W - (t[3] - ORG[1]), t[2] - ORG[0], BOARD_W - (t[1] - ORG[1]))
+                    if (body[0] < tb[2] - 1e-6 and tb[0] < body[2] - 1e-6
+                            and body[1] < tb[3] - 1e-6 and tb[1] < body[3] - 1e-6):
+                        why.append(f"{r2} の足")
+                        break
+                continue
             if (body[0] < b2[2] - 1e-6 and b2[0] < body[2] - 1e-6
                     and body[1] < b2[3] - 1e-6 and b2[1] < body[3] - 1e-6):
                 why.append(r2)
@@ -998,12 +1244,32 @@ def build():
     missing = sorted(set(comps) - {b[0] for b in boxes} - {r for r in comps if r.startswith("#")})
     if missing:
         sys.exit("置き場所が決まっていない部品: " + ", ".join(missing))
-    bad = []
+    # 🔴 枠の重なり。⭐ 2026-09-16 夕に**面ごと**にした。
+    #    それまで表と裏を 1 枚の紙として見ていて、板を挟んで別の側に居る物どうしを重なりと呼んでいた。
+    #    （J10 を裏の右の帯へ移したら、表の J4 の胴と 5.25 × 3.3 重なると出た。物は板の反対側に居る）
+    #    ⇒ 同じ面どうしは今までどおり枠で見る。**別の面どうしは、板を貫くパッドが相手の枠に
+    #      入っていないか**だけを見る（貫いた足の先は相手の側へ出るので、これは本物の当たり）。
+    def _ov2(a, b):
+        return a[0] < b[2] - 1e-6 and b[0] < a[2] - 1e-6 and a[1] < b[3] - 1e-6 and b[1] < a[3] - 1e-6
+    bad, xside = [], []
     for i, (ra, a) in enumerate(boxes):
         for rb, b in boxes[i + 1:]:
-            if a[0] < b[2] - 1e-6 and b[0] < a[2] - 1e-6 and a[1] < b[3] - 1e-6 and b[1] < a[3] - 1e-6:
+            if not _ov2(a, b):
+                continue
+            if (ra in BACK_SIDE) == (rb in BACK_SIDE):
                 bad.append((ra, rb, round(min(a[2], b[2]) - max(a[0], b[0]), 2),
                             round(min(a[3], b[3]) - max(a[1], b[1]), 2)))
+                continue
+            # 相手は **胴**（FABBOX）で見る。courtyard の逃げ 0.3〜0.5 は物ではない
+            hit = [r for r, o in ((ra, FABBOX.get(rb, b)), (rb, FABBOX.get(ra, a)))
+                   if any(_ov2(t, o) for t in THPAD.get(r, ()))]
+            if hit:
+                bad.append((ra, rb, round(min(a[2], b[2]) - max(a[0], b[0]), 2),
+                            round(min(a[3], b[3]) - max(a[1], b[1]), 2)))
+            else:
+                xside.append((ra, rb))
+    for ra, rb in xside:
+        print(f"  表と裏なので当たらない {ra} ↔ {rb}（枠は重なるが、板を貫く足は相手の枠の外）")
     for ra, rb, w, h in bad:
         print(f"  重なり {ra} ↔ {rb}: {w} × {h} mm")
     doc = ["kicad_pcb", ["version", "20241229"], ["generator", Str("katanori/gen_pcb.py")],
@@ -1037,7 +1303,7 @@ def build():
            ["net", "0", Str("")]]
     for nm, num in sorted(nets.items(), key=lambda kv: kv[1]):
         doc.append(["net", str(num), Str(nm)])
-    doc += outline() + mounting_holes() + placed + gnd_zone() + vbus_zone()
+    doc += outline() + mounting_holes() + placed + gnd_zone() + vbus_zone() + silk(placed, boxes)
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT / f"{NAME}.kicad_pcb").write_text(kisym.dump(doc) + "\n", encoding="utf-8")
     print(f"{len(placed)} 部品・ネット {len(nets)} 本 → {OUT / (NAME + '.kicad_pcb')}")

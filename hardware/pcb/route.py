@@ -54,7 +54,7 @@ def run_freerouting():
         #  ・ネックダウン（細いピッチの手前で線を細くする）を切る。0.075 まで細くなり、後から太らせると隣に寄った
         #  ・パスは 15 まで。3・4 回目はどちらもパス 8〜11 で改善が止まり、残りは待つだけだった（ユーザー「遅すぎる」）
         passes = "15"
-        extra = ["--router.optimizer.enabled=false", "--router.automatic_neckdown=false"]
+        extra = ["--router.optimizer.enabled=false", "--router.automatic_neckdown=true"]
     if "--incremental" in sys.argv:
         passes = "10"
     r = subprocess.run([str(FR), "-de", str(OUT / f"{NAME}.dsn"), "-do", str(OUT / f"{NAME}.ses"),
@@ -90,7 +90,11 @@ def seed_wiring():
                     f' (net "{net}") (type route))')
     nv = 0
     for v in find(pcb, "via"):
-        if float(find1(v, "size")[1]) >= 0.59:       # 縫いのビア
+        # 🔴 2026-09-16 夕に直した。「>= 0.59 なら縫いのビア」は**自動配線のビアも落としていた**。
+        #    v6.1 の自動配線のビアは φ0.8（DSN の Via[0-1]_800:400_um）で、縫いのビアが φ0.6。
+        #    ⇒ 0.59 以上を全部落とすと**穴が 1 つも種にならず**、多層をまたぐネットが切れる。
+        #    実際 --incremental が未接続 40 本を出していた（0.65 未満だけを落とす形に直して解消）。
+        if float(find1(v, "size")[1]) < 0.65:        # 縫いのビア（φ0.6）だけ落とす
             continue
         at = find1(v, "at")
         net = names.get(str(find1(v, "net")[1]), "")
