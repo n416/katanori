@@ -277,7 +277,7 @@ def v61(x, y, ang=0):
     return (16.8 + (y - 25.5) * SX, 3.5 + (35.0 - x) * SY, (ang - 90) % 360)
 
 
-def org_from_box(fp_id, ang, x0, y0, x1, y1, back=False):
+def org_from_box(fp_id, ang, x0, y0, x1, y1, back=False, key="CrtYd"):
     """置きたい**枠**（板の座標）と角度から、足形の**原点**（板の座標）を逆算する。
 
     🔴 こちらが筐体と決めてきたのは「枠」で、PLACE の表は「原点」を書く。手で引き算すると
@@ -286,11 +286,14 @@ def org_from_box(fp_id, ang, x0, y0, x1, y1, back=False):
        cm5_minima の同じ足形が表 (-1, 0.43) / 裏 (-1, -0.43)）。⇒ 反転してから測る。
     ⚠ 出来上がりは build() の中で **置いたあとの枠を測って**突き合わせる（check_boxes）。
        ここの式だけを信じない。
+    ⭐ 2026-09-17: key="Fab" にすると **胴**で位置を決める。壁から出す量のように
+       「物がどこまで出るか」で決まる置き方は、枠で指定すると逃げのぶんずれる
+       （USB-C を枠で 1.3 出したら胴は 0.8 しか出ず、奥まりが 0.8 のはずが 1.3 になった）。
     """
     fp = load_fp(fp_id)
     if back:
         fp = mirror_y(fp)
-    cx0, cy0, cx1, cy1 = courtyard(fp, 0.0, 0.0, ang)
+    cx0, cy0, cx1, cy1 = courtyard(fp, 0.0, 0.0, ang, key)
     return (x0 - cx0, y0 + cy1)
 
 
@@ -311,6 +314,9 @@ def _fb(nm):
 
 # 板の**裏**に付く物（KiCad でも B.Cu に置く）。局所 Y が反転する
 BACK_SIDE = {"J10"}
+# ⭐ 2026-09-17: 枠ではなく **胴** で置く物。壁から出す量で位置が決まる口だけ。
+#   枠（courtyard）は KiCad が付けた逃げで物の形ではない（USB-C は後ろへ 0.5 大きい）
+BOX_BY_FAB = {"J13"}
 PH_H2 = "Connector_JST:JST_PH_S2B-PH-K_1x02_P2.00mm_Horizontal"
 PH_V2 = "Connector_JST:JST_PH_B2B-PH-K_1x02_P2.00mm_Vertical"
 PH_V4 = "Connector_JST:JST_PH_B4B-PH-K_1x04_P2.00mm_Vertical"
@@ -347,8 +353,8 @@ BOX_PLACE = {
     # ⇒ **後ろの縁（ハッチ側）**。U2（板 X 33）に一番近い壁で、VBUS が短い。
     # 角度 180 で口が +Y（ハッチ）を向く。
     "J13": ("Connector_USB:USB_C_Receptacle_USB2.0_16P", 180,
-            (BOARD_L - VB.USBC_CRTYD[0]) / 2, BOARD_W + VB.usbc_out() - VB.USBC_CRTYD[1],
-            (BOARD_L + VB.USBC_CRTYD[0]) / 2, BOARD_W + VB.usbc_out()),
+            (BOARD_L - VB.USBC_SHELL_W) / 2, BOARD_W + VB.usbc_out() - VB.USBC_BODY_D,
+            (BOARD_L + VB.USBC_SHELL_W) / 2, BOARD_W + VB.usbc_out()),   # 枠ではなく胴（BOX_BY_FAB）
     # ミュートリレー（背 9.33）
     "K31": ("Relay_SMD:Relay_DPDT_Omron_G6S-2F", 90) + VB.RELAY[:2]
            + (VB.RELAY[0] + VB.RELAY[2], VB.RELAY[1] + VB.RELAY[3]),
@@ -413,7 +419,8 @@ FIXED_V61.update(POWER_V61)
 def solve_fixed():
     """枠で指定した物の原点を足形から逆算して PLACE を仕上げる（load_fp が要るので実行時に呼ぶ）。"""
     for r, (fp, a, x0, y0, x1, y1) in BOX_PLACE.items():
-        ox, oy = org_from_box(FP_OVERRIDE.get(r, fp), a, x0, y0, x1, y1, back=r in BACK_SIDE)
+        ox, oy = org_from_box(FP_OVERRIDE.get(r, fp), a, x0, y0, x1, y1, back=r in BACK_SIDE,
+                              key="Fab" if r in BOX_BY_FAB else "CrtYd")
         FIXED_V61[r] = (ox, oy, a)
     PLACE.update(FIXED_V61)
 
@@ -561,8 +568,8 @@ CHECK_PADS = {
     ("Q2", "1"): (43.060, 14.950), ("Q2", "2"): (43.060, 13.050), ("Q2", "3"): (44.940, 14.000),
     # USB-C は「パッドの列が板の内側」だけが条件（A1 と B1 のどちらが上かは足形が決める）。
     # 2026-09-16: 右の縁 → 後ろの縁（ハッチ側）。板の縁は Y 37.4 で、パッドの列が
-    #    Y 30.500 ＝ 板の内側。X は足形の並びに任せる
-    ("J13", "A1"): (None, 30.500), ("J13", "B1"): (None, 30.500),
+    #    Y 32.200 ＝ 板の内側（胴の出 2.5）。X は足形の並びに任せる
+    ("J13", "A1"): (None, 32.200), ("J13", "B1"): (None, 32.200),
 }
 
 

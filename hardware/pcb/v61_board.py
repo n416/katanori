@@ -58,8 +58,16 @@ USBC_RECESS = 0.8
 
 
 def usbc_out(nylon=True):
-    """後ろの縁（ハッチ）から出す長さ。ナイロン 1.3 / レジン 2.5。"""
-    return PCB_HATCH_GAP + (HATCH_T_NYLON if nylon else HATCH_T_RESIN) - USBC_RECESS
+    """後ろの縁（ハッチ）から **胴** が出る長さ。
+
+    🔒 ユーザー 2026-09-17「2.5 で」: 板の銅は出る量を 1 つしか持てないので、
+    **深いほう（レジン・ハッチ 2.8）に合わせる**。ナイロンはハッチ側の逃げを
+    PCB_HATCH_GAP 0.9 にして面一にする（case_v6_1.scad）。
+    ⚠ 「2.6 を超えると前のシェルの足が板から外れる」という上限は、足形が
+      **NoFrontLegs**（前の足が無い）になった時点で当たらない。実際の上限は
+      一番縁寄りのパッドが板から出ないことで、板 Y 32.970 ＋ 余り 4.43 ＝ 約 5.7。
+    """
+    return PCB_HATCH_GAP + HATCH_T_RESIN - USBC_RECESS
 USBC_CRTYD = (10.64, 9.42)           # 参考。板の内側へ入る端は 板の座標 x 74.634
 USBC_FRONT_LEG_LIMIT = 2.6           # これを超えて出すなら NoFrontLegs 版
 AS5600 = (65.7, 13.8)          # つまみの軸が真上から降りる。IC 上面 Z レジン 10.7／ナイロン 14.7・磁石の下面 Z 11.8／15.8（隙間 1.1 はどちらも同じ。板の高さが 4.0 違う）

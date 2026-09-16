@@ -71,6 +71,10 @@ def write_dsn(path, name, insts, nets, boundary, keepouts=(), copper=("F.Cu", "B
     VIA_D = VIA_DIA if via is None else round(via[0] * SCALE)
     TR = TRACK_UM if track_um is None else track_um
     CL = CLEAR_UM if clear_um is None else clear_um
+    # ⭐ 2026-09-17: ビア同士だけ間隔を広げる。自動配線は銅の間隔ちょうど（0.15）まで穴を寄せるが、
+    #   KiCad の規則は **穴どうし** 0.5 を見る。穴の間隔 ＝ 銅の間隔 ＋（銅の径 − 穴の径）なので、
+    #   0.6/0.3 の穴なら銅を 0.2 空ければ穴が 0.5 空く（3 件出ていた）。
+    VCL = max(CL, round((0.5 - ((via[0] if via else VIA_DIA / SCALE) - (via[1] if via else 0.4))) * SCALE))
     # 🔴 部品 1 つにつき 1 つの image を作り、パッドの位置も形も**回した状態**で書く。
     #    Freerouting は placement の回転でパッドの形を回さない（2026-09-12・コンデンサだけが
     #    短絡として出た。1.15 × 2.7 のパッドを回さずに見ていた）。回転は 0 で渡す。
@@ -108,7 +112,7 @@ def write_dsn(path, name, insts, nets, boundary, keepouts=(), copper=("F.Cu", "B
     o += ["    (boundary (path pcb 0 " + " ".join(f"{_x(a)} {_y(b)}" for a, b in boundary) + "))",
           f"    (via {VIA_NAME})",
           f"    (rule (width {TR}) (clearance {CL}) (clearance {CL} (type default_smd))"
-          f" (clearance {CL} (type smd_smd)))"]
+          f" (clearance {CL} (type smd_smd)) (clearance {VCL} (type via_via)))"]
     for ly, net in planes.items():
         o.append(f'    (plane "{net}" (polygon {ly} 0 ' + " ".join(f"{_x(a)} {_y(b)}" for a, b in boundary) + "))")
     for i, (x0, y0, x1, y1) in enumerate(keepouts):

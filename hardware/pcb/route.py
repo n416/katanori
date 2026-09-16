@@ -8,6 +8,7 @@
 配線と貫通穴は毎回すべて置き換える（前の配線が混ざると、どこまでが今回の結果か分からなくなる）。
 """
 
+import math
 import pathlib
 import re
 import subprocess
@@ -151,8 +152,74 @@ def merge():
     for net, x, y in vias:
         body.append(["via", ["at", f"{x:.4f}", f"{y:.4f}"], ["size", vsize], ["drill", vdrill],
                      ["layers", Str("F.Cu"), Str("B.Cu")], ["net", nets[net]], ["uuid", Str(uid())]])
+    n_cut = prune_dangling(body, nets)
     (OUT / f"{NAME}.kicad_pcb").write_text(kisym.dump(body) + "\n", encoding="utf-8")
-    print(f"  配線 {n_seg} 本・貫通穴 {len(vias)} 個を入れた")
+    print(f"  配線 {n_seg} 本・貫通穴 {len(vias)} 個を入れた（浮いた切れ端を {n_cut} 本落とした）")
+
+
+def prune_dangling(body, nets):
+    """どちらかの端が何にも触れていない配線を落とす（落として新たに浮く物も繰り返す）。
+
+    自動配線は行き先の無い短い切れ端を残すことがある（KiCad の track_dangling）。
+    端が「触れている」＝ 同じネットの 別の配線の端／貫通穴／パッド のどれかに乗っている。
+    ⚠ locked（先に手で引いた線）は落とさない。片端がパッドの中で終わる作りだから。
+    """
+    num2net = {str(v): k for k, v in nets.items()}
+    pads = {}          # ネット番号 → [(x0, y0, x1, y1), ...]
+    for f in find(body, "footprint"):
+        at = find1(f, "at")
+        fx, fy = float(at[1]), float(at[2])
+        fa = math.radians(-float(at[3])) if len(at) > 3 else 0.0
+        for pad in find(f, "pad"):
+            n = find1(pad, "net")
+            if not n:
+                continue
+            pat, sz = find1(pad, "at"), find1(pad, "size")
+            lx, ly = float(pat[1]), float(pat[2])
+            x = fx + lx * math.cos(fa) - ly * math.sin(fa)
+            y = fy + lx * math.sin(fa) + ly * math.cos(fa)
+            w, h = float(sz[1]), float(sz[2])
+            r = max(w, h) / 2 + 0.05
+            pads.setdefault(str(n[1]), []).append((x - r, y - r, x + r, y + r))
+    vias = {}
+    for v in find(body, "via"):
+        at = find1(v, "at")
+        vias.setdefault(str(find1(v, "net")[1]), []).append((float(at[1]), float(at[2])))
+
+    def on_pad_or_via(net, pt):
+        for x0, y0, x1, y1 in pads.get(net, ()):
+            if x0 <= pt[0] <= x1 and y0 <= pt[1] <= y1:
+                return True
+        return any(abs(vx - pt[0]) < 0.05 and abs(vy - pt[1]) < 0.05 for vx, vy in vias.get(net, ()))
+
+    dropped = 0
+    while True:
+        segs = [e for e in body if isinstance(e, list) and e[0] == "segment"]
+        ends = {}
+        for e in segs:
+            net = str(find1(e, "net")[1])
+            for key in ("start", "end"):
+                q = find1(e, key)
+                ends.setdefault((net, round(float(q[1]), 3), round(float(q[2]), 3)), 0)
+                ends[(net, round(float(q[1]), 3), round(float(q[2]), 3))] += 1
+        kill = []
+        for e in segs:
+            if find1(e, "locked"):
+                continue
+            net = str(find1(e, "net")[1])
+            for key in ("start", "end"):
+                q = find1(e, key)
+                pt = (float(q[1]), float(q[2]))
+                k = (net, round(pt[0], 3), round(pt[1], 3))
+                if ends.get(k, 0) < 2 and not on_pad_or_via(net, pt):
+                    kill.append(e)
+                    break
+        if not kill:
+            break
+        for e in kill:
+            body.remove(e)
+        dropped += len(kill)
+    return dropped
 
 
 def stitch():
