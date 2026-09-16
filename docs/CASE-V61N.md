@@ -428,7 +428,7 @@ preflight（MJF・7 点）: **中身 1 個・二重面 0**。🔴 は蓋の 1 �
 ⚠ その `--incremental` は**壊れていた**。「φ0.59 以上は縫いのビア」として落としていて、自動配線のビア（φ0.8）まで
 種から抜け、多層をまたぐネットが切れて未接続 40 本を出していた。縫いのビア（φ0.6）だけ落とす形に直した。
 
-⇒ いまの手順は `gen_pcb → route → route --incremental → check_pcb → fab --check-zones → check_fab`。
+⇒ いまの手順は `gen_pcb → route → route --incremental → check_pcb → fab → check_fab`。
 DRC エラー 0・未接続 0・回路図との食い違い 0・銅箔のすきま 0.151（下限 0.15）。
 
 ### 9.6 ナットを回すと薄肉が出る件（2026-09-16 に解消）

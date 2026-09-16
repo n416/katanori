@@ -196,7 +196,7 @@ union の中なので害は無いが、`usbc61()` は壁の口 `USBC_PORT_C` の
 - ~~板の裏は Z 12.0（レジン 8.0）~~ ⭐ 2026-09-16 夕に**レジンも 12.0** になったので差が消えた（3 章に反映済み）
 - 充電 USB-C の板の縁からの出は **2.58**（レジン 1.53）。右の壁を 1.45 外へ出したぶん。4 章の限界 2.6 の内側だが余りは 0.02。足跡は素の足 4 本のままでよい
 - ~~左後ろの欠きは X 〜7.6・Y 29.9 から~~ ⭐ 2026-09-16 夕に**欠きは全廃**（3 章）。蓋の足が床から立つ柱になったため
-- 🔴 `fab.py` は 2026-09-16 夕から `--check-zones` を付けて書き出す。基板ファイルにはベタの塗りを保存していないので、これが無いと GND ベタが**空**のガーバーになる（それまでの fab の B_Cu は塗り 0 面だった。出し直した物は 3 面 → J10 を右の帯へ移した 2026-09-16 夕の出し直しで 4 面）
+- 🔴 `fab.py` は 2026-09-16 夕から、kicad-cli を呼ぶときに `--check-zones` を**自分で付けて**書き出す。基板ファイルにはベタの塗りを保存していないので、これが無いと GND ベタが**空**のガーバーになる（それまでの fab の B_Cu は塗り 0 面だった。出し直した物は 3 面 → J10 を右の帯へ移した 2026-09-16 夕の出し直しで 4 面）。⚠ **コマンドラインに書くものではない。**`fab.py` は `sys.argv` を読まないので `fab.py --check-zones` と打っても引数は捨てられる（2026-09-17 まで 5 章がこの綴りで、付けないと塗られないように読めた）
 
 ## 4. 私が仮に決めた事
 
@@ -244,7 +244,7 @@ python hardware/pcb/gen_sch.py && python hardware/pcb/check_sch.py         # 回
 python hardware/pcb/gen_pcb.py && python hardware/pcb/route.py            # 配置 → 自動配線 → DRC
 python hardware/pcb/route.py --incremental                                 # 🔴 残りを引く（下）
 python hardware/pcb/check_pcb.py                                           # 銅箔どうしのすきま
-python hardware/pcb/fab.py --check-zones && python hardware/pcb/check_fab.py   # 製造ファイルと、その検算
+python hardware/pcb/fab.py && python hardware/pcb/check_fab.py             # 製造ファイルと、その検算
 ```
 
 🔴 **`route.py` を 1 回で終わらせない。** 欠きを全廃して板が広くなった 2026-09-16 夕から、
