@@ -25,7 +25,7 @@
 //   seam_<板>_<板> … 板 2 枚の重なり（例 seam_top_front。0 が正）
 //   （皮・板・検査の語は皮を起こすときにここへ足す。既にある語の意味は変えない）
 // ============================================================
-part = "explode";
+part = "open_flap";
 MAT = "nylon";   // ["resin", "nylon"]   刷り方。"resin" = 自分の光造形（板 6 枚）／"nylon" = 外注 MJF（底パーツ＋蓋の 2 部品。蓋 = 天板＋左の板・2026-09-16）。GUI ではこの行を書き換える（Customizer でも選べる）。CLI は -D MAT="nylon"
 $mat = MAT;      // 🔴 部品ファイル（use）へ材料を配る。$ 付きは呼び出しの連鎖を伝わる（parts/mat.scad の説明）。PROPS_OFF などより前に置くこと
 // ---- 刷り方（🔒 ユーザー 2026-09-14「ナイロンで印刷する場合のモードが欲しいね」）----
@@ -86,11 +86,15 @@ BAT_CASE = 6.0;   // 🔒 ユーザー 2026-09-16 夕「次は高さを合わせ
 //   旧: nylon() ? 6.0 : 2.0（レジンは板の裏 8.0）。穴の位置を合わせたのと同じ理由で、板 1 枚を両方で使うなら Z も 1 つにする
 HUB_AT  = [RSP_X, PCB_Y0, lipo_size()[2] + BAT_CASE];   // 🔒 ユーザー 2026-09-14「リポ電池を PCB 基板の下へ」: PCB の裏 8.0（電池 6 ＋ 隙間 2）   // 2026-09-14: X を ReSpeaker の板に揃える（2.0〜84.024）・Y の前縁は PCB_Y0   // §2「X 6.0〜80.0・前縁 Y 15.9」。Z 2.5 = v4 BOARD_Z
 // 🔴 この 3 行は HUB_AT より後に置く（前に置くと HUB_AT が undef になり、USB-C が原点に落ちる・2026-09-14）
-USBC_Y = 39.5;                      // 2026-09-14: 口の Y。後ろの下の柱（Y 44.9〜50.9）を避けて、コネクタの後端 43.97 で止める
+USBC_X = HUB_AT[0] + PCB_L / 2;     // ⭐ 2026-09-17: 口は板の X 中央（世界 43.012）。後ろの縁へ移したので位置を決めるのは X
+USBC_Y = 39.5;                      // ⛔ 右の壁に居たときの Y。いまは口の位置に使わない
 USBC_SZ = [7.30, 8.94, 3.26];       // 🔒 基板担当 2026-09-14: HRO TYPE-C-31-M-12（16P・LCSC C165948）の胴 [奥行, 幅, 高さ]
 // 🔴 板の縁から出す長さ（usbc_out() = 1.53）を **2.6 を超えて** 動かすと、前のシェルの足 2 本が板から外れる。
 //    変えるときは基板担当へ先に知らせること（v6 は 3.0 出して足を 2 本省いた版を作っていた）
-function usbc_out() = (IN_X + WALL - 0.8) - (HUB_AT[0] + PCB_L);   // 1.53 板の縁からの出。口の面が右の壁の外面の 0.8 裏で止まる（XIAO と同じ関係）。🔴 変数だと前方参照で undef になるので関数
+// ⭐ 2026-09-17: USB-C を 右の壁 → **後ろの縁（ハッチ）** へ移した（基板側 d4d30b3）。
+//   前の縁は壁ではなく ReSpeaker の板が立っていて、板の縁から背面まで 3.465・胴を出すと残り 1.935 でプラグが入らない。
+//   口の面はハッチの外面の 0.8 裏で止める（右の壁・XIAO と同じ関係）。材料で HATCH_T が変わると追従する。
+function usbc_out() = (IN_Y + HATCH_T - 0.8) - PCB_Y1;   // ナイロン 1.3 / レジン 2.5
 // ハブの口の頭: 板の下面 2.0 + 板 1.6 + 樹脂 2.5 + ハウジング 14 + 曲がり 3.0 = 23.1
 HUB_PLUG_TOP = HUB_AT[2] + 1.6 + 2.5 + plug_top();
 BRG_T   = 2.0;
@@ -356,10 +360,10 @@ module pcb61() color("#2b6b3f") difference() {
     //   🔒 ユーザー 2026-09-16 夕「板を真上から降ろすのをやめるだけでは」→ 1.5 上げて左の窓から差し、柱の頭まで下ろす形（path_hub 174.08 → 0.59）。
     //   この入れ方なら板は上の柱（Z 38.25〜47.25）の下を通るだけなので、欠きは要らない
 }
-module usbc61() color("#c8ccd0") translate([HUB_AT[0] + PCB_L - USBC_SZ[0] + usbc_out(), USBC_Y - USBC_SZ[1] / 2, HUB_AT[2] + 1.6]) cube(USBC_SZ);   // 🔒 ユーザー 2026-09-14「USB 出口を右壁へ」: PCB の右の縁から 3.0 出る
-USBC_PORT_C = [IN_X + WALL / 2, USBC_Y, HUB_AT[2] + 1.6 + USBC_SZ[2] / 2];   // 口の中心（右の壁の厚みの中央）
-USBC_PORT_SZ = [USBC_SZ[1] + 0.6, USBC_SZ[2] + 0.6];   // [Y, Z] 殻 ＋ 片側 0.3（XIAO の USB-C の口と同じ逃げ）
-module usbc61_port_cut() port_cut(USBC_PORT_C, USBC_PORT_SZ[0], USBC_PORT_SZ[1], WALL, "x");   // 右の壁（port_cut の外面は +X）
+module usbc61() color("#c8ccd0") translate([USBC_X - USBC_SZ[1] / 2, PCB_Y1 + usbc_out() - USBC_SZ[0], HUB_AT[2] + 1.6]) cube([USBC_SZ[1], USBC_SZ[0], USBC_SZ[2]]);   // 後ろの縁の中央。幅 8.94 が X・奥行 7.30 が Y
+USBC_PORT_C = [USBC_X, IN_Y + HATCH_T / 2, HUB_AT[2] + 1.6 + USBC_SZ[2] / 2];   // 口の中心（ハッチの厚みの中央）
+USBC_PORT_SZ = [USBC_SZ[1] + 0.6, USBC_SZ[2] + 0.6];   // [X, Z] 殻 ＋ 片側 0.3（XIAO の USB-C の口と同じ逃げ）
+module usbc61_port_cut() port_cut(USBC_PORT_C, USBC_PORT_SZ[0], USBC_PORT_SZ[1], HATCH_T, "y");   // ハッチ（port_cut の外面は +Y）
 // ---- v6.1 ライザーカード（🔒 ユーザー 2026-09-14「PCB 基板に OLED ＋ ReSpeaker をくっつけるライザーカード」）----
 //   まず XIAO の 2 列だけ。板を垂直に立て、前向きのメス 2 個で XIAO のピンを受ける。線は 7 本消える。
 //   ピンの面（ハウジングの根元）は 2 列とも同じ Y で、ReSpeaker が動けば追従する（W_rsp から引く）
@@ -450,16 +454,20 @@ module oriser61() {
 //   knob_v5 の 持ち手・島・ねじ・ナット・E リング・磁石 はそのまま。AS5600 のモジュール基板と吊り（バスタブ 2）は無い。
 //   軸（φ7）を knob_v5 の軸の下端（外面から 15.9）から PCB の上の磁石まで伸ばす。IC 5 × 4 × 1.1 と 磁石との隙間 1.1 は knob_v5 の CHIP_H / CHIP_GAP と同じ数
 KNOB61_GROUPS = ["knob", "mag", "screw", "wall", "nut", "ering"];
-AS_IC = [5.0, 4.0, 1.1]; AS_GAP = 1.1;
+// ⭐ 2026-09-17: AS5600 のチップを筐体側で描くのをやめた。基板の模型（PCB_PARTS の "U4"）が
+//   同じ 1 個を持っているので、2 か所に描くと当たり検査が自分自身に当たる（15.791mm³ 出ていた）。
+//   背も筐体側は 1.1 と置いていたが、実物は 📄 1.75（JLCPCB C79815 の仕様欄）。基板の模型から読む。
+function as_ic_h() = pcb_part("U4")[5];   // AS5600 の背（基板の模型が持つ実寸）
+AS_GAP = 1.1;   // 磁石の下面とチップの**天面**の隙間。ここは設計値のまま
 AS_IC_Z  = HUB_AT[2] + 1.6;                 // PCB の上面 レジン 9.6／ナイロン 13.6
-MAG61_Z0 = AS_IC_Z + AS_IC[2] + AS_GAP;     // 磁石の下面 レジン 11.8／ナイロン 15.8（隙間 1.1 は同じ。軸はナイロンが 4.0 短い）
+MAG61_Z0 = AS_IC_Z + as_ic_h() + AS_GAP;    // 磁石の下面。チップの実寸 1.75 から測るので ナイロンで 16.45（旧 15.8。1.1 と置いていたぶん 0.65 上がる）
 module knob61_shaft() translate([KNOB_AT[0], KNOB_AT[1], 0]) color("#d8dde3") translate([0, 0, MAG61_Z0 + 2.0 - 0.01]) cylinder(d = knob_shaft_d(), h = (Z_TOP + TOP_T + knob_shaft_bot()) - (MAG61_Z0 + 2.0) + 0.02);   // 伸ばした軸（蓋に付いて動く。lid_units が読む）
 module knob61() {
     at_knob() for (g = KNOB61_GROUPS) knob_group(g);
     knob61_shaft();
     translate([KNOB_AT[0], KNOB_AT[1], 0]) {
         translate([0, 0, MAG61_Z0]) magnet_as5600();                                            // 磁石 φ4 × 2
-        color("#333") translate([-AS_IC[0] / 2, -AS_IC[1] / 2, AS_IC_Z]) cube(AS_IC);           // AS5600（PCB に直付け）
+        // ⛔ AS5600 のチップはここでは描かない（基板の模型が持つ）。2026-09-17 に消した
     }
 }
 echo(str("knob61: shaft bottom Z ", MAG61_Z0 + 2.0, " top Z ", Z_TOP + TOP_T + knob_shaft_bot(), " len ", (Z_TOP + TOP_T + knob_shaft_bot()) - (MAG61_Z0 + 2.0)));
@@ -777,7 +785,6 @@ XUSB_REL_Z0 = XUSB_C[2] - 5.0;   // 殻の逃げの下端（v5 と同じ「口�
 module xusb_shell_relief() translate([rflip_x(XIAO_FACE_X) - 0.15, XUSB_C[1] - XUSB_SZ[0] / 2, XUSB_REL_Z0]) cube([LW_X - (rflip_x(XIAO_FACE_X) - 0.15) + 0.01, XUSB_SZ[0], XUSB_C[2] - XUSB_REL_Z0]);   // 壁を上から降ろすとき殻が通る道（左の壁・殻の面の 0.15 外まで）
 module p_rwall() difference() {
     union() { slab_rwall(); fasten_rwall(); }
-    usbc61_port_cut();   // 充電の USB-C の口（v6.1・2026-09-14 左の壁から移した）
     translate(JACK_C) rotate([0, 90, 0]) { cylinder(d = JACK_D, h = WALL + 2, center = true, $fn = 48); translate([0, 0, WALL / 2 - PORT_BEV + 0.01]) cylinder(d1 = JACK_D, d2 = JACK_D + 2 * PORT_BEV, h = PORT_BEV, $fn = 48); }   // 3.5mm ジャックの口＋外のベベル（外面は +X）
     if (!nylon()) {   // ナイロンは右の壁の内面が板の縁から 1.13 外にあり、USB1 の殻（0.86）もジャックのカバー（0.68）も壁に届かないので盲ポケットは要らない（2026-09-16。残すと壁の残りが 0.85 で ⚠）
         translate([USB1_POCKET[0], USB1_POCKET[1], USB1_POCKET[2]]) cube([USB1_POCKET[3], USB1_POCKET[4], USB1_POCKET[5]]);
@@ -874,6 +881,7 @@ TC_HB_CL = 0.25; TC_HB_D = 6.25; TC_HB_GAP = 0.4; TC_HB_WU = 3.0;
 module tgl_boss() at_tgl() translate([0, 0, -0.01]) cylinder(d = TGL_BOSS_D, h = TGL_BOSS_T + 0.01, $fn = 48);   // 🔴 局所 +z が壁の外。内へ伸ばすと壁から離れた円盤が宙に浮く
 module p_hatch() difference() {
     union() { slab_hatch(); if (!nylon()) { hatch_ears_top(); hatch_feet(); } else tgl_boss(); }   // v6.1: 蓋の縁・Type-C の羊羹は無い   // 縁（溝の床〜内面・つば）・上の耳 2 つ・下の足 2 つはハッチと一体。下の爪 2 つは 2026-09-07 に廃止（床の裏からのねじ 2 本に）。右下の耳も同日廃止（🔒 ユーザー「羽根はいらないね」）
+    usbc61_port_cut();   // 充電の USB-C の口（⭐ 2026-09-17 右の壁から移した）
     hatch_foot_cuts();   // 足のナットの横穴とねじの通し（羊羹に埋められないよう、ハッチ全体から引く）
     at_tgl() translate([0, 0, -1]) mts102_hole61(TGL_BOSS_T + HATCH_T + 2);   // 座のぶん穴を長くする（レジンは TGL_BOSS_T = 0）   // 局所 +z がハッチの外（🔴 2026-09-05 まで −z 側に切っていて穴が内側に居た）
 }
@@ -969,7 +977,7 @@ module bat_case() {
 BCS_WIN_CL = 0.5;   // 窓の逃げ（胴の四方）
 // 🔴 板は左の窓から差してから **右へ pcb_slide()（0.8）滑らせて** USB-C を壁の穴へ入れる（path_hub の ③）。
 //    その間 J10 は窓の中を通るので、窓は −X 側にその 0.8 も開けておく（開けないと天板の縁を 0.3 削る）
-function pcb_slide() = usbc_out() - (IN_X - (HUB_AT[0] + PCB_L));   // 🔴 変数 PCB_SLIDE はこの行より下なので関数で持つ
+function pcb_slide() = 0;   // ⭐ 2026-09-17: 右の壁の USB-C が板を左へ押していた量。口がハッチへ移って押さなくなったので 0（旧: usbc_out() − (IN_X − 板の右の縁) ＝ 1.2）
 function bat_case_j10_win() = let (q = pcb_part("J10 BAT"), o = pcb_w(q), w = q[2] - q[1], d = q[4] - q[3],
                                    n = pcb_path(q), c = BCS_WIN_CL)
     [o[0] - c - pcb_slide() - ((q[6] == -3) ? n : 0), o[0] + w + c + ((q[6] == 3) ? n : 0),
