@@ -243,7 +243,7 @@ UNITS = ["oled", "rsp", "hub", "riser", "oriser", "bat", "knob", "btn", "spk", "
 module one(n) {
     if (n == "oled") at_oled() oled_242();   // 2026-09-14: DuPont は廃止（ライザーのメスが受ける）
     if (n == "rsp")  at_rsp() respeaker_lite();   // 2026-09-14: XIAO の DuPont は廃止（ライザーのメスが受ける）
-    if (n == "hub")  { pcb61(); usbc61(); pcb_parts61(); }   // v6.1: 1 枚の PCB ＋ 充電の USB-C ＋ 板の上の部品（基板担当から）
+    if (n == "hub")  { if (PCB3D) pcb61_solid(); else { pcb61(); usbc61(); pcb_parts61(); } }   // ⭐ 2026-09-16 夕: 既定は KiCad の 3D モデルごとのメッシュ（下の PCB3D）
     if (n == "riser") riser61();   // XIAO の 2 列を受けるライザー（2026-09-14）
     if (n == "oriser") oriser61();   // OLED の 4 ピンを受けるライザー（2026-09-14）
     if (n == "bat")  at_bat()  lipo_1000mah();
@@ -286,7 +286,7 @@ PH_MATE_OUT = 2.0;
 PCB_PLUG_UP = 16.0;      // ⚠ 表の縦の口（J7）の上に取る**線の曲がり込み**の空き。私の見積り（筐体の実測では 33 空く）。PH_MATE_OUT 2.0 はこの中
 PCB_PLUG_DOWN = 2.0;     // ⚠ 裏の縦の口（J10）で、嵌合したプラグの下に取る線の曲がり。プラグの下端 Z 4.0 − 2.0 = 2.0 で床まで 2.0 残る
 PCB_TH_LEG = 1.8;        // ⚠ 一般値。スルーホールのポストが板（1.6）を貫いて反対側へ出る残り。📄 に数字が無い（ePH.pdf の (3.4) はポストの**位置**で長さではない）
-RISER_SOCK_H = 2.5;      // 板の上に出るオスのヘッダの樹脂。2.54 ヘッダの規格の姿（樹脂 2.5・ピン 6.0・先は板の面から 8.5・足 3.0）で、parts/parts.scad:328 の PowerBoost のヘッダと同じ数。特別な品を想定していないので実測は要らない
+RISER_SOCK_H = 2.54;     // ⭐ 2026-09-16 夕に 2.5 → 2.54。2.54 ヘッダの樹脂は**断面が 2.54 の角**で、2.5 ではない。KiCad の 3D モデルでも板の面から 2.54（メッシュの天面 Z 16.14 − 板の表 13.6）。2.5 のままだとライザーの板の下端がヘッダの樹脂へ 0.04 めり込み、path_rsp / path_oled に 1.2 ずつ残っていた   // 板の上に出るオスのヘッダの樹脂。2.54 ヘッダの規格の姿（樹脂 2.5・ピン 6.0・先は板の面から 8.5・足 3.0）で、parts/parts.scad:328 の PowerBoost のヘッダと同じ数。特別な品を想定していないので実測は要らない
 RISER_LEG = 3.0;         // 🔒 並走セッション 2026-09-16 夕「ピンヘッダありますからね。当たり判定はちゃんとしておいたほうがいい」: 同じ規格の姿の**足 3.0**。板の裏 12.0 から下端 Z 9.0 で、電池のケーシングの天板 8.2 まで 0.8 空く
 // 🔴 この行は PCB_PARTS より前に置くこと。後ろに置くと前方参照で undef になり、板の上のオスのヘッダ 2 つが描かれない（2026-09-14 に実際に起きた）
 // ⭐ 2026-09-16 夕: 手書きの 9 行をやめ、**基板ファイルから生成した 56 行**を読む。
@@ -304,6 +304,27 @@ RISER_LEG = 3.0;         // 🔒 並走セッション 2026-09-16 夕「ピン�
 //     K31        … 胴（14.8 × 7.4 × 9.33）とリード（15.3 × 10.7 × 0.5）の 2 行に分けてある。
 //                  データシートの 10.7 はリード込みの外形で、背 9.33 の胴はもっと小さい
 include <pcb/v61_parts.scad>
+// ---- 実物の姿（🔒 ユーザー 2026-09-16 夕「STEPをそのまま読み込んで」）----
+//   OpenSCAD は STEP を読めないので、KiCad に基板ごとメッシュへ落としてもらう:
+//     python hardware/pcb/gen_board3d.py   → hardware/pcb/v61_board3d.stl（28,528 三角・1.4MB）
+//   板・部品の 3D モデル・貫いた足まで入った実物の姿である。箱の模型では
+//   コネクタの殻の口もロックの爪もリレーの蓋も無かった。
+//   🔴 **寸法の出どころはこちらではない。** 口の座標・背・通り道は PCB_PARTS（v61_parts.scad）が持つ。
+//      メッシュは「見る物・当てる物」で、数字は表から引く。両方とも同じ基板ファイルから起きている。
+//   座標: KiCad の 3D は 板の裏が Z 0・X は図面のまま・Y は図面の符号を反転。
+//      世界 = 3D + (−38.0, +90.9, HUB_AT[2])。gen_board3d.py が同じ式を刷る
+PCB3D = true;   // false で箱の模型（pcb61 + usbc61 + pcb_parts61）に戻る
+//   ⚠ 2026-09-16 夕、ピンヘッダ（J1・J2）の 3D モデルをメッシュから外して逃げようとした。
+//      🔒 ユーザー「ピンヘッダ立てることそのものは問題ないでしょ」── そのとおりで、
+//      ピンが板の面から 8.5 立つのは実物どおりである。直すべきは**こちら側**で、
+//      ライザーの裏の L 字のメスを中身の詰まった塊で描いていたのが原因だった（下の lsock_body）。
+//      メスに穴を開けたので、ピンはそこへ入る。メッシュは 55 個そのまま
+//   板と部品は**別のファイル**にしてある。1 つだと色を分けられず全部が同じ色になる
+//   （🔒 ユーザー 2026-09-16 夕「真っ黄色はやめてね」── import に色を付け忘れると OpenSCAD の既定の黄）
+module pcb61_solid() translate([-38.0, 90.9, HUB_AT[2]]) {
+    color("#2b6b3f") import("pcb/v61_board3d.stl", convexity = 12);   // 板
+    color("#333")    import("pcb/v61_parts3d.stl", convexity = 12);   // 部品
+}
 function pcb_w(q) = [HUB_AT[0] + q[1], PCB_Y0 + q[3], HUB_AT[2] + 1.6];   // 板の座標 → 世界（枠の左前の角）
 function pcb_z0(q) = (q[7] < 0) ? HUB_AT[2] - q[5] : HUB_AT[2] + 1.6;   // 部品の下端（裏なら板の裏から下へ）
 function pcb_path(q) = q[8];   // 嵌合した相手が胴の外へ出る量
@@ -381,7 +402,32 @@ module riser61() {
             translate([xa + SOCK_WALL, riser_y0() - SOCK_D - 1, q[0][2] - 1.27 + 0.5]) cube([w - 2 * SOCK_WALL, SOCK_D - SOCK_WALL + 1, 2.54 - 1.0]);
         }
     // 裏面の L 字のメス（口は下・板のオスを受ける）
-    color("#444") translate([min(riser_xs()) - 1.27 - LSOCK_MARG, riser_y0() + RISER_T, zb]) cube([max(riser_xs()) - min(riser_xs()) + 2.54 + 2 * LSOCK_MARG, LSOCK_T, LSOCK_H]);
+    color("#444") lsock_body(min(riser_xs()) - 1.27 - LSOCK_MARG,
+                             max(riser_xs()) + 1.27 + LSOCK_MARG,
+                             riser_y0() + RISER_T, zb, riser_pin_x());
+}
+// ---- L 字のメスの胴（⭐ 2026-09-16 夕）----
+// 🔒 ユーザー「ピンヘッダ立てることそのものは問題ないでしょ」。
+//   それまで中身の詰まった塊で描いていたので、板のオスのピン（板の面から 8.5）が入る所が無く、
+//   上から降ろす掃引が串刺しになっていた（path_rsp 18.55 / path_oled 11.12）。
+//   実物は**口が下を向いた雌**なので、ピンの列のぶんだけ下から彫る。
+//   壁は前向きのメスと同じ SOCK_WALL 1.0。彫る深さはピンの先（板の面から 8.5）までで、
+//   胴の上に 1.0 残る限りはそこで止める
+LSOCK_PIN_W = 1.2;    // 彫る幅（2.54 のピン 0.64 に片側 0.28 の遊び）
+// ピンの芯（世界）。出どころは gen_pcb.py の CHECK_PADS（J1 は板の 1.770〜17.010 の 7 本・
+// J2 は 37.240〜44.860 の 4 本。どちらも 2.54 間隔）。板が動けばここも取り直す
+function riser_pin_x()  = [for (k = [0 : 6]) HUB_AT[0] + 1.770 + k * 2.54];
+function oriser_pin_x() = [for (k = [0 : 3]) HUB_AT[0] + 37.240 + k * 2.54];
+module lsock_body(x0, x1, y0, zb, pxs) difference() {
+    translate([x0, y0, zb]) cube([x1 - x0, LSOCK_T, LSOCK_H]);
+    // 🔴 Y は「胴の厚み − 壁 × 2」ではなく **ピンと同じ 1.2 を胴の真ん中**に取る。
+    //   SOCK_WALL 1.0 を両側に置くと 2.54 − 2.0 = 0.54 しか残らず、2.54 ヘッダのピン 0.64 が入らない
+    //   （2026-09-16 夕に実際に path_rsp 4.04 が残った）。真ん中に取れば壁は片側 0.67 になる
+    // 彫る高さはピンの先（板の面から 樹脂 2.54 ＋ ピン 6.0 ＝ 8.54）の少し上まで。胴の天井は 1.0 残す
+    let (zt = min(HUB_AT[2] + 1.6 + 9.0, zb + LSOCK_H - 1.0))
+        for (px = pxs)
+            translate([px - LSOCK_PIN_W / 2, y0 + (LSOCK_T - LSOCK_PIN_W) / 2, zb - 1])
+                cube([LSOCK_PIN_W, LSOCK_PIN_W, zt - zb + 1]);
 }
 // ---- v6.1 OLED のライザー（🔒 ユーザー 2026-09-14「OLED ライザーもつくりましょ」）----
 //   OLED の 4 ピンは板の裏の上辺（世界 Z 46.5）から後ろ（+Y）へ出る。ピンの出る面は世界 Y = ORISER_Y_PIN。
@@ -398,7 +444,7 @@ module oriser61() {
         translate([x0, oriser_y_pin(), oriser_z() - 1.27]) cube([x1 - x0, SOCK_D, 2.54]);
         translate([x0 + SOCK_WALL, oriser_y_pin() - 1, oriser_z() - 1.27 + 0.5]) cube([x1 - x0 - 2 * SOCK_WALL, SOCK_D - SOCK_WALL + 1, 2.54 - 1.0]);
     }
-    color("#444") translate([x0 - LSOCK_MARG, yf + RISER_T, zb]) cube([x1 - x0 + 2 * LSOCK_MARG, LSOCK_T, LSOCK_H]);   // 裏面の L 字のメス（口は下）
+    color("#444") lsock_body(x0 - LSOCK_MARG, x1 + LSOCK_MARG, yf + RISER_T, zb, oriser_pin_x());   // 裏面の L 字のメス（口は下・穴あき）
 }
 // ---- v6.1 つまみ（🔒 ユーザー 2026-09-14「AS5600 を PCB 基板に落として」「ノブはながーーい棒を備える事になりますがそれで良い」）----
 //   knob_v5 の 持ち手・島・ねじ・ナット・E リング・磁石 はそのまま。AS5600 のモジュール基板と吊り（バスタブ 2）は無い。
