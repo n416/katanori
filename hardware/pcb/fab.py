@@ -7,6 +7,9 @@
 実装を頼むのは**表面実装の部品だけ**。スルーホール（リレー・ピンヘッダ・JST・2SC1815・1N4148・
 会話ボタン）は手元にある物を自分で付ける前提なので、部品表からも実装位置からも外す。
 外した物は画面に一覧で出す（黙って落とさない）。
+
+🔴 **CPL の回転は KiCad の値をそのまま渡さない**（JLC_ROT・2026-09-17）。回した部品と、
+   プレビューで目で見るべき部品を最後に一覧で出す。
 """
 
 import csv
@@ -42,6 +45,55 @@ def board_copper(pcb):
 
 GERBER = FAB / "gerber"      # zip にするのはここだけ（部品表と実装位置は別に上げる）
 NAME = "katanori61"
+
+# ---- CPL の回転の補正（2026-09-17）----
+# 🔴 KiCad が出す回転をそのまま CPL に書くと、極性のある部品が回って載る。
+#   JLCPCB は **自分の部品ライブラリの向き**を 0 度として CPL の角度を足すので、
+#   KiCad の足形の 0 度と揃っていない足形はその差だけずれる。差は (足形, 品番) ごとに決まる。
+#   ⇒ CPL の角度 ＝ (KiCad の角度 ＋ 下の補正) % 360。
+#
+# ⚠ **正規表現の表（JLCKicadTools の cpl_rotations_db.csv）をそのまま回さないこと。**
+#   この板の 14 種類に当てると 6 種類しか拾わず、**U1 と J13 を黙って素通りさせる**
+#   （2026-09-17 に実際に走らせて確かめた）:
+#     ・`^(.*?_|V)?QFN-(16|20|24|28|40)` は `Texas_RSA_VQFN-16…` に当たらない
+#       （`.*?_` は `Texas_RSA_` までしか食えず、次が `VQFN` になる）
+#     ・`^USB_C_Receptacle_HRO_TYPE-C-31-M-12*` は、前の足を外して**改名した**
+#       `USB_C_HRO_TYPE-C-31-M-12_NoFrontLegs` に当たらない
+#   拾えないのが USB-C と昇圧 IC なので、「補正した」という安心だけが残る。
+#   ⇒ **足形の名前ちょうどの表**にして、0 の物も出どころを書く。表に無い足形が出たら止める。
+#
+# 出どころの印:
+#   📄 = 公開の補正表に当たる（https://github.com/matthewlai/JLCKicadTools
+#        jlc_kicad_tools/cpl_rotations_db.csv・当てた正規表現を併記）
+#   ⚠  = 表に**当たらない**ので系統から見た類推。**発注のプレビューで必ず向きを見る**
+#   ?  = 極性はあるが表に項目が無い ＝ 揃っているとみて 0。ついでにプレビューで見る
+#   ―  = 2 本足で向きが無い
+JLC_ROT = {
+    # 極性のある物
+    "SOT-23": (-90, "📄 `^SOT-23`"),
+    "QFN-20-1EP_4x4mm_P0.5mm_EP2.5x2.5mm": (270, "📄 `^(.*?_|V)?QFN-(16|20|24|28|40)(-|_|$)`"),
+    "TSSOP-10_3x3mm_P0.5mm": (270, "📄 `^TSSOP-`"),
+    "SOIC-8_3.9x4.9mm_P1.27mm": (270, "📄 `^SOIC-`"),
+    "Texas_RSA_VQFN-16-1EP_4x4mm_P0.65mm_EP2.7x2.7mm":
+        (270, "⚠ 表の VQFN の行に当たらない。QFN の系統から 270 と置いた"),
+    "USB_C_HRO_TYPE-C-31-M-12_NoFrontLegs":
+        (180, "⚠ 元の名前 `USB_C_Receptacle_HRO_TYPE-C-31-M-12` なら表の 180 に当たる。改名したので外れる"),
+    "D_SOD-123": (0, "? 表に項目が無い（＝揃っているとみる）"),
+    "LED_0805_2012Metric": (0, "? 表に項目が無い（＝揃っているとみる）"),
+    "Relay_DPDT_Omron_G6S-2F": (0, "? 表にあるのは G6K-2F-Y（別品）で G6S には当たらない"),
+    # 向きの無い物（2 本足・または表に項目が無い）
+    "R_0805_2012Metric": (0, "― 2 本足"),
+    "R_1206_3216Metric": (0, "― 2 本足"),
+    "C_0805_2012Metric": (0, "― 2 本足"),
+    "C_1206_3216Metric": (0, "― 2 本足"),
+    "L_Changjiang_FNR4018S": (0, "― 2 本足"),
+}
+
+
+def jlc_rotation(fp_short, kicad_rot):
+    """KiCad の回転を JLCPCB の CPL の回転に直す。→ (角度, 補正, 出どころ)"""
+    corr, src = JLC_ROT[fp_short]
+    return (kicad_rot + corr) % 360, corr, src
 
 
 def run(*args):
@@ -109,11 +161,27 @@ def main():
         "--smd-only", "--exclude-dnp", "-o", str(FAB / "_pos.csv"), pcb)
     with open(FAB / "_pos.csv", encoding="utf-8") as f:
         rows = list(csv.DictReader(f))
+    # 🔴 回転だけは KiCad の値をそのまま渡さない（JLC_ROT を見よ）。
+    #   表に無い足形が出たら**止める**。0 でも出どころを書かせるため
+    fp_of = {p["ref"]: p["fp"].split(":")[-1] for p in ps}
+    unknown = sorted({fp_of[r["Ref"]] for r in rows if fp_of[r["Ref"]] not in JLC_ROT})
+    if unknown:
+        sys.exit("回転の補正が決まっていない足形: " + ", ".join(unknown)
+                 + "\n  fab.py の JLC_ROT に (補正角, 出どころ) を足すこと。0 でも出どころを書く。")
+    turned, watch, maybe = [], [], []
     with open(FAB / "cpl.csv", "w", newline="", encoding="utf-8-sig") as f:
         w = csv.writer(f)
         w.writerow(["Designator", "Mid X", "Mid Y", "Layer", "Rotation"])
         for r in rows:
-            w.writerow([r["Ref"], r["PosX"], r["PosY"], r["Side"], r["Rot"]])
+            fp = fp_of[r["Ref"]]
+            rot, corr, src = jlc_rotation(fp, float(r["Rot"]))
+            w.writerow([r["Ref"], r["PosX"], r["PosY"], r["Side"], f"{rot:.6f}"])
+            if corr:
+                turned.append((r["Ref"], fp, float(r["Rot"]), corr, rot, src))
+            if src.startswith("⚠"):
+                watch.append((r["Ref"], fp, rot, src))
+            elif src.startswith("?"):
+                maybe.append(r["Ref"])
     (FAB / "_pos.csv").unlink()
 
     zip_path = OUT / f"{NAME}_gerber"
@@ -123,6 +191,17 @@ def main():
     print(f"実装位置 {len(smd)} 個 → {FAB / 'cpl.csv'}")
     print("実装を頼まない（自分で付ける）部品 %d 個: %s"
           % (len(tht), ", ".join(sorted(p["ref"] for p in tht))))
+    print(f"回転の補正（KiCad → JLCPCB）: {len(turned)} 個を回した")
+    for ref, fp, k, corr, rot, src in sorted(turned):
+        print(f"  {ref:5s} {fp:48s} {k:+6.0f} {corr:+5d} → {rot:5.0f}   {src}")
+    if watch:
+        print(f"🔴 発注のプレビューで向きを見る部品 {len(watch)} 個"
+              "（公開の補正表に当たらない ＝ 出どころが類推）:")
+        for ref, fp, rot, src in sorted(watch):
+            print(f"  {ref:5s} {fp:48s} → {rot:5.0f}   {src}")
+    if maybe:
+        print("  ついでに見る（極性はあるが表に項目が無く 0 のまま）: "
+              + ", ".join(sorted(maybe)))
 
 
 if __name__ == "__main__":
