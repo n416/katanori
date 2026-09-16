@@ -50,7 +50,7 @@
       (place Q31 556500.0 -618564.1 front 0)
     )
     (component C32
-      (place C32 835860.6 -561437.5 front 0)
+      (place C32 837282.0 -557250.0 front 0)
     )
     (component U4
       (place U4 1057000.0 -636000.0 front 0)
@@ -101,7 +101,13 @@
       (place R46 840000.0 -697600.0 front 0)
     )
     (component C2
-      (place C2 620000.0 -679000.0 front 0)
+      (place C2 611828.1 -679000.0 front 0)
+    )
+    (component C6
+      (place C6 653328.1 -679000.0 front 0)
+    )
+    (component C9
+      (place C9 699843.8 -679000.0 front 0)
     )
     (component R16
       (place R16 762450.0 -664000.0 front 0)
@@ -125,37 +131,31 @@
       (place C41 749426.3 -584000.0 front 0)
     )
     (component R42
-      (place R42 837450.0 -589437.5 front 0)
+      (place R42 837450.0 -585250.0 front 0)
     )
     (component R43
       (place R43 872550.0 -584000.0 front 0)
     )
     (component R1
-      (place R1 605245.6 -544000.0 front 0)
+      (place R1 606137.5 -544000.0 front 0)
     )
     (component R2
-      (place R2 639126.6 -544000.0 front 0)
+      (place R2 640012.2 -544000.0 front 0)
     )
     (component R3
-      (place R3 672853.7 -544000.0 front 0)
+      (place R3 673845.0 -544000.0 front 0)
     )
     (component R4
-      (place R4 706561.3 -544000.0 front 0)
+      (place R4 707673.2 -544000.0 front 0)
     )
     (component R13
-      (place R13 741661.3 -544000.0 front 0)
+      (place R13 742773.2 -544000.0 front 0)
     )
     (component R6
-      (place R6 775368.9 -541350.0 front 0)
+      (place R6 776601.5 -541350.0 front 0)
     )
     (component R7
-      (place R7 809057.1 -542675.0 front 0)
-    )
-    (component C6
-      (place C6 849014.8 -527562.5 front 0)
-    )
-    (component C9
-      (place C9 870000.0 -552062.5 front 0)
+      (place R7 810425.3 -542675.0 front 0)
     )
     (component LED2
       (place LED2 611329.5 -512500.0 front 0)
@@ -343,6 +343,14 @@
       (pin Rect[T]Pad_10000x14500um 1 -9500.0 -0.0)
       (pin Rect[T]Pad_10000x14500um 2 9500.0 -0.0)
     )
+    (image C6
+      (pin Rect[T]Pad_11500x18000um 1 -14750.0 -0.0)
+      (pin Rect[T]Pad_11500x18000um 2 14750.0 -0.0)
+    )
+    (image C9
+      (pin Rect[T]Pad_11500x18000um 1 -14750.0 -0.0)
+      (pin Rect[T]Pad_11500x18000um 2 14750.0 -0.0)
+    )
     (image R16
       (pin Rect[T]Pad_10250x14000um 1 -9125.0 -0.0)
       (pin Rect[T]Pad_10250x14000um 2 9125.0 -0.0)
@@ -406,14 +414,6 @@
     (image R7
       (pin Rect[T]Pad_10250x14000um 1 -9125.0 -0.0)
       (pin Rect[T]Pad_10250x14000um 2 9125.0 -0.0)
-    )
-    (image C6
-      (pin Rect[T]Pad_11500x18000um 1 -14750.0 -0.0)
-      (pin Rect[T]Pad_11500x18000um 2 14750.0 -0.0)
-    )
-    (image C9
-      (pin Rect[T]Pad_11500x18000um 1 -14750.0 -0.0)
-      (pin Rect[T]Pad_11500x18000um 2 14750.0 -0.0)
     )
     (image LED2
       (pin Rect[T]Pad_9750x14000um 1 -9375.0 -0.0)
@@ -751,7 +751,6 @@
     (wire (path F.Cu 2500 805000.0 -614000.0 805000.0 -611330.0) (net "BATP") (type protect))
     (wire (path F.Cu 2500 784200.0 -626000.0 795000.0 -614000.0) (net "VLIPO") (type protect))
     (wire (path F.Cu 2500 795000.0 -614000.0 795000.0 -611330.0) (net "VLIPO") (type protect))
-    (wire (path F.Cu 2500 740000.0 -639530.0 740000.0 -655650.0) (net "VBUS") (type protect))
     (wire (path F.Cu 2500 754380.0 -620150.0 770500.0 -620150.0) (net "PROG1") (type protect))
     (via Via[0-2]_600:300_um 613250.0 -627250.0 (net "GND") (type protect))
     (via Via[0-2]_600:300_um 613250.0 -640750.0 (net "GND") (type protect))
