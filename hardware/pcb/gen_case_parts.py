@@ -30,6 +30,7 @@ J4・J6 の口の向きを「空いているから縦にできる」と言いか
 
 import math
 import pathlib
+import re
 import sys
 
 HERE = pathlib.Path(__file__).resolve().parent
@@ -37,6 +38,7 @@ sys.path.insert(0, str(HERE))
 import gen_pcb as G                     # noqa: E402  HEIGHT と板の座標系をここから借りる
 import v61_board as VB                  # noqa: E402
 
+K3D = G.FPDIR.parent / "3dmodels"      # KiCad が同梱している 3D モデル（足形と同じ置き場の隣）
 PCB = HERE / "katanori61" / "katanori61.kicad_pcb"
 OUT = HERE / "v61_parts.scad"
 
@@ -190,14 +192,63 @@ def read_board():
             ys += [oy1 - gy - h / 2, oy1 - gy + h / 2]
         legbox = (min(xs), max(xs), min(ys), max(ys)) if xs else None
         rows.append(dict(ref=ref, fab=fab, crt=crt, back=back, legbox=legbox,
-                         fp=fp[1].split(":")[-1]))
+                         fp=fp[1].split(":")[-1], fp_id=str(fp[1])))
     return sorted(rows, key=lambda r: (r["ref"][0], int("".join(c for c in r["ref"] if c.isdigit()) or 0)))
 
 
-def height_of(ref):
+# ---- 背を KiCad の 3D モデル（STEP）から測る（2026-09-16 夕）----
+# 🔒 ユーザー「そもそもだけど、表面実装の抵抗とかがなんでこんな分厚いの？ 全部同じような形してるし」
+#   そのとおりで、それまで背は `gen_pcb.py` の HEIGHT_DEFAULT（1.45）を 45 個に配っていた。
+#   1.45 は「0805 の抵抗とコンデンサと LED はこれ以下」という**上限**で、実寸ではない。
+#   0805 の抵抗の実際は **0.45** で、3.2 倍厚く描いていた。
+#
+# ⇒ 足形が指している STEP を読んで、点の Z の最大を背にする。
+#   出どころは KiCad が同梱している 3D モデルで、手元で読み直せる。
+#
+# 🔴 手の値が勝つのは、出どころが 📄（データシート）か 🔒（ユーザー／担当の決め）のときだけ。
+#   ピンヘッダ（J1・J2）がその例で、STEP はピンの 6.0 まで入って 8.5 になるが、
+#   要るのは板の上に立っている樹脂 2.5 である（ピンはライザーの裏の L 字が咥える）。
+_STEP_CACHE = {}
+
+
+def step_height(fp_id):
+    """足形が指している STEP の Z の最大（mm）。見つからなければ None。"""
+    if fp_id in _STEP_CACHE:
+        return _STEP_CACHE[fp_id]
+    out = None
+    try:
+        fp = G.load_fp(fp_id)
+        mdl = None
+        for e in fp:
+            if isinstance(e, list) and e and e[0] == "model":
+                mdl = str(e[1])
+                break
+        if mdl:
+            tail = mdl.split("}", 1)[-1].lstrip("/\\")
+            q = K3D / tail
+            if q.exists():
+                t = q.read_text(encoding="utf-8", errors="replace")
+                zs = [float(m.group(1)) for m in re.finditer(
+                    r"CARTESIAN_POINT\s*\(\s*''\s*,\s*\(\s*[-0-9.E+]+\s*,\s*[-0-9.E+]+\s*,\s*([-0-9.E+]+)\s*\)", t)]
+                if zs:
+                    out = round(max(zs), 2)
+    except SystemExit:
+        out = None
+    _STEP_CACHE[fp_id] = out
+    return out
+
+
+def height_of(ref, fp_id=None):
     if ref in HEIGHT_FIX:
         return HEIGHT_FIX[ref]
-    return G.HEIGHT.get(ref, G.HEIGHT_DEFAULT)
+    hand = G.HEIGHT.get(ref)
+    if hand and (hand[1].startswith("📄") or hand[1].startswith("🔒")):
+        return hand                       # データシート／決めが勝つ
+    if fp_id:
+        z = step_height(fp_id)
+        if z:
+            return (z, "📐 KiCad の 3D モデル（STEP）の Z の最大")
+    return hand or G.HEIGHT_DEFAULT
 
 
 def build():
@@ -205,7 +256,7 @@ def build():
     out = []
     for r in rows:
         ref = r["ref"]
-        h, src = height_of(ref)
+        h, src = height_of(ref, r.get("fp_id"))
         d, path, leg, note = PORTS.get(ref, (0, 0.0, 0.0, ""))
         if not r["legbox"]:
             leg = 0.0
@@ -256,7 +307,15 @@ if __name__ == "__main__":
     tall = sorted((r for r in real), key=lambda r: -r["h"])[:8]
     print("背の高い順:", "・".join("%s %.2f" % (r["ref"], r["h"]) for r in tall))
     est = [r["ref"] for r in real if r["src"].startswith("⚠")]
-    print("背が ⚠ 一般値のまま: %d 個 … %s" % (len(est), " ".join(est)))
+    meas = [r for r in real if r["src"].startswith("📐")]
+    print("背を 3D モデルで測った: %d 個 ／ ⚠ 一般値のまま: %d 個 %s"
+          % (len(meas), len(est), (" … " + " ".join(est)) if est else ""))
+    ch = [(r["ref"], G.HEIGHT.get(r["ref"], G.HEIGHT_DEFAULT)[0], r["h"]) for r in meas]
+    ch = [c for c in ch if abs(c[1] - c[2]) > 0.05]
+    if ch:
+        print("前と 0.05 以上ちがう %d 個:" % len(ch))
+        for ref, a, b in sorted(ch, key=lambda c: -(c[1] - c[2]))[:12]:
+            print("   %-5s %.2f → %.2f" % (ref, a, b))
     if "--list" not in sys.argv:
         OUT.write_text(fmt(rows), encoding="utf-8")
         print("→", OUT)
