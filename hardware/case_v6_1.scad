@@ -25,7 +25,7 @@
 //   seam_<板>_<板> … 板 2 枚の重なり（例 seam_top_front。0 が正）
 //   （皮・板・検査の語は皮を起こすときにここへ足す。既にある語の意味は変えない）
 // ============================================================
-part = "look";
+part = "explode";
 MAT = "nylon";   // ["resin", "nylon"]   刷り方。"resin" = 自分の光造形（板 6 枚）／"nylon" = 外注 MJF（底パーツ＋蓋の 2 部品。蓋 = 天板＋左の板・2026-09-16）。GUI ではこの行を書き換える（Customizer でも選べる）。CLI は -D MAT="nylon"
 $mat = MAT;      // 🔴 部品ファイル（use）へ材料を配る。$ 付きは呼び出しの連鎖を伝わる（parts/mat.scad の説明）。PROPS_OFF などより前に置くこと
 // ---- 刷り方（🔒 ユーザー 2026-09-14「ナイロンで印刷する場合のモードが欲しいね」）----
@@ -367,13 +367,13 @@ module pcb_plug_paths() for (q = PCB_PARTS) let (o = pcb_w(q), z = pcb_z0(q), w 
     else if (q[6] != 0) translate([o[0], (q[6] > 0) ? o[1] + d : o[1] - n, z]) cube([w, n, q[5]]);            // ±Y へ抜く
 PCB_NOTCH = 0.5;   // 板と柱の隙間
 PCB_SCR_D = 2.2;   PCB_FOOT_CL = 0.4;   // 蓋の足と板の穴の隙間   // M2 の通し（板の穴）
-// 板は一度ふさいで、開けるのは次の 2 つだけ（2026-09-14 に開け直した）:
-//   ① 箱の後ろの下の柱 2 本が板の面を通る所の欠き（前の 2 本は板の外なので開けない）
-//   ② 留めねじ 4 本の通し φ2.2（柱 HUB_HOLES_W の真上）
+// 板に開けるのは **留めねじ 4 本の通し φ2.2**（柱 HUB_HOLES_W の真上）だけ。
+// ⭐ 2026-09-17: 後ろのレールの逃げ（板の後ろ左の角 0.894 × 0.3）を**廃止**した（🔒 ユーザー「たった 0.3mm で逃げもクソもない」）。
+//   板は左の窓から差して入るので後ろの縁 82mm 全部がレールを通る ⇒ 角を欠いても掃引は 0.544mm³ 残っていた。
+//   逃げは筐体側（flap_rail_pcb_relief）へ移した。板の外形は角の立った 82.024 × 37.4 の長方形に戻る
 module pcb61() color("#2b6b3f") difference() {
     translate(HUB_AT) cube([PCB_L, PCB_W, 1.6]);
     for (h = HUB_HOLES_W) translate([h[0], h[1], HUB_AT[2] - 1]) cylinder(d = PCB_SCR_D, h = 1.6 + 2, $fn = 24);
-    translate([LW_X - 1, IN_Y - RAIL_W_R, HUB_AT[2] - 1]) cube([RAIL_T + 1 + pcb_slide(), PCB_W, 1.6 + 2]);   // ⭐ 2026-09-16 夕: 逃げに **右へ滑る 0.8（pcb_slide）**を足した。板は左の窓から差してから右へ 0.8 滑るので、滑る前の姿勢では逃げが 0.8 ずれてレールが板を 0.8 × 0.3 食う（path_hub 1.43 の全部）。逃げは板の座標で X 0〜1.694 になる   // 🔴 後ろのレールの逃げは **X 1.694〜2.894 の 1.2 だけ**。後ろの下のレール（X 〜8.8）は Z 12 で止まるので板に当たらない。当たるのは背の高い方（RAIL_T 1.2・Z_TOP まで）だけ。最初 7.8 幅で切って板の角を大きく欠いていた
     // ⭐ 2026-09-16 夕: 角ごとの欠きを廃止。欠きは「板を真上から降ろす」前提で、壁に付いた上の柱・レール・蓋の足を通すための縁まで開いた穴だった。
     //   🔒 ユーザー 2026-09-16 夕「板を真上から降ろすのをやめるだけでは」→ 1.5 上げて左の窓から差し、柱の頭まで下ろす形（path_hub 174.08 → 0.59）。
     //   この入れ方なら板は上の柱（Z 38.25〜47.25）の下を通るだけなので、欠きは要らない
@@ -1511,13 +1511,22 @@ module flap_seam_chamfers() {
 //   （🔒 ユーザー「入り口を背面側に付けておけばテープすら不要」の役をハッチの内面から受けに移した）。足は受けの手前 Y 50.2 で止める（FOOT_Y1）ので、足が真上から降りる道に受けは掛からない
 //   🔴 受けの X は壁の内面 LW_X ちょうどから（0.01 でも外に出すと蓋の板に食い込んで seam_shell_lid・path_lid に 0.8 ずつ出る）。帯とは FIL_OV だけ壁の肉の中で繋ぐ
 //   🔒 ユーザー 2026-09-16 夕「PCB は横からスライドしなければならない道理は無い」: 蓋（天板）が無い状態で PCB は上から降ろす（path_hub）。受けに切り欠きは要らない
-module flap_rails() {
+PCB_RAIL_CL = 0.1;   // 板の後ろの縁と後ろのレールの隙間（左の板の 3 辺の当たり FLAP_CL と同じ数）
+// ⭐ 2026-09-17: 逃げを **板から筐体へ移した**（🔒 ユーザー「たった 0.3mm で逃げもクソもない」）。
+//   それまで板の後ろ左の角を 0.894 × 0.3 欠いていたが、板は左の窓から差して入る（path_hub ①）ので、
+//   **後ろの縁 82mm 全部**がこのレールの X 1.694〜2.894 を通る。角だけ欠いても通り道には効かず、
+//   掃引は 0.544mm³ 残ったままだった。⇒ 板が通る高さだけレールの前の面を Y 50.6 → 51.0 へ引く。
+//   残る 0.4 の裏はハッチの板（Y 51.4〜53.0・厚み 1.6）なので、薄肉の立ったリブにはならない。
+//   高さは 板の裏 12.0 から **差し込む姿勢の板の表**（板厚 1.6 ＋ PCB_LIFT）まで、上下に逃げ 0.1
+module flap_rail_pcb_relief() translate([LW_X - 0.01, IN_Y - RAIL_W_R - 0.01, HUB_AT[2] - PCB_RAIL_CL])
+    cube([RAIL_T + 0.02, PCB_Y1 + PCB_RAIL_CL - (IN_Y - RAIL_W_R) + 0.01, 1.6 + PCB_LIFT + 2 * PCB_RAIL_CL]);
+module flap_rails() difference() { union() {
     translate([LW_X, FLAP_Y0 - FLAP_CL - 0.01, FLAP_Z0 - FLAP_CL - 0.01]) cube([RAIL_T, RAIL_W + FLAP_CL + 0.01, Z_TOP - (FLAP_Z0 - FLAP_CL) + 0.01]);       // 前（板の高さ全部。頭は Z_TOP ちょうど＝天板の裏に面で当たる。0.01 でも上へ出すと seam に出る）
     translate([LW_X - FIL_OV, FLAP_Y0 - FLAP_CL - 1, FLAP_Z0 - FLAP_CL - 0.01]) cube([RAIL_T + FIL_OV, 1, Z_TOP - (FLAP_Z0 - FLAP_CL) + 0.01]);            // 前の受けと帯の繋ぎ（壁の肉の中）
     translate([LW_X, FLAP_Y1 - RAIL_W_R, FLAP_Z0 - FLAP_CL - 0.01]) cube([RAIL_T, IN_Y + 0.01 - (FLAP_Y1 - RAIL_W_R), Z_TOP - (FLAP_Z0 - FLAP_CL) + 0.01]);   // 後ろ（板の高さ全部）
     translate([LW_X, FLAP_Y1 - RAIL_W_R, -0.01]) cube([FOOT_X1 - LW_X, IN_Y + 0.01 - (FLAP_Y1 - RAIL_W_R), HUB_AT[2] + 0.01]);                             // 後ろの下（X 8.0 まで・Z 12 まで: ナットの口を塞ぐ）
     translate([LW_X - FIL_OV, IN_Y + FLAP_CL, -0.01]) cube([RAIL_T + FIL_OV, 1, Z_TOP + 0.01]);                                                          // 後ろの受けとハッチの繋ぎ（壁の肉の中。板の後ろの縁 51.4 ＋ 当たり 0.1 より後ろから。🔴 51.39 から始めて板に 0.15 食い込んでいた）
-}
+} flap_rail_pcb_relief(); }
 module lwall_flap() render() difference() { intersection() { slab_lwall(false); flap_box(); } port_cut(XUSB_C, XUSB_SZ[0], XUSB_SZ[1], WALL, "x"); lwall_icon_cut(); flap_seam_chamfers(); }   // 蓋の左の板（天板との楔は切らない・口と刻印はこちら）
 // 🔴 左の板の下辺の留め（板の内面の鉤を床の縁石に掛ける）と、PCB の左前の角を板から受ける腕は、2026-09-16 の掃引で落とした。
 //    蓋は右上の稜を軸に閉じる（下の LID_AXIS）ので、板の下辺は最後に +X 2.4 動いて鉤が縁石に乗り、腕は PCB の下を通れない（掃引 path_lid で 67・51mm³）。
