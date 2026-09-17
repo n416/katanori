@@ -15,9 +15,15 @@ D = json.load(open(os.path.join(TMP, KEY + "_frames.json"), encoding="utf-8"))
 OUT = os.path.join(TMP, KEY + "_frames")
 os.makedirs(OUT, exist_ok=True)
 
-C_MOVE = (0.16, 0.45, 0.85, 1.0)     # 空いている
-C_TOUCH = (0.95, 0.68, 0.10, 1.0)    # 触れているだけ（皮。めり込みではない）
-C_HIT = (0.92, 0.12, 0.10, 1.0)      # めり込んでいる
+# 🔒 ユーザー 2026-09-18: 皮で触れているだけの所まで黄色にしていたので、
+#   `lidflap` が最初から最後まで黄色になり「入らない」と読めてしまった。
+#   ⇒ **2 色だけにする。青 ＝ 問題なし（触れているのも含む）／赤 ＝ めり込み。**
+#   触れていることは焼き込みの文字（touch）に残す
+#   さらに 2026-09-18: **台帳の状態**で分ける。決着済みの当たりで画面を赤くすると、
+#   皮を黄色にしていた頃と同じ間違いになる（蓋の最後の絵が真っ赤になった）
+C_STATE = [(0.16, 0.45, 0.85, 1.0),    # 0 = めり込み無し（触れているのも含む）
+           (0.90, 0.60, 0.15, 1.0),    # 1 = 了承済みのめり込み（台帳にある。決着済み）
+           (0.92, 0.12, 0.10, 1.0)]    # 2 = 新しいめり込み（判断が要る）
 
 
 def load_stl(path, name):
@@ -54,11 +60,16 @@ def mat(name, rgba, alpha=1.0, emit=0.0):
 def main():
     bpy.ops.wm.read_factory_settings(use_empty=True)
     world = load_stl(os.path.join(TMP, KEY + "_world.stl"), "world")
-    mover = load_stl(os.path.join(TMP, KEY + "_mover.stl"), "mover")
     mw, _ = mat("m_world", (0.80, 0.84, 0.88, 1.0), alpha=0.20)
-    mm, mm_b = mat("m_mover", C_MOVE, emit=0.25)   # 当たっている間だけ透かす
     world.data.materials.append(mw)
-    mover.data.materials.append(mm)
+    # 動く物は 1 つとは限らない（蓋は天板と左の板が 1 つの部品として一緒に動く）
+    movers, mbs = [], []
+    for j, nm in enumerate(D.get("names", ["mover"])):
+        o = load_stl(os.path.join(TMP, "%s_m%d.stl" % (KEY, j)), nm)
+        m, b = mat("m_%s" % nm, C_STATE[0], emit=0.25)
+        o.data.materials.append(m)
+        movers.append(o)
+        mbs.append(b)
 
     # めり込んだ塊そのもの（交わりの形）。当たっているコマだけ出す
     mk, _ = mat("m_mark", (1.0, 0.06, 0.06, 1.0), emit=5.0)
@@ -134,20 +145,21 @@ def main():
     sc.render.stamp_foreground = (1, 1, 1, 1)
 
     for i, f in enumerate(D["frames"]):
-        m = f["m"]
-        # 🔴 素の配列を matrix_world に入れると**列として**入り、平行移動が落ちる
-        #   （2026-09-17 に踏んだ: 動画で物が 1mm も動かなかった）。mathutils.Matrix に包む
-        mover.matrix_world = mathutils.Matrix([m[0:4], m[4:8], m[8:12], m[12:16]])
-        t = f.get("thick", 0.0)
-        hitting = t >= D["skin"]
-        col = C_HIT if hitting else (C_TOUCH if f["d"] <= D["tol"] else C_MOVE)
-        mm_b.inputs["Base Color"].default_value = col
-        mm_b.inputs["Emission Color"].default_value = col
-        mover.hide_render = bool(f.get("ghost"))          # 停止コマは動く物を消して交わりだけ見せる
+        for j, o in enumerate(movers):
+            mv = f["movers"][j]
+            m = mv["m"]
+            # 🔴 素の配列を matrix_world に入れると**列として**入り、平行移動が落ちる
+            #   （2026-09-17 に踏んだ: 動画で物が 1mm も動かなかった）。mathutils.Matrix に包む
+            o.matrix_world = mathutils.Matrix([m[0:4], m[4:8], m[8:12], m[12:16]])
+            col = C_STATE[int(mv.get("state", 0))]
+            mbs[j].inputs["Base Color"].default_value = col
+            mbs[j].inputs["Emission Color"].default_value = col
+            o.hide_render = bool(mv.get("hidden"))        # 交わりを見せるコマでは、当たっている物だけ消す
+        show = bool(f.get("show_hit"))
         for nm, o in shapes.items():
-            o.hide_render = not (hitting and f.get("hit") == nm)
+            o.hide_render = not (show and f.get("hit") == nm)
         bb = f.get("bbox")
-        if hitting and bb:
+        if show and bb:
             for vi, v in enumerate(loc.data.vertices):
                 b = loc_base[vi]
                 v.co = [(bb[0][k] - loc_pad) if b[k] < 0 else (bb[1][k] + loc_pad) for k in range(3)]

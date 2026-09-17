@@ -11,7 +11,12 @@ case_v6_1.scad          形と道（PATH_*）の出どころ。ここは触ら�
             └ tools/_sweep_blender.py   Blender の中で動く側
 ```
 
-道は 6 本: `hub` `rsp` `oled` `bat` `lidmain` `lidflap`
+**検査の道は 6 本**: `hub` `rsp` `oled` `bat` `lidmain` `lidflap`
+**動画の場面は 5 つ**: `hub` `rsp` `oled` `bat` `lid`
+
+蓋は**たわむので検査は 2 つの剛体**（`lidmain` 天板・`lidflap` 左の板）に分けるが、
+🔒 ユーザー 2026-09-18「天板と左壁はつながっています」── **実物は 1 つの部品**なので、
+**動画では `lid` という 1 つの場面に 2 つを同時に出す**。左の板だけを飛ばすのは嘘の絵になる。
 
 ---
 
@@ -38,16 +43,16 @@ python hardware/tools/sweep_chk.py bat
 
 ## 2. 動画
 
-6 本とも焼く（1 本 1〜2 分）。
+5 場面とも焼く（1 つ 1〜2 分）。
 
 ```bash
 python hardware/tools/sweep_movie.py
 ```
 
-1 本だけ。
+1 つだけ（蓋は `lid`）。
 
 ```bash
-python hardware/tools/sweep_movie.py bat
+python hardware/tools/sweep_movie.py lid
 ```
 
 **覗き見**（3 枚だけ焼く・十数秒）。頭 / 座った所 / 交わりだけ、の 3 枚が出る。
@@ -61,11 +66,19 @@ python hardware/tools/sweep_movie.py bat --peek
 
 | 色 | 意味 |
 |---|---|
-| 青 | 空いている |
-| 黄 | 触れているだけ（同一平面の皮。めり込みではない） |
-| 赤 | めり込んでいる |
+| 青 | **問題なし**（空いている・面で触れているだけ、の両方） |
+| 赤 | **めり込んでいる** |
+
+⚠ **色は 2 色しかない。** 皮で触れているだけの所を黄色にしていた頃は、
+`lidflap` が道の全域で触れているために最初から最後まで黄色になり、「入らない」と読めてしまった
+（🔒 ユーザー 2026-09-18）。触れていることは焼き込みの文字（`touch`）に残す。
+交わりを見せるコマでは:
+
+| | |
+|---|---|
 | 明るい赤の塊 | その姿勢の**交わりそのもの**（OpenSCAD で厳密に取った形） |
 | 赤い針金の枠 | いちばん深い塊の場所（小さい当たりを見つけるため） |
+| 消えるのは当たっている物だけ | 場面に物が 2 つあるとき、相手（天板など）は残る |
 
 コマの並びは 3 つ:
 
@@ -108,7 +121,7 @@ python hardware/tools/sweep_movie.py --save=v61n-発注前
 
 ## 4. 新しい当たりが出たとき
 
-1. 動画で見る → `python hardware/tools/sweep_movie.py <key>`
+1. 動画で見る → `python hardware/tools/sweep_movie.py <場面>`（蓋なら `lid`）
 2. 直すなら `case_v6_1.scad` の形か `PATH_*` を直して、1 に戻る
 3. 「これでよい」と判じるなら、`sweep_chk.py` が出した雛形に**理由を書いて**
    `hardware/sweep_accept.json` の `accept` に足す
@@ -199,6 +212,19 @@ $env:OPENSCAD = "C:\Program Files\OpenSCAD\openscad.exe"; python hardware/tools/
 | 箱が画面から出る | `ortho_scale` は横に効く。16:9 では縦が先に切れる（外接箱の 8 隅で合わせている） |
 | `<key>.json が無い` | 先に `sweep_chk.py <key>` を回す |
 | 検査が遅い | 厳密評価の回数（`EXACT_MAX`）を減らす。距離で走る所は 1 本 2〜5 秒しか掛かっていない |
+
+## 9. まだ手を付けていない
+
+🔴 **この道具はナイロン（MJF）しか見ていない。** `-D MAT=` を渡していないので、
+`case_v6_1.scad` の既定（`MAT = "nylon"`）のまま回っている。
+6 本の道もナイロンの入れ方（左の窓から差して右へ滑らせる／蓋を真上から降ろす）で、
+板 6 枚のレジンの組み立てを表していない。
+
+🔒 ユーザー 2026-09-15「レジン版とナイロン版はスイッチできるわけで、それに応じてアラートを分けて」
+── `_stl_preflight.py` の `--mat` と `stl_v61n.py` の `--resin-check` はこれに従っているが、
+**この道具だけが従っていない**。レジンの道を書くところから要る（2026-09-18 時点で未着手）。
+
+---
 
 **静止の当たり**（組み上がった状態）は別の道具:
 
