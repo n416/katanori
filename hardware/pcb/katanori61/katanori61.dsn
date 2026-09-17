@@ -32,6 +32,8 @@
     (keepout "ko5" (rect F.Cu 1177540.0 -441000.0 1209540.0 -409000.0))
     (keepout "ko5_1" (rect In2.Cu 1177540.0 -441000.0 1209540.0 -409000.0))
     (keepout "ko5_2" (rect B.Cu 1177540.0 -441000.0 1209540.0 -409000.0))
+    (keepout "ko6_1" (rect In2.Cu 1002000.0 -696000.0 1112000.0 -576000.0))
+    (keepout "ko6_2" (rect B.Cu 1002000.0 -696000.0 1112000.0 -576000.0))
   )
   (placement
     (component C31
@@ -110,10 +112,10 @@
       (place C9 699843.8 -688000.0 front 0)
     )
     (component R4
-      (place R4 607950.0 -668300.0 front 0)
+      (place R4 606200.0 -668300.0 front 0)
     )
     (component R3
-      (place R3 643050.0 -666975.0 front 0)
+      (place R3 647000.0 -666975.0 front 0)
     )
     (component R16
       (place R16 762450.0 -664000.0 front 0)
@@ -745,7 +747,7 @@
     (net "VSYS"
       (pins C1-1 C4-1 L1-1 Q1-2 R1-1 R13-1 U1-8 U2-1 U2-20)
     )
-    (class kicad_default "" "BASE" "BATG" "BTN" "CC1" "CC2" "COL" "EN" "FB" "GND" "IN" "LBI" "LBO" "N_LED1" "N_LED2" "N_LED3" "N_LED4" "N_Q1C" "PROG1" "PROG3" "SCL" "SDA" "SPKM" "SPKO" "SPKP" "STAT1" "STAT2" "THERM" "V33" "VBUS" "VPCC"
+    (class kicad_default "" "BASE" "BATG" "BTN" "CC1" "CC2" "COL" "EN" "FB" "GND" "IN" "LBI" "LBO" "N_LED1" "N_LED2" "N_LED3" "N_LED4" "N_Q1C" "PROG1" "PROG3" "SCL" "SDA" "STAT1" "STAT2" "THERM" "V33" "VBUS" "VPCC"
       (circuit (use_via Via[0-2]_600:300_um))
       (rule (width 2000) (clearance 1500))
     )
@@ -761,6 +763,10 @@
       (circuit (use_via Via[0-2]_600:300_um))
       (rule (width 8000) (clearance 1500))
     )
+    (class spk "" "SPKM" "SPKO" "SPKP"
+      (circuit (use_via Via[0-2]_600:300_um))
+      (rule (width 6000) (clearance 1500))
+    )
   )
   (wiring
     (wire (path F.Cu 2500 815800.0 -626000.0 810470.0 -614000.0) (net "BATP") (type protect))
@@ -775,11 +781,16 @@
     (wire (path B.Cu 8000 638580.0 -703380.0 435000.0 -703380.0) (net "V5") (type protect))
     (wire (path B.Cu 8000 435000.0 -703380.0 417700.0 -686080.0) (net "V5") (type protect))
     (wire (path B.Cu 8000 417700.0 -686080.0 417700.0 -655950.0) (net "V5") (type protect))
-    (wire (path B.Cu 6000 1157000.0 -624500.0 1157000.0 -629500.0) (net "BATRAW") (type protect))
-    (wire (path B.Cu 6000 1157000.0 -629500.0 1102500.0 -679000.0) (net "BATRAW") (type protect))
-    (wire (path B.Cu 6000 1102500.0 -679000.0 919950.0 -679000.0) (net "BATRAW") (type protect))
-    (wire (path B.Cu 6000 919950.0 -679000.0 874950.0 -634000.0) (net "BATRAW") (type protect))
+    (wire (path B.Cu 6000 1157000.0 -624500.0 1157000.0 -639000.0) (net "BATRAW") (type protect))
+    (wire (path B.Cu 6000 1157000.0 -639000.0 1120000.0 -676000.0) (net "BATRAW") (type protect))
+    (wire (path B.Cu 6000 1120000.0 -676000.0 1120000.0 -709000.0) (net "BATRAW") (type protect))
+    (wire (path B.Cu 6000 1120000.0 -709000.0 949950.0 -709000.0) (net "BATRAW") (type protect))
+    (wire (path B.Cu 6000 949950.0 -709000.0 874950.0 -634000.0) (net "BATRAW") (type protect))
     (wire (path F.Cu 6000 874950.0 -634000.0 859375.0 -634000.0) (net "BATRAW") (type protect))
+    (wire (path F.Cu 6000 785620.0 -463950.0 785620.0 -480950.0) (net "VBUS") (type protect))
+    (wire (path B.Cu 6000 785620.0 -480950.0 705520.0 -561050.0) (net "VBUS") (type protect))
+    (wire (path B.Cu 6000 705520.0 -561050.0 705520.0 -565850.0) (net "VBUS") (type protect))
+    (wire (path F.Cu 6000 705520.0 -565850.0 705520.0 -582850.0) (net "VBUS") (type protect))
     (via Via[0-2]_600:300_um 613250.0 -624400.0 (net "GND") (type protect))
     (via Via[0-2]_600:300_um 613250.0 -637900.0 (net "GND") (type protect))
     (via Via[0-2]_600:300_um 626750.0 -624400.0 (net "GND") (type protect))
@@ -790,5 +801,7 @@
     (via Via[0-2]_600:300_um 741250.0 -626400.0 (net "GND") (type protect))
     (via Via[0-2]_600:300_um 638580.0 -703380.0 (net "V5") (type protect))
     (via Via[0-2]_600:300_um 874950.0 -634000.0 (net "BATRAW") (type protect))
+    (via Via[0-2]_600:300_um 785620.0 -480950.0 (net "VBUS") (type protect))
+    (via Via[0-2]_600:300_um 705520.0 -565850.0 (net "VBUS") (type protect))
   )
 )

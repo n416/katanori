@@ -115,8 +115,14 @@ def write_dsn(path, name, insts, nets, boundary, keepouts=(), copper=("F.Cu", "B
           f" (clearance {CL} (type smd_smd)) (clearance {VCL} (type via_via)))"]
     for ly, net in planes.items():
         o.append(f'    (plane "{net}" (polygon {ly} 0 ' + " ".join(f"{_x(a)} {_y(b)}" for a, b in boundary) + "))")
-    for i, (x0, y0, x1, y1) in enumerate(keepouts):
+    # ⭐ 2026-09-17 夕: 5 つ目に層の組を付けると、その層だけの立入禁止になる。
+    #   AS5600 のまわりで使う: 表（F.Cu）は U4 自身の逃げ道に残し、内層と裏を塞ぐ。
+    for i, ko in enumerate(keepouts):
+        x0, y0, x1, y1 = ko[:4]
+        lys = ko[4] if len(ko) > 4 else copper
         for j, ly in enumerate(copper):
+            if ly not in lys:
+                continue
             sfx = "" if j == 0 else ("b" if len(copper) == 2 else f"_{j}")
             o.append(f'    (keepout "ko{i}{sfx}" (rect {ly} {_x(x0)} {_y(y1)} {_x(x1)} {_y(y0)}))')
     o.append("  )")

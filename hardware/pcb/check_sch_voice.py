@@ -43,6 +43,10 @@ def netlist(sch):
     subprocess.run([CLI, "sch", "export", "netlist", "--format", "kicadxml", "-o", str(out), str(sch)],
                    check=True, capture_output=True)
     root = ET.parse(out).getroot()
+    # ⭐ 2026-09-17: 読んだら消す（check_sch.py と同じ作り）。
+    #   残していたせいで build/ に 9/15 の網表が残り、別のセッションが
+    #   それを読んで「Q2・R46 が居ない」と報告してきた。読むのはこの関数だけ。
+    out.unlink()
     pin_net = {}
     names = {}
     for n in root.iter("net"):
