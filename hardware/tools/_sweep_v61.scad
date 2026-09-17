@@ -7,14 +7,15 @@ module sw_mover() {
     if (SW_MOVER == "rsp")  { one("rsp");  one("riser"); }
     if (SW_MOVER == "oled") { one("oled"); one("oriser"); }
     if (SW_MOVER == "bat")  one("bat");
-    if (SW_MOVER == "lid")  { lid(); lid_units(); }
+    if (SW_MOVER == "lidmain") { p_top(); lid_units(); }              // 天板と天板に付く物（真下へ降りる）
+    if (SW_MOVER == "lidflap") { lwall_flap(); flap_seat(); }         // 左の L 字（降りるあいだ外へ 1.5 たわむ）
 }
 module sw_world() {
     if (SW_WORLD == "hub")  world_for_hub();
     if (SW_WORLD == "rsp")  world_for_rsp();
     if (SW_WORLD == "oled") world_for_oled();
     if (SW_WORLD == "bat")  world_for_bat();
-    if (SW_WORLD == "lid")  world_for_lid();
+    if (SW_WORLD == "lidmain" || SW_WORLD == "lidflap") world_for_lid();
 }
 if (SW_MODE == "mover") sw_mover();
 if (SW_MODE == "world") sw_world();
@@ -23,4 +24,6 @@ if (SW_MODE == "hit")   intersection() { at_pose(SW_Q, SW_C) sw_mover(); sw_worl
 if (SW_MODE == "pose") echo(SWPOSE = [["hub",  PATH_HUB,  hub_c(), hub_r()],
                                       ["rsp",  PATH_RSP,  [0, 0, 0], 0],
                                       ["oled", PATH_OLED, [0, 0, 0], 0],
-                                      ["bat",  PATH_BAT,  [0, 0, 0], 0]]);
+                                      ["bat",  PATH_BAT,  [0, 0, 0], 0],
+                                      ["lidmain", PATH_LIDMAIN, [0, 0, 0], 0],
+                                      ["lidflap", PATH_LIDFLAP, [0, 0, 0], 0]]);

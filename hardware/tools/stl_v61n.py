@@ -3,7 +3,7 @@
    python hardware/tools/stl_v61n.py                 全部（7 点）
    python hardware/tools/stl_v61n.py btn_tub top     名前を指定（stl/v61n/v61n_<名前>.stl）
    python hardware/tools/stl_v61n.py --check         筐体の静止の当たり検査（seam_shell_lid・sk_* ほか）を hardware/_tmp_v61n/ に出して体積を出す
-   ⚠ **入れる道の検査はこちらではない** ── `python hardware/tools/sweep_chk.py hub rsp oled bat`（2026-09-17 に移した。docs/COLLISION-SURVEY.md）
+   ⚠ **入れる道の検査はこちらではない** ── `python hardware/tools/sweep_chk.py hub rsp oled bat lidmain lidflap`（2026-09-17 に移した。docs/COLLISION-SURVEY.md）
    python hardware/tools/stl_v61n.py --resin-check   同じくレジンで。ナイロン専用の検査（NYLON_ONLY）は回さない
    ⚠ 出力先は書き出す前に必ず消す（OpenSCAD は空だと STL を書かないので、古いファイルを読む事故が起きる）。
    支柱・ラフト・FIT_PRINT は渡さない（MJF。MAT="nylon" で PROPS_OFF・RIBS_OFF が true）。
@@ -39,7 +39,7 @@ PARTS = [
 CHECKS = ['seam_shell_lid', 'plugpath', 'hit_wires', 'nutpath', 'sk_rsp', 'sk_oled', 'sk_hub', 'sk_spktub', 'sk_tgl', 'sk_btn', 'hit_btn']
 # 🔴 2026-09-17: 入れる道の掃引（path_*）をここから外した（🔒 ユーザー「旧の掃引検査は削除」）。
 #   姿勢を n 個 union して交わりを作る方式は、細かくすると面数が爆発して PC が固まる。
-#   ⇒ `python hardware/tools/sweep_chk.py hub rsp oled bat`（距離クエリ・刻みは自動）。
+#   ⇒ `python hardware/tools/sweep_chk.py hub rsp oled bat lidmain lidflap`（距離クエリ・刻みは自動）。
 #      動画は `python hardware/tools/sweep_movie.py <key>`。docs/COLLISION-SURVEY.md
 # 🔴 ナイロンでしか意味を持たない検査（2026-09-16）。レジンでは回さない。
 #   seam_shell_lid … 底パーツ＋蓋の継ぎ目。レジンは板 6 枚なので、この分割自体が無い
@@ -85,7 +85,7 @@ if '--check' in sys.argv or '--resin-check' in sys.argv:
     checks = CHECKS if nylon else [c for c in CHECKS if c not in NYLON_ONLY]
     if not nylon:
         print('レジン: ナイロン専用の %d 件は回さない（%s）' % (len(NYLON_ONLY), ' '.join(NYLON_ONLY)))
-    print('入れる道は別の道具: python hardware/tools/sweep_chk.py hub rsp oled bat')
+    print('入れる道は別の道具: python hardware/tools/sweep_chk.py hub rsp oled bat lidmain lidflap')
     for c in checks:
         dst = os.path.join(tmp, c + '.stl')
         size, dt, err = export(dst, CASE, c, nylon=nylon)

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 u"""入れる道の当たり検査（ブーリアンを取らずに距離で走る）。
 
-  python hardware/tools/sweep_chk.py hub rsp oled bat
+  sweep_chk.py hub rsp oled bat lidmain lidflap
 
 やること
   1. OpenSCAD から「動かす物」と「相手」を OFF で 1 回だけ出す
@@ -146,16 +146,33 @@ def exact_hit(key, q, c, idx=0):
     m = trimesh.load(f)
     if len(m.faces) == 0:
         return empty
-    # 厚みは主軸で測る（軸に平行でない皮を「厚い」と誤判定しないため）
-    v = np.asarray(m.vertices, float)
-    ax = np.linalg.svd(v - v.mean(0), full_matrices=False)[2]
-    ext = sorted(float(x) for x in ((v - v.mean(0)) @ ax.T).ptp(0))
-    vol = float(abs(m.volume)) if m.is_watertight else 0.0
-    return {"faces": int(len(m.faces)), "thick": round(ext[0], 4), "vol": round(vol, 4),
-            "ext": [round(x, 3) for x in ext[::-1]],
-            "bmin": [round(float(x), 3) for x in m.bounds[0]],
-            "bmax": [round(float(x), 3) for x in m.bounds[1]],
-            "off": os.path.basename(f)}
+    # 🔴 **塊ごとに測る。** 交わりは離れた複数の塊になる（蓋は縁のぐるり全部で触れる）。
+    #   まとめて主軸を取ると、別々の平面にある皮が寄り集まって「厚い」に化ける
+    #   （2026-09-17 に踏んだ: lidmain が体積 0 のまま厚み 5.198 と出た）。
+    best, pieces = None, 0
+    for g in m.split(only_watertight=False) or [m]:
+        v = np.asarray(g.vertices, float)
+        if len(v) < 3:
+            continue
+        ax = np.linalg.svd(v - v.mean(0), full_matrices=False)[2]
+        ext = sorted(float(x) for x in ((v - v.mean(0)) @ ax.T).ptp(0))
+        vol = float(abs(g.volume)) if g.is_watertight else 0.0
+        pieces += 1
+        cur = {"faces": int(len(g.faces)), "thick": round(ext[0], 4), "vol": round(vol, 4),
+               "ext": [round(x, 3) for x in ext[::-1]],
+               "bmin": [round(float(x), 3) for x in g.bounds[0]],
+               "bmax": [round(float(x), 3) for x in g.bounds[1]]}
+        if best is None or (cur["thick"], cur["vol"]) > (best["thick"], best["vol"]):
+            best = cur
+    if best is None:
+        return empty
+    best["off"] = os.path.basename(f)
+    # 🔴 塊の体積を足した「合計」は持たない（🔒 ユーザー 2026-09-17「合計は無意味」）。
+    #   小さな接触が 6 か所あるのと、大きなめり込みが 1 か所あるのを、足すと区別できなくなる。
+    #   塊ごとに分けた意味が消えるので、出すのは**いちばん深い塊**と**塊の数**だけ
+    best["pieces"] = pieces
+    best["faces_all"] = int(len(m.faces))
+    return best
 
 
 def pose_at(path, s, c):
@@ -198,7 +215,7 @@ def check(key, spec):
 
 
 def main():
-    keys = sys.argv[1:] or ["hub", "rsp", "oled", "bat"]
+    keys = sys.argv[1:] or ["hub", "rsp", "oled", "bat", "lidmain", "lidflap"]
     paths = read_paths()
     for k in keys:
         if k not in paths:
@@ -211,8 +228,8 @@ def main():
         print(u"      最小隙間 %.3f mm / 接触区間 %s" % (r["min_clearance"], r["intervals"] or "無し"))
         w = r["worst"]
         if w and w["faces"]:
-            print(u"      いちばん深い所 s=%s: 厚み %.3f mm・体積 %.3f mm3・広がり %s・角 %s"
-                  % (w["s"], w["thick"], w["vol"], w["ext"], w["bmin"]))
+            print(u"      いちばん深い塊 s=%s: 厚み %.3f mm・体積 %.3f mm3・広がり %s・角 %s（触れている所 %d か所）"
+                  % (w["s"], w["thick"], w["vol"], w["ext"], w["bmin"], w.get("pieces", 1)))
         skin = u"（同一平面の皮。めり込みではない）" if w and w["faces"] and w["thick"] < SKIN_T else u""
         print(u"      判定: %s%s" % (r["verdict"], skin))
 
