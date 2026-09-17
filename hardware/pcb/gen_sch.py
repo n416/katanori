@@ -179,7 +179,7 @@ part("J13", "Connector:USB_C_Receptacle_USB2.0_16P", "USB-C", XI - 20, YI + 18,
       "A5": "CC1", "B5": "CC2",
       "A6": None, "B6": None, "A7": None, "B7": None, "A8": None, "B8": None},
      "Connector_USB:USB_C_Receptacle_HRO_TYPE-C-31-M-12", lcsc="C165948",
-     note="充電の口。D+/D− と SBU は使わない。v6.1 は板の縁から 1.53 しか出ないので前のシェルの足 2 本も板に載る")
+     note="充電の口。D+/D− と SBU は使わない。v6.1 は板の後ろの縁から 1.3 出し（⭐ 2026-09-17）で、シェルの足 4 本とも板に載る")
 r("R44", "5.1k", XI - 16, YI + 22, "CC1", "GND", note="CC1 の引き下げ（充電器に 5V を出させる）")
 r("R45", "5.1k", XI - 13, YI + 22, "CC2", "GND", note="CC2 の引き下げ")
 
