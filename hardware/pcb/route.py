@@ -94,17 +94,27 @@ def seed_wiring():
                     f' (net "{net}") (type route))')
     nv = 0
     for v in find(pcb, "via"):
-        # 🔴 2026-09-16 夕に直した。「>= 0.59 なら縫いのビア」は**自動配線のビアも落としていた**。
-        #    v6.1 の自動配線のビアは φ0.8（DSN の Via[0-1]_800:400_um）で、縫いのビアが φ0.6。
-        #    ⇒ 0.59 以上を全部落とすと**穴が 1 つも種にならず**、多層をまたぐネットが切れる。
-        #    実際 --incremental が未接続 40 本を出していた（0.65 未満だけを落とす形に直して解消）。
-        if float(find1(v, "size")[1]) < 0.65:        # 縫いのビア（φ0.6）だけ落とす
+        # 🔴 縫いのビアと先に打ったビアは種にしない。**大きさで見分けない。**
+        #    2026-09-16 夕: 「>= 0.59 なら縫い」が自動配線のビア（当時 φ0.8）まで落としていて未接続 40 本。
+        #      ⇒ 「0.65 未満だけ落とす」に直した。
+        #    2026-09-17 夜: 4 層にして自動配線のビアも φ0.6（gen_pcb.VIA4）になり、縫いと同じ大きさになった。
+        #      0.65 未満 ＝ **全部**が落ち、「穴 0 個を DSN に入れた」と出て、浮いた穴が 6 個増えた。
+        #    ⇒ stitch() が縫いのビアに (free yes) を付ける。locked（EP の放熱・幹の穴）は
+        #      gen_pcb.py が protect で渡しているので、これも入れない（入れると二重になる）。
+        if find1(v, "free") or find1(v, "locked"):
             continue
         at = find1(v, "at")
         net = names.get(str(find1(v, "net")[1]), "")
         rows.append(f'    (via {vianame} {dsn._x(float(at[1]))} {dsn._y(float(at[2]))} (net "{net}") (type route))')
         nv += 1
-    txt = txt.replace("  (wiring\n  )", "  (wiring\n" + "\n".join(rows) + "\n  )")
+    # 🔴 2026-09-17 夜: 前は「空の wiring」("  (wiring\n  )") を置き換えていた。gen_pcb.py が
+    #    先に引いた線を protect で wiring に書くようになってから空の形が無くなり、**黙って空振り**
+    #    していた（種 0 本のまま全部を引き直し、前の穴と二重になって浮いた穴が出る）。
+    #    ⇒ wiring の頭に差し込む。入らなければ止める。
+    head = "  (wiring\n"
+    if txt.count(head) != 1:
+        sys.exit("DSN に wiring の節が 1 つだけ、という前提が崩れている（%d 個）" % txt.count(head))
+    txt = txt.replace(head, head + "\n".join(rows) + "\n")
     (OUT / f"{NAME}.dsn").write_text(txt, encoding="utf-8")
     print(f"  引けている配線 {len(rows) - nv} 本・穴 {nv} 個を DSN に入れた（残りだけを引かせる）")
 
@@ -128,7 +138,15 @@ def merge():
     wires, vias = dsn.read_ses(OUT / f"{NAME}.ses", refs)
     # 🔴 locked の線（gen_pcb.py の PRE_TRACKS で先に引いた物）は残す。ここで消すと、
     #    自動配線に protect で守らせた線が板から消えて、パッドが浮く（2026-09-16）
-    body = [e for e in pcb if not (isinstance(e, list) and e[0] in ("segment", "via") and not find1(e, "locked"))]
+    # 🔴 2026-09-17 夜: --incremental のときは**板の上の配線と穴を残す**。Freerouting 2.4.1 は
+    #    種で渡した線と穴（type route で渡しても）を SES に **type protect で返す**。上で protect を
+    #    捨てているので、種はまるごと SES から消える ＝ 前のように全部を置き換えると、新しく引いた
+    #    数本だけが残って未接続が 82 本出た。種は動かされない（protect 扱い）ので、板の物をそのまま使える。
+    #    落とすのは縫いのビア（free）だけ。stitch() が後で打ち直す。
+    if "--incremental" in sys.argv:
+        body = [e for e in pcb if not (isinstance(e, list) and e[0] == "via" and find1(e, "free"))]
+    else:
+        body = [e for e in pcb if not (isinstance(e, list) and e[0] in ("segment", "via") and not find1(e, "locked"))]
     n_seg = 0
     for net, layer, w, pts in wires:
         if net not in nets:
@@ -260,6 +278,7 @@ def stitch():
     for X, Y in put:
         body.append(["via", ["at", f"{X:.4f}", f"{Y:.4f}"], ["size", f"{VIA}"],
                      ["drill", f"{DRILL}"], ["layers", Str("F.Cu"), Str("B.Cu")],
+                     ["free", "yes"],      # 縫いのビアの印。seed_wiring() がこれで見分ける
                      ["net", nets["GND"]], ["uuid", Str(uid())]])
     (OUT / f"{NAME}.kicad_pcb").write_text(kisym.dump(body) + chr(10), encoding="utf-8")
     print(f"  GND を縫うビアを {len(put)} 個打った（格子 {PITCH}mm・φ{VIA}/{DRILL}）")
