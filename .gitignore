@@ -60,3 +60,6 @@ hardware/_tmp_v61man/
 # KiCad が開いているあいだ置く鍵（~<名>.kicad_pcb.lck など）。
 #   閉じると消えるが、落ちると残る。中身は開いている人の名前と PC 名
 ~*.lck
+
+# KiCad 9 が kicad-cli を呼ぶたびに作る自動スナップショット置き場（中身は空・こちらでは使わない）
+.history/

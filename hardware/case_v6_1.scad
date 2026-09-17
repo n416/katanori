@@ -25,7 +25,7 @@
 //   seam_<板>_<板> … 板 2 枚の重なり（例 seam_top_front。0 が正）
 //   （皮・板・検査の語は皮を起こすときにここへ足す。既にある語の意味は変えない）
 // ============================================================
-part = "explode";
+part = "open_left";
 MAT = "nylon";   // ["resin", "nylon"]   刷り方。"resin" = 自分の光造形（板 6 枚）／"nylon" = 外注 MJF（底パーツ＋蓋の 2 部品。蓋 = 天板＋左の板・2026-09-16）。GUI ではこの行を書き換える（Customizer でも選べる）。CLI は -D MAT="nylon"
 $mat = MAT;      // 🔴 部品ファイル（use）へ材料を配る。$ 付きは呼び出しの連鎖を伝わる（parts/mat.scad の説明）。PROPS_OFF などより前に置くこと
 // ---- 刷り方（🔒 ユーザー 2026-09-14「ナイロンで印刷する場合のモードが欲しいね」）----
@@ -1614,11 +1614,32 @@ if (part == "seam_shell_lid") intersection() { shell(); lid(); }   // ナイロ�
 //   そのため「前へずらして入れて、後ろへ押し込んで口に挿す」「斜めに入れる」といった実際の動きが書けず、
 //   入る動きなのに当たりを出し続けていた（充電の USB-C の 51.4mm³ がそれ。板の縁から 1.3 出た胴が
 //   横差しの間ずっと後ろの壁の中を通る形で数えられていた）。
-//   道の 1 点は **[dx, dy, dz, 回し（度・Z 軸まわり）]**。点と点のあいだを n 等分して当てる。
-//   回す中心は物ごとに渡す（板なら板の芯）。全部 0 が正。
-function pose_lerp(a, b, t) = [for (i = [0 : 3]) a[i] + (b[i] - a[i]) * t];
-module at_pose(q, c = [0, 0, 0]) translate([q[0], q[1], q[2]]) translate(c) rotate([0, 0, q[3]]) translate(-c) children();
-module sweep_pose(ps, n, c = [0, 0, 0]) for (i = [0 : len(ps) - 2], k = [0 : n]) at_pose(pose_lerp(ps[i], ps[i + 1], k / n), c) children();
+//   道の 1 点は **[dx, dy, dz, rx, ry, rz]**（移動 3 つ ＋ 回し 3 つ・度）。点と点のあいだを n 等分して当てる。
+//   ⭐ 2026-09-17 夜の 2 回目に **3 軸の回しへ広げた**（🔒 ユーザー「これ、入れる物体の角度とかも変えられるの？」）。
+//     最初は Z 軸まわりの 1 つしか持たせておらず、平面で首を振れるだけで**傾けられなかった**。
+//     「斜めに入れる」は普通 X か Y 軸まわりに倒すことなので、それが書けないと道具の意味が無い。
+//   🔴 **回す中心 c を必ず渡すこと。** 既定は世界の原点なので、傾けると物が遠くへ飛ぶ。
+//     物の芯（板なら板の芯 hub_c()）を渡す。4 つしか書いていない古い点は rx・ry が undef になるので、
+//     pose_fix() が 6 つに揃える（書き忘れても静かに undef にならない）。全部 0 が正。
+function pose_fix(q) = [for (i = [0 : 5]) (i < len(q) && q[i] != undef) ? q[i] : 0];
+function pose_lerp(a, b, t) = let (u = pose_fix(a), v = pose_fix(b)) [for (i = [0 : 5]) u[i] + (v[i] - u[i]) * t];
+module at_pose(q, c = [0, 0, 0]) let (u = pose_fix(q))
+    translate([u[0], u[1], u[2]]) translate(c) rotate([u[3], u[4], u[5]]) translate(-c) children();
+// 🔴 **刻みは決め打ちにせず、物がどれだけ動くかから出す。**姿勢を n 個置いて union するので、
+//   姿勢と姿勢の**あいだは見ていない**。刻みより細い物はすり抜けて 0.00 が出る
+//   （＝「入る」ではなく「私が置いた姿勢では当たらなかった」）。
+//   ⇒ 1 刻みで物のどの点も SWEEP_STEP より動かないよう、区間ごとに n を数える。
+//     回すと端がいちばん動くので、**回す中心から物の端までの長さ r** を渡してもらう（弧の長さ r・Δθ）。
+//   ⚠ hull() で隣の姿勢を繋ぐ手は**使えない**（2026-09-17 夜に試した）。凸包なので**へこみが埋まる**。
+//     蓋のような凹んだ殻でやると path_lid が 0.07 → 21327mm³ になる。厳密なのは Minkowski だが遅すぎる。
+SWEEP_STEP = 0.25;   // 1 刻みで物のどの点も動いてよい上限。板とレールの食い込み 0.3 より細かい所まで見える
+function pose_move(a, b, r) = let (u = pose_fix(a), v = pose_fix(b))
+    norm([v[0] - u[0], v[1] - u[1], v[2] - u[2]]) + r * PI / 180 * max(abs(v[3] - u[3]), abs(v[4] - u[4]), abs(v[5] - u[5]));
+module sweep_pose(ps, c = [0, 0, 0], r = 0, step = SWEEP_STEP)
+    for (i = [0 : len(ps) - 2]) let (n = max(1, ceil(pose_move(ps[i], ps[i + 1], r) / step)))
+        for (k = [0 : n]) at_pose(pose_lerp(ps[i], ps[i + 1], k / n), c) children();
+function hub_c() = [HUB_AT[0] + PCB_L / 2, PCB_Y0 + PCB_W / 2, HUB_AT[2]];   // 板の芯（傾ける／回すときの中心）
+function hub_r() = norm([PCB_L / 2, PCB_W / 2, 11.0]);   // 芯から板の上の物の角までの長さ 45.7（回したとき端がいちばん動く）。11.0 はリレー K31 の背
 module lid_pose(dx, dz = 0) translate([dx, 0, dz]) children();
 module hub_unit() one("hub");
 module world_for_hub() { shell(); one("bat"); }                                                // PCB を入れるとき箱に居る物（電池は先でも後でも通るが、先に入っている方が厳しい）。🔒 トグルは PCB の後に付ける（ユーザー 2026-09-16 夕「そりゃそうでしょ」: 真上から降ろす PCB の道にトグルの胴がある）
@@ -1652,16 +1673,17 @@ PCB_LIFT = nylon() ? max([0, for (q = PCB_PARTS) pcb_lift_need(q)]) + 0.5 : 1.5;
 //   まっすぐ横へ差すと、その 1.3 が差している間じゅう後ろの壁の中を通る（旧の道で 51.4mm³）。
 //   前へ逃がしておいて、最後に後ろへ押して口へ挿すのが実際の入れ方である。
 //   ⚠ 押し込みは**下ろした後**。持ち上げた姿勢で押すと胴が口の高さに来ていない
-PATH_HUB = [[-95, -pcb_fwd(), PCB_LIFT, 0],   // ① 左の窓の外。前へ逃がして PCB_LIFT 持ち上げた姿勢
-            [  0, -pcb_fwd(), PCB_LIFT, 0],   // ② 右へ滑らせて中へ
-            [  0, -pcb_fwd(),        0, 0],   // ③ 柱の頭まで垂直に下ろす
-            [  0,        0,        0, 0]];  // ④ 後ろへ pcb_fwd() 押して USB-C を口へ挿す
-module path_hub() sweep_pose(PATH_HUB, 60) hub_unit();
-module path_oled() sweep_pose([[0, 0, 45, 0], [0, 0, 0, 0]], 30) { one("oled"); one("oriser"); }
-module path_rsp()  sweep_pose([[0, 0, 45, 0], [0, 0, 0, 0]], 30) { one("rsp"); one("riser"); }
-module path_bat()  sweep_pose([[0, 0, 0.5, 0], [-70, 0, 0.5, 0]], 35) one("bat");   // 0.5 持ち上げて左へ（床の左の稜の丸み Z 〜0.4 を乗り越える。板の裏 12 まで 6 空く）。🔴 電池の前 9.6 は OLED のリブに接していて前へは動かせない（2026-09-16 夕 path_bat 252mm³）
+//                dx          dy   dz        rx ry rz
+PATH_HUB = [[-95, -pcb_fwd(), PCB_LIFT, 0, 0, 0],   // ① 左の窓の外。前へ逃がして PCB_LIFT 持ち上げた姿勢
+            [  0, -pcb_fwd(), PCB_LIFT, 0, 0, 0],   // ② 右へ滑らせて中へ
+            [  0, -pcb_fwd(),        0, 0, 0, 0],   // ③ 柱の頭まで垂直に下ろす
+            [  0,          0,        0, 0, 0, 0]];  // ④ 後ろへ pcb_fwd() 押して USB-C を口へ挿す
+module path_hub() sweep_pose(PATH_HUB, hub_c(), hub_r()) hub_unit();
+module path_oled() sweep_pose([[0, 0, 45, 0, 0, 0], [0, 0, 0, 0, 0, 0]]) { one("oled"); one("oriser"); }
+module path_rsp()  sweep_pose([[0, 0, 45, 0, 0, 0], [0, 0, 0, 0, 0, 0]]) { one("rsp"); one("riser"); }
+module path_bat()  sweep_pose([[0, 0, 0.5, 0, 0, 0], [-70, 0, 0.5, 0, 0, 0]]) one("bat");   // 0.5 持ち上げて左へ（床の左の稜の丸み Z 〜0.4 を乗り越える。板の裏 12 まで 6 空く）。🔴 電池の前 9.6 は OLED のリブに接していて前へは動かせない（2026-09-16 夕 path_bat 252mm³）
 module lid_flexed() { p_top(); translate([-FLAP_FLEX, 0, 0]) { lwall_flap(); flap_seat(); } }   // 降ろしている途中の蓋: 左の板（足ごと）が FLAP_FLEX 外へたわんだ姿勢（板は剛体のまま平行に出す近似。口の所で 1.5・下の縁はもっと出るが外側なので当たる物が無い）
-module path_lid()  union() { sweep_pose([[0, 0, 14, 0], [0, 0, LID_REST, 0]], 14) { lid_flexed(); lid_units(); } lid_pose(0, LID_REST) { lid(); lid_units(); } }   // 真上から 14 → 0.3 まで降ろす（板はたわんだまま。口の穴は殻より片側 0.3 大きいだけなので、戻るのは最後の 0.3）。0.3 浮いた所で板が戻り口が殻に嵌まる。最後の 0.3（ReSpeaker の押さえ）は sk_rsp が見る
+module path_lid()  union() { sweep_pose([[0, 0, 14, 0, 0, 0], [0, 0, LID_REST, 0, 0, 0]]) { lid_flexed(); lid_units(); } lid_pose(0, LID_REST) { lid(); lid_units(); } }   // 真上から 14 → 0.3 まで降ろす（板はたわんだまま。口の穴は殻より片側 0.3 大きいだけなので、戻るのは最後の 0.3）。0.3 浮いた所で板が戻り口が殻に嵌まる。最後の 0.3（ReSpeaker の押さえ）は sk_rsp が見る
 if (part == "path_hub")  intersection() { path_hub();  world_for_hub(); }
 if (part == "path_oled") intersection() { path_oled(); world_for_oled(); }
 if (part == "path_rsp")  intersection() { path_rsp();  world_for_rsp(); }
@@ -1671,8 +1693,8 @@ DX = 0; DZ = 0;   // path_lid_one 用（-D DX= -D DZ=）: 1 つの姿勢だけ�
 if (part == "path_lid_one") intersection() { lid_pose(DX, DZ) { lid(); lid_units(); } world_for_lid(); }
 if (part == "path_lid_show") { color("#ff4040", 0.5) lid_pose(0, 8) { lid_flexed(); lid_units(); } color("#9aa5b1", 0.4) world_for_lid(); }
 PI_ = 0;   // path_hub_one 用（-D PI_=）: 道の通過点を 1 つだけ置いて当てる（どの段で入らないかを見る）
-if (part == "path_hub_one") intersection() { at_pose(PATH_HUB[PI_]) hub_unit(); world_for_hub(); }
-if (part == "path_hub_show") { color("#ff4040", 0.5) at_pose(PATH_HUB[1]) hub_unit(); color("#9aa5b1", 0.4) world_for_hub(); }
+if (part == "path_hub_one") intersection() { at_pose(PATH_HUB[PI_], hub_c()) hub_unit(); world_for_hub(); }
+if (part == "path_hub_show") { color("#ff4040", 0.5) at_pose(PATH_HUB[1], hub_c()) hub_unit(); color("#9aa5b1", 0.4) world_for_hub(); }
 if (part == "skin")   skin();
 // ---- 板 6 枚とブリッジを刷る向き（v4 と同じ）。板は外面を下（柱・棚・耳・格子・台座は全部上を向く）・ブリッジは皿の裏を下。前板（brg_front）と蓋一式（shutter_v4）は未定
 PLATES6 = ["floor", "top", "lwall", "rwall", "front", "hatch"];
