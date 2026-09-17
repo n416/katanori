@@ -73,7 +73,7 @@ def main():
         # 🔴 2026-09-16 夕: MAT を渡していなかった。格子は**レジンでしか使わない**（RIBS_OFF = nylon()）のに、
         #   case_v6_1.scad 先頭の既定（いま "nylon"）で空きを計算していた。ナイロンの中身の配置で作った格子をレジンの箱に立てていた
         r = subprocess.run([OPENSCAD, '--backend=manifold', '-D', 'MAT="resin"', '-D', 'part="ribfree_%s"' % k, '-o', svg, SCAD],
-                           capture_output=True, text=True)
+                           capture_output=True, text=True, encoding='utf-8', errors='replace')   # OpenSCAD の出力は UTF-8。既定（cp932）で読むと読み取りスレッドが UnicodeDecodeError で落ちる
         if not os.path.exists(svg):
             print(k, 'SVG が出ない:', r.stderr[-400:]); continue
         polys = svg_polys(svg)
