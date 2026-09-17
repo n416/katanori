@@ -33,6 +33,12 @@ MIN_MOVE = 0.02     # 接触区間で 1 歩に進む距離 mm（道具が止ま�
 EXACT_MOVE = 0.30   # 接触区間の中で厳密な交わりを取る間隔 mm
 EXACT_MAX = 12      # 1 区間あたりの厳密評価の上限（重くしないため）
 SKIN_T = 0.01       # 交わりの厚みがこれ未満なら同一平面の皮 ＝ めり込みではない
+# ---- たわむ物（2026-09-18）----
+# 道の 1 点は [dx, dy, dz, rx, ry, rz, d]。**7 つ目 d はたわみ量**で、これが変わると**形が変わる**。
+# 形は OpenSCAD に作り直させるので、d は刻んで丸める（作り直す回数を抑える）。
+# 🔴 丸めは**小さい側**へ。たわみが小さい方が逃げが少なく、判定として厳しい側に倒れる。
+DELTA_STEP = 0.1
+DEFL_RATIO = 2.5    # d が 1 変わると物のどの点も最大これだけ動く（板の下端が d の 2.4 倍出る）
 
 
 def scad(args, out=None):
@@ -51,10 +57,16 @@ def read_paths():
     return {p[0]: {"path": p[1], "c": p[2], "r": p[3]} for p in json.loads(m.group(1))}
 
 
-def export(mode, name, key):
-    f = os.path.join(TMP, "%s_%s.off" % (key, mode))
+def export(mode, name, key, d=None):
+    u"""動かす物／相手を OFF で出す。d を渡すと、そのたわみ量の形を作る（形ごとに 1 ファイル）"""
+    tag = "" if d is None else "_d%03d" % int(round(d * 100))
+    f = os.path.join(TMP, "%s_%s%s.off" % (key, mode, tag))
     var = "MOVER" if mode == "mover" else "WORLD"
-    scad(["-D", 'SW_MODE="%s"' % mode, "-D", 'SW_%s="%s"' % (var, name)], f)
+    if not os.path.exists(f):
+        args = ["-D", 'SW_MODE="%s"' % mode, "-D", 'SW_%s="%s"' % (var, name)]
+        if d is not None:
+            args += ["-D", "SW_D=%s" % d]
+        scad(args, f)
     if not os.path.exists(f):
         sys.exit("%s の書き出しに失敗" % f)
     return trimesh.load(f)
@@ -76,14 +88,24 @@ def pose_mat(q, c):
 
 
 def lerp(a, b, t):
-    return [a[i] + (b[i] - a[i]) * t for i in range(6)]
+    n = max(len(a), len(b))
+    g = lambda q, i: q[i] if i < len(q) else 0.0
+    return [g(a, i) + (g(b, i) - g(a, i)) * t for i in range(n)]
+
+
+def delta(q):
+    u"""道の点からたわみ量を取り出して刻みに丸める（小さい側 ＝ 厳しい側へ）"""
+    d = q[6] if len(q) > 6 else 0.0
+    return round(math.floor(d / DELTA_STEP + 1e-9) * DELTA_STEP, 3)
 
 
 def motion_bound(a, b, r):
-    u"""a→b で物のどの点も、これ以上は動かない（上限）。回すと端がいちばん動く"""
+    u"""a→b で物のどの点も、これ以上は動かない（上限）。回すと端がいちばん動き、
+    たわみが変わると形そのものが動く（板の下端が d の 2.4 倍出るので DEFL_RATIO を掛ける）"""
     d = float(np.linalg.norm(np.array(b[:3], float) - np.array(a[:3], float)))
     th = max(abs(b[3] - a[3]), abs(b[4] - a[4]), abs(b[5] - a[5]))
-    return d + r * math.radians(th)
+    dd = abs((b[6] if len(b) > 6 else 0.0) - (a[6] if len(a) > 6 else 0.0))
+    return d + r * math.radians(th) + DEFL_RATIO * dd
 
 
 def bvh(mesh):
@@ -94,9 +116,9 @@ def bvh(mesh):
     return m
 
 
-def march(mover, world, path, c, r):
-    u"""距離クエリで道を走る。刻みは空いている距離から決める（Conservative Advancement）"""
-    mo = fcl.CollisionObject(bvh(mover), fcl.Transform())
+def march(mover_at, world, path, c, r):
+    u"""距離クエリで道を走る。刻みは空いている距離から決める（Conservative Advancement）。
+    mover_at(d) は、そのたわみ量の物（形が変わるので姿勢だけでは足りない）"""
     wo = fcl.CollisionObject(bvh(world), fcl.Transform())
     out = []
     for i in range(len(path) - 1):
@@ -106,11 +128,13 @@ def march(mover, world, path, c, r):
             continue
         t = 0.0
         while True:
-            R, tr = pose_mat(lerp(a, b, t), c)
+            q = lerp(a, b, t)
+            mo = mover_at(delta(q))
+            R, tr = pose_mat(q, c)
             mo.setTransform(fcl.Transform(R, tr))
             res = fcl.DistanceResult()
             d = float(fcl.distance(mo, wo, fcl.DistanceRequest(), res))
-            out.append({"s": i + t, "d": d})
+            out.append({"s": i + t, "d": d, "dd": delta(q)})
             if t >= 1.0:
                 break
             t = min(1.0, t + max(d - TOL, MIN_MOVE) / M)
@@ -139,7 +163,8 @@ def exact_hit(key, q, c, idx=0):
     if os.path.exists(f):
         os.remove(f)
     scad(["-D", 'SW_MODE="hit"', "-D", 'SW_MOVER="%s"' % key, "-D", 'SW_WORLD="%s"' % key,
-          "-D", "SW_Q=%s" % json.dumps([round(v, 6) for v in q]),
+          "-D", "SW_Q=%s" % json.dumps([round(v, 6) for v in q[:6]]),
+          "-D", "SW_D=%s" % delta(q),                     # たわみ量。形が変わるので姿勢とは別に渡す
           "-D", "SW_C=%s" % json.dumps(list(c))], f)
     empty = {"faces": 0, "thick": 0.0, "vol": 0.0, "ext": [0, 0, 0], "bmin": None, "bmax": None,
              "off": None}
@@ -151,7 +176,7 @@ def exact_hit(key, q, c, idx=0):
     # 🔴 **塊ごとに測る。** 交わりは離れた複数の塊になる（蓋は縁のぐるり全部で触れる）。
     #   まとめて主軸を取ると、別々の平面にある皮が寄り集まって「厚い」に化ける
     #   （2026-09-17 に踏んだ: lidmain が体積 0 のまま厚み 5.198 と出た）。
-    best, pieces, deep = None, 0, []
+    best, pieces, deep, deepm = None, 0, [], []
     for g in m.split(only_watertight=False) or [m]:
         v = np.asarray(g.vertices, float)
         if len(v) < 3:
@@ -168,6 +193,7 @@ def exact_hit(key, q, c, idx=0):
                "bmax": [round(float(x), 3) for x in g.bounds[1]]}
         if cur["thick"] >= SKIN_T:
             deep.append(dict(cur))               # 皮でない塊（＝本物のめり込み）は全部残す
+            deepm.append(g)
             #   ⚠ dict() で写しを取る。best と同じ物を入れると JSON が循環参照で書けない
         if best is None or (cur["thick"], cur["vol"]) > (best["thick"], best["vol"]):
             best = cur
@@ -180,6 +206,13 @@ def exact_hit(key, q, c, idx=0):
     best["pieces"] = pieces
     best["faces_all"] = int(len(m.faces))
     best["deep"] = sorted(deep, key=lambda x: -x["thick"])[:20]
+    # 🔴 絵に出すのは**皮でない塊だけ**。全部出すと、めり込みではないと決めた皮まで赤くなる
+    #   （2026-09-18: 交わりを見せるコマで細い赤が散り、本物と見分けられなかった）
+    if deepm:
+        g = trimesh.util.concatenate(deepm)
+        fd = f.replace(".off", "_deep.off")
+        g.export(fd)
+        best["off_deep"] = os.path.basename(fd)
     return best
 
 
@@ -227,9 +260,20 @@ def pose_at(path, s, c):
 
 def check(key, spec):
     t0 = time.time()
-    mover = export("mover", key, key)
+    # たわむ物は、たわみ量ごとに形が違う。要る形だけ作って持っておく
+    ds = sorted({delta(q) for q in spec["path"]})
+    flex = len(ds) > 1 or ds != [0.0]
+    cache, meshes = {}, {}
+
+    def mover_at(d):
+        if d not in cache:
+            meshes[d] = export("mover", key, key, d if flex else None)
+            cache[d] = fcl.CollisionObject(bvh(meshes[d]), fcl.Transform())
+        return cache[d]
+
+    mover_at(delta(spec["path"][0]))
     world = export("world", key, key)
-    sam = march(mover, world, spec["path"], spec["c"], spec["r"])
+    sam = march(mover_at, world, spec["path"], spec["c"], spec["r"])
     t_march = time.time() - t0
     iv = intervals(sam)
     M = sum(motion_bound(spec["path"][i], spec["path"][i + 1], spec["r"])
@@ -255,7 +299,9 @@ def check(key, spec):
            "verdict": "入る" if not new and not ok else ("新しい当たり" if new else "了承済みの当たりだけ"),
            "path": spec["path"], "c": spec["c"], "r": spec["r"],
            "samples": [{"s": round(s["s"], 5), "d": round(s["d"], 4)} for s in sam],
-           "exact": hits, "tris": {"mover": len(mover.faces), "world": len(world.faces)}}
+           "flex": flex, "deltas": sorted(meshes),
+           "exact": hits, "tris": {"mover": max(len(m.faces) for m in meshes.values()),
+                                   "world": len(world.faces)}}
     json.dump(rep, open(os.path.join(TMP, "%s.json" % key), "w", encoding="utf-8"), ensure_ascii=False)
     return rep
 
@@ -271,7 +317,7 @@ def snippet(key, d):
 
 
 def main():
-    keys = sys.argv[1:] or ["hub", "rsp", "oled", "bat", "lidmain", "lidflap"]
+    keys = sys.argv[1:] or ["hub", "rsp", "oled", "bat", "lid"]
     paths = read_paths()
     news = []
     for k in keys:

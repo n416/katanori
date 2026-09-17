@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 u"""入れる道の動画を焼く（sweep_chk.py が書いた JSON を読む）。
 
-  python hardware/tools/sweep_chk.py             ← 先にこちらで検査（6 本とも）
+  python hardware/tools/sweep_chk.py             ← 先にこちらで検査（5 本とも）
   python hardware/tools/sweep_movie.py          ← 5 場面とも動画（all でも同じ）
   python hardware/tools/sweep_movie.py bat      ← 1 場面だけ（蓋は lid）
   python hardware/tools/sweep_movie.py bat --peek  ← 3 枚だけ焼いて、動いているか見る（速い）
@@ -12,9 +12,9 @@ u"""入れる道の動画を焼く（sweep_chk.py が書いた JSON を読む）
 docs/COLLISION-SURVEY.md 参照。
 
 出る物: hardware/_tmp_sweep/<key>.mp4（作業場・git に入らない。--save で節目の物を残す）
-  🔒 色は 2 色（ユーザー 2026-09-18）。青 = 問題なし（触れているのも含む）/ 赤 = めり込んでいる
-  皮で触れているだけの所まで黄色にしたら、道の全域で触れている lidflap が
-  最初から最後まで黄色になり「入らない」と読めた。触れていることは文字（touch）に残す
+  色は 3 段。青 = めり込み無し（触れているのも含む）/ 橙 = 台帳にある（了承済み）/ 赤 = 新しいめり込み
+  🔒 ユーザー 2026-09-18: 皮で触れているだけの所を黄色にしたら道の全域が黄色になり
+  「入らない」と読めた。触れていることは文字（touch）に残す
   焼き込みの文字: s（道のどこか）・gap（隙間 mm）・HIT（めり込みの厚みと体積）
 """
 import json, math, os, shutil, subprocess, sys, time
@@ -24,7 +24,7 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from sweep_chk import TMP, ROOT, TOL, SKIN_T, motion_bound, pose_mat, pose_at   # noqa: E402
+from sweep_chk import TMP, ROOT, TOL, SKIN_T, motion_bound, pose_mat, pose_at, delta   # noqa: E402
 
 BLENDER = os.environ.get("BLENDER", r"C:\Program Files\Blender Foundation\Blender 5.2\blender.exe")
 FFMPEG = os.environ.get("FFMPEG", "ffmpeg")
@@ -43,14 +43,28 @@ def stl_from_off(key, which):
     return m
 
 
+def shapes_of(rep, key, name, j):
+    u"""たわむ物は、たわみ量ごとに形が違う。全部 STL にして (d, ファイル名, メッシュ) で返す。
+    たわまない物は 1 つだけ（従来どおり）"""
+    out = []
+    for d in (rep.get("deltas") or [0.0]) if rep.get("flex") else [None]:
+        tag = "" if d is None else "_d%03d" % int(round(d * 100))
+        m = trimesh.load(os.path.join(TMP, "%s_mover%s.off" % (key, tag)))
+        nm = "%s_m%d%s.stl" % (name, j, tag)
+        m.export(os.path.join(TMP, nm))
+        out.append((0.0 if d is None else d, nm, m))
+    return out
+
+
+def pick(shapes, d):
+    return min(shapes, key=lambda x: abs(x[0] - d))[1]
+
+
 def nearest(lst, s, get):
     return min(lst, key=lambda x: abs(get(x) - s)) if lst else None
 
 
-SCENES = {"lid": ["lidmain", "lidflap"]}
-# 🔒 ユーザー 2026-09-18「天板と左壁はつながっています」。
-#   検査は「たわむので 2 つの剛体」で当てるが、**絵では 1 つの部品として一緒に動かす**。
-#   左の板だけを単独で飛ばすのは嘘の絵だった。
+SCENES = {}   # 1 つの動画に 2 つ以上の物を出したいときだけ書く（いまは全部 1 つ）
 
 
 def members(name):
@@ -63,7 +77,7 @@ def pad(path, n):
     return list(path) + [path[-1]] * (n - len(path))
 
 
-def build_frames(reps, meshes, world):
+def build_frames(reps, shapes_by, world):
     u"""場面のコマを作る。reps は {名前: 検査の結果}。物が 2 つ以上なら同じ時間軸で動かす"""
     names = list(reps.keys())
     nseg = max(len(reps[k]["path"]) - 1 for k in names)
@@ -92,7 +106,7 @@ def build_frames(reps, meshes, world):
     if worst:
         seq += [(worst["s"], worst_k)] * HOLD_HIT
     seq += [(s_end, None)] * HOLD_END
-    out, shapes = [], []
+    out, hitshapes = [], []
     for fi, (s, ghost_k) in enumerate(seq):
         movers, notes, hit_any = [], [], None
         for k in names:
@@ -111,6 +125,7 @@ def build_frames(reps, meshes, world):
             is_new = bool(hit) and any(tuple(round(x, 0) for x in d["bmin"]) in newk
                                        for d in hit.get("deep", []))
             movers.append({"m": [float(x) for x in M.flatten()], "hidden": (k == ghost_k),
+                           "shape": pick(shapes_by[k], delta(pose_at(rep["path"], ss, rep["c"]))),
                            "state": (2 if is_new else 1) if hit else 0})   # 0 無し / 1 済 / 2 新
             if hit:
                 hit_any = hit
@@ -122,35 +137,37 @@ def build_frames(reps, meshes, world):
                 notes.append("%s gap=%.2fmm" % (k, d))
         note = "%s  s=%.3f   %s" % ("+".join(names), s, "   ".join(notes))
         if ghost_k:
-            note = "%s  s=%.3f   >> overlap only (%s hidden)   t=%.3fmm V=%.3fmm3" % (
+            note = "%s  s=%.3f   >> overlap  (%s ghosted)   t=%.3fmm V=%.3fmm3" % (
                 "+".join(names), s, ghost_k, worst["thick"], worst["vol"])
         elif fi >= len(seq) - HOLD_END:
             note = "%s  s=%.3f   >> assembled   %s" % ("+".join(names), s, "   ".join(notes))
         out.append({"movers": movers, "note": note,
-                    "hit": (hit_any["off"].replace(".off", ".stl")
-                            if hit_any and hit_any.get("off") else None),
+                    "hit": (hit_any["off_deep"].replace(".off", ".stl")
+                            if hit_any and hit_any.get("off_deep") else None),
                     "bbox": [hit_any["bmin"], hit_any["bmax"]] if hit_any else None,
                     "show_hit": bool(ghost_k)})
     # 交わりの形を STL にしておく（Blender が赤い塊として出す）
     for k in names:
         for h in reps[k]["exact"]:
-            if h.get("off"):
-                g = trimesh.load(os.path.join(TMP, h["off"]))
-                nm = h["off"].replace(".off", ".stl")
+            if h.get("off_deep"):                # 皮でない塊だけ（h["off"] は皮も入っている）
+                g = trimesh.load(os.path.join(TMP, h["off_deep"]))
+                nm = h["off_deep"].replace(".off", ".stl")
                 g.export(os.path.join(TMP, nm))
-                shapes.append(nm)
+                hitshapes.append(nm)
     lo, hi = world.bounds[0].copy(), world.bounds[1].copy()
     for j, k in enumerate(names):
         tr = np.array([[f["movers"][j]["m"][3], f["movers"][j]["m"][7], f["movers"][j]["m"][11]]
                        for f in out])
-        lo = np.minimum(lo, meshes[k].bounds[0] + tr.min(axis=0))
-        hi = np.maximum(hi, meshes[k].bounds[1] + tr.max(axis=0))
+        for _, _, m in shapes_by[k]:
+            lo = np.minimum(lo, m.bounds[0] + tr.min(axis=0))
+            hi = np.maximum(hi, m.bounds[1] + tr.max(axis=0))
     return {"frames": out, "names": names,
+            "mover_shapes": [[nm for _, nm, _ in shapes_by[k]] for k in names],
             "bbox": [list(map(float, lo)), list(map(float, hi))],
-            "shapes": shapes, "tol": TOL, "skin": SKIN_T, "margin": 4.0}
+            "shapes": hitshapes, "tol": TOL, "skin": SKIN_T, "margin": 4.0}
 
 
-KEYS = ["hub", "rsp", "oled", "bat", "lid"]   # 動画の場面（lid は lidmain と lidflap を一緒に出す）
+KEYS = ["hub", "rsp", "oled", "bat", "lid"]
 KEEP = os.path.join(os.path.dirname(ROOT), "docs", "_img", "sweep")   # 節目の動画を残す所
 
 
@@ -207,8 +224,7 @@ def bake(name, peek=False):
         if not os.path.exists(f):
             sys.exit("%s が無い。先に python hardware/tools/sweep_chk.py %s を回すこと" % (f, k))
         reps[k] = json.load(open(f, encoding="utf-8"))
-        meshes[k] = stl_from_off(k, "mover")
-        cp(os.path.join(TMP, "%s_mover.stl" % k), os.path.join(TMP, "%s_m%d.stl" % (name, ks.index(k))))
+        meshes[k] = shapes_of(reps[k], k, name, ks.index(k))
     world = stl_from_off(ks[0], "world")       # 相手はどの物から見ても同じ世界（蓋なら world_for_lid）
     cp(os.path.join(TMP, "%s_world.stl" % ks[0]), os.path.join(TMP, "%s_world.stl" % name))
     plan = build_frames(reps, meshes, world)

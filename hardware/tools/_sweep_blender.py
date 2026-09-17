@@ -50,9 +50,12 @@ def mat(name, rgba, alpha=1.0, emit=0.0):
     if alpha < 1.0:
         b.inputs["Alpha"].default_value = alpha
         if hasattr(m, "surface_render_method"):
-            m.surface_render_method = "BLENDED"    # 半透明は箱だけ。動く物は不透明にして前後関係を壊さない
+            # 🔴 半透明どうしは EEVEE で前後関係が壊れる（2026-09-17: 動く物が箱の裏に消えた）。
+            #   箱は BLENDED、動く物は **DITHERED**（深度を書くので正しく並ぶ）。
+            #   動く物は普段 alpha 1.0（＝不透明・粒も出ない）で、交わりを見せるコマだけ透かす
+            m.surface_render_method = "BLENDED" if alpha < 0.9 else "DITHERED"
         else:
-            m.blend_method = "BLEND"
+            m.blend_method = "BLEND" if alpha < 0.9 else "HASHED"
         m.show_transparent_back = False
     return m, b
 
@@ -62,13 +65,18 @@ def main():
     world = load_stl(os.path.join(TMP, KEY + "_world.stl"), "world")
     mw, _ = mat("m_world", (0.80, 0.84, 0.88, 1.0), alpha=0.20)
     world.data.materials.append(mw)
-    # 動く物は 1 つとは限らない（蓋は天板と左の板が 1 つの部品として一緒に動く）
+    # 動く物は 1 つとは限らず、**たわむ物は形が何通りもある**（たわみ量ごとに 1 つ）。
+    #   全部読み込んでおいて、コマごとに使う 1 つだけを出す
     movers, mbs = [], []
     for j, nm in enumerate(D.get("names", ["mover"])):
-        o = load_stl(os.path.join(TMP, "%s_m%d.stl" % (KEY, j)), nm)
-        m, b = mat("m_%s" % nm, C_STATE[0], emit=0.25)
-        o.data.materials.append(m)
-        movers.append(o)
+        m, b = mat("m_%s" % nm, C_STATE[0], emit=0.25, alpha=0.999)
+        shapes = {}
+        for fn in D["mover_shapes"][j]:
+            o = load_stl(os.path.join(TMP, fn), "%s:%s" % (nm, fn))
+            o.data.materials.append(m)
+            o.hide_render = True
+            shapes[fn] = o
+        movers.append(shapes)
         mbs.append(b)
 
     # めり込んだ塊そのもの（交わりの形）。当たっているコマだけ出す
@@ -88,12 +96,12 @@ def main():
     #   毎コマ頂点そのものを書く（scale は 1 のまま）
     loc_base = [tuple(v.co) for v in loc.data.vertices]
     loc_pad = diag / 26.0
-    shapes = {}
+    hitobjs = {}                                  # 交わりの塊（動く物の形の入れ物と名前を分ける）
     for name in D.get("shapes", []):
         o = load_stl(os.path.join(TMP, name), name)
         o.data.materials.append(mk)
         o.hide_render = True
-        shapes[name] = o
+        hitobjs[name] = o
 
     # 明かりと背景
     bpy.ops.object.light_add(type="SUN", location=(0, 0, 200))
@@ -119,7 +127,7 @@ def main():
     sc = bpy.context.scene
     sc.camera = cam
     sc.render.engine = "BLENDER_EEVEE"
-    sc.eevee.taa_render_samples = 24
+    sc.eevee.taa_render_samples = 48   # DITHERED の粒を消すため
     sc.render.resolution_x, sc.render.resolution_y = 1280, 720
     bpy.context.view_layer.update()                       # TRACK_TO を効かせてから測る
     inv = cam.matrix_world.inverted()
@@ -145,18 +153,22 @@ def main():
     sc.render.stamp_foreground = (1, 1, 1, 1)
 
     for i, f in enumerate(D["frames"]):
-        for j, o in enumerate(movers):
+        for j, msh in enumerate(movers):
             mv = f["movers"][j]
             m = mv["m"]
-            # 🔴 素の配列を matrix_world に入れると**列として**入り、平行移動が落ちる
-            #   （2026-09-17 に踏んだ: 動画で物が 1mm も動かなかった）。mathutils.Matrix に包む
-            o.matrix_world = mathutils.Matrix([m[0:4], m[4:8], m[8:12], m[12:16]])
+            use = mv.get("shape") or list(msh)[0]
+            for fn, o in msh.items():
+                # 🔴 素の配列を matrix_world に入れると**列として**入り、平行移動が落ちる
+                #   （2026-09-17 に踏んだ: 動画で物が 1mm も動かなかった）。mathutils.Matrix に包む
+                o.matrix_world = mathutils.Matrix([m[0:4], m[4:8], m[8:12], m[12:16]])
+                o.hide_render = (fn != use)      # そのコマのたわみ量の形だけを出す
             col = C_STATE[int(mv.get("state", 0))]
             mbs[j].inputs["Base Color"].default_value = col
             mbs[j].inputs["Emission Color"].default_value = col
-            o.hide_render = bool(mv.get("hidden"))        # 交わりを見せるコマでは、当たっている物だけ消す
+            # 交わりを見せるコマは、消さずに**透かす**（消えると不具合にしか見えない）
+            mbs[j].inputs["Alpha"].default_value = 0.22 if mv.get("hidden") else 0.999
         show = bool(f.get("show_hit"))
-        for nm, o in shapes.items():
+        for nm, o in hitobjs.items():
             o.hide_render = not (show and f.get("hit") == nm)
         bb = f.get("bbox")
         if show and bb:
