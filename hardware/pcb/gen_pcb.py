@@ -28,6 +28,7 @@ import hub_ports  # noqa: E402
 import dsn  # noqa: E402
 
 from kicad_paths import CLI, FPDIR  # noqa: E402
+NL = chr(10)
 OUT = HERE / "katanori61"
 NAME = "katanori61"
 
@@ -47,8 +48,15 @@ NAME = "katanori61"
 #   R16 の PROG1 を押し出した。**直列に電流が通る道だけ**を太くする。
 #   BAT_NETS  … 電池 → 逆接保護 → シャント → 充電 IC の一本道。ここが 88.4mm ＝ 217mΩ の本体
 #   POWER_NETS… 配り物。0.4mm で 1.229mΩ/mm・IPC 許容 1.23A（外層 1oz・ΔT10℃）あれば足りる
-# ⭐ 2026-09-16: 並べ直して電池の道が 107mm → 12mm になったので、0.8 で押し通す必要が消えた。
-#   0.6mm で 0.819mΩ/mm・IPC 許容 1.65A。道が 12mm なら 10mΩ ＝ 充電上限 1A でも 10mV。
+# ⭐ 2026-09-16: 並べ直して電池の道が短くなったので、0.8 で押し通す必要が消えた。0.6mm は
+#   0.819mΩ/mm・IPC 許容 1.65A。
+# ⚠ 2026-09-17 実測に更新。**一度 12mm・10mΩ と書いたが、それは J10 を板の真ん中に置いて
+#   いたときの値**。J10 を右の帯（電池の外）へ戻した時点で道は 36.97mm ＝ **30.3mΩ** に伸びた。
+#     J10 → Q2  31.16mm  25.5mΩ（B.Cu 0.6mm）
+#     Q2  → R41  2.18mm   1.8mΩ
+#     R41 → U2   3.63mm   3.0mΩ
+#   充電の上限 1A で 30mV・実測の 560mA で 17mV。板としては許容だが、B.Cu は空いているので
+#   太らせるならここ。
 #   0.8 のままだと U2（QFN-20・0.5mm ピッチ）の 14〜16 番から VLIPO が逃げられず未接続が出る。
 # ---- 4 層（2026-09-17）----
 # 2 層では U2（QFN-20・4×4）の 20 ピンが出入りできず、部品を動かすたびに別のネットが切れた
@@ -68,8 +76,14 @@ BAT_W = 0.6
 #   ⚠ VBUS はこの組に**入れない**。U2（QFN-20・0.5mm ピッチ）に VBUS のパッドが 6 本あり、
 #     0.4mm では辺から逃がせず、試すたびに違うピンが浮いた（9 番 → 3 番と VPCC・2026-09-16）。
 #     得も小さい: 幹（J13 → U2）は 0.2mm で 141mΩ ＝ 充電 560mA で 85mV。5V 側なので効かない。
-POWER_NETS = {"VSYS", "SW", "V5"}
+POWER_NETS = {"VSYS", "SW"}
 POWER_W = 0.4
+# ⭐ 2026-09-17: V5 だけ 0.8mm の独立した組。U1 から J1（XIAO）まで 57.49mm あり、その 57.3mm が
+#   **内層 In2.Cu** に載っていた。JLCPCB の 4 層は **内層 0.5oz が既定**（外層 1oz）なので、
+#   内層の線は同じ幅でも抵抗が 2 倍になる。0.4mm では 141.5mΩ ＝ 5V 側 0.3A で 42mV だった。
+#   ⚠ gen_pcb.py の幅の表（上）は外層 1oz で計算した値。内層はその 2 倍で読むこと。
+V5_NETS = {"V5"}
+V5_W = 0.8
 
 # ---- 先に手で引く線（2026-09-16）----
 # 自動配線に任せられない所だけを、こちらで引いて固定する。
@@ -316,6 +330,13 @@ def _fb(nm):
 
 # 板の**裏**に付く物（KiCad でも B.Cu に置く）。局所 Y が反転する
 BACK_SIDE = {"J10"}
+# ⭐ 2026-09-17: 自分で手はんだする口（fab.py が --smd-only で実装から外す物と同じ顔ぶれ）。
+#   この口の **貫通の GND パッドだけ** ベタを thermal relief でつなぐ。4 層にして In1 が全面 GND に
+#   なったので、F.Cu・In1・B.Cu の 3 層が足に直結し、こてで温度が逃げて着かなくなる。
+#   表面実装は直結のまま（リフローは JLCPCB 側なので熱の逃げは問題にならない）。
+#   ⚠ 細いパッドは spoke が 1 本しか立たず KiCad が starved_thermal を出すので、
+#     katanori61.kicad_dru で貫通パッドだけ「1 本でよい」に緩める。
+HAND_SOLDER = {"J1", "J2", "J4", "J5", "J6", "J7", "J10"}
 # ⭐ 2026-09-17: 枠ではなく **胴** で置く物。壁から出す量で位置が決まる口だけ。
 #   枠（courtyard）は KiCad が付けた逃げで物の形ではない（USB-C は後ろへ 0.5 大きい）
 BOX_BY_FAB = {"J13"}
@@ -747,6 +768,8 @@ def place_footprint(ref, comp, x, y, ang, pads, back=False):
             net = pads.get((ref, num))
             if net is not None:
                 pad = pad + [["net", str(NETNUM[net]), Str(net)]]
+                if net == "GND" and ref in HAND_SOLDER and str(pad[2]) == "thru_hole":
+                    pad = pad + [["zone_connect", "1"]]   # 1 = thermal relief（上の HAND_SOLDER）
             pad = pad + [["uuid", Str(uid())]]
             out.append(pad)
         elif e[0] == "model" and ref in MODEL_VIS:
@@ -1170,7 +1193,10 @@ def pad_box(placed, ref, num):
             pat, sz = find1(pad, "at"), find1(pad, "size")
             dx, dy = rot_xy(float(pat[1]), float(pat[2]), fa)
             w, h = float(sz[1]), float(sz[2])
-            if (float(pat[3]) if len(pat) > 3 else 0.0) % 180 == 90:
+            # 🔴 **部品の角度も足す。**パッド自身の rot だけ見ていて、270° 置きの U3 で
+            #    縦横が入れ替わったまま返っていた。そのせいでケルビンの線の端が U3 の
+            #    パッドの 0.335 外に落ちていた（2026-09-17・自動配線が繕っていて気づかなかった）
+            if ((float(pat[3]) if len(pat) > 3 else 0.0) + fa) % 180 == 90:
                 w, h = h, w
             return fx + dx, fy + dy, w, h
     raise SystemExit("パッドが見つからない: %s.%s" % (ref, num))
@@ -1721,6 +1747,20 @@ def build():
     (OUT / f"{NAME}.kicad_pcb").write_text(kisym.dump(doc) + "\n", encoding="utf-8")
     print(f"{len(placed)} 部品・ネット {len(nets)} 本 → {OUT / (NAME + '.kicad_pcb')}")
     print(f"  足形のライブラリの表: {len(fp_lib_table(doc))} 本 → {OUT / 'fp-lib-table'}")
+    dru = NL.join([
+        '(version 1)',
+        '',
+        ';; 🔴 生成物。gen_pcb.py が書く。手で直さない。',
+        ';; 手はんだする口の貫通 GND パッドはベタを thermal relief でつなぐ（gen_pcb.py の HAND_SOLDER）。',
+        ';; 細いパッド（PH の 1.0mm など）では spoke が 1 本しか立たず、KiCad の既定（2 本）では',
+        ';; starved_thermal になる。貫通パッドだけ 1 本でよいことにする。',
+        '(rule "手はんだの貫通パッドは spoke 1 本でよい"',
+        '  (constraint min_resolved_spokes (min 1))',
+        '  (condition "A.Pad_Type == \'Through-hole\'"))',
+        '',
+    ])
+    (OUT / f"{NAME}.kicad_dru").write_text(dru, encoding="utf-8")
+    print(f"  すきまの追加規則 → {OUT / (NAME + '.kicad_dru')}")
 
     # 自動配線に渡す DSN。パネルの外形を囲い、板と板のあいだ・空いている所は銅を置かせない
     bnd = [bx(*q) for q in outline_pts()]
@@ -1743,7 +1783,7 @@ def build():
     netpins = {}
     for (ref, pin), net in pads.items():
         netpins.setdefault(net, []).append((ref, pin))
-    cls = [("battery", BAT_NETS, BAT_W), ("power", POWER_NETS, POWER_W)]
+    cls = [("battery", BAT_NETS, BAT_W), ("power", POWER_NETS, POWER_W), ("v5", V5_NETS, V5_W)]
     # ⚠ 4 層にしても **GND は自動配線に渡したまま**にする。2026-09-17 に外してみたら、
     #   U3（INA226・TSSOP-10）の 2 番と 7 番へ表のベタが届かず、島が 4 つ残った。
     #   ベタ 3 枚と縫いのビアだけでは細ピッチのパッドを拾えない（2 層のときと同じ症状）。

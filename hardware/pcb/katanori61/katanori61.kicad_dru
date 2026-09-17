@@ -1,0 +1,9 @@
+(version 1)
+
+;; 🔴 生成物。gen_pcb.py が書く。手で直さない。
+;; 手はんだする口の貫通 GND パッドはベタを thermal relief でつなぐ（gen_pcb.py の HAND_SOLDER）。
+;; 細いパッド（PH の 1.0mm など）では spoke が 1 本しか立たず、KiCad の既定（2 本）では
+;; starved_thermal になる。貫通パッドだけ 1 本でよいことにする。
+(rule "手はんだの貫通パッドは spoke 1 本でよい"
+  (constraint min_resolved_spokes (min 1))
+  (condition "A.Pad_Type == 'Through-hole'"))

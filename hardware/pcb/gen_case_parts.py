@@ -303,7 +303,7 @@ if __name__ == "__main__":
     sys.stdout.reconfigure(encoding="utf-8")
     rows = build()
     real = [r for r in rows if r["fab"]]
-    print("板の上の物 %d 個を基板ファイルから起こした（いまの手書きの表は 9 個）" % len(real))
+    print("板の上の物 %d 個を基板ファイルから起こした" % len(real))
     tall = sorted((r for r in real), key=lambda r: -r["h"])[:8]
     print("背の高い順:", "・".join("%s %.2f" % (r["ref"], r["h"]) for r in tall))
     est = [r["ref"] for r in real if r["src"].startswith("⚠")]

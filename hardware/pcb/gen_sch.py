@@ -36,6 +36,10 @@ def uid():
 
 
 G = 2.54
+# ⭐ 2026-09-17: Basic 化で選び直した R2・R6・R7（C23137 / C22961 / C23254）は **0603**。
+#   足形が 0805 のままだった。0805 のパッドの内側の間 0.875 に 0603 の胴 1.6 が両端 0.36 ずつ
+#   乗るだけになり、機械実装で着かないか立つ。LCSC の部品ページで 3 つとも 0603 を確認した。
+FP_R0603 = "Resistor_SMD:R_0603_1608Metric"
 FP_R = "Resistor_SMD:R_0805_2012Metric"
 FP_C = "Capacitor_SMD:C_0805_2012Metric"
 FP_LED = "LED_SMD:LED_0805_2012Metric"
@@ -111,7 +115,7 @@ c("C9", "47uF", X0 + 50, Y0 + 4, "V5", "GND", fp="Capacitor_SMD:C_1206_3216Metri
 r("R3", "1.87M", X0 + 44, Y0 + 12, "V5", "FB")
 r("R4", "200K", X0 + 47, Y0 + 12, "FB", "GND")
 r("R1", "1.87M", X0 + 16, Y0 + 12, "VSYS", "LBI")
-r("R2", "330K", X0 + 19, Y0 + 12, "LBI", "GND",
+r("R2", "330K", X0 + 19, Y0 + 12, "LBI", "GND", fp=FP_R0603,
   note="PowerBoost は 340kΩ（E96・Extended）。LBO の閾値 0.5×(1+R1/R2) が 3.25V → 3.33V")
 r("R13", "200K", X0 + 22, Y0 + 12, "VSYS", "EN")
 # 電池の残りが少ないときの赤: LBO が下がると Q1 が導通して LED1 が点く
@@ -127,9 +131,9 @@ led("LED2", "WHITE", X0 + 55, Y0 + 4, "GND", "N_LED2")
 group("charge")
 c("C8", "10uF", X0 + 26, Y0 + 26, "VBUS", "GND")
 c("C7", "10uF", X0 + 29, Y0 + 26, "VLIPO", "GND")
-r("R6", "220K", X0 + 32, Y0 + 26, "VBUS", "VPCC",
+r("R6", "220K", X0 + 32, Y0 + 26, "VBUS", "VPCC", fp=FP_R0603,
   note="PowerBoost は 270kΩ（E96・Extended）。R7 と組で比を保つ")
-r("R7", "82K", X0 + 35, Y0 + 26, "VPCC", "GND",
+r("R7", "82K", X0 + 35, Y0 + 26, "VPCC", "GND", fp=FP_R0603,
   note="PowerBoost は 100kΩ。R6 と組で 100/370=0.2703 → 82/302=0.2715（差 0.45%）")
 r("R16", "1.0K", X0 + 26, Y0 + 34, "GND", "PROG1")
 r("R17", "100K", X0 + 29, Y0 + 34, "GND", "PROG3")
