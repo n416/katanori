@@ -63,3 +63,6 @@ hardware/_tmp_v61man/
 
 # KiCad 9 が kicad-cli を呼ぶたびに作る自動スナップショット置き場（中身は空・こちらでは使わない）
 .history/
+
+# 掃引検査の作業場（tools/sweep_chk.py が書く OFF と JSON）
+hardware/_tmp_sweep/
