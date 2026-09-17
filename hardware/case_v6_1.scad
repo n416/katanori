@@ -1495,7 +1495,7 @@ if (part == "plugs") plugs();
 //     🔴 蓋を回して閉じる案 2 つは掃引で落ちた（2026-09-16）: 左下の稜を軸にすると、上ほど外へ振れるので降ろすとき板の下半分が XIAO の殻を擦り、蓋の縁が帯の楔に食い込む。
 //        右上の稜を軸にすると、口の動きが Z 3 : X 1 で、殻に被さる最後の 1.22 のあいだに板が 3.7 下がる
 //   入れる順: PCB（上から・右へ 0.8）→ トグル（ハッチに外からナット）→ ReSpeaker（ライザーごと真上から）→ OLED（ライザーごと真上から。OLED のライザーの前向きのメスが ReSpeaker の頭の上を跨ぐので、この順でないと入らない）→ 電池（左から・板の下へ）→ 蓋。
-//     検査は path_hub / path_rsp / path_oled / path_bat / path_lid（全部 0 が正）
+//     入れる道の検査は `python hardware/tools/sweep_chk.py hub rsp oled bat`（2026-09-17 に OpenSCAD の掃引から移した。docs/COLLISION-SURVEY.md）
 // ============================================================
 FLAP_CL = 0.1;                                            // 左の板の縁と底パーツの当たり（3 辺とも）0.1 = 今までの箱の継ぎ目と同じ密着。🔒 ユーザー 2026-09-16: 隙間で公差を逃がす（0.8）案は却下
 RAIL_T = 1.2; RAIL_W = 1.6; RAIL_W_R = 0.8;               // レール（板の縁の裏に付く受け・底パーツ）: 壁の内面から X 1.2（MJF の壁の目安 1.2。1.0 だと preflight ⚠）・縁から 前 1.6・後ろ 0.8（⚠ 後ろが 0.8 なのは足の都合: 足の後ろの端はレールの 0.4 手前で、足の中のナットの位置がねじの Y を決め、ねじの座ぐり（φ4.4・深さ 1.6 ＝ 床の厚み）は隅の台の下に収めないと床が抜ける。1.6 だと座ぐりが台の 0.9 前へ出た）。板は真上からこの受けに沿って降り、縁は帯に 0.1 で当たる。裏を受けが塞ぐので外から中は見えない
@@ -1606,41 +1606,26 @@ if (part == "lid")   { assert(nylon(), "lid はナイロンの形。先頭の MA
 if (part == "print_shell") { assert(nylon(), "print_shell はナイロンの形。先頭の MAT を \"nylon\" にすること"); shell(); }
 if (part == "print_lid")   { assert(nylon(), "print_lid はナイロンの形。先頭の MAT を \"nylon\" にすること"); lid(); }
 if (part == "seam_shell_lid") intersection() { shell(); lid(); }   // ナイロンの継ぎ目（0 が正）
-// ---- 入れる道の掃引（2026-09-16・🔒 ユーザー「何も考えられていないように思える」: 最終位置の当たりだけ見て、入れる順を追っていなかった。v2 の _assemble_chk と同じ考え）----
-//   動かす物を道に沿って何段も置いて union し、そのとき箱に居る物と当てる。全部 0 が正
-// ⭐ 2026-09-17 に**道の書き方を通過点の並びに変えた**（🔒 ユーザー「本来であれば対象物をどう移動させるかの
-//   パスを定義してあたりを出すべきでしょ」「入れられないかを判断する道具は必要だよ？」）。
-//   それまでは sweep_x / sweep_z の 2 本しか無く、**X と Z の平行移動しか書けなかった**。
-//   そのため「前へずらして入れて、後ろへ押し込んで口に挿す」「斜めに入れる」といった実際の動きが書けず、
-//   入る動きなのに当たりを出し続けていた（充電の USB-C の 51.4mm³ がそれ。板の縁から 1.3 出た胴が
-//   横差しの間ずっと後ろの壁の中を通る形で数えられていた）。
-//   道の 1 点は **[dx, dy, dz, rx, ry, rz]**（移動 3 つ ＋ 回し 3 つ・度）。点と点のあいだを n 等分して当てる。
-//   ⭐ 2026-09-17 夜の 2 回目に **3 軸の回しへ広げた**（🔒 ユーザー「これ、入れる物体の角度とかも変えられるの？」）。
-//     最初は Z 軸まわりの 1 つしか持たせておらず、平面で首を振れるだけで**傾けられなかった**。
-//     「斜めに入れる」は普通 X か Y 軸まわりに倒すことなので、それが書けないと道具の意味が無い。
+// ---- 入れる道（2026-09-16・🔒 ユーザー「何も考えられていないように思える」: 最終位置の当たりだけ見て、入れる順を追っていなかった）----
+//   道の 1 点は **[dx, dy, dz, rx, ry, rz]**（移動 3 つ ＋ 回し 3 つ・度）。ここが道の唯一の出どころ。
+//
+// 🔴 **当たりを見るのはここではない。** `python hardware/tools/sweep_chk.py hub rsp oled bat` を回すこと。
+//   2026-09-17 に**掃引（sweep_pose）を撤去した**（🔒 ユーザー「旧の掃引検査は削除」）。
+//   姿勢を n 個 union して交わりの体積を作る方式は、姿勢の数だけ面数が増える。
+//   0.25 刻みで 400 姿勢 × 28782 面 ＝ 1150 万面になり、**PC が固まった**。
+//   粗くすれば今度は姿勢と姿勢のあいだを見ていない（刻みより細い物はすり抜ける）。
+//   ⇒ 判定は距離クエリ（FCL）に移した。刻みは空いている距離から出すので決め打ちが要らず、
+//     接触した所だけ OpenSCAD で厳密な交わりを取る。旧検査と体積が小数 3 桁まで一致することは確認済み。
+//     経緯と数字は docs/COLLISION-SURVEY.md。
+//
+//   下の道具は sweep_chk.py と tools/_sweep_v61.scad が使う（at_pose は姿勢を置く・world_for_* は相手）。
 //   🔴 **回す中心 c を必ず渡すこと。** 既定は世界の原点なので、傾けると物が遠くへ飛ぶ。
 //     物の芯（板なら板の芯 hub_c()）を渡す。4 つしか書いていない古い点は rx・ry が undef になるので、
-//     pose_fix() が 6 つに揃える（書き忘れても静かに undef にならない）。全部 0 が正。
+//     pose_fix() が 6 つに揃える（書き忘れても静かに undef にならない）。
 function pose_fix(q) = [for (i = [0 : 5]) (i < len(q) && q[i] != undef) ? q[i] : 0];
 function pose_lerp(a, b, t) = let (u = pose_fix(a), v = pose_fix(b)) [for (i = [0 : 5]) u[i] + (v[i] - u[i]) * t];
 module at_pose(q, c = [0, 0, 0]) let (u = pose_fix(q))
     translate([u[0], u[1], u[2]]) translate(c) rotate([u[3], u[4], u[5]]) translate(-c) children();
-// 🔴 **刻みは決め打ちにせず、物がどれだけ動くかから出す。**姿勢を n 個置いて union するので、
-//   姿勢と姿勢の**あいだは見ていない**。刻みより細い物はすり抜けて 0.00 が出る
-//   （＝「入る」ではなく「私が置いた姿勢では当たらなかった」）。
-//   ⇒ 1 刻みで物のどの点も SWEEP_STEP より動かないよう、区間ごとに n を数える。
-//     回すと端がいちばん動くので、**回す中心から物の端までの長さ r** を渡してもらう（弧の長さ r・Δθ）。
-//   ⚠ hull() で隣の姿勢を繋ぐ手は**使えない**（2026-09-17 夜に試した）。凸包なので**へこみが埋まる**。
-//     蓋のような凹んだ殻でやると path_lid が 0.07 → 21327mm³ になる。厳密なのは Minkowski だが遅すぎる。
-SWEEP_STEP = 1.5;    // 1 刻みで物のどの点も動いてよい上限。⭐ 2026-09-17 夜に 0.25 → 1.5（🔒 ユーザー「重すぎるんでやめてください」）。
-//   1.5 は書き直す前の決め打ち（path_hub は 95mm を 60 で刻んでいた ＝ 1.58）とほぼ同じ細かさ。
-//   0.25 で回した 16 項目は **1 つも値が動かなかった**ので、この板と蓋については粗くして失う物は見つかっていない。
-//   ⚠ ただし「1.5 より細い物はすり抜ける」ことは変わらない。怪しい所を詰めるときはここを 0.25 に落として回す
-function pose_move(a, b, r) = let (u = pose_fix(a), v = pose_fix(b))
-    norm([v[0] - u[0], v[1] - u[1], v[2] - u[2]]) + r * PI / 180 * max(abs(v[3] - u[3]), abs(v[4] - u[4]), abs(v[5] - u[5]));
-module sweep_pose(ps, c = [0, 0, 0], r = 0, step = SWEEP_STEP)
-    for (i = [0 : len(ps) - 2]) let (n = max(1, ceil(pose_move(ps[i], ps[i + 1], r) / step)))
-        for (k = [0 : n]) at_pose(pose_lerp(ps[i], ps[i + 1], k / n), c) children();
 function hub_c() = [HUB_AT[0] + PCB_L / 2, PCB_Y0 + PCB_W / 2, HUB_AT[2]];   // 板の芯（傾ける／回すときの中心）
 function hub_r() = norm([PCB_L / 2, PCB_W / 2, 11.0]);   // 芯から板の上の物の角までの長さ 45.7（回したとき端がいちばん動く）。11.0 はリレー K31 の背
 module lid_pose(dx, dz = 0) translate([dx, 0, dz]) children();
@@ -1681,23 +1666,17 @@ PATH_HUB = [[-95, -pcb_fwd(), PCB_LIFT, 0, 0, 0],   // ① 左の窓の外。前
             [  0, -pcb_fwd(), PCB_LIFT, 0, 0, 0],   // ② 右へ滑らせて中へ
             [  0, -pcb_fwd(),        0, 0, 0, 0],   // ③ 柱の頭まで垂直に下ろす
             [  0,          0,        0, 0, 0, 0]];  // ④ 後ろへ pcb_fwd() 押して USB-C を口へ挿す
-module path_hub() sweep_pose(PATH_HUB, hub_c(), hub_r()) hub_unit();
-module path_oled() sweep_pose([[0, 0, 45, 0, 0, 0], [0, 0, 0, 0, 0, 0]]) { one("oled"); one("oriser"); }
-module path_rsp()  sweep_pose([[0, 0, 45, 0, 0, 0], [0, 0, 0, 0, 0, 0]]) { one("rsp"); one("riser"); }
-module path_bat()  sweep_pose([[0, 0, 0.5, 0, 0, 0], [-70, 0, 0.5, 0, 0, 0]]) one("bat");   // 0.5 持ち上げて左へ（床の左の稜の丸み Z 〜0.4 を乗り越える。板の裏 12 まで 6 空く）。🔴 電池の前 9.6 は OLED のリブに接していて前へは動かせない（2026-09-16 夕 path_bat 252mm³）
+// 道は定数で持つ（tools/sweep_chk.py が SW_MODE="pose" で読む。ここが唯一の出どころ）
+PATH_OLED = [[0, 0, 45, 0, 0, 0], [0, 0, 0, 0, 0, 0]];   // ライザーごと真上から 45 降ろす
+PATH_RSP  = [[0, 0, 45, 0, 0, 0], [0, 0, 0, 0, 0, 0]];   // 同上
+//   ⚠ 電池だけ「座った姿勢 → 外」の向きで書いてある（動画は座る姿勢で終わるよう逆に再生する）。
+//   0.5 持ち上げて左へ（床の左の稜の丸み Z 〜0.4 を乗り越える。板の裏 12 まで 6 空く）。
+//   🔴 電池の前 9.6 は OLED のリブに接していて前へは動かせない（2026-09-16 夕 path_bat 252mm³）
+PATH_BAT  = [[0, 0, 0.5, 0, 0, 0], [-70, 0, 0.5, 0, 0, 0]];
+// ⚠ 蓋はまだ sweep_chk.py に載せていない（蓋はたわむので、剛体を前提にした道具に乗らない）。
+//   道と「たわんだ姿勢」はここに残してある: 真上から 14 → LID_REST まで降ろし、最後の 0.3 で左の板が戻って口が嵌まる
+PATH_LID = [[0, 0, 14, 0, 0, 0], [0, 0, LID_REST, 0, 0, 0]];
 module lid_flexed() { p_top(); translate([-FLAP_FLEX, 0, 0]) { lwall_flap(); flap_seat(); } }   // 降ろしている途中の蓋: 左の板（足ごと）が FLAP_FLEX 外へたわんだ姿勢（板は剛体のまま平行に出す近似。口の所で 1.5・下の縁はもっと出るが外側なので当たる物が無い）
-module path_lid()  union() { sweep_pose([[0, 0, 14, 0, 0, 0], [0, 0, LID_REST, 0, 0, 0]]) { lid_flexed(); lid_units(); } lid_pose(0, LID_REST) { lid(); lid_units(); } }   // 真上から 14 → 0.3 まで降ろす（板はたわんだまま。口の穴は殻より片側 0.3 大きいだけなので、戻るのは最後の 0.3）。0.3 浮いた所で板が戻り口が殻に嵌まる。最後の 0.3（ReSpeaker の押さえ）は sk_rsp が見る
-if (part == "path_hub")  intersection() { path_hub();  world_for_hub(); }
-if (part == "path_oled") intersection() { path_oled(); world_for_oled(); }
-if (part == "path_rsp")  intersection() { path_rsp();  world_for_rsp(); }
-if (part == "path_bat")  intersection() { path_bat();  world_for_bat(); }
-if (part == "path_lid")  intersection() { path_lid();  world_for_lid(); }
-DX = 0; DZ = 0;   // path_lid_one 用（-D DX= -D DZ=）: 1 つの姿勢だけ当てる（板はたわませない素の蓋）
-if (part == "path_lid_one") intersection() { lid_pose(DX, DZ) { lid(); lid_units(); } world_for_lid(); }
-if (part == "path_lid_show") { color("#ff4040", 0.5) lid_pose(0, 8) { lid_flexed(); lid_units(); } color("#9aa5b1", 0.4) world_for_lid(); }
-PI_ = 0;   // path_hub_one 用（-D PI_=）: 道の通過点を 1 つだけ置いて当てる（どの段で入らないかを見る）
-if (part == "path_hub_one") intersection() { at_pose(PATH_HUB[PI_], hub_c()) hub_unit(); world_for_hub(); }
-if (part == "path_hub_show") { color("#ff4040", 0.5) at_pose(PATH_HUB[1], hub_c()) hub_unit(); color("#9aa5b1", 0.4) world_for_hub(); }
 if (part == "skin")   skin();
 // ---- 板 6 枚とブリッジを刷る向き（v4 と同じ）。板は外面を下（柱・棚・耳・格子・台座は全部上を向く）・ブリッジは皿の裏を下。前板（brg_front）と蓋一式（shutter_v4）は未定
 PLATES6 = ["floor", "top", "lwall", "rwall", "front", "hatch"];

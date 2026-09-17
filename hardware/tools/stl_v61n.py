@@ -2,7 +2,8 @@
 """筐体 v6.1n（MJF ナイロン）の発注用 STL 7 点を hardware/stl/v61n/ へ書き出す（2026-09-15。2026-09-16 に分割を底パーツ＋蓋に変えた）。
    python hardware/tools/stl_v61n.py                 全部（7 点）
    python hardware/tools/stl_v61n.py btn_tub top     名前を指定（stl/v61n/v61n_<名前>.stl）
-   python hardware/tools/stl_v61n.py --check         筐体の当たり検査（seam_shell_lid・path_* ほか）を hardware/_tmp_v61n/ に出して体積を出す
+   python hardware/tools/stl_v61n.py --check         筐体の静止の当たり検査（seam_shell_lid・sk_* ほか）を hardware/_tmp_v61n/ に出して体積を出す
+   ⚠ **入れる道の検査はこちらではない** ── `python hardware/tools/sweep_chk.py hub rsp oled bat`（2026-09-17 に移した。docs/COLLISION-SURVEY.md）
    python hardware/tools/stl_v61n.py --resin-check   同じくレジンで。ナイロン専用の検査（NYLON_ONLY）は回さない
    ⚠ 出力先は書き出す前に必ず消す（OpenSCAD は空だと STL を書かないので、古いファイルを読む事故が起きる）。
    支柱・ラフト・FIT_PRINT は渡さない（MJF。MAT="nylon" で PROPS_OFF・RIBS_OFF が true）。
@@ -35,15 +36,14 @@ PARTS = [
     ('btn_tub',    BTN,  'print_tub'),       # 会話ボタンのバスタブ
 ]
 # 筐体の当たり検査（docs/CASE-V61N.md 5 章の表）。0 か、表の値が正
-CHECKS = ['seam_shell_lid', 'plugpath', 'hit_wires', 'nutpath', 'sk_rsp', 'sk_oled', 'sk_hub', 'sk_spktub', 'sk_tgl', 'sk_btn', 'hit_btn',
-          'path_hub', 'path_oled', 'path_rsp', 'path_bat', 'path_lid']   # path_*: 入れる道の掃引（2026-09-16・全部 0 が正）
+CHECKS = ['seam_shell_lid', 'plugpath', 'hit_wires', 'nutpath', 'sk_rsp', 'sk_oled', 'sk_hub', 'sk_spktub', 'sk_tgl', 'sk_btn', 'hit_btn']
+# 🔴 2026-09-17: 入れる道の掃引（path_*）をここから外した（🔒 ユーザー「旧の掃引検査は削除」）。
+#   姿勢を n 個 union して交わりを作る方式は、細かくすると面数が爆発して PC が固まる。
+#   ⇒ `python hardware/tools/sweep_chk.py hub rsp oled bat`（距離クエリ・刻みは自動）。
+#      動画は `python hardware/tools/sweep_movie.py <key>`。docs/COLLISION-SURVEY.md
 # 🔴 ナイロンでしか意味を持たない検査（2026-09-16）。レジンでは回さない。
 #   seam_shell_lid … 底パーツ＋蓋の継ぎ目。レジンは板 6 枚なので、この分割自体が無い
-#   path_*         … 「左の窓から差して右へ滑らせる」ナイロンの入れ方の掃引。
-#                    レジンは床から柱で横差しの道が無い（case_v6_1.scad の PCB_LIFT の行）。
-#                    レジンに当てると板も部品も壁を突き抜けた量を数え、633 や 4520 が出るが不良の量ではない。
-#   ⇒ 過去のレジンの報告（コミット 434dee2 ほか）も sk_* と hit_wires だけを載せていた。道具をそれに合わせる。
-NYLON_ONLY = ['seam_shell_lid', 'path_hub', 'path_oled', 'path_rsp', 'path_bat', 'path_lid']
+NYLON_ONLY = ['seam_shell_lid']
 NAMES = [k for k, _, _ in PARTS]
 
 def export(dst, src, pname, nylon=True):
@@ -85,6 +85,7 @@ if '--check' in sys.argv or '--resin-check' in sys.argv:
     checks = CHECKS if nylon else [c for c in CHECKS if c not in NYLON_ONLY]
     if not nylon:
         print('レジン: ナイロン専用の %d 件は回さない（%s）' % (len(NYLON_ONLY), ' '.join(NYLON_ONLY)))
+    print('入れる道は別の道具: python hardware/tools/sweep_chk.py hub rsp oled bat')
     for c in checks:
         dst = os.path.join(tmp, c + '.stl')
         size, dt, err = export(dst, CASE, c, nylon=nylon)
