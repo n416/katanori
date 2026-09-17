@@ -571,8 +571,15 @@ def build():
     #    縁まで 0.5）で検査し、自動配線の結果が違反の山に見える（2026-09-14 に v6.1 で踏んだ）。
     #    値は v6 の hub_power.kicad_pro と同じ（案③ JLCPCB の 6/6mil 相当）。
     pro = OUT / f"{NAME}.kicad_pro"
+    # ⭐ 2026-09-17 夕: min_resolved_spokes を 2 → 1。手はんだの口の貫通 GND パッドは
+    #   ベタを thermal relief でつなぐ（gen_pcb.py の HAND_SOLDER）が、PH の 1.2mm の
+    #   パッドには spoke が 1 本しか立たず、既定の 2 本では starved_thermal になる。
+    #   🔴 最初これを katanori61.kicad_dru（カスタム規則）に書いたが、**kicad-cli は
+    #      その .kicad_dru を読まない**。わざと壊した規則を入れても素通りしたので確かめた。
+    #      設計規則はこの .kicad_pro に書くこと。
     rules = {"min_clearance": 0.15, "min_copper_edge_clearance": 0.3, "min_hole_clearance": 0.25,
              "min_hole_to_hole": 0.5, "min_microvia_diameter": 0.2, "min_microvia_drill": 0.1,
+             "min_resolved_spokes": 1,
              "min_silk_clearance": 0.0, "min_through_hole_diameter": 0.3, "min_track_width": 0.1,
              "min_via_annular_width": 0.13, "min_via_diameter": 0.45}
     net_default = {"bus_width": 12.0, "clearance": 0.15, "diff_pair_gap": 0.25, "diff_pair_width": 0.2,

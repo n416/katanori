@@ -50,7 +50,7 @@
       (place Q31 556500.0 -618564.1 front 0)
     )
     (component C32
-      (place C32 830768.1 -557250.0 front 0)
+      (place C32 829275.0 -557250.0 front 0)
     )
     (component U4
       (place U4 1057000.0 -636000.0 front 0)
@@ -59,7 +59,7 @@
       (place C42 975000.0 -636000.0 front 0)
     )
     (component U1
-      (place U1 620000.0 -634000.0 front 0)
+      (place U1 620000.0 -631150.0 front 0)
     )
     (component L1
       (place L1 675000.0 -634000.0 front 0)
@@ -68,13 +68,13 @@
       (place U2 735000.0 -620150.0 front 0)
     )
     (component R41
-      (place R41 795000.0 -634000.0 front 0)
+      (place R41 805000.0 -634000.0 front 0)
     )
     (component Q2
-      (place Q2 840000.0 -634000.0 front 0)
+      (place Q2 850000.0 -634000.0 front 0)
     )
     (component U3
-      (place U3 795000.0 -583325.0 front 0)
+      (place U3 800475.0 -583325.0 front 0)
     )
     (component R44
       (place R44 590440.0 -724000.0 front 0)
@@ -101,13 +101,19 @@
       (place R46 840000.0 -697600.0 front 0)
     )
     (component C2
-      (place C2 611828.1 -679000.0 front 0)
+      (place C2 611828.1 -689100.0 front 0)
     )
     (component C6
-      (place C6 653328.1 -679000.0 front 0)
+      (place C6 653328.1 -689475.0 front 0)
     )
     (component C9
-      (place C9 699843.8 -679000.0 front 0)
+      (place C9 699843.8 -688000.0 front 0)
+    )
+    (component R4
+      (place R4 607950.0 -668300.0 front 0)
+    )
+    (component R3
+      (place R3 643050.0 -666975.0 front 0)
     )
     (component R16
       (place R16 762450.0 -664000.0 front 0)
@@ -137,25 +143,19 @@
       (place R43 872550.0 -584000.0 front 0)
     )
     (component R1
-      (place R1 611151.1 -544000.0 front 0)
+      (place R1 618450.0 -544000.0 front 0)
     )
     (component R2
-      (place R2 643103.1 -544000.0 front 0)
-    )
-    (component R3
-      (place R3 675015.5 -544000.0 front 0)
-    )
-    (component R4
-      (place R4 708923.3 -544000.0 front 0)
+      (place R2 651550.0 -544000.0 front 0)
     )
     (component R13
-      (place R13 744023.3 -544000.0 front 0)
+      (place R13 738450.0 -544000.0 front 0)
     )
     (component R6
-      (place R6 775931.2 -542450.0 front 0)
+      (place R6 770225.0 -542450.0 front 0)
     )
     (component R7
-      (place R7 805834.4 -543225.0 front 0)
+      (place R7 801325.0 -543225.0 front 0)
     )
     (component LED2
       (place LED2 611329.5 -512500.0 front 0)
@@ -197,7 +197,7 @@
       (place J13 810120.0 -423500.0 front 0)
     )
     (component K31
-      (place K31 1040000.0 -542500.0 front 0)
+      (place K31 918320.0 -494000.0 front 0)
     )
   )
   (library
@@ -351,6 +351,14 @@
       (pin Rect[T]Pad_11500x18000um 1 -14750.0 -0.0)
       (pin Rect[T]Pad_11500x18000um 2 14750.0 -0.0)
     )
+    (image R4
+      (pin Rect[T]Pad_10250x14000um (rotate 180) 1 9125.0 0.0)
+      (pin Rect[T]Pad_10250x14000um (rotate 180) 2 -9125.0 0.0)
+    )
+    (image R3
+      (pin Rect[T]Pad_10250x14000um (rotate 180) 1 9125.0 0.0)
+      (pin Rect[T]Pad_10250x14000um (rotate 180) 2 -9125.0 0.0)
+    )
     (image R16
       (pin Rect[T]Pad_10250x14000um 1 -9125.0 -0.0)
       (pin Rect[T]Pad_10250x14000um 2 9125.0 -0.0)
@@ -394,14 +402,6 @@
     (image R2
       (pin Rect[T]Pad_8000x9500um 1 -8250.0 -0.0)
       (pin Rect[T]Pad_8000x9500um 2 8250.0 -0.0)
-    )
-    (image R3
-      (pin Rect[T]Pad_10250x14000um 1 -9125.0 -0.0)
-      (pin Rect[T]Pad_10250x14000um 2 9125.0 -0.0)
-    )
-    (image R4
-      (pin Rect[T]Pad_10250x14000um 1 -9125.0 -0.0)
-      (pin Rect[T]Pad_10250x14000um 2 9125.0 -0.0)
     )
     (image R13
       (pin Rect[T]Pad_10250x14000um 1 -9125.0 -0.0)
@@ -496,14 +496,14 @@
       (pin Rect[A]Pad_10000x16000um (rotate 180) SH -43200.0 10500.0)
     )
     (image K31
-      (pin Rect[T]Pad_10000x22000um 1 -63500.0 -40000.0)
-      (pin Rect[T]Pad_10000x22000um 3 -12700.0 -40000.0)
-      (pin Rect[T]Pad_10000x22000um 4 12700.0 -40000.0)
-      (pin Rect[T]Pad_10000x22000um 5 38100.0 -40000.0)
-      (pin Rect[T]Pad_10000x22000um 8 38100.0 40000.0)
-      (pin Rect[T]Pad_10000x22000um 9 12700.0 40000.0)
-      (pin Rect[T]Pad_10000x22000um 10 -12700.0 40000.0)
-      (pin Rect[T]Pad_10000x22000um 12 -63500.0 40000.0)
+      (pin Rect[T]Pad_22000x10000um (rotate 180) 1 40000.0 -63500.0)
+      (pin Rect[T]Pad_22000x10000um (rotate 180) 3 40000.0 -12700.0)
+      (pin Rect[T]Pad_22000x10000um (rotate 180) 4 40000.0 12700.0)
+      (pin Rect[T]Pad_22000x10000um (rotate 180) 5 40000.0 38100.0)
+      (pin Rect[T]Pad_22000x10000um (rotate 180) 8 -40000.0 38100.0)
+      (pin Rect[T]Pad_22000x10000um (rotate 180) 9 -40000.0 12700.0)
+      (pin Rect[T]Pad_22000x10000um (rotate 180) 10 -40000.0 -12700.0)
+      (pin Rect[T]Pad_22000x10000um (rotate 180) 12 -40000.0 -63500.0)
     )
     (padstack Rect[T]Pad_14500x10000um
       (shape (rect F.Cu -7250 -5000 7250 5000))
@@ -625,8 +625,8 @@
       (shape (rect B.Cu -5000 -8000 5000 8000))
       (attach off)
     )
-    (padstack Rect[T]Pad_10000x22000um
-      (shape (rect F.Cu -5000 -11000 5000 11000))
+    (padstack Rect[T]Pad_22000x10000um
+      (shape (rect F.Cu -11000 -5000 11000 5000))
       (attach off)
     )
     (padstack Via[0-2]_600:300_um
@@ -763,18 +763,32 @@
     )
   )
   (wiring
-    (wire (path F.Cu 2500 805800.0 -626000.0 805000.0 -614000.0) (net "BATP") (type protect))
-    (wire (path F.Cu 2500 805000.0 -614000.0 805000.0 -603930.0) (net "BATP") (type protect))
-    (wire (path F.Cu 2500 784200.0 -626000.0 795000.0 -614000.0) (net "VLIPO") (type protect))
-    (wire (path F.Cu 2500 795000.0 -614000.0 795000.0 -603930.0) (net "VLIPO") (type protect))
+    (wire (path F.Cu 2500 815800.0 -626000.0 810470.0 -614000.0) (net "BATP") (type protect))
+    (wire (path F.Cu 2500 810470.0 -614000.0 810470.0 -603930.0) (net "BATP") (type protect))
+    (wire (path F.Cu 2500 794200.0 -626000.0 800470.0 -614000.0) (net "VLIPO") (type protect))
+    (wire (path F.Cu 2500 800470.0 -614000.0 800470.0 -603930.0) (net "VLIPO") (type protect))
     (wire (path F.Cu 2500 754380.0 -620150.0 770500.0 -620150.0) (net "PROG1") (type protect))
-    (via Via[0-2]_600:300_um 613250.0 -627250.0 (net "GND") (type protect))
-    (via Via[0-2]_600:300_um 613250.0 -640750.0 (net "GND") (type protect))
-    (via Via[0-2]_600:300_um 626750.0 -627250.0 (net "GND") (type protect))
-    (via Via[0-2]_600:300_um 626750.0 -640750.0 (net "GND") (type protect))
+    (wire (path F.Cu 6000 790370.0 -634000.0 790370.0 -625150.0) (net "VLIPO") (type protect))
+    (wire (path F.Cu 6000 790370.0 -625150.0 775370.0 -610150.0) (net "VLIPO") (type protect))
+    (wire (path F.Cu 6000 775370.0 -610150.0 754380.0 -610150.0) (net "VLIPO") (type protect))
+    (wire (path F.Cu 8000 638580.0 -689480.0 638580.0 -703380.0) (net "V5") (type protect))
+    (wire (path B.Cu 8000 638580.0 -703380.0 435000.0 -703380.0) (net "V5") (type protect))
+    (wire (path B.Cu 8000 435000.0 -703380.0 417700.0 -686080.0) (net "V5") (type protect))
+    (wire (path B.Cu 8000 417700.0 -686080.0 417700.0 -655950.0) (net "V5") (type protect))
+    (wire (path B.Cu 6000 1157000.0 -624500.0 1157000.0 -629500.0) (net "BATRAW") (type protect))
+    (wire (path B.Cu 6000 1157000.0 -629500.0 1102500.0 -679000.0) (net "BATRAW") (type protect))
+    (wire (path B.Cu 6000 1102500.0 -679000.0 919950.0 -679000.0) (net "BATRAW") (type protect))
+    (wire (path B.Cu 6000 919950.0 -679000.0 874950.0 -634000.0) (net "BATRAW") (type protect))
+    (wire (path F.Cu 6000 874950.0 -634000.0 859375.0 -634000.0) (net "BATRAW") (type protect))
+    (via Via[0-2]_600:300_um 613250.0 -624400.0 (net "GND") (type protect))
+    (via Via[0-2]_600:300_um 613250.0 -637900.0 (net "GND") (type protect))
+    (via Via[0-2]_600:300_um 626750.0 -624400.0 (net "GND") (type protect))
+    (via Via[0-2]_600:300_um 626750.0 -637900.0 (net "GND") (type protect))
     (via Via[0-2]_600:300_um 728750.0 -613900.0 (net "GND") (type protect))
     (via Via[0-2]_600:300_um 728750.0 -626400.0 (net "GND") (type protect))
     (via Via[0-2]_600:300_um 741250.0 -613900.0 (net "GND") (type protect))
     (via Via[0-2]_600:300_um 741250.0 -626400.0 (net "GND") (type protect))
+    (via Via[0-2]_600:300_um 638580.0 -703380.0 (net "V5") (type protect))
+    (via Via[0-2]_600:300_um 874950.0 -634000.0 (net "BATRAW") (type protect))
   )
 )
