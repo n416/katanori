@@ -67,8 +67,30 @@ python hardware/tools/sweep_movie.py bat --peek
 | 明るい赤の塊 | その姿勢の**交わりそのもの**（OpenSCAD で厳密に取った形） |
 | 赤い針金の枠 | いちばん深い塊の場所（小さい当たりを見つけるため） |
 
-最後にいちばん深い所で止まり、**動く物を消して交わりだけ**を見せる。
-焼き込みの文字は `s`（道のどこか）・`gap`（隙間 mm）・`HIT t=…mm V=…mm3`。
+コマの並びは 3 つ:
+
+1. **入れる**（道のとおり動く）
+2. 当たりがあれば、**いちばん深い所で止めて動く物を消し、交わりだけ**を見せる（0.8 秒）
+3. **組み上がった姿勢に戻して 2.5 秒止める**（🔒 ユーザー 2026-09-18「組み立て完了の状態で数秒維持してほしい」）
+
+焼き込みの文字は `s`（道のどこか）・`gap`（隙間 mm）・`HIT t=…mm V=…mm3`・`>> assembled`。
+
+### 節目のものを残す
+
+`docs/_img/sweep/<日付>/` に動画と README（そのときの判定の表）を残す。
+
+```bash
+python hardware/tools/sweep_movie.py --save
+```
+
+名前を自分で付けるなら:
+
+```bash
+python hardware/tools/sweep_movie.py --save=v61n-発注前
+```
+
+⚠ `hardware/_tmp_sweep/` は git に入らない（作業場・焼き直すと上書き・別の PC には行かない）。
+**残すと決めた物だけ** `--save` で `docs/_img/sweep/` へ移す。
 
 ## 3. 出る物の場所
 
@@ -81,6 +103,8 @@ python hardware/tools/sweep_movie.py bat --peek
 | `<key>_frames/f*.png` | 動画のコマ |
 | `<key>_mover.off` / `_world.off` | 動かす物と相手（OpenSCAD から 1 回だけ出した物） |
 | `<key>_hit*.off` | 接触した姿勢の交わりの形 |
+
+残すと決めた物は `docs/_img/sweep/<日付>/`（こちらは git に入る）。
 
 ## 4. 新しい当たりが出たとき
 
@@ -136,7 +160,8 @@ python hardware/tools/sweep_movie.py bat --peek
 |---|---|---|
 | `MM_PER_FRAME` | 0.5 | 1 コマで物が動く距離 mm |
 | `FPS` | 24 | |
-| `HOLD` | 20 | いちばん深い所で止めるコマ数（ここで動く物を消す） |
+| `HOLD_HIT` | 20 | いちばん深い所で止めるコマ数（ここで動く物を消す） |
+| `HOLD_END` | 60 | 組み上がった姿勢で止めるコマ数（2.5 秒）。**動画はここで終わる** |
 
 ## 7. 要る物 / 場所が違う PC で
 

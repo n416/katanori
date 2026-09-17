@@ -5,30 +5,33 @@ u"""入れる道の動画を焼く（sweep_chk.py が書いた JSON を読む）
   python hardware/tools/sweep_movie.py          ← 6 本とも動画（all でも同じ）
   python hardware/tools/sweep_movie.py bat      ← 1 本だけ
   python hardware/tools/sweep_movie.py bat --peek  ← 3 枚だけ焼いて、動いているか見る（速い）
+  python hardware/tools/sweep_movie.py --save      ← 焼いて docs/_img/sweep/<日付>/ に残す
 
 なぜ動画か: 数字だけでは人が判定できない。SolidWorks の Motion Study も
 「再生しながらフレームごとに干渉を探し、フレーム番号・時刻・部品・干渉量の表を出す」形をしている。
 docs/COLLISION-SURVEY.md 参照。
 
-出る物: hardware/_tmp_sweep/<key>.mp4
+出る物: hardware/_tmp_sweep/<key>.mp4（作業場・git に入らない。--save で節目の物を残す）
   青 = 空いている / 黄 = 触れているだけ（皮。めり込みではない）/ 赤 = めり込んでいる
   めり込んでいる間は動く物を透かし、**交わりの塊そのもの**を赤い実体で出す
   焼き込みの文字: s（道のどこか）・gap（隙間 mm）・HIT（めり込みの厚みと体積）
 """
-import json, math, os, subprocess, sys
+import json, math, os, shutil, subprocess, sys, time
 import numpy as np, trimesh
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from sweep_chk import TMP, TOL, SKIN_T, motion_bound, pose_mat, pose_at   # noqa: E402
+from sweep_chk import TMP, ROOT, TOL, SKIN_T, motion_bound, pose_mat, pose_at   # noqa: E402
 
 BLENDER = os.environ.get("BLENDER", r"C:\Program Files\Blender Foundation\Blender 5.2\blender.exe")
 FFMPEG = os.environ.get("FFMPEG", "ffmpeg")
 MM_PER_FRAME = 0.5    # 1 コマで物が動く距離 mm
 FPS = 24
-HOLD = 20             # いちばん深い所で止めるコマ数
+HOLD_HIT = 20         # いちばん深い所で止めるコマ数（動く物を消して交わりを見せる）
+HOLD_END = 60         # 🔒 ユーザー 2026-09-18「組み立て完了の状態で数秒維持してほしい」。
+                      #    最後は必ず**組み上がった姿勢**で終わり、ここで 2.5 秒止める
 
 
 def stl_from_off(key, which):
@@ -64,12 +67,16 @@ def build_frames(rep, mover, world):
     import numpy as _np
     if _np.linalg.norm(_np.array(path[-1][:3], float)) > _np.linalg.norm(_np.array(path[0][:3], float)):
         frames.reverse()
+    # コマの並び: ①入れる ②（当たりがあれば）いちばん深い所で動く物を消して交わりを見せる
+    #             ③**組み上がった姿勢に戻して数秒止める**（ここで終わる）
+    s_end = frames[-1]                             # 道の終わり ＝ 組み上がった姿勢（逆再生なら逆順の最後）
+    seq = [(x, False) for x in frames]
     worst = rep["worst"]
-    ghost_from = len(frames)
     if worst and worst["thick"] >= SKIN_T:
-        frames += [worst["s"]] * HOLD              # いちばん深い所で止め、動く物を消して交わりを見せる
+        seq += [(worst["s"], True)] * HOLD_HIT
+    seq += [(s_end, False)] * HOLD_END
     out = []
-    for fi, s in enumerate(frames):
+    for fi, (s, ghost) in enumerate(seq):
         R, t = pose_mat(pose_at(path, s, c), c)
         M = np.eye(4)
         M[:3, :3], M[:3, 3] = R, t
@@ -79,10 +86,11 @@ def build_frames(rep, mover, world):
         inside = any(lo - 1e-9 <= s <= hi + 1e-9 for lo, hi in rep["intervals"])
         e = nearest([h for h in rep["exact"] if h["faces"]], s, lambda x: x["s"])
         hit = e if (inside and e and e["thick"] >= SKIN_T) else None
-        ghost = fi >= ghost_from
         note = "%s  s=%.3f  gap=%.2fmm" % (rep["key"], s, d)
         if ghost:
             note = "%s  s=%.3f   >> overlap only (part hidden)" % (rep["key"], s)
+        elif fi >= len(seq) - HOLD_END:
+            note = "%s  s=%.3f   >> assembled" % (rep["key"], s)
         if hit:
             note += "   HIT  t=%.3fmm  V=%.3fmm3" % (hit["thick"], hit["vol"])
         elif d <= TOL:
@@ -106,6 +114,34 @@ def build_frames(rep, mover, world):
 
 
 KEYS = ["hub", "rsp", "oled", "bat", "lidmain", "lidflap"]
+KEEP = os.path.join(os.path.dirname(ROOT), "docs", "_img", "sweep")   # 節目の動画を残す所
+
+
+def save(tag, keys):
+    u"""焼いた動画を docs/_img/sweep/<tag>/ へ残す（🔒 ユーザー 2026-09-18「節目のものだけ残す」）。
+    そのときの検査の結果も README に書いておく（動画だけ残っても、何を了承したかが分からないため）"""
+    dst = os.path.join(KEEP, tag)
+    os.makedirs(dst, exist_ok=True)
+    lines = [u"# 入れる道の動画 — %s" % tag, u"",
+             u"`python hardware/tools/sweep_movie.py --save=%s` が焼いた物。" % tag,
+             u"読み方と回し方は [SWEEP.md](../../SWEEP.md)。", u"",
+             u"| 道 | 判定 | めり込み |", u"|---|---|---|"]
+    for k in keys:
+        src = os.path.join(TMP, "%s.mp4" % k)
+        if os.path.exists(src):
+            shutil.copy2(src, os.path.join(dst, "%s.mp4" % k))
+        f = os.path.join(TMP, "%s.json" % k)
+        if not os.path.exists(f):
+            continue
+        r = json.load(open(f, encoding="utf-8"))
+        hits = [u"厚み %.3f・%s（%s）" % (d["thick"], d["bmin"], u"済" if d.get("acc") else u"**新**")
+                for d in r.get("ok", []) + r.get("new", [])]
+        lines.append(u"| [%s](%s.mp4) | %s | %s |" % (k, k, r.get("verdict", "?"),
+                                                      u"<br>".join(hits) or u"無し"))
+    lines += [u"", u"了承済みの当たりの理由は `hardware/sweep_accept.json`。"]
+    with open(os.path.join(dst, "README.md"), "w", encoding="utf-8") as fh:
+        fh.write(chr(10).join(lines) + chr(10))
+    print(u"残しました: %s" % dst)
 
 
 def blender(key):
@@ -128,7 +164,7 @@ def bake(key, peek=False):
     plan = build_frames(rep, mover, world)
     if peek:                                   # 頭・いちばん深い所・終わりの 3 枚だけ（動いているかの確認用）
         n = len(plan["frames"])
-        pick = sorted({0, max(0, n - 21), n - 1})
+        pick = sorted({0, max(0, n - HOLD_END - 1), n - 1})   # 頭・入れ終わり（か交わり）・組み上がり
         plan["frames"] = [plan["frames"][i] for i in pick]
     out = os.path.join(TMP, key + "_frames")
     if os.path.isdir(out):                     # 🔴 前回の連番を消してから焼く（少ないコマ数で焼くと古い絵が混ざる）
@@ -150,10 +186,14 @@ def bake(key, peek=False):
 
 def main():
     peek = "--peek" in sys.argv
+    tag = next((a.split("=", 1)[1] if "=" in a else time.strftime("%Y-%m-%d")
+                for a in sys.argv[1:] if a.startswith("--save")), None)
     args = [a for a in sys.argv[1:] if not a.startswith("-")]
     keys = KEYS if (not args or args == ["all"]) else args
     for k in keys:
         bake(k, peek)
+    if tag and not peek:
+        save(tag, keys)
 
 
 if __name__ == "__main__":
