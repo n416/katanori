@@ -56,3 +56,7 @@ en/
 hardware/pcb/build/
 hardware/_tmp_v61n/
 hardware/_tmp_v61man/
+
+# KiCad が開いているあいだ置く鍵（~<名>.kicad_pcb.lck など）。
+#   閉じると消えるが、落ちると残る。中身は開いている人の名前と PC 名
+~*.lck
