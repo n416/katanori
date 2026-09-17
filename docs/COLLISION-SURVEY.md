@@ -127,11 +127,10 @@ Navisworks の Clash Detective も同じ（当たった場所へ視点を飛ば�
 | `hardware/tools/sweep_chk.py` | 距離クエリで道を走り、接触区間の中だけ厳密な交わりを取る |
 | `hardware/tools/sweep_movie.py` | Blender で動画を焼く（青＝空き／黄＝接触／赤＝めり込み） |
 | `hardware/tools/_sweep_blender.py` | Blender の中で動く側 |
+| `hardware/sweep_accept.json` | 了承済みの当たりの台帳（載っていない物だけが「新」として出る） |
+| `docs/SWEEP.md` | コマンド集 |
 
-```
-python hardware/tools/sweep_chk.py hub rsp oled bat
-python hardware/tools/sweep_movie.py bat
-```
+**回し方は [SWEEP.md](SWEEP.md)**（この資料は「なぜこの形か」だけを持つ）。
 
 ### 旧検査との突き合わせ（2026-09-17）
 
@@ -141,6 +140,9 @@ python hardware/tools/sweep_movie.py bat
 | `path_rsp` | 0.00 mm³ | 厚み 0.000 mm（皮）→ 入る | ✅ |
 | `path_oled` | **0.51 mm³** | 0.512 mm³・厚み 0.400 mm・1.6×0.8×0.4 @ s=0.898 | ✅ |
 | `path_bat` | **86.82 mm³** | 86.818 mm³・厚み 2.382 mm・35×6×2.382 @ [15.2, 9.9, 0.5] | ✅ |
+
+⚠ この表は**移した直後の値**。このあと「塊ごとに測る／合計は持たない」に変えたので、
+いまの `bat` は「厚み 0.700・43.409mm³ が 2 か所」と出る（足すと 86.818 で同じ物）。
 
 体積は小数 3 桁まで同じ。新しい方は**道のどこで・どんな形で**当たっているかまで出る。
 

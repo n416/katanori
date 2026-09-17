@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 u"""入れる道の動画を焼く（sweep_chk.py が書いた JSON を読む）。
 
-  python hardware/tools/sweep_chk.py bat        ← 先にこちらで検査
-  python hardware/tools/sweep_movie.py bat      ← 動画
+  python hardware/tools/sweep_chk.py             ← 先にこちらで検査（6 本とも）
+  python hardware/tools/sweep_movie.py          ← 6 本とも動画（all でも同じ）
+  python hardware/tools/sweep_movie.py bat      ← 1 本だけ
+  python hardware/tools/sweep_movie.py bat --peek  ← 3 枚だけ焼いて、動いているか見る（速い）
 
 なぜ動画か: 数字だけでは人が判定できない。SolidWorks の Motion Study も
 「再生しながらフレームごとに干渉を探し、フレーム番号・時刻・部品・干渉量の表を出す」形をしている。
@@ -103,26 +105,55 @@ def build_frames(rep, mover, world):
             "shapes": shapes, "tol": TOL, "skin": SKIN_T, "margin": 4.0}
 
 
-def main():
-    key = sys.argv[1] if len(sys.argv) > 1 else "hub"
-    rep = json.load(open(os.path.join(TMP, "%s.json" % key), encoding="utf-8"))
-    mover = stl_from_off(key, "mover")
-    world = stl_from_off(key, "world")
-    plan = build_frames(rep, mover, world)
-    json.dump(plan, open(os.path.join(TMP, "%s_frames.json" % key), "w", encoding="utf-8"))
-    print(u"%s: %d コマ（%.1f 秒）を焼きます" % (key, len(plan["frames"]), len(plan["frames"]) / FPS))
+KEYS = ["hub", "rsp", "oled", "bat", "lidmain", "lidflap"]
+
+
+def blender(key):
     r = subprocess.run([BLENDER, "--background", "--python",
                         os.path.join(os.path.dirname(os.path.abspath(__file__)), "_sweep_blender.py"),
                         "--", key, TMP], capture_output=True, text=True, encoding="utf-8", errors="replace")
     if "SWEEP_MOVIE_OK" not in (r.stdout or ""):
-        print(r.stdout[-3000:])
-        print(r.stderr[-3000:])
+        print((r.stdout or "")[-3000:])
+        print((r.stderr or "")[-3000:])
         sys.exit("Blender が焼けなかった")
+
+
+def bake(key, peek=False):
+    f = os.path.join(TMP, "%s.json" % key)
+    if not os.path.exists(f):
+        sys.exit("%s が無い。先に python hardware/tools/sweep_chk.py %s を回すこと" % (f, key))
+    rep = json.load(open(f, encoding="utf-8"))
+    mover = stl_from_off(key, "mover")
+    world = stl_from_off(key, "world")
+    plan = build_frames(rep, mover, world)
+    if peek:                                   # 頭・いちばん深い所・終わりの 3 枚だけ（動いているかの確認用）
+        n = len(plan["frames"])
+        pick = sorted({0, max(0, n - 21), n - 1})
+        plan["frames"] = [plan["frames"][i] for i in pick]
+    out = os.path.join(TMP, key + "_frames")
+    if os.path.isdir(out):                     # 🔴 前回の連番を消してから焼く（少ないコマ数で焼くと古い絵が混ざる）
+        for old in os.listdir(out):
+            os.remove(os.path.join(out, old))
+    json.dump(plan, open(os.path.join(TMP, "%s_frames.json" % key), "w", encoding="utf-8"))
+    print(u"%-7s %d コマ%s" % (key, len(plan["frames"]),
+                              u"（覗き見）" if peek else u"（%.1f 秒）を焼きます" % (len(plan["frames"]) / FPS)))
+    blender(key)
+    if peek:
+        print(u"        %s\\f*.png を開いて、物が動いているか目で確かめること" % out)
+        return
     mp4 = os.path.join(TMP, "%s.mp4" % key)
     subprocess.run([FFMPEG, "-y", "-loglevel", "error", "-framerate", str(FPS),
-                    "-i", os.path.join(TMP, key + "_frames", "f%05d.png"),
+                    "-i", os.path.join(out, "f%05d.png"),
                     "-c:v", "libx264", "-pix_fmt", "yuv420p", mp4], check=True)
-    print(u"できました: %s" % mp4)
+    print(u"        できました: %s" % mp4)
+
+
+def main():
+    peek = "--peek" in sys.argv
+    args = [a for a in sys.argv[1:] if not a.startswith("-")]
+    keys = KEYS if (not args or args == ["all"]) else args
+    for k in keys:
+        bake(k, peek)
 
 
 if __name__ == "__main__":
