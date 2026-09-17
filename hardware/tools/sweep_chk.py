@@ -9,7 +9,9 @@ u"""入れる道の当たり検査（ブーリアンを取らずに距離で走�
      ── 空いていれば飛ばし、狭い所だけ細かくなる。すり抜けが起きない
   3. 隙間が TOL 以下になった区間の中だけ、OpenSCAD で 1 姿勢ずつ厳密な交わりを取る
      ── 厚みが 0 なら同一平面の皮（＝誤報）、厚みがあれば本物のめり込み
-  4. 動画（tools/sweep_movie.py）が読む JSON を書く
+  4. 見つけた塊を **hardware/sweep_accept.json（了承済みの当たりの台帳）** と突き合わせ、
+     載っていない物だけを「新」として出す。新しい当たりがあれば終了コード 1
+  5. 動画（tools/sweep_movie.py）が読む JSON を書く
 
 なぜこの形か: 姿勢を n 個 union して交わりの体積を作る旧 sweep_pose() は、
 姿勢の数だけ面数が増える。0.25 刻みで 400 姿勢 × 28782 面 ＝ 1150 万面で PC が固まった（2026-09-17）。
@@ -149,7 +151,7 @@ def exact_hit(key, q, c, idx=0):
     # 🔴 **塊ごとに測る。** 交わりは離れた複数の塊になる（蓋は縁のぐるり全部で触れる）。
     #   まとめて主軸を取ると、別々の平面にある皮が寄り集まって「厚い」に化ける
     #   （2026-09-17 に踏んだ: lidmain が体積 0 のまま厚み 5.198 と出た）。
-    best, pieces = None, 0
+    best, pieces, deep = None, 0, []
     for g in m.split(only_watertight=False) or [m]:
         v = np.asarray(g.vertices, float)
         if len(v) < 3:
@@ -157,11 +159,16 @@ def exact_hit(key, q, c, idx=0):
         ax = np.linalg.svd(v - v.mean(0), full_matrices=False)[2]
         ext = sorted(float(x) for x in ((v - v.mean(0)) @ ax.T).ptp(0))
         vol = float(abs(g.volume)) if g.is_watertight else 0.0
+        if not math.isfinite(vol):
+            vol = 0.0              # 潰れた塊は体積が NaN になる（JSON が壊れる）
         pieces += 1
         cur = {"faces": int(len(g.faces)), "thick": round(ext[0], 4), "vol": round(vol, 4),
                "ext": [round(x, 3) for x in ext[::-1]],
                "bmin": [round(float(x), 3) for x in g.bounds[0]],
                "bmax": [round(float(x), 3) for x in g.bounds[1]]}
+        if cur["thick"] >= SKIN_T:
+            deep.append(dict(cur))               # 皮でない塊（＝本物のめり込み）は全部残す
+            #   ⚠ dict() で写しを取る。best と同じ物を入れると JSON が循環参照で書けない
         if best is None or (cur["thick"], cur["vol"]) > (best["thick"], best["vol"]):
             best = cur
     if best is None:
@@ -172,7 +179,45 @@ def exact_hit(key, q, c, idx=0):
     #   塊ごとに分けた意味が消えるので、出すのは**いちばん深い塊**と**塊の数**だけ
     best["pieces"] = pieces
     best["faces_all"] = int(len(m.faces))
+    best["deep"] = sorted(deep, key=lambda x: -x["thick"])[:20]
     return best
+
+
+ACCEPT_F = os.path.join(ROOT, "sweep_accept.json")
+
+
+def load_accept():
+    u"""了承済みの当たりの台帳（hardware/sweep_accept.json）"""
+    if not os.path.exists(ACCEPT_F):
+        return []
+    return json.load(open(ACCEPT_F, encoding="utf-8")).get("accept", [])
+
+
+def inside(piece, box):
+    return all(box[0][i] - 1e-6 <= piece["bmin"][i] and piece["bmax"][i] <= box[1][i] + 1e-6
+               for i in range(3))
+
+
+def classify(key, pieces, accept):
+    u"""塊を「了承済み」と「新規」に分ける。箱の外へ出た／厚みが育った物は新規"""
+    ok, new = [], []
+    for d in pieces:
+        hit = next((a for a in accept if a["key"] == key and inside(d, a["box"])
+                    and d["thick"] <= a["thick"] + 1e-6), None)
+        (ok if hit else new).append(dict(d, acc=hit["id"] if hit else None,
+                                         why=hit["why"] if hit else None))
+    return ok, new
+
+
+def gather(hits):
+    u"""道ぜんたいで見つかった皮でない塊を、場所でまとめる（姿勢ごとに同じ物が出るため）"""
+    seen = {}
+    for e in hits:
+        for d in e.get("deep", []):
+            k = tuple(round(x, 0) for x in d["bmin"])
+            if k not in seen or d["thick"] > seen[k]["thick"]:
+                seen[k] = d
+    return sorted(seen.values(), key=lambda x: -x["thick"])
 
 
 def pose_at(path, s, c):
@@ -201,12 +246,13 @@ def check(key, spec):
             e["s"] = round(s, 4)
             hits.append(e)
     worst = max(hits, key=lambda h: (h["thick"], h["vol"], h["faces"]), default=None)
+    ok, new = classify(key, gather(hits), load_accept())
     rep = {"key": key, "n_samples": len(sam), "sec_march": round(t_march, 2),
            "sec_total": round(time.time() - t0, 2),
            "min_clearance": round(min(s["d"] for s in sam), 4),
            "intervals": [[round(a, 4), round(b, 4)] for a, b in iv],
-           "n_exact": len(hits), "worst": worst,
-           "verdict": "入る" if (not worst or worst["thick"] < SKIN_T) else "めり込む",
+           "n_exact": len(hits), "worst": worst, "ok": ok, "new": new,
+           "verdict": "入る" if not new and not ok else ("新しい当たり" if new else "了承済みの当たりだけ"),
            "path": spec["path"], "c": spec["c"], "r": spec["r"],
            "samples": [{"s": round(s["s"], 5), "d": round(s["d"], 4)} for s in sam],
            "exact": hits, "tris": {"mover": len(mover.faces), "world": len(world.faces)}}
@@ -214,24 +260,45 @@ def check(key, spec):
     return rep
 
 
+def snippet(key, d):
+    u"""新規の当たりを、そのまま sweep_accept.json に貼れる形で出す（理由は人が書く）"""
+    pad = 0.5
+    box = [[round(d["bmin"][i] - pad, 2) for i in range(3)],
+           [round(d["bmax"][i] + pad, 2) for i in range(3)]]
+    return json.dumps({"id": "%s-????" % key, "key": key, "why": "（なぜ了承するかを書く）",
+                       "box": box, "thick": round(d["thick"] + 0.05, 3),
+                       "since": time.strftime("%Y-%m-%d")}, ensure_ascii=False)
+
+
 def main():
     keys = sys.argv[1:] or ["hub", "rsp", "oled", "bat", "lidmain", "lidflap"]
     paths = read_paths()
+    news = []
     for k in keys:
         if k not in paths:
-            print("%-5s : 道が無い" % k)
+            print("%-7s : 道が無い" % k)
             continue
         r = check(k, paths[k])
-        print(u"%-5s 姿勢 %d（%.2f 秒）＋ 厳密 %d 回 ＝ %.1f 秒 | 面 %d/%d"
+        print(u"%-7s 姿勢 %d（%.2f 秒）＋ 厳密 %d 回 ＝ %.1f 秒 | 面 %d/%d"
               % (k, r["n_samples"], r["sec_march"], r["n_exact"], r["sec_total"],
                  r["tris"]["mover"], r["tris"]["world"]))
-        print(u"      最小隙間 %.3f mm / 接触区間 %s" % (r["min_clearance"], r["intervals"] or "無し"))
-        w = r["worst"]
-        if w and w["faces"]:
-            print(u"      いちばん深い塊 s=%s: 厚み %.3f mm・体積 %.3f mm3・広がり %s・角 %s（触れている所 %d か所）"
-                  % (w["s"], w["thick"], w["vol"], w["ext"], w["bmin"], w.get("pieces", 1)))
-        skin = u"（同一平面の皮。めり込みではない）" if w and w["faces"] and w["thick"] < SKIN_T else u""
-        print(u"      判定: %s%s" % (r["verdict"], skin))
+        print(u"        最小隙間 %.3f mm / 接触区間 %s" % (r["min_clearance"], r["intervals"] or "無し"))
+        for d in r["ok"]:
+            print(u"        済  厚み %.3f・%s  %s" % (d["thick"], d["bmin"], d["why"]))
+        for d in r["new"]:
+            print(u"        新  厚み %.3f・体積 %.3f・広がり %s・角 %s"
+                  % (d["thick"], d["vol"], d["ext"], d["bmin"]))
+            news.append((k, d))
+        if not r["ok"] and not r["new"]:
+            print(u"        めり込み無し（触れているのは同一平面の皮だけ）")
+        print(u"        判定: %s" % r["verdict"])
+    print(u"\n==== 新しい当たり %d 件 / 了承済みの台帳 %d 件（hardware/sweep_accept.json）"
+          % (len(news), len(load_accept())))
+    if news:
+        print(u"見て「これでよい」と判じたら、理由を書いて台帳の accept に足す:")
+        for k, d in news:
+            print(u"  " + snippet(k, d))
+    raise SystemExit(1 if news else 0)
 
 
 if __name__ == "__main__":
