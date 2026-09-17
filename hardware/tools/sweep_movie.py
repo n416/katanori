@@ -24,7 +24,7 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from sweep_chk import TMP, ROOT, TOL, SKIN_T, motion_bound, pose_mat, pose_at, delta   # noqa: E402
+from sweep_chk import TMP, ROOT, TOL, SKIN_T, motion_bound, pose_mat, pose_at, delta, scad   # noqa: E402
 
 BLENDER = os.environ.get("BLENDER", r"C:\Program Files\Blender Foundation\Blender 5.2\blender.exe")
 FFMPEG = os.environ.get("FFMPEG", "ffmpeg")
@@ -60,6 +60,23 @@ def pick(shapes, d):
     return min(shapes, key=lambda x: abs(x[0] - d))[1]
 
 
+def world_parts(key, name):
+    u"""相手を「箱」と「先に入っている物」に分けて出す。
+    🔴 1 つの半透明の物にすると、手前の殻より奥が描かれず**先に入っている部品が画面から消える**
+    （2026-09-18 に踏んだ: 蓋の動画で箱の中が空っぽに見えた）。別々の物として描く"""
+    out = {}
+    for mode, tag in (("wshell", "shell"), ("wunits", "units")):
+        off = os.path.join(TMP, "%s_%s.off" % (key, mode))
+        if not os.path.exists(off):
+            scad(["-D", 'SW_MODE="%s"' % mode, "-D", 'SW_WORLD="%s"' % key], off)
+        if not os.path.exists(off):
+            continue                       # 先に入っている物が無い道もある
+        nm = "%s_%s.stl" % (name, mode)
+        trimesh.load(off).export(os.path.join(TMP, nm))
+        out[tag] = nm
+    return out
+
+
 def nearest(lst, s, get):
     return min(lst, key=lambda x: abs(get(x) - s)) if lst else None
 
@@ -75,6 +92,9 @@ def pad(path, n):
     u"""通過点の数を揃える（短い道は最後の姿勢を繰り返す）。
     場面の中の物は同じ時間軸で動くので、区間の数を合わせる"""
     return list(path) + [path[-1]] * (n - len(path))
+
+
+WPARTS = {}
 
 
 def build_frames(reps, shapes_by, world):
@@ -161,7 +181,7 @@ def build_frames(reps, shapes_by, world):
         for _, _, m in shapes_by[k]:
             lo = np.minimum(lo, m.bounds[0] + tr.min(axis=0))
             hi = np.maximum(hi, m.bounds[1] + tr.max(axis=0))
-    return {"frames": out, "names": names,
+    return {"frames": out, "names": names, "world_parts": WPARTS,
             "mover_shapes": [[nm for _, nm, _ in shapes_by[k]] for k in names],
             "bbox": [list(map(float, lo)), list(map(float, hi))],
             "shapes": hitshapes, "tol": TOL, "skin": SKIN_T, "margin": 4.0}
@@ -225,8 +245,9 @@ def bake(name, peek=False):
             sys.exit("%s が無い。先に python hardware/tools/sweep_chk.py %s を回すこと" % (f, k))
         reps[k] = json.load(open(f, encoding="utf-8"))
         meshes[k] = shapes_of(reps[k], k, name, ks.index(k))
-    world = stl_from_off(ks[0], "world")       # 相手はどの物から見ても同じ世界（蓋なら world_for_lid）
-    cp(os.path.join(TMP, "%s_world.stl" % ks[0]), os.path.join(TMP, "%s_world.stl" % name))
+    world = stl_from_off(ks[0], "world")       # 外接箱を出すのに使う（描くのは下の 2 つ）
+    global WPARTS
+    WPARTS = world_parts(ks[0], name)
     plan = build_frames(reps, meshes, world)
     if peek:                                   # 頭・入れ終わり（か交わり）・組み上がり の 3 枚だけ
         n = len(plan["frames"])

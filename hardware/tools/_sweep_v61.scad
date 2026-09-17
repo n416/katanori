@@ -10,6 +10,13 @@ module sw_mover() {
     if (SW_MOVER == "bat")  one("bat");
     if (SW_MOVER == "lid")  { lid_bent(SW_D); lid_units(); }          // 蓋。左の板は SW_D だけたわんだ形
 }
+module sw_units() {       // 先に入っている物だけ（動画が箱と別に描く）
+    if (SW_WORLD == "hub")  units_for_hub();
+    if (SW_WORLD == "rsp")  units_for_rsp();
+    if (SW_WORLD == "oled") units_for_oled();
+    if (SW_WORLD == "bat")  units_for_bat();
+    if (SW_WORLD == "lid")  units_for_lid();
+}
 module sw_world() {
     if (SW_WORLD == "hub")  world_for_hub();
     if (SW_WORLD == "rsp")  world_for_rsp();
@@ -19,6 +26,8 @@ module sw_world() {
 }
 if (SW_MODE == "mover") sw_mover();
 if (SW_MODE == "world") sw_world();
+if (SW_MODE == "wshell") shell();      // 箱だけ（動画で半透明に描く）
+if (SW_MODE == "wunits") sw_units();   // 先に入っている物だけ（動画で中身として描く）
 if (SW_MODE == "hit")   intersection() { at_pose(SW_Q, SW_C) sw_mover(); sw_world(); }
 // 道・回す中心・端までの長さ（case_v6_1.scad が唯一の出どころ）
 if (SW_MODE == "pose") echo(SWPOSE = [["hub",  PATH_HUB,  hub_c(), hub_r()],

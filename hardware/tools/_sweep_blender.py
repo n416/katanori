@@ -62,9 +62,15 @@ def mat(name, rgba, alpha=1.0, emit=0.0):
 
 def main():
     bpy.ops.wm.read_factory_settings(use_empty=True)
-    world = load_stl(os.path.join(TMP, KEY + "_world.stl"), "world")
+    # 相手は 2 つに分けて描く: 箱は半透明、**先に入っている物は不透明**。
+    #   1 つの半透明の物にすると手前の殻より奥が描かれず、中身が消える（2026-09-18）
+    wp = D.get("world_parts", {})
     mw, _ = mat("m_world", (0.80, 0.84, 0.88, 1.0), alpha=0.20)
-    world.data.materials.append(mw)
+    if wp.get("shell"):
+        load_stl(os.path.join(TMP, wp["shell"]), "shell").data.materials.append(mw)
+    if wp.get("units"):
+        mu, _ = mat("m_units", (0.52, 0.55, 0.58, 1.0))
+        load_stl(os.path.join(TMP, wp["units"]), "units").data.materials.append(mu)
     # 動く物は 1 つとは限らず、**たわむ物は形が何通りもある**（たわみ量ごとに 1 つ）。
     #   全部読み込んでおいて、コマごとに使う 1 つだけを出す
     movers, mbs = [], []

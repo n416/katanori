@@ -1630,11 +1630,19 @@ function hub_c() = [HUB_AT[0] + PCB_L / 2, PCB_Y0 + PCB_W / 2, HUB_AT[2]];   // 
 function hub_r() = norm([PCB_L / 2, PCB_W / 2, 11.0]);   // 芯から板の上の物の角までの長さ 45.7（回したとき端がいちばん動く）。11.0 はリレー K31 の背
 module lid_pose(dx, dz = 0) translate([dx, 0, dz]) children();
 module hub_unit() one("hub");
-module world_for_hub() { shell(); one("bat"); }                                                // PCB を入れるとき箱に居る物（電池は先でも後でも通るが、先に入っている方が厳しい）。🔒 トグルは PCB の後に付ける（ユーザー 2026-09-16 夕「そりゃそうでしょ」: 真上から降ろす PCB の道にトグルの胴がある）
-module world_for_rsp() { shell(); one("hub"); one("bat"); one("tgl"); }
-module world_for_oled() { shell(); one("hub"); one("bat"); one("tgl"); one("rsp"); one("riser"); }   // OLED は ReSpeaker の後（ライザーの前向きのメスが ReSpeaker の頭を跨ぐ）
-module world_for_bat() { shell(); one("hub"); one("tgl"); one("oled"); one("oriser"); one("rsp"); one("riser"); }
-module world_for_lid() { shell(); for (n = ["oled", "rsp", "hub", "riser", "oriser", "bat", "tgl"]) one(n); }
+// 🔴 **先に入っている物は units_for_* に書く。** 相手は「箱（shell）＋先に入っている物」で、
+//   検査では union して当てるが、**動画では別々の物として描く**（1 つの半透明の物にすると、
+//   手前の殻より奥が描かれず、先に入っている部品が画面から消える。2026-09-18 に踏んだ）
+module units_for_hub() { one("bat"); }                                                         // PCB を入れるとき箱に居る物（電池は先でも後でも通るが、先に入っている方が厳しい）。🔒 トグルは PCB の後に付ける（ユーザー 2026-09-16 夕「そりゃそうでしょ」: 真上から降ろす PCB の道にトグルの胴がある）
+module units_for_rsp() { one("hub"); one("bat"); one("tgl"); }
+module units_for_oled() { one("hub"); one("bat"); one("tgl"); one("rsp"); one("riser"); }       // OLED は ReSpeaker の後（ライザーの前向きのメスが ReSpeaker の頭を跨ぐ）
+module units_for_bat() { one("hub"); one("tgl"); one("oled"); one("oriser"); one("rsp"); one("riser"); }
+module units_for_lid() { for (n = ["oled", "rsp", "hub", "riser", "oriser", "bat", "tgl"]) one(n); }
+module world_for_hub()  { shell(); units_for_hub(); }
+module world_for_rsp()  { shell(); units_for_rsp(); }
+module world_for_oled() { shell(); units_for_oled(); }
+module world_for_bat()  { shell(); units_for_bat(); }
+module world_for_lid()  { shell(); units_for_lid(); }
 PCB_SLIDE = pcb_slide();   // 充電の USB-C が右の壁の内面より外へ出る量 0.8（最後に右へ滑る量）
 // ⭐ 2026-09-16 夕: PCB_LIFT を**数えて出す**ようにした。それまでは 1.5 の決め打ちで、
 //    「J10 の下端 7.2（サイド型 4.8）がケーシングの天板の天面 8.2 を越えるのに 1.0 ＋ 逃げ 0.5」だった。
