@@ -81,8 +81,8 @@ def led(ref, value, gx, gy, k, a):
 # 名前の読み替え（EAGLE → ここ）:
 #   ネット  VBAT → VSYS（充電 IC が出す「負荷側」の電圧。電池そのものではない）
 #           5.0V → V5（ハブの +5V と同じネット）  ENABLE → EN（ハブの EN と同じネット）
-#           VLIPO・VBUS・GND・LBO はそのまま。N$n は役目の名前に付け替え
-#   部品    DONE → LED3、CHRG/LBO → LED4、THERM → R15、T1 → Q1、B1 → J10（電池）、CN4 → J9（USB の入口）
+#           VLIPO・VBUS・GND はそのまま。N$n は役目の名前に付け替え
+#   部品    THERM → R15、B1 → J10（電池）、CN4 → J13（USB の入口）
 # 写さなかった物: CN1（USB-A の出口）・R9〜R12（USB-A の D+/D- の分圧）・X1（端子台）・
 #                 JP2（8 本のヘッダ）・FID1〜3・取付穴。どれも 5V を板の外へ出すための物で、
 #                 この板では 5V は板の中でハブへ渡る。
@@ -90,12 +90,12 @@ X0, Y0 = 10, 12
 part("U1", "Regulator_Switching:TPS61090", "TPS61090RSAR", X0 + 30, Y0 + 8,
      {"1": "V5", "15": "V5", "16": "V5", "2": None, "3": "SW", "4": "SW",
       "5": "GND", "6": "GND", "7": "GND", "13": "GND", "17": "GND",
-      "8": "VSYS", "9": "LBI", "10": "GND", "11": "EN", "12": "LBO", "14": "FB"},
+      "8": "VSYS", "9": "LBI", "10": "GND", "11": "EN", "12": None, "14": "FB"},
      "Package_DFN_QFN:Texas_RSA_VQFN-16-1EP_4x4mm_P0.65mm_EP2.7x2.7mm",
      lcsc="C206167", note="昇圧（PowerBoost U1）")
 part("U2", "Battery_Management:MCP73871-2CC", "MCP73871-2CCI/ML", X0 + 8, Y0 + 32,
      {"1": "VSYS", "20": "VSYS", "2": "VPCC", "3": "VBUS", "4": "VBUS", "5": "THERM",
-      "6": None, "7": "STAT2", "8": "STAT1", "9": "VBUS", "10": "GND", "11": "GND",
+      "6": None, "7": None, "8": None, "9": "VBUS", "10": "GND", "11": "GND",
       "21": "GND", "12": "PROG3", "13": "PROG1", "14": "VLIPO", "15": "VLIPO",
       "16": "VLIPO", "17": "VBUS", "18": "VBUS", "19": "VBUS"},
      "Package_DFN_QFN:QFN-20-1EP_4x4mm_P0.5mm_EP2.5x2.5mm",
@@ -118,15 +118,11 @@ r("R1", "1.87M", X0 + 16, Y0 + 12, "VSYS", "LBI")
 r("R2", "330K", X0 + 19, Y0 + 12, "LBI", "GND", fp=FP_R0603,
   note="PowerBoost は 340kΩ（E96・Extended）。LBO の閾値 0.5×(1+R1/R2) が 3.25V → 3.33V")
 r("R13", "200K", X0 + 22, Y0 + 12, "VSYS", "EN")
-# 電池の残りが少ないときの赤: LBO が下がると Q1 が導通して LED1 が点く
-part("Q1", "Transistor_BJT:Q_PNP_BRT_BEC", "MMUN2133LT1G", X0 + 52, Y0 + 12,
-     {"1": "LBO", "2": "VSYS", "3": "N_Q1C"}, "Package_TO_SOT_SMD:SOT-23",
-     note="PowerBoost T1（SC-59）")
-r("R20", "1K", X0 + 56, Y0 + 12, "N_Q1C", "N_LED1")
-led("LED1", "RED", X0 + 59, Y0 + 12, "GND", "N_LED1")
-# 5V が出ている印の青
-r("R5", "1K", X0 + 52, Y0 + 4, "V5", "N_LED2")
-led("LED2", "WHITE", X0 + 55, Y0 + 4, "GND", "N_LED2")
+# 🔒 2026-09-19 ユーザー「LED は本来不要」: 表示灯の 4 つとそれだけに要る部品を写さない。
+#    PowerBoost の LED1（赤・電池残量）＋ R20 ＋ T1（MMUN2133）・LED2（青・5V）＋ R5・
+#    DONE（緑・充電済み）＋ R14・CHRG/LBO（橙・充電中）＋ R8 の 9 個。
+#    U1 の LBO（12 番）と U2 の STAT1・STAT2（8・7 番）はオープンドレインなので、何もつながない。
+#    電池の残量は INA226 で測っている（check_sch.py の DROPPED にも同じ 9 個）
 # 充電側
 group("charge")
 c("C8", "10uF", X0 + 26, Y0 + 26, "VBUS", "GND")
@@ -138,10 +134,6 @@ r("R7", "82K", X0 + 35, Y0 + 26, "VPCC", "GND", fp=FP_R0603,
 r("R16", "1.0K", X0 + 26, Y0 + 34, "GND", "PROG1")
 r("R17", "100K", X0 + 29, Y0 + 34, "GND", "PROG3")
 r("R15", "15K", X0 + 32, Y0 + 34, "GND", "THERM", note="PowerBoost THERM")
-led("LED3", "GREEN", X0 + 38, Y0 + 30, "N_LED3", "VBUS")   # 充電が済んだ（PowerBoost DONE）
-r("R14", "1K", X0 + 41, Y0 + 30, "N_LED3", "STAT2")
-led("LED4", "YELLOW", X0 + 38, Y0 + 36, "N_LED4", "VBUS")  # 充電中（PowerBoost CHRG）
-r("R8", "1K", X0 + 41, Y0 + 36, "N_LED4", "STAT1")
 
 # ======== 電流計: INA226 ========
 # 今のモジュールと同じく、電池の + と充電 IC の VBAT のあいだに 10mΩ を入れる。
@@ -336,7 +328,6 @@ part("J1", "Connector_Generic:Conn_01x07", "XIAO RISER", XX, YX,
 # 「基」= Basic（種類ごとの取り付け料 $0 ）・「拡」= Extended（種類ごとに $3.07）
 LCSC = {
     "U1": "C206167", "U2": "C511310", "U3": "C49851",          # 拡: 昇圧・充電・電流計
-    "Q1": "C53477467",                                          # 拡: MMUN2133（YTL・SOT-23）。2026-09-18 に CBI の C21714196 から替えた（EasyEDA に足形が無く、JLCPCB のプレビューでも市松模様の印しか出ず向きを確かめられないため）。在庫 92 個 ── 発注時に切れていたら TECH PUBLIC C52205308（4.7k/47k・足形あり）
     "L1": "C167807",                                            # 拡: FNR4018S6R8MT 6.8µH 2A（4×4mm）
     "R41": "C105362",                                           # 拡: 10mΩ 1% 1W 合金 1206
     "R1": "C482988", "R3": "C482988",                           # 拡: 1.87MΩ 1%
@@ -356,22 +347,17 @@ LCSC = {
     "C6": "C96123", "C9": "C96123",                             # 基: 47µF 10V 1206（元は 100µF 1210 C23742・Extended）
     "R15": "C17475",                                            # 基: 15kΩ
     "R32": "C17414", "R42": "C17414", "R43": "C17414",          # 基: 10kΩ
-    "R5": "C17513", "R8": "C17513", "R14": "C17513",
-    "R16": "C17513", "R20": "C17513", "R31": "C17513",          # 基: 1kΩ
+    "R16": "C17513", "R31": "C17513",                           # 基: 1kΩ
     "C1": "C15850", "C7": "C15850", "C8": "C15850",             # 基: 10µF 25V
     "C4": "C49678", "C41": "C49678", "C31": "C49678", "C32": "C49678",
     "C42": "C49678",                                            # 基: 0.1µF 50V（C42 は AS5600 のパスコン。
                                                                 #     2026-09-13、fab.py が「番号が無い」で止まって気づいた）
     "C2": "C377773",                                            # 基: 2.2µF 50V
-    "LED1": "C84256", "LED2": "C34499", "LED3": "C2297", "LED4": "C2296",
     "Q31": "C2150", "D31": "C81598", "R44": "C27834", "R45": "C27834",                            # 基: SS8050（SOT-23）・1N4148W（SOD-123）
     "K31": "C16707",                                            # 拡: Omron G6S-2F DC5（表面実装のリレー）
     "U4": "C499458",                                            # 拡: AS5600-ASOT（SOIC-8・つまみの角度）。2026-09-18 に ASOM C79815 から替えた ── 違いはリールだけ（📄 AS5600 データシート 38 ページ: ASOT 13" 2500 個／ASOM 7" 500 個）。在庫 6726 対 378・単価 $1.36 対 $1.76
     "SW1": "C49023766",                                         # ⬜ 区分未確認: MST-12D18G3（横出しのスライドスイッチ）
 }
-# 🔴 LED の色は私が替えた（2026-09-12）。PowerBoost は 青（電源）と 橙（充電中）だが、
-#    JLCPCB の無料枠に 0805 の青と橙が無く、拡張枠のものは在庫 0 だった。
-#    ⇒ 青 → 白（C34499）、橙 → 黄（C2296）。色を戻すなら種類ごとに $3.07 と在庫待ちが要る。
 for P in PARTS:
     if P["ref"] in LCSC:
         P["lcsc"] = LCSC[P["ref"]]
