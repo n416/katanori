@@ -243,10 +243,10 @@ c("C32", "0.1uF", XH + 40, YH + 4, "EN", "GND", note="relay_board C2・リード
 #    🔴 PGO には何も繋がない（OTP・焼くと戻せない）
 XA, YA = 82, 62
 group("knob")
-part("U4", "katanori:AS5600-ASOM", "AS5600-ASOM", XA, YA,
+part("U4", "katanori:AS5600-ASOM", "AS5600-ASOT", XA, YA,
      {"1": "V33", "2": "V33", "4": "GND", "8": "GND",
       "6": "SDA", "7": "SCL", "3": None, "5": None},
-     "Package_SO:SOIC-8_3.9x4.9mm_P1.27mm", lcsc="C79815",
+     "Package_SO:SOIC-8_3.9x4.9mm_P1.27mm", lcsc="C499458",
      note="つまみの角度。磁石は真上・板 X 36.2 Y 7。🔴 PGO(5) と OUT(3) は繋がない")
 c("C42", "0.1uF", XA + 12, YA + 8, "V33", "GND", note="AS5600 のパスコン（📄 9 ページ Figure 13）")
 
@@ -366,7 +366,7 @@ LCSC = {
     "LED1": "C84256", "LED2": "C34499", "LED3": "C2297", "LED4": "C2296",
     "Q31": "C2150", "D31": "C81598", "R44": "C27834", "R45": "C27834",                            # 基: SS8050（SOT-23）・1N4148W（SOD-123）
     "K31": "C16707",                                            # 拡: Omron G6S-2F DC5（表面実装のリレー）
-    "U4": "C79815",                                             # 拡: AS5600-ASOM（SOIC-8・つまみの角度）
+    "U4": "C499458",                                            # 拡: AS5600-ASOT（SOIC-8・つまみの角度）。2026-09-18 に ASOM C79815 から替えた ── 違いはリールだけ（📄 AS5600 データシート 38 ページ: ASOT 13" 2500 個／ASOM 7" 500 個）。在庫 6726 対 378・単価 $1.36 対 $1.76
     "SW1": "C49023766",                                         # ⬜ 区分未確認: MST-12D18G3（横出しのスライドスイッチ）
 }
 # 🔴 LED の色は私が替えた（2026-09-12）。PowerBoost は 青（電源）と 橙（充電中）だが、

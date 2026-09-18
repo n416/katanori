@@ -1322,7 +1322,7 @@
 				)
 			)
 		)
-		(property "Value" "AS5600-ASOM"
+		(property "Value" "AS5600-ASOT"
 			(at 0 2.5 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -1334,7 +1334,7 @@
 				)
 			)
 		)
-		(property "LCSC" "C79815"
+		(property "LCSC" "C499458"
 			(at 0 3.5 0)
 			(layer "F.Fab")
 			(hide yes)

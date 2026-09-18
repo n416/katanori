@@ -11838,7 +11838,7 @@
 				)
 			)
 		)
-		(property "Value" "AS5600-ASOM"
+		(property "Value" "AS5600-ASOT"
 			(at 347.98 173.38 0)
 			(effects
 				(font
@@ -11864,7 +11864,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC" "C79815"
+		(property "LCSC" "C499458"
 			(at 347.98 165.10 0)
 			(effects
 				(font
