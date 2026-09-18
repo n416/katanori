@@ -131,6 +131,7 @@ python hardware/tools/sweep_movie.py --save=v61n-発注前
 検査の全部（姿勢ごとの隙間・厳密評価・済/新の分類）と、**どの模型から出たかの刻印** `src`（`tools/check_stamp.py`）:
 `sha` は hardware/ parts/ tools/ tools/manual_v61/ の *.scad 全部の中身の指紋、`newest` はその中でいちばん新しい更新時刻、`git` は実行時の HEAD（汚れていれば `+`）、`ran` は実行時刻。
 基板の `drc.json` と同じ扱いで、コミットに「この模型でこの判定だった」が残る。マニュアル（`tools/manual_v61/_asm_manual_v61.py`）は今の模型の指紋と比べ、違えば表に「古い」と出す（値は隠さない）。
+マニュアルの HTML にも同じ刻印が付く（1 行目の `<!-- src … -->` と見出しの下の 1 行）。焼いた時の模型と HEAD が辿れる。
 `nutpath_chk.py` の `hardware/check/<材料>/nutpath.json` と `_asm_chk_v61.py` の `hardware/check/asm/<SW>.txt`（1 行目が刻印）も同じ。
 
 **中間物** `hardware/_tmp_sweep/<材料>/`（git には入れない。いつ消してもよい）

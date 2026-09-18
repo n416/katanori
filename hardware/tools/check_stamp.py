@@ -7,6 +7,7 @@ u"""検査の判定に押す刻印と、判定の置き場（hardware/check/）�
   src.git     実行時の HEAD（短い）。作業ツリーが汚れていれば末尾に +
   ran         実行した時刻
 読む側（tools/manual_v61/_asm_manual_v61.py）は今の模型の sha と比べ、違えば「古い」と表に出す。
+マニュアルの HTML 自体にも同じ刻印を押す（1 行目の <!-- src … --> と見出しの下）。焼いた時の模型が辿れる。
 値を隠さないのは、古い数字でも「前はこうだった」が読めるほうがよいから。無いのと古いのは区別する。
 
 置き場
@@ -66,14 +67,15 @@ def stamp():
     return {"sha": src_sha(), "newest": _t(src_newest()), "git": git_head(), "ran": _t(time.time())}
 
 
-def stamp_line(s=None):
-    u"""txt の 1 行目に書く刻印"""
+def stamp_line(s=None, html=False):
+    u"""txt の 1 行目に書く刻印（html=True なら HTML のコメント）"""
     s = s or stamp()
-    return "# src sha=%s newest=%s git=%s ran=%s" % (s["sha"], s["newest"], s["git"], s["ran"])
+    body = "src sha=%s newest=%s git=%s ran=%s" % (s["sha"], s["newest"], s["git"], s["ran"])
+    return "<!-- %s -->" % body if html else "# " + body
 
 
 def parse_line(txt):
-    m = re.search(r"^# src sha=(\S+) newest=(\S+ \S+) git=(\S+) ran=(\S+ \S+)", txt, re.M)
+    m = re.search(r"(?:^# |<!-- )src sha=(\S+) newest=(\S+ \S+) git=(\S+) ran=(\S+ \S+)", txt, re.M)
     if not m:
         return None
     return {"sha": m.group(1), "newest": m.group(2), "git": m.group(3), "ran": m.group(4)}

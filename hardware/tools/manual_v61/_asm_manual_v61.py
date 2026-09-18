@@ -235,7 +235,7 @@ STEPS_N = [
  ], warn='ナイロンの溝は呼び ＋0.5（MJF の穴の公差 ±0.3）でナットは緩い。<b>ねじを締めるまで底パーツを傾けない・伏せない。</b>',
     note='v6.1n の柱はどれも横差しの溝で、口の前に物が来ると入らない（2026-09-08「入れられないナット入れ」）。空の底パーツがいちばん手が入る。'),
 
- dict(n='3', t='PCB を上から入れて右へ押す', img='n3', acts=[
+ dict(n='3', t='PCB を左の窓から入れて後ろへ押す', img='n3', acts=[
    '<b>板の裏の口（J10・電池）には、まだ何も挿さない</b>（電池は手順 7）。',
    '__PCBMOVE__',
    '板の上から <span class="d">M2×6</span> を <b>2 本</b>（<b>左前・右前</b>）。<b>後ろの 2 本はここでは締めない</b>── 左後ろは最後に床の裏から 1 本で、床・柱・板・蓋 をまとめて締める（手順 8）。右後ろも床の裏から（手順 8・<span class="d">M2×12</span>・柱の頭のナット。板は柱の頭に載るだけ。🔒 ユーザー 2026-09-18「こっちも下から入れる形にしようかね」: 上からだと頭の 26 上に底パーツの上の柱が居てドライバーが入らない）。',
@@ -431,13 +431,13 @@ CHECKS = {
  'nylon': [
   ('3', 'n_hub_case', 'PCB を 0.8 左で真上から（case の path_hub と同じ）', '当たりが出る = この動きでは入らない。⭐ 2026-09-17 夜: case 側は道を 4 段（前へ 1.8 逃がす → 右へ → 下ろす → '
    '後ろへ 1.8 押して USB-C を口へ）で書き直して path_hub 0.00。この掃引は「真上から降ろす」古い動きのまま'),
-  ('3', 'n_hub_dn', 'PCB を 0.8 左・5.5 前で真上から柱の頭まで', 'マニュアルの動き'),
-  ('3', 'n_hub_back', '柱の頭の上で後ろへ 5.5', 'マニュアルの動き'),
-  ('3', 'n_hub_right', '右へ 0.8 押す', 'マニュアルの動き。0.01 は充電の USB-C の角（CASE-V61N.md の sk_hub と同じ）'),
+  ('3', 'sweep:hub', 'PCB を前へ 1.8・上へ 3.5 ずらして左の窓から → 下ろす → 後ろへ 1.8（case の PATH_HUB）', 'マニュアルの動き（tools/sweep_chk.py の判定）。'
+   '⚠ _asm_chk_v61.py の n_hub_dn・n_hub_back・n_hub_right は 2026-09-17 より前の動き（前へ 5.5・最後に右へ 0.8）なので表に出さない'),
   ('4', 'n_tgl', 'トグルを箱の中から背面の穴へ（まっすぐ）', '当たりはレバーが穴の縁に掛かる分（X 42〜45・Z 46〜48）。レバーは必ずどちらかへ 12° 倒れているので、傾けて通す（手順 4）'),
   ('5', 'n_rsp', 'ReSpeaker＋ライザーを真上から', ''),
   ('6', 'n_oled', 'OLED＋ライザーを真上から', 'OLED の裏のフィルムが ReSpeaker の D1 を擦る分。case の path_oled と同じ値'),
-  ('7', 'n_bat', '電池を左の窓から（0.5 浮かせて）', ''),
+  ('7', 'n_bat', '電池を左の窓から（0.5 浮かせて）', '電池のガイドの輪（床と天井・高さ 1.2）の窓の側の辺を、電池が上下 0.7 ずつ全長 50 で擦る分（上下 43.41 ずつ）。'
+   '🔒 ユーザー 2026-09-18「全長にわたってこすっても大丈夫」。sweep_chk の bat では了承済み（bat-guide-ring-low / high）'),
   ('8', 'n_lid', '蓋を真上から 14 → 0.3（左の板は 1.5 たわんだ姿）', 'この刻み（0.5）では 0。case の path_lid（14 段）では 0.07（模型の殻の角が口の R に触れる分）'),
   ('8', 'n_lid_seat', '最後の 0.3（板が戻った姿）', '0.3 の所の当たりは ReSpeaker の押さえ（設計どおり）'),
  ],
@@ -454,13 +454,12 @@ CHECKS = {
   ('11', 'sweep:hatch', 'ハッチを後ろから', ''),
  ],
 }
-PCBMOVE = ('<b>板を 1.5 持ち上げて、左の窓から差し入れる。</b>右の壁の手前（充電の USB-C の出のぶんだけ手前）で止め、'
-           '<b>そのまま垂直に 1.5 下ろして柱の頭に載せ</b>、<b>最後に右へ押して</b>充電の USB-C を右の壁の穴へ入れる。'
+PCBMOVE = ('<b>板を前へ 1.8 ずらし、3.5 持ち上げた姿勢で、左の窓から差し入れる。</b>そのまま右の奥まで滑らせ、'
+           '<b>垂直に 3.5 下ろして柱の頭に載せ</b>、<b>最後に後ろへ 1.8 押して</b>充電の USB-C を後ろのハッチの口へ挿す（case の PATH_HUB）。'
            '🔒 ユーザー 2026-09-16 夕「ずらしておろしてからスライドするという 2 動作が必要なんだよ」。'
-           '<b>1.5 持ち上げるのは、板の裏の電池の口（J10）が電池のケーシングの天板を越えるため</b>。'
-           '上は背面のトグルの座（φ14）まで 13.4 空くので、傾ける必要は無い。'
-           '⭐ 2026-09-17 夜: 充電の USB-C が後ろの縁へ移ったので、<b>差し込む間だけ板を前へ 1.8 逃がし、'
-           '下ろしてから後ろへ 1.8 押して口へ挿す</b>（case の path_hub 51.4 → 0.00・docs/CASE-V61N.md 9.8）。')
+           '<b>3.5 持ち上げるのは、板の裏で一番低い物（OLED のライザーの足・下端 9.0）が柱の頭（12.0）を越えるため</b>（3.0 ＋ 逃げ 0.5・case の PCB_LIFT）。'
+           '<b>前へ 1.8 ずらすのは、USB-C の胴が板の後ろの縁から 1.3 出ていて、まっすぐ差すと後ろの壁の中を通るため</b>（1.3 ＋ 逃げ 0.5・case の pcb_fwd・docs/CASE-V61N.md 9.8）。'
+           '上は背面のトグルの座（φ14）まで空くので、傾ける必要は無い。右へ押す手順は無い（USB-C は右の壁ではなくハッチにある）。')
 
 
 
@@ -470,6 +469,7 @@ BODY = """
   <p class="eyebrow">__EYEBROW__</p>
   <h1>__H1__</h1>
   <p class="sub">__SUB__</p>
+  <p class="stamp">__STAMP__</p>
   <nav class="rail">__NAV__</nav>
 </header>
 
@@ -508,6 +508,7 @@ __BUY__
 <p>手順の動きを、動く物を道に沿って少しずつずらした姿と、その手順の時点で箱に在る物との重なり（体積）で当てた。0 が正。
 道具は <b>hardware/tools/manual_v61/_asm_chk_v61.py</b>（マニュアルの道具・筐体の検査 stl_v61n.py --check とは別）。
 ⚠ 平行移動しか当てていない。線（圧着した殻）は相手に入れていない。</p>
+<p>判定は <b>hardware/check/</b> の物（git に入る・模型の刻印つき）。値の横に「古い」と付いた行は、模型が変わってから回していない。</p>
 __CHECKS__
 </section>
 
@@ -577,7 +578,11 @@ def build(mat):
     T = TEXT[mat]
     gloss = '\n'.join('<figure class="g"><img src="{}" alt="{}"><figcaption><b>{}</b> — {}</figcaption></figure>'
                       .format(IM(k), nm, nm, d) for nm, d, k in GLOSS[mat])
+    st = check_stamp.stamp()
+    stamp_p = ('模型 <span class="d">%s</span>（git %s）から %s に焼いた。判定は hardware/check/ の刻印と突き合わせている。'
+               % (st['sha'], st['git'], st['ran']))
     body = (BODY.replace('__EYEBROW__', MAT[mat]['eyebrow']).replace('__H1__', T['h1']).replace('__SUB__', T['sub'])
+            .replace('__STAMP__', stamp_p)
             .replace('__NAV__', ' '.join('<a href="#s{0}">{0}</a>'.format(s['n']) for s in steps))
             .replace('__BEFORE__', ''.join('<li>%s</li>' % b for b in T['before']))
             .replace('__EXP__', IM('explode')).replace('__EXPCAP__', T['expcap'])
@@ -587,11 +592,12 @@ def build(mat):
             .replace('__NUTROWS__', '\n'.join('<tr><td class="d">{}</td><td class="n">{}</td><td>{}</td><td>{}</td></tr>'.format(*r) for r in NUTS[mat]))
             .replace('__PARTROWS__', '\n'.join('<tr><td><b>{}</b></td><td class="n">{}</td><td>{}</td></tr>'.format(*r) for r in PARTS[mat]))
             .replace('__BUY__', BUY).replace('__CHECKS__', chk_table(CHECKS[mat], mat)).replace('__AFTER__', T['after']))
-    head = ('<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1">\n'
+    head = (check_stamp.stamp_line(st, html=True) + '\n'
+            '<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1">\n'
             '<title>' + MAT[mat]['title'] + '</title>\n'
             '<link rel="preconnect" href="https://fonts.googleapis.com">\n<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n'
             '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=BIZ+UDPGothic:wght@400;700&family=JetBrains+Mono:wght@400;700&display=swap">\n'
-            '<style>' + V4.CSS + '\n.old{color:#b00;font-weight:normal;font-size:.85em}\n.gloss{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}'
+            '<style>' + V4.CSS + '\n.old{color:#b00;font-weight:normal;font-size:.85em}\n.mast .stamp{font-size:.85em;color:var(--ink2);margin:4px 0 0}\n.gloss{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}'
             '.gloss figure.g{margin:0;background:#fff;border:1px solid #e3e6ea;border-radius:10px;padding:8px}'
             '.gloss figure.g img{width:100%;height:auto;display:block}.gloss figcaption{font-size:.92em;margin-top:6px;color:#14171c}'
             'figure.sheet figcaption{font-size:.92em;color:#4a5560;margin-top:6px}</style>\n')

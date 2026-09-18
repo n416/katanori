@@ -1,3 +1,4 @@
+<!-- src sha=377bb49d2d6e newest=2026-09-18 17:22 git=8a61a6d+ ran=2026-09-18 19:15 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>カタノリ v6.1 組み立て（レジン）</title>
@@ -175,6 +176,8 @@ a { color:var(--accent); }
 }
 @media (prefers-reduced-motion:reduce) { * { animation:none !important; transition:none !important; } }
 
+.old{color:#b00;font-weight:normal;font-size:.85em}
+.mast .stamp{font-size:.85em;color:var(--ink2);margin:4px 0 0}
 .gloss{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}.gloss figure.g{margin:0;background:#fff;border:1px solid #e3e6ea;border-radius:10px;padding:8px}.gloss figure.g img{width:100%;height:auto;display:block}.gloss figcaption{font-size:.92em;margin-top:6px;color:#14171c}figure.sheet figcaption{font-size:.92em;color:#4a5560;margin-top:6px}</style>
 
 <div class="wrap">
@@ -182,6 +185,7 @@ a { color:var(--accent); }
   <p class="eyebrow">katanori &middot; enclosure v6.1 &middot; resin</p>
   <h1>カタノリ v6.1<br><em>組み立て（レジン）</em></h1>
   <p class="sub">板 6 枚（床・天板・左右の壁・フロント・ハッチ）を光造形で刷った版。上から順にやれば組める。<b>順番を変えると入らない物がある</b>ので、理由を各手順の「注意」「なぜ」に書いた。図面は <b>hardware/case_v6_1.scad</b>（MAT="resin"）。組む順は 🔒 ユーザー 2026-09-18（docs/SWEEP.md 9 章）。⚠ 2026-09-16 版（壁を横から当てる順）は捨てた。</p>
+  <p class="stamp">模型 <span class="d">377bb49d2d6e</span>（git 8a61a6d+）から 2026-09-18 19:15 に焼いた。判定は hardware/check/ の刻印と突き合わせている。</p>
   <nav class="rail"><a href="#s0">0</a> <a href="#s1">1</a> <a href="#s2">2</a> <a href="#s3">3</a> <a href="#s4">4</a> <a href="#s5">5</a> <a href="#s6">6</a> <a href="#s7">7</a> <a href="#s8">8</a> <a href="#s9">9</a> <a href="#s10">10</a> <a href="#s11">11</a></nav>
 </header>
 
@@ -381,6 +385,7 @@ a { color:var(--accent); }
 <p>手順の動きを、動く物を道に沿って少しずつずらした姿と、その手順の時点で箱に在る物との重なり（体積）で当てた。0 が正。
 道具は <b>hardware/tools/manual_v61/_asm_chk_v61.py</b>（マニュアルの道具・筐体の検査 stl_v61n.py --check とは別）。
 ⚠ 平行移動しか当てていない。線（圧着した殻）は相手に入れていない。</p>
+<p>判定は <b>hardware/check/</b> の物（git に入る・模型の刻印つき）。値の横に「古い」と付いた行は、模型が変わってから回していない。</p>
 <div class="tw"><table><thead><tr><th>手順</th><th>検査</th><th>動き</th><th>重なりの最大</th><th>読み</th></tr></thead><tbody><tr><td class="n">1</td><td class="d">sweep:bat</td><td>電池を床へ</td><td class="n hi"><b>入る</b>（了承済み 0・新 0）</td><td></td></tr><tr><td class="n">2</td><td class="d">sweep:hub</td><td>PCB を真上から管へ</td><td class="n hi"><b>入る</b>（了承済み 0・新 0）</td><td></td></tr><tr><td class="n">5</td><td class="d">sweep:rsp</td><td>ReSpeaker＋ライザーを真上から（壁は 45° 開いていて相手に居ない）</td><td class="n hi"><b>入る</b>（了承済み 0・新 0）</td><td></td></tr><tr><td class="n">7</td><td class="d">sweep:lwall</td><td>左の壁を後ろのねじを軸に閉じる</td><td class="n hi"><b>了承済みの当たりだけ</b>（了承済み 3・新 0）</td><td>了承済みは 45° の切り合わせの交わりと、口を通す張り出し（docs/SWEEP.md 9 章）</td></tr><tr><td class="n">7</td><td class="d">sweep:rwall</td><td>右の壁を閉じる</td><td class="n hi"><b>了承済みの当たりだけ</b>（了承済み 2・新 0）</td><td>同上</td></tr><tr><td class="n">9</td><td class="d">sweep:top</td><td>天板の小組を真上から</td><td class="n hi"><b>了承済みの当たりだけ</b>（了承済み 2・新 0）</td><td>了承済みは ReSpeaker の押さえ 0.3（設計どおり）</td></tr><tr><td class="n">10</td><td class="d">sweep:front</td><td>OLED を嵌めたフロントを前から</td><td class="n hi"><b>了承済みの当たりだけ</b>（了承済み 3・新 0）</td><td>了承済みは OLED のピンがライザーのメスに入る分と、板と壁の面が同じ平面に乗る皮</td></tr><tr><td class="n">11</td><td class="d">sweep:hatch</td><td>ハッチを後ろから</td><td class="n hi"><b>入る</b>（了承済み 0・新 0）</td><td></td></tr></tbody></table></div>
 </section>
 
