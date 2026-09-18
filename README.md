@@ -8,11 +8,11 @@ Gemini Live API と音声で対話する小型ロボット。**実機で会話�
 📖 **[かたのりの歴史](https://n416.github.io/katanori/docs/history/)** — 筐体 8 版の形と死因、燃えた・壊れた・また鏡だった事故の記録
 
 <p align="center">
-  <img src="docs/manual/_manual_img_v61n/explode.png" width="520" alt="筐体 v6.1n（MJF ナイロン）の分解図">
+  <img src="docs/manual/_manual_img_v61/explode.png" width="520" alt="筐体 v6.1（レジン・板 6 枚）の分解図">
 </p>
 
-筐体 v6.1n（MJF ナイロン・発注前）の分解図。上が蓋（天板＋左の板・つまみ・会話ボタン・スピーカー）、
-中が底パーツと ReSpeaker Lite・OLED、下がハブ基板 katanori61 と電池。
+筐体 v6.1（レジン・板 6 枚）の分解図。天板（つまみ・会話ボタン・スピーカー）・左右の壁・フロント（紫）・床の間に、
+ハブ基板 katanori61・ReSpeaker Lite・OLED・電池が入る。
 
 **組む順の当たり検査**（`hardware/tools/sweep_movie.py`・2026-09-18）— 部品を実際の入れ方で動かし、当たりを色で出す。
 青＝空き・橙＝了承済みの当たり・赤＝新しい当たり。
