@@ -226,8 +226,8 @@ a { color:var(--accent); }
 <li><b>リードスイッチ</b>: 足を両端とも下へ曲げてから、つまみの台座の裏の穴へ<b>平らな細い棒</b>で天井に突き当たるまで押し込む（knob_v61.scad の組む順 ⓪）。⚠ ナイロンは穴の天井が 0.5 厚い（<span class="d">REED_TOP</span> −1.0・CASE-V61N.md 5.1）。磁石に反応する距離は実機で見る。</li>
 <li><b>つまみ</b>: 島をへこみに置き（タブの向きを合わせるだけ）、<span class="d">M2×6</span> 2 本を上から締める。ナットは台座の裏の六角ポケット（天板が裏返しなので口が上を向いて落ちない）。つまみを軸ごと上から挿し、<b>天板の裏から軸の溝に E リング（呼び 6）を 2 枚、左右（±X）から横に差す</b>（🔒 ユーザー 2026-09-15「溝も広げて 2 個入れればいい」）。</li>
 <li><b>磁石</b>: つまみの軸の先に φ4 × 2 を入れる（ナイロンは穴 φ4.50 に入れて<b>瞬間接着剤</b>で留める・CASE-V61N.md 2 章）。磁石は PCB の AS5600 の真上 1.1 に来る（case_v6_1.scad の knob61）。🔴 <b>v6.1 のつまみの軸は、天板の裏から PCB の上まで伸びた長い軸</b>（🔒 ユーザー 2026-09-14「ノブはながーーい棒を備える事になりますがそれで良い」）。⚠ <b>ところが発注用の hardware/stl/v61n/v61n_knob.stl は v5 と同じ短い軸のまま</b>（高さ 21.4）。長い軸は case の knob61_shaft に絵として描かれているだけで、刷る形になっていない（2026-09-16 夜に気づいた・未対応）。</li>
-<li><b>会話ボタン</b>: バスタブにマイクロスイッチを <span class="d">M2</span> 2 本で留め、押し子を上から通し、天板の裏の腕（ブロック 2 つ・ナット入り）へ耳の下から <span class="d">M2</span> 2 本。</li>
-<li><b>スピーカー</b>: 天板の裏の小判の座へ<b>真下から真っすぐ</b>落とす（グリル側が天板側）。手（倒した板 2 枚）の溝へ <span class="d">M2</span> のナットを 1 個ずつ落とし、リードを後ろの縁から逃がしてバスタブを被せ、<b>壁の外から横に</b> <span class="d">M2×4</span> を 2 本。（v5 の実物で通っている手順・spk_v61.scad の 2026-09-09 の ✅）</li>
+<li><b>会話ボタン</b>: <b>先に天板の裏の腕（ブロック 2 つ）の溝へ <span class="d">M2</span> ナットを 2 個、<u>バスタブ側（内側）の口</u>から差す</b>（🔒 ユーザー 2026-09-18「ナットの入口を内側に」。バスタブを付けると外壁が口を塞ぐ）。バスタブにマイクロスイッチを <span class="d">M2</span> 2 本で留め、押し子を上から通し、腕へ耳の下から <span class="d">M2</span> 2 本。</li>
+<li><b>スピーカー</b>: <b>先に手（倒した板 2 枚）の溝へ <span class="d">M2</span> ナットを 1 個ずつ、座の側（内側）から差す</b>（🔒 ユーザー 2026-09-18「スピーカーを入れる前にナット入れるだけでしょ」。入れたスピーカーの胴が口を塞ぐ）。スピーカーを天板の裏の小判の座へ<b>真下から真っすぐ</b>落とす（グリル側が天板側）。リードを後ろの縁から逃がしてバスタブを被せ、<b>バスタブの裏から上向きに</b> <span class="d">M2×4</span> を 2 本（⭐ 2026-09-18 横ねじをやめて上向きに・spk_v61.scad）。</li>
 <li><b>直はんだ 3 か所</b>（手順 0 で作った線の、殻の無い側）: 会話ボタン → スイッチの <b>C（黒）と NO（紫）</b>（端子はレバーの根元から C・NO・NC）、スピーカー OUT → スピーカーのリード、リード → リードスイッチの足。</li>
 <li><b>OLED の L には何も付けない。</b>ナイロンの L にダボは無い（CASE-V61N.md 8.2）。</li></ol>
 
@@ -325,21 +325,22 @@ a { color:var(--accent); }
 </section>
 
 <section class="sec"><h2>ビスとナット</h2>
-<div class="tw"><table><thead><tr><th>ビス</th><th>本数</th><th>どこ</th><th>手順</th></tr></thead><tbody><tr><td class="d">M2 × 6</td><td class="n">3</td><td>PCB → 柱（上から。ナットは柱の横差しの溝）</td><td class="n">3</td></tr>
+<div class="tw"><table><thead><tr><th>ビス</th><th>本数</th><th>どこ</th><th>手順</th></tr></thead><tbody><tr><td class="d">M2 × 6</td><td class="n">2</td><td>PCB → 柱（上から・左前と右前。ナットは柱の横差しの溝）</td><td class="n">3</td></tr>
+<tr><td class="d">M2 × 12</td><td class="n">1</td><td>床の裏 → 右後ろの柱の頭のナット（板は締めない）</td><td class="n">8</td></tr>
 <tr><td class="d">M2 × 6</td><td class="n">4</td><td>天板 → 上の柱（4 本ともナットは横差し）</td><td class="n">8</td></tr>
-<tr><td class="d">M2 × 15</td><td class="n">1</td><td>床の裏 → 隅の台 → 蓋の足のナット</td><td class="n">8</td></tr>
+<tr><td class="d">M2 × 18</td><td class="n">1</td><td>床の裏 → 左後ろの柱 → PCB → 蓋の座のナット</td><td class="n">8</td></tr>
 <tr><td class="d">M2 × 6</td><td class="n">2</td><td>つまみの島 → 天板（ナットは台座の裏の六角）</td><td class="n">1</td></tr>
 <tr><td class="d">M2</td><td class="n">2</td><td>会話ボタンのスイッチ → バスタブ</td><td class="n">1</td></tr>
 <tr><td class="d">M2</td><td class="n">2</td><td>会話ボタンのバスタブ → 天板の腕</td><td class="n">1</td></tr>
-<tr><td class="d">M2 × 4</td><td class="n">2</td><td>スピーカーのバスタブ → 天板の手（壁の外から横に）</td><td class="n">1</td></tr>
+<tr><td class="d">M2 × 4</td><td class="n">2</td><td>スピーカーのバスタブ → 天板の手（バスタブの裏から上向き）</td><td class="n">1</td></tr>
 <tr><td class="d">トグルのナット</td><td class="n">1</td><td>トグル（背面の外から）</td><td class="n">4</td></tr>
 <tr><td class="d">E リング 呼び 6</td><td class="n">2</td><td>つまみの軸の溝（ナイロンは 2 枚）</td><td class="n">1</td></tr></tbody></table></div>
-<div class="tw"><table><thead><tr><th>ナット</th><th>個数</th><th>どこ</th><th>いつ入れる</th></tr></thead><tbody><tr><td class="d">M2</td><td class="n">3</td><td>PCB の柱</td><td>手順 2</td></tr>
+<div class="tw"><table><thead><tr><th>ナット</th><th>個数</th><th>どこ</th><th>いつ入れる</th></tr></thead><tbody><tr><td class="d">M2</td><td class="n">3</td><td>PCB の柱（右後ろは床の裏からのねじの相手）</td><td>手順 2</td></tr>
 <tr><td class="d">M2</td><td class="n">3</td><td>上の柱（左前は無し）</td><td>手順 2（右前は OLED より先）</td></tr>
 <tr><td class="d">M2</td><td class="n">1</td><td>蓋の足（口は後ろ）</td><td>手順 8 の最初</td></tr>
 <tr><td class="d">M2</td><td class="n">2</td><td>つまみの台座の裏</td><td>手順 1</td></tr>
-<tr><td class="d">M2</td><td class="n">4</td><td>会話ボタン（バスタブ 2・天板の腕 2）</td><td>手順 1</td></tr>
-<tr><td class="d">M2</td><td class="n">2</td><td>スピーカーの手</td><td>手順 1</td></tr></tbody></table></div>
+<tr><td class="d">M2</td><td class="n">4</td><td>会話ボタン（バスタブ 2・天板の腕 2 は内側から・バスタブの前）</td><td>手順 1</td></tr>
+<tr><td class="d">M2</td><td class="n">2</td><td>スピーカーの手（座の側から・スピーカーの前）</td><td>手順 1</td></tr></tbody></table></div>
 </section>
 
 <section class="sec"><h2>刷る部品</h2>
