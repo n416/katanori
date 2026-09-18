@@ -1279,10 +1279,14 @@ def pad_box(placed, ref, num):
             pat, sz = find1(pad, "at"), find1(pad, "size")
             dx, dy = rot_xy(float(pat[1]), float(pat[2]), fa)
             w, h = float(sz[1]), float(sz[2])
-            # 🔴 **部品の角度も足す。**パッド自身の rot だけ見ていて、270° 置きの U3 で
-            #    縦横が入れ替わったまま返っていた。そのせいでケルビンの線の端が U3 の
-            #    パッドの 0.335 外に落ちていた（2026-09-17・自動配線が繕っていて気づかなかった）
-            if ((float(pat[3]) if len(pat) > 3 else 0.0) + fa) % 180 == 90:
+            # 🔴 縦横はパッドの**板の上での角度**で決める。置いた足形のパッドの (at x y 角度) には
+            #    **部品の角度が既に入っている**（KiCad の書き方。90° の C8 のパッドは 90、270° の U3 は 270）。
+            #    ⚠ 2026-09-17 に「部品の角度も足す」を入れたが、そのときはパッドに角度が無かった。
+            #    後でパッドに角度が入るようになり、足すと 90°／270° で二重に回って縦横が元に戻っていた
+            #    （2026-09-19 に C7 の先引きで見つけた。cap_gnd_vias の「他のパッドの箱」も入れ替わっていた）。
+            #    パッドに角度が無いときだけ部品の角度を使う
+            ang = float(pat[3]) if len(pat) > 3 else fa
+            if ang % 180 == 90:
                 w, h = h, w
             return fx + dx, fy + dy, w, h
     raise SystemExit("パッドが見つからない: %s.%s" % (ref, num))
@@ -1522,7 +1526,6 @@ def c7_link(placed):
     """
     cx, cy, _, _ = pad_box(placed, "C7", "1")
     ux, uy, _, _ = pad_box(placed, "U2", "15")
-    # U2 は 0° なので pad_box の幅と高さはそのまま使える（90°／270° では入れ替わって返る ⚠）
     vx, _, vw, _ = pad_box(placed, "U2", "17")
     gap = (cx - BAT_W / 2) - (vx + vw / 2)
     if gap < 0.15:
