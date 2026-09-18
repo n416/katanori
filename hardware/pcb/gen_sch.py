@@ -99,7 +99,7 @@ part("U2", "Battery_Management:MCP73871-2CC", "MCP73871-2CCI/ML", X0 + 8, Y0 + 3
       "21": "GND", "12": "PROG3", "13": "PROG1", "14": "VLIPO", "15": "VLIPO",
       "16": "VLIPO", "17": "VBUS", "18": "VBUS", "19": "VBUS"},
      "Package_DFN_QFN:QFN-20-1EP_4x4mm_P0.5mm_EP2.5x2.5mm",
-     lcsc="C5121473", note="充電・ロードシェア（PowerBoost U2）", grp="charge")
+     lcsc="C511310", note="充電・ロードシェア（PowerBoost U2）。MCP73871T-2CCI/ML ── T はテープ＆リールだけ（📄 データシート PRODUCT IDENTIFICATION・部品に刻印されない）。2026-09-19 に C5121473（$4.41）から替えた（$2.19・在庫 2410）", grp="charge")
 part("L1", "Device:L_Small", "6.8uH", X0 + 18, Y0 + 4, {"1": "VSYS", "2": "SW"},
      "Inductor_SMD:L_Changjiang_FNR4018S",
      note="PowerBoost は TDK VLC5045（5×5mm）。JLCPCB の在庫に合わせて FNR4018S6R8MT（4×4mm・2A）にした")
@@ -335,7 +335,7 @@ part("J1", "Connector_Generic:Conn_01x07", "XIAO RISER", XX, YX,
 # ---- JLCPCB（LCSC）の部品番号（2026-09-12 に JLCPCB の部品検索で取った） ----
 # 「基」= Basic（種類ごとの取り付け料 $0 ）・「拡」= Extended（種類ごとに $3.07）
 LCSC = {
-    "U1": "C206167", "U2": "C5121473", "U3": "C49851",          # 拡: 昇圧・充電・電流計
+    "U1": "C206167", "U2": "C511310", "U3": "C49851",          # 拡: 昇圧・充電・電流計
     "Q1": "C53477467",                                          # 拡: MMUN2133（YTL・SOT-23）。2026-09-18 に CBI の C21714196 から替えた（EasyEDA に足形が無く、JLCPCB のプレビューでも市松模様の印しか出ず向きを確かめられないため）。在庫 92 個 ── 発注時に切れていたら TECH PUBLIC C52205308（4.7k/47k・足形あり）
     "L1": "C167807",                                            # 拡: FNR4018S6R8MT 6.8µH 2A（4×4mm）
     "R41": "C105362",                                           # 拡: 10mΩ 1% 1W 合金 1206
