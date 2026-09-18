@@ -163,13 +163,17 @@ def chk_max(sw):
 
 
 def sweep_verdict(mat, key):
-    """tools/sweep_chk.py の判定（hardware/check/<mat>/sweep/<key>.json）。判定と、了承済み／新しい当たりの数、刻印の状態"""
+    """tools/sweep_chk.py の判定（hardware/check/<mat>/sweep/<key>.json）。判定と、了承済み／新しい当たりの数、刻印の状態、了承の理由
+    理由は台帳 hardware/sweep_accept.json から id で引く（ここに書き写さない。台帳を直せば表が付いてくる）"""
     import json
     p = os.path.join(HW, 'check', mat, 'sweep', key + '.json')
     if not os.path.exists(p):
         return None
     r = json.load(open(p, encoding='utf-8'))
-    return ('<b>%s</b>（了承済み %d・新 %d）' % (r['verdict'], len(r.get('ok', [])), len(r.get('new', []))), check_stamp.state(r.get('src')))
+    why = {a['id']: a['why'] for a in json.load(open(os.path.join(HW, 'sweep_accept.json'), encoding='utf-8'))['accept']}
+    ids = sorted(set(o['acc'] for o in r.get('ok', []) if o.get('acc')))
+    acc = ''.join('<br><span class="d">%s</span>: %s' % (i, why.get(i, '（台帳に無い）')) for i in ids)
+    return ('<b>%s</b>（了承済み %d・新 %d）' % (r['verdict'], len(r.get('ok', [])), len(r.get('new', []))), check_stamp.state(r.get('src')), acc)
 
 
 STALE = {'ok': '', 'old': ' <span class="old">古い（模型が変わった。回し直す）</span>', 'none': ' <span class="old">刻印無し</span>'}
@@ -181,7 +185,8 @@ def chk_table(rows, mat='nylon'):
         if sw.startswith('sweep:'):
             v = sweep_verdict(mat, sw[6:])
             s = '（未実行: python hardware/tools/sweep_chk.py --mat %s %s）' % (mat, sw[6:]) if v is None else v[0] + STALE[v[1]]
-            out.append('<tr><td class="n">%s</td><td class="d">%s</td><td>%s</td><td class="n hi">%s</td><td>%s</td></tr>' % (step, sw, what, s, note))
+            acc = '' if v is None else v[2]
+            out.append('<tr><td class="n">%s</td><td class="d">%s</td><td>%s</td><td class="n hi">%s</td><td>%s</td></tr>' % (step, sw, what, s, note + acc))
             continue
         v = chk_max(sw)
         s = '（未実行）' if v is None else (('<b>0</b>' if v[0] < 0.005 else '<b>%.2f</b> mm³' % v[0]) + STALE[v[1]])
@@ -436,8 +441,7 @@ CHECKS = {
   ('4', 'n_tgl', 'トグルを箱の中から背面の穴へ（まっすぐ）', '当たりはレバーが穴の縁に掛かる分（X 42〜45・Z 46〜48）。レバーは必ずどちらかへ 12° 倒れているので、傾けて通す（手順 4）'),
   ('5', 'n_rsp', 'ReSpeaker＋ライザーを真上から', ''),
   ('6', 'n_oled', 'OLED＋ライザーを真上から', 'OLED の裏のフィルムが ReSpeaker の D1 を擦る分。case の path_oled と同じ値'),
-  ('7', 'n_bat', '電池を左の窓から（0.5 浮かせて）', '電池のガイドの輪（床と天井・高さ 1.2）の窓の側の辺を、電池が上下 0.7 ずつ全長 50 で擦る分（上下 43.41 ずつ）。'
-   '🔒 ユーザー 2026-09-18「全長にわたってこすっても大丈夫」。sweep_chk の bat では了承済み（bat-guide-ring-low / high）'),
+  ('7', 'sweep:bat', '電池を左の窓から（0.5 浮かせて）', ''),
   ('8', 'n_lid', '蓋を真上から 14 → 0.3（左の板は 1.5 たわんだ姿）', 'この刻み（0.5）では 0。case の path_lid（14 段）では 0.07（模型の殻の角が口の R に触れる分）'),
   ('8', 'n_lid_seat', '最後の 0.3（板が戻った姿）', '0.3 の所の当たりは ReSpeaker の押さえ（設計どおり）'),
  ],
@@ -447,10 +451,10 @@ CHECKS = {
   ('1', 'sweep:bat', '電池を床へ', ''),
   ('2', 'sweep:hub', 'PCB を真上から管へ', ''),
   ('5', 'sweep:rsp', 'ReSpeaker＋ライザーを真上から（壁は 45° 開いていて相手に居ない）', ''),
-  ('7', 'sweep:lwall', '左の壁を後ろのねじを軸に閉じる', '了承済みは 45° の切り合わせの交わりと、口を通す張り出し（docs/SWEEP.md 9 章）'),
-  ('7', 'sweep:rwall', '右の壁を閉じる', '同上'),
-  ('9', 'sweep:top', '天板の小組を真上から', '了承済みは ReSpeaker の押さえ 0.3（設計どおり）'),
-  ('10', 'sweep:front', 'OLED を嵌めたフロントを前から', '了承済みは OLED のピンがライザーのメスに入る分と、板と壁の面が同じ平面に乗る皮'),
+  ('7', 'sweep:lwall', '左の壁を後ろのねじを軸に閉じる', ''),
+  ('7', 'sweep:rwall', '右の壁を閉じる', ''),
+  ('9', 'sweep:top', '天板の小組を真上から', ''),
+  ('10', 'sweep:front', 'OLED を嵌めたフロントを前から', ''),
   ('11', 'sweep:hatch', 'ハッチを後ろから', ''),
  ],
 }
