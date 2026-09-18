@@ -10,14 +10,19 @@ PTH / NPTH のドリル）を読んで、板の座標へ直してから突き合
 
 🔴 いちばん見たいのは電池の極性。逆接で INA226 から煙が出た事故がある（2026-09-11）。
 """
+import csv
+import math
 import pathlib
 import re
+import subprocess
 import sys
 
 HERE = pathlib.Path(__file__).parent
 sys.path.insert(0, str(HERE))
 import v61_board as B          # noqa: E402
 import gen_pcb as G            # noqa: E402
+import jlc_fp                  # noqa: E402
+from kicad_paths import CLI    # noqa: E402
 
 FAB = HERE / "katanori61" / "fab" / "gerber"
 NAME = "katanori61"
@@ -44,6 +49,74 @@ def drill(path):
 
 def near(holes, bx, by, tol=0.06):
     return [h for h in holes if abs(h[0] - bx) < tol and abs(h[1] - by) < tol]
+
+
+def ipc356():
+    """KiCad が書き出すパッドの位置 → {(ref, 番号): [(x, y), …]}（CPL と同じ座標・Y 上向き・mm）"""
+    out = FAB.parent / "_pads.356"
+    r = subprocess.run([CLI, "pcb", "export", "ipcd356", "-o", str(out),
+                        str(HERE / "katanori61" / f"{NAME}.kicad_pcb")], capture_output=True)
+    if r.returncode:
+        sys.exit("IPC-D-356 が書き出せない")
+    pads = {}
+    for ln in out.read_text(encoding="utf-8", errors="replace").splitlines():
+        # 327 = 表面のパッド・317 = 穴を通すパッド（USB-C のシェルの足）・367 = 銅の無い穴（USB-C の位置決めの突起）
+        if ln[:3] not in ("327", "317", "367"):
+            continue
+        # 列の位置は IPC-D-356 の決まり: 20〜25 列が部品・27〜30 列がピン・X / Y は 0.0001 インチ
+        ref, pin = ln[20:26].strip(), ("穴" if ln[:3] == "367" else ln[27:31].strip())
+        m = re.search(r"X([+-]\d+)Y([+-]\d+)", ln[38:])
+        pads.setdefault((ref, pin), []).append((int(m.group(1)) * 0.00254, int(m.group(2)) * 0.00254))
+    out.unlink()
+    return pads
+
+
+def placement():
+    kpads = ipc356()
+    lcsc = {}
+    with open(FAB.parent / "bom.csv", encoding="utf-8-sig") as f:
+        for r in csv.DictReader(f):
+            for ref in r["Designator"].split(","):
+                lcsc[ref] = (r["JLCPCB Part #"], r["Footprint"])
+    bad = []
+    with open(FAB.parent / "cpl.csv", encoding="utf-8-sig") as f:
+        rows = list(csv.DictReader(f))
+    worst = []
+    for r in rows:
+        ref = r["Designator"]
+        lc, fp = lcsc[ref]
+        res = jlc_fp.fetch(lc)
+        if res is None:
+            print(f"   ❌ {ref} {lc}: EasyEDA に足形が無い")
+            bad.append(ref)
+            continue
+        _, epads, names = jlc_fp.easy_pads(res)
+        kp = {pin: ps for (rf, pin), ps in kpads.items() if rf == ref}
+        m = jlc_fp.pair(fp, kp, epads, names)
+        placed = jlc_fp.place(float(r["Mid X"]), float(r["Mid Y"]), float(r["Rotation"]), lc)
+        # JLCPCB の足形のパッド 1 つずつ、KiCad の同じピンのパッドまでの距離（同じ番号が複数なら近い方）
+        d = max(min(math.dist(a, b) for a in placed[e] for b in kp[k]) for k, e in m.items())
+        # 番号で組にならなかった JLCPCB のパッド（シェルの足など）も、KiCad のどれかのパッドに乗ること
+        anyk = [b for pin, ps in kp.items() if pin != "穴" for b in ps]
+        for e in set(placed) - set(m.values()):
+            d = max(d, max(min(math.dist(a, b) for b in anyk) for a in placed[e]))
+        # JLCPCB の足形の穴（位置決めの突起）は、KiCad の穴に入ること
+        holes = jlc_fp.place_holes(float(r["Mid X"]), float(r["Mid Y"]), float(r["Rotation"]), lc)
+        if holes:
+            if "穴" not in kp:
+                print(f"   ❌ {ref}: JLCPCB の足形に穴が {len(holes)} 個あるのに、板に無い")
+                bad.append(f"{ref} の穴")
+            else:
+                d = max(d, max(min(math.dist(a, b) for b in kp["穴"]) for a in holes))
+        worst.append((d, ref, lc, sum(len(v) for v in placed.values()) + len(holes)))
+        # 0.5: jlc_fp.solve と同じ（足形どうしのランドの伸びの違いは 0.4 まで出る。ピンを 1 本取り違えると 0.5 以上）
+        if d > 0.5:
+            bad.append(f"{ref} の実装")
+    worst.sort(reverse=True)
+    for d, ref, lc, n in worst[:6]:
+        print(f"   {ref:5s} {lc:10s} パッドと穴 {n:2d} 個・最大のずれ {d:.2f}" + ("  ❌" if d > 0.5 else ""))
+    print(f"   （ほか {len(worst) - 6} 個はずれ {worst[6][0]:.2f} 以下）")
+    return bad
 
 
 def main():
@@ -96,6 +169,13 @@ def main():
         print(f"   {ref} {n} 本（Y {y}）: {mark}")
         if mark.count("x"):
             bad.append(ref)
+
+    # 5. 🔴 実装の向きと位置（2026-09-18）
+    #   CPL の 1 行どおりに **JLCPCB の足形**（品番ごとの EasyEDA の足形）を置いて、そのパッドが
+    #   **KiCad が書き出したパッドの位置**（IPC-D-356・板の上の実際の位置）に乗るかを見る。
+    #   fab.py は「足形どうしを重ねて角度を出す」、ここは「出した角度で置いてみる」で、道が逆になる
+    print("\n実装の向きと位置（CPL どおりに JLCPCB の足形を置く）")
+    bad += placement()
 
     print()
     print("合わない所なし" if not bad else "❌ 合わない: " + ", ".join(bad))
