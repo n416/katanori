@@ -25,14 +25,19 @@ if hasattr(sys.stdout, "reconfigure"):
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))          # hardware/
 SCAD = os.path.join(ROOT, "tools", "_sweep_v61.scad")
-TMP = os.path.join(ROOT, "_tmp_sweep")
+# 🔒 ユーザー 2026-09-15「レジン版とナイロン版はスイッチできるわけで、それに応じてアラートを分けて」:
+#   材料は -D MAT= で OpenSCAD へ渡し、出る物も材料ごとに分ける（混ざると前の材料の OFF を使ってしまう）
+MAT = "nylon"
+TMP = os.path.join(ROOT, "_tmp_sweep", MAT)
 OPENSCAD = os.environ.get("OPENSCAD", r"C:\Program Files\OpenSCAD (Nightly)\openscad.exe")
 
 TOL = 0.05          # これ以下の隙間は「接触」として扱う（clash tolerance。意図した面接触を落とす）
 MIN_MOVE = 0.02     # 接触区間で 1 歩に進む距離 mm（道具が止まらないための下限）
 EXACT_MOVE = 0.30   # 接触区間の中で厳密な交わりを取る間隔 mm
 EXACT_MAX = 12      # 1 区間あたりの厳密評価の上限（重くしないため）
-SKIN_T = 0.01       # 交わりの厚みがこれ未満なら同一平面の皮 ＝ めり込みではない
+SKIN_T = 0.10       # 交わりの厚みがこれ未満なら当たりに数えない（同一平面の皮 ＋ 物が入る分）。
+#   🔒 ユーザー 2026-09-18「0.1mm くらい何でも入るよ」── 刷った物の公差も硬化の縮みもこれより大きい。
+#   ⚠ 2026-09-18 まで 0.01（皮だけを落とす値）だったので、0.1 未満の擦りが全部「めり込み」として出ていた
 # ---- たわむ物（2026-09-18）----
 # 道の 1 点は [dx, dy, dz, rx, ry, rz, d]。**7 つ目 d はたわみ量**で、これが変わると**形が変わる**。
 # 形は OpenSCAD に作り直させるので、d は刻んで丸める（作り直す回数を抑える）。
@@ -41,9 +46,35 @@ DELTA_STEP = 0.1
 DEFL_RATIO = 2.5    # d が 1 変わると物のどの点も最大これだけ動く（板の下端が d の 2.4 倍出る）
 
 
+_SRC_MT = None
+
+
+def src_mtime():
+    u"""模型の元ファイル（*.scad）のうち、いちばん新しい更新時刻"""
+    global _SRC_MT
+    if _SRC_MT is None:
+        ts = [os.path.getmtime(SCAD)]
+        for d in (ROOT, os.path.join(ROOT, "parts"), os.path.join(ROOT, "tools")):
+            if not os.path.isdir(d):
+                continue
+            for n in os.listdir(d):
+                if n.endswith(".scad"):
+                    ts.append(os.path.getmtime(os.path.join(d, n)))
+        _SRC_MT = max(ts)
+    return _SRC_MT
+
+
+def cached(f):
+    u"""キャッシュした OFF がそのまま使えるか。
+    🔴 **「あれば使う」にしてはいけない。**模型を直しても作り直されず、古い形のまま検査も動画も走る。
+      2026-09-18 に踏んだ: front_mover.off が 1 時間古く、動かす物に OLED の付いていない動画を焼いた。
+      当たりを探す段（距離で走る所）も古い形を見ていて、直した形でだけ出る当たりを 7 件見落としていた"""
+    return os.path.exists(f) and os.path.getmtime(f) >= src_mtime()
+
+
 def scad(args, out=None):
     cmd = [OPENSCAD, "--backend=manifold", "-o", out or os.path.join(TMP, "_.echo"),
-           "-D", 'part="__none__"'] + args + [SCAD]
+           "-D", 'part="__none__"', "-D", 'MAT="%s"' % MAT] + args + [SCAD]
     return subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
 
 
@@ -62,7 +93,7 @@ def export(mode, name, key, d=None):
     tag = "" if d is None else "_d%03d" % int(round(d * 100))
     f = os.path.join(TMP, "%s_%s%s.off" % (key, mode, tag))
     var = "MOVER" if mode == "mover" else "WORLD"
-    if not os.path.exists(f):
+    if not cached(f):
         args = ["-D", 'SW_MODE="%s"' % mode, "-D", 'SW_%s="%s"' % (var, name)]
         if d is not None:
             args += ["-D", "SW_D=%s" % d]
@@ -235,7 +266,8 @@ def classify(key, pieces, accept):
     u"""塊を「了承済み」と「新規」に分ける。箱の外へ出た／厚みが育った物は新規"""
     ok, new = [], []
     for d in pieces:
-        hit = next((a for a in accept if a["key"] == key and inside(d, a["box"])
+        hit = next((a for a in accept if a["key"] == key and a.get("mat", "nylon") == MAT
+                    and inside(d, a["box"])
                     and d["thick"] <= a["thick"] + 1e-6), None)
         (ok if hit else new).append(dict(d, acc=hit["id"] if hit else None,
                                          why=hit["why"] if hit else None))
@@ -311,14 +343,27 @@ def snippet(key, d):
     pad = 0.5
     box = [[round(d["bmin"][i] - pad, 2) for i in range(3)],
            [round(d["bmax"][i] + pad, 2) for i in range(3)]]
-    return json.dumps({"id": "%s-????" % key, "key": key, "why": "（なぜ了承するかを書く）",
+    return json.dumps({"id": "%s-%s-????" % (MAT, key), "key": key, "mat": MAT,
+                       "why": "（なぜ了承するかを書く）",
                        "box": box, "thick": round(d["thick"] + 0.05, 3),
                        "since": time.strftime("%Y-%m-%d")}, ensure_ascii=False)
 
 
 def main():
-    keys = sys.argv[1:] or ["hub", "rsp", "oled", "bat", "lid"]
+    global MAT, TMP
+    args = sys.argv[1:]
+    for i, a in enumerate(list(args)):                       # --mat resin / --mat=resin
+        if a == "--mat" and i + 1 < len(args):
+            MAT = args[i + 1]; args = args[:i] + args[i + 2:]; break
+        if a.startswith("--mat="):
+            MAT = a.split("=", 1)[1]; args = [x for x in args if x != a]; break
+    if MAT not in ("resin", "nylon"):
+        sys.exit("--mat は resin か nylon")
+    TMP = os.path.join(ROOT, "_tmp_sweep", MAT)
+    os.makedirs(TMP, exist_ok=True)
     paths = read_paths()
+    keys = args or list(paths)                               # 道は材料で違う（ナイロン lid / レジン lwall rwall top hatch）
+    print(u"材料 %s（出る物は hardware/_tmp_sweep/%s/）" % (MAT, MAT))
     news = []
     for k in keys:
         if k not in paths:
@@ -338,8 +383,8 @@ def main():
         if not r["ok"] and not r["new"]:
             print(u"        めり込み無し（触れているのは同一平面の皮だけ）")
         print(u"        判定: %s" % r["verdict"])
-    print(u"\n==== 新しい当たり %d 件 / 了承済みの台帳 %d 件（hardware/sweep_accept.json）"
-          % (len(news), len(load_accept())))
+    print(u"\n==== [%s] 新しい当たり %d 件 / 了承済みの台帳 %d 件（hardware/sweep_accept.json の %s の分）"
+          % (MAT, len(news), len([a for a in load_accept() if a.get("mat", "nylon") == MAT]), MAT))
     if news:
         print(u"見て「これでよい」と判じたら、理由を書いて台帳の accept に足す:")
         for k, d in news:

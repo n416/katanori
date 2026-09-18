@@ -24,7 +24,16 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import sweep_chk                                                                            # noqa: E402
 from sweep_chk import TMP, ROOT, TOL, SKIN_T, motion_bound, pose_mat, pose_at, delta, scad   # noqa: E402
+
+
+def set_mat(m):
+    u"""材料を切り替える。sweep_chk 側の MAT/TMP も一緒に動かす（scad() がそれを読む）"""
+    global TMP
+    sweep_chk.MAT = m
+    sweep_chk.TMP = TMP = os.path.join(ROOT, "_tmp_sweep", m)
+    os.makedirs(TMP, exist_ok=True)
 
 BLENDER = os.environ.get("BLENDER", r"C:\Program Files\Blender Foundation\Blender 5.2\blender.exe")
 FFMPEG = os.environ.get("FFMPEG", "ffmpeg")
@@ -38,6 +47,8 @@ HOLD_END = 60         # 🔒 ユーザー 2026-09-18「組み立て完了の状�
 def stl_from_off(key, which):
     off = os.path.join(TMP, "%s_%s.off" % (key, which))
     stl = os.path.join(TMP, "%s_%s.stl" % (key, which))
+    if not sweep_chk.cached(off):                                  # 模型が新しければ作り直す
+        scad(["-D", 'SW_MODE="%s"' % which, "-D", 'SW_WORLD="%s"' % key], off)
     m = trimesh.load(off)
     m.export(stl)
     return m
@@ -49,7 +60,13 @@ def shapes_of(rep, key, name, j):
     out = []
     for d in (rep.get("deltas") or [0.0]) if rep.get("flex") else [None]:
         tag = "" if d is None else "_d%03d" % int(round(d * 100))
-        m = trimesh.load(os.path.join(TMP, "%s_mover%s.off" % (key, tag)))
+        f = os.path.join(TMP, "%s_mover%s.off" % (key, tag))
+        if not sweep_chk.cached(f):                                # 模型が新しければ作り直す
+            args = ["-D", 'SW_MODE="mover"', "-D", 'SW_MOVER="%s"' % key]
+            if d is not None:
+                args += ["-D", "SW_D=%s" % d]
+            scad(args, f)
+        m = trimesh.load(f)
         nm = "%s_m%d%s.stl" % (name, j, tag)
         m.export(os.path.join(TMP, nm))
         out.append((0.0 if d is None else d, nm, m))
@@ -67,7 +84,7 @@ def world_parts(key, name):
     out = {}
     for mode, tag in (("wshell", "shell"), ("wunits", "units")):
         off = os.path.join(TMP, "%s_%s.off" % (key, mode))
-        if not os.path.exists(off):
+        if not sweep_chk.cached(off):
             scad(["-D", 'SW_MODE="%s"' % mode, "-D", 'SW_WORLD="%s"' % key], off)
         if not os.path.exists(off):
             continue                       # 先に入っている物が無い道もある
@@ -135,7 +152,8 @@ def build_frames(reps, shapes_by, world):
             # 決着済みの物で画面を赤くすると、皮を黄色にしていた頃と同じ間違いになる
             newk = set(tuple(round(x, 0) for x in d["bmin"]) for d in rep.get("new", []))
             ss = min(s, len(rep["path"]) - 1.0)          # 揃えるために伸ばした区間では最後の姿勢のまま
-            R, t = pose_mat(pose_at(rep["path"], ss, rep["c"]), rep["c"])
+            q = pose_at(rep["path"], ss, rep["c"])
+            R, t = pose_mat(q, rep["c"])
             M = np.eye(4)
             M[:3, :3], M[:3, 3] = R, t
             d = nearest(rep["samples"], ss, lambda x: x["s"])["d"]
@@ -147,14 +165,23 @@ def build_frames(reps, shapes_by, world):
             movers.append({"m": [float(x) for x in M.flatten()], "hidden": (k == ghost_k),
                            "shape": pick(shapes_by[k], delta(pose_at(rep["path"], ss, rep["c"]))),
                            "state": (2 if is_new else 1) if hit else 0})   # 0 無し / 1 済 / 2 新
+            # 🔒 ユーザー 2026-09-18「回転があったのかなかったのかがわからない」:
+            #   姿勢そのもの（残りの移動と、回した角）を必ず出す。回る道かどうかが絵で読める
+            pz = []
+            if any(abs(v) > 1e-6 for v in q[:3]):
+                pz.append("d=%.1fmm" % float(np.linalg.norm(np.asarray(q[:3], float))))
+            for ax, i in (("rx", 3), ("ry", 4), ("rz", 5)):
+                if abs(q[i]) > 1e-6:
+                    pz.append("%s=%+.1fdeg" % (ax, q[i]))
+            pz = (" " + " ".join(pz)) if pz else " seated"
             if hit:
                 hit_any = hit
-                notes.append("%s %s t=%.3fmm V=%.3fmm3"
-                             % (k, "NEW" if is_new else "known", hit["thick"], hit["vol"]))
+                notes.append("%s%s %s t=%.3fmm V=%.3fmm3"
+                             % (k, pz, "NEW" if is_new else "known", hit["thick"], hit["vol"]))
             elif d <= TOL:
-                notes.append("%s touch" % k)
+                notes.append("%s%s touch" % (k, pz))
             else:
-                notes.append("%s gap=%.2fmm" % (k, d))
+                notes.append("%s%s gap=%.2fmm" % (k, pz, d))
         note = "%s  s=%.3f   %s" % ("+".join(names), s, "   ".join(notes))
         if ghost_k:
             note = "%s  s=%.3f   >> overlap  (%s ghosted)   t=%.3fmm V=%.3fmm3" % (
@@ -187,7 +214,7 @@ def build_frames(reps, shapes_by, world):
             "shapes": hitshapes, "tol": TOL, "skin": SKIN_T, "margin": 4.0}
 
 
-KEYS = ["hub", "rsp", "oled", "bat", "lid"]
+KEYS = ["bat", "hub", "rsp", "oled", "front", "lwall", "rwall", "top", "hatch", "lid"]   # 焼く順（組む順）。実際に焼くのは _tmp_sweep/<材料>/ にある物だけ
 KEEP = os.path.join(os.path.dirname(ROOT), "docs", "_img", "sweep")   # 節目の動画を残す所
 
 
@@ -275,12 +302,36 @@ def main():
     peek = "--peek" in sys.argv
     tag = next((a.split("=", 1)[1] if "=" in a else time.strftime("%Y-%m-%d")
                 for a in sys.argv[1:] if a.startswith("--save")), None)
-    args = [a for a in sys.argv[1:] if not a.startswith("-")]
-    keys = KEYS if (not args or args == ["all"]) else args
+    argv = sys.argv[1:]
+    mat = "nylon"
+    for i, a in enumerate(list(argv)):                       # --mat resin / --mat=resin
+        if a == "--mat" and i + 1 < len(argv):
+            mat = argv[i + 1]; argv = argv[:i] + argv[i + 2:]; break
+        if a.startswith("--mat="):
+            mat = a.split("=", 1)[1]; argv = [x for x in argv if x != a]; break
+    if mat not in ("resin", "nylon"):
+        sys.exit("--mat は resin か nylon")
+    set_mat(mat)
+    args = [a for a in argv if not a.startswith("-")]
+    # 場面は sweep_chk が書いた JSON から取る（道は材料で違うので決め打ちにしない）
+    found = sorted(os.path.splitext(f)[0] for f in os.listdir(TMP) if f.endswith(".json"))
+    keys = args if (args and args != ["all"]) else [k for k in KEYS if k in found] or found
+    # 名前を並べられたとき、JSON の無い場面で**残りをやめない**（飛ばして最後に鳥く）。
+    # 2026-09-18: レジンに `oled` の道が無くなっていたのにそこで sys.exit し、
+    #   残り 4 本を焼かずに終了コード 0 で抜けていた
+    miss = [k for k in keys if not os.path.exists(os.path.join(TMP, "%s.json" % k))]
+    keys = [k for k in keys if k not in miss]
+    for k in miss:
+        print(u"⚠ %s は飛ばす（%s.json が無い。この材料にその道が無いか、先に sweep_chk を回していない）" % (k, k))
+    if not keys:
+        sys.exit("先に python hardware/tools/sweep_chk.py --mat %s を回す" % mat)
+    print(u"材料 %s（hardware/_tmp_sweep/%s/）: %s" % (mat, mat, " ".join(keys)))
     for k in keys:
         bake(k, peek)
     if tag and not peek:
         save(tag, keys)
+    if miss:
+        sys.exit(u"焼けなかった場面がある: %s" % " ".join(miss))
 
 
 if __name__ == "__main__":

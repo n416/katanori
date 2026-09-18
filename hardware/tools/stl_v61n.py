@@ -36,7 +36,8 @@ PARTS = [
     ('btn_tub',    BTN,  'print_tub'),       # 会話ボタンのバスタブ
 ]
 # 筐体の当たり検査（docs/CASE-V61N.md 5 章の表）。0 か、表の値が正
-CHECKS = ['seam_shell_lid', 'plugpath', 'hit_wires', 'nutpath', 'sk_rsp', 'sk_oled', 'sk_hub', 'sk_spktub', 'sk_tgl', 'sk_btn', 'hit_btn']
+CHECKS = ['seam_shell_lid', 'plugpath', 'hit_wires', 'sk_rsp', 'sk_oled', 'sk_hub', 'sk_spktub', 'sk_tgl', 'sk_btn', 'hit_btn']
+# ⭐ 2026-09-18: nutpath をここから外した。ナット／ねじの口は `python hardware/tools/nutpath_chk.py --mat nylon`（口 29・場面ごと。docs/SWEEP.md 10 章）
 # 🔴 2026-09-17: 入れる道の掃引（path_*）をここから外した（🔒 ユーザー「旧の掃引検査は削除」）。
 #   姿勢を n 個 union して交わりを作る方式は、細かくすると面数が爆発して PC が固まる。
 #   ⇒ `python hardware/tools/sweep_chk.py hub rsp oled bat lidmain lidflap`（距離クエリ・刻みは自動）。
