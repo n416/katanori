@@ -1,14 +1,16 @@
 # -*- coding: utf-8 -*-
 """組み立ての動きの掃引 v6.1 / v6.1n（_asm_chk_v61.scad を T を変えて回し、重なりの体積を並べる）。
-python hardware/tools/manual_v61/_asm_chk_v61.py [SW ...]   … 省略で全部。結果は hardware/_tmp_v61man/asm_chk/<SW>.txt と標準出力
+python hardware/tools/manual_v61/_asm_chk_v61.py [SW ...]   … 省略で全部。結果は hardware/check/asm/<SW>.txt（git に入る・模型の刻印つき）と標準出力。交わりの STL は hardware/_tmp_v61man/asm_chk/
 SW の頭が r ならレジン（MAT="resin"）、n ならナイロン（MAT="nylon"）で回す。
 """
 import os, subprocess, sys, concurrent.futures as cf
 HERE = os.path.dirname(os.path.abspath(__file__))          # hardware/tools/manual_v61
 HW = os.path.dirname(os.path.dirname(HERE))
 sys.path.insert(0, os.path.join(HW, 'tools')); from stl_read import tris
+from check_stamp import stamp_line, out_dir
 OPENSCAD = os.environ.get('OPENSCAD', r'C:\Program Files\OpenSCAD (Nightly)\openscad.com')
-OUT = os.path.join(HW, '_tmp_v61man', 'asm_chk'); os.makedirs(OUT, exist_ok=True)
+OUT = os.path.join(HW, '_tmp_v61man', 'asm_chk'); os.makedirs(OUT, exist_ok=True)   # 交わりの STL（中間物）
+RES = out_dir('asm')                                                                   # 判定の txt（git に入る）
 
 
 def frange(a, b, s):
@@ -77,7 +79,7 @@ def main():
         mx = max([v for t, v, e in res[sw] if isinstance(v, float)] + [0])
         lines.append('%-12s MAX %.2f mm3' % (sw, mx))
         txt = '\n'.join(lines)
-        open(os.path.join(OUT, sw + '.txt'), 'w', encoding='utf-8').write(txt + '\n')
+        open(os.path.join(RES, sw + '.txt'), 'w', encoding='utf-8').write(stamp_line() + '\n' + txt + '\n')
         print(txt); print()
 
 

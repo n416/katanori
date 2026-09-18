@@ -5,9 +5,10 @@
 ```
 case_v6_1.scad          形と道（PATH_*）の出どころ。ここは触らずに使う
   └ tools/_sweep_v61.scad   呼び出し口（動かす物・相手・1 姿勢の交わり・道の一覧）
-       ├ tools/sweep_chk.py      距離で道を走り、当たりを出す   → _tmp_sweep/<key>.json
+       ├ tools/sweep_chk.py      距離で道を走り、当たりを出す   → check/<材料>/sweep/<key>.json（判定・git に入る）
+       │    └ tools/check_stamp.py   判定に押す模型の刻印と、判定の置き場
        │    └ sweep_accept.json    了承済みの当たりの台帳
-       └ tools/sweep_movie.py    動画を焼く                     → _tmp_sweep/<key>.mp4
+       └ tools/sweep_movie.py    動画を焼く                     → _tmp_sweep/<材料>/<key>.mp4（中間物・git に入らない）
             └ tools/_sweep_blender.py   Blender の中で動く側
 ```
 
@@ -39,7 +40,7 @@ python hardware/tools/sweep_chk.py --mat nylon      # ナイロン 5 本（48 �
 python hardware/tools/sweep_chk.py --mat resin lwall
 ```
 
-出る物は `hardware/_tmp_sweep/resin/` と `hardware/_tmp_sweep/nylon/` に分かれる。
+判定は `hardware/check/resin/sweep/` と `hardware/check/nylon/sweep/`、中間物は `hardware/_tmp_sweep/resin/` と `hardware/_tmp_sweep/nylon/` に分かれる。
 台帳（`hardware/sweep_accept.json`）の各件も `mat` を持っていて、材料が違う件は突き合わせない。
 
 読み方:
@@ -120,17 +121,23 @@ python hardware/tools/sweep_movie.py --save
 python hardware/tools/sweep_movie.py --save=v61n-発注前
 ```
 
-⚠ `hardware/_tmp_sweep/` は git に入らない（作業場・焼き直すと上書き・別の PC には行かない）。
+⚠ `hardware/_tmp_sweep/` は git に入らない（作業場・焼き直すと上書き・別の PC には行かない）。判定（`<key>.json`）だけは `hardware/check/` にあって git に入る。
 **残すと決めた物だけ** `--save` で `docs/_img/sweep/` へ移す。
 
 ## 3. 出る物の場所
 
-`hardware/_tmp_sweep/`（git には入れない）
+**判定** `hardware/check/<材料>/sweep/<key>.json`（git に入る。2026-09-18 から）
+
+検査の全部（姿勢ごとの隙間・厳密評価・済/新の分類）と、**どの模型から出たかの刻印** `src`（`tools/check_stamp.py`）:
+`sha` は hardware/ parts/ tools/ tools/manual_v61/ の *.scad 全部の中身の指紋、`newest` はその中でいちばん新しい更新時刻、`git` は実行時の HEAD（汚れていれば `+`）、`ran` は実行時刻。
+基板の `drc.json` と同じ扱いで、コミットに「この模型でこの判定だった」が残る。マニュアル（`tools/manual_v61/_asm_manual_v61.py`）は今の模型の指紋と比べ、違えば表に「古い」と出す（値は隠さない）。
+`nutpath_chk.py` の `hardware/check/<材料>/nutpath.json` と `_asm_chk_v61.py` の `hardware/check/asm/<SW>.txt`（1 行目が刻印）も同じ。
+
+**中間物** `hardware/_tmp_sweep/<材料>/`（git には入れない。いつ消してもよい）
 
 | | |
 |---|---|
 | `<key>.mp4` | 動画 |
-| `<key>.json` | 検査の全部（姿勢ごとの隙間・厳密評価・済/新の分類） |
 | `<key>_frames/f*.png` | 動画のコマ |
 | `<key>_mover.off` / `_world.off` | 動かす物と相手（OpenSCAD から 1 回だけ出した物） |
 | `<key>_mover_d###.off` | たわむ物の、たわみ量ごとの形（### は d × 100） |
@@ -353,7 +360,8 @@ python hardware/tools/nutpath_chk.py --mat resin --dd 3.8   # 頭と工具の柱
 | 口の表・場面・世界 | `hardware/tools/_nutpath_v61.scad`（`PROBES`・`np_scene()`） |
 | 箱と先に入っている物 | `case_v6_1.scad` の `world_for_*()`（掃引と同じ出どころ） |
 | 了承済みの当たり | `hardware/nutpath_accept.json`（mat・口・場面・体積の上限・理由） |
-| 出る物 | `hardware/_tmp_nutpath/<材料>/`（`nutpath.json` と、当たりの形 `hit_<口>__<場面>.stl`） |
+| 判定 | `hardware/check/<材料>/nutpath.json`（git に入る・模型の刻印 `src` つき。3 章） |
+| 中間物 | `hardware/_tmp_nutpath/<材料>/`（当たりの形 `hit_<口>__<場面>.stl`。git に入らない） |
 
 - 判定は口ごと。**「使う場面」のどれか 1 つで空いていれば正**（ナットはねじを締める前ならいつ入れてもよい）。
   使う場面は `PROBES` の 8 列目。組む順（9 章）から読んで置いた物なので、順を変えたらここも変える

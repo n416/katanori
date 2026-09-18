@@ -20,6 +20,8 @@ u"""ナット／ねじの口の検査。口から外へ道を掃き、**その�
 import json, math, os, re, subprocess, sys, time
 from concurrent.futures import ThreadPoolExecutor
 import numpy as np, trimesh
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from check_stamp import stamp, out_dir                                            # noqa: E402
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
@@ -152,7 +154,7 @@ def main():
         bj = [(k, s, t) for k in blocked for s in probes[k]["when"] for t in toks]
         who = dict(zip(bj, ex.map(lambda j: hit(*j), bj)))
 
-    print(u"材料 %s ／ 口 %d ／ 頭と工具の柱 φ%s ／ %.0f 秒（出る物は hardware/_tmp_nutpath/%s/）"
+    print(u"材料 %s ／ 口 %d ／ 頭と工具の柱 φ%s ／ %.0f 秒（判定は hardware/check/%s/nutpath.json・当たりの形は hardware/_tmp_nutpath/%s/）"
           % (MAT, len(probes), DD if DD is not None else "座ぐり", time.time() - t0, MAT))
     news, rep = [], {}
     for k, p in probes.items():
@@ -183,7 +185,8 @@ def main():
         print("  %-7s " % "" + " ".join("%7s" % s for s in SCENES_ALL[MAT]))
         for k in probes:
             print("  %-7s " % k + " ".join("%7s" % (u"─" if not res[(k, s)] else "%.2f" % res[(k, s)]["vol"]) for s in SCENES_ALL[MAT]))
-    json.dump({"mat": MAT, "dd": DD, "probes": rep, "tap": taps}, open(os.path.join(TMP, "nutpath.json"), "w", encoding="utf-8"),
+    json.dump({"mat": MAT, "dd": DD, "src": stamp(), "probes": rep, "tap": taps},         # src: どの模型から出た判定か
+              open(os.path.join(out_dir(MAT), "nutpath.json"), "w", encoding="utf-8"),
               ensure_ascii=False, indent=1)
     print(u"\n==== [%s] 塞がっている口 %d 件（新）／ 了承済みの台帳 %d 件 ／ タッピング %d 件"
           % (MAT, len(news), len(accept), len(taps)))

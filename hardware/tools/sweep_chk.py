@@ -11,7 +11,8 @@ u"""入れる道の当たり検査（ブーリアンを取らずに距離で走�
      ── 厚みが 0 なら同一平面の皮（＝誤報）、厚みがあれば本物のめり込み
   4. 見つけた塊を **hardware/sweep_accept.json（了承済みの当たりの台帳）** と突き合わせ、
      載っていない物だけを「新」として出す。新しい当たりがあれば終了コード 1
-  5. 動画（tools/sweep_movie.py）が読む JSON を書く
+  5. 判定を hardware/check/<材料>/sweep/<key>.json に書く（git に入る証拠。模型の刻印つき・tools/check_stamp.py）。
+     動画（tools/sweep_movie.py）とマニュアルはこれを読む。OFF・STL などの中間物は hardware/_tmp_sweep/<材料>/（git に入らない）
 
 なぜこの形か: 姿勢を n 個 union して交わりの体積を作る旧 sweep_pose() は、
 姿勢の数だけ面数が増える。0.25 刻みで 400 姿勢 × 28782 面 ＝ 1150 万面で PC が固まった（2026-09-17）。
@@ -19,6 +20,10 @@ u"""入れる道の当たり検査（ブーリアンを取らずに距離で走�
 """
 import json, math, os, re, subprocess, sys, time
 import numpy as np, trimesh, fcl
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from check_stamp import stamp, out_dir                                            # noqa: E402
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from check_stamp import stamp, out_dir                                            # noqa: E402
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")   # Windows の cp932 で日本語が化けないように
@@ -28,7 +33,8 @@ SCAD = os.path.join(ROOT, "tools", "_sweep_v61.scad")
 # 🔒 ユーザー 2026-09-15「レジン版とナイロン版はスイッチできるわけで、それに応じてアラートを分けて」:
 #   材料は -D MAT= で OpenSCAD へ渡し、出る物も材料ごとに分ける（混ざると前の材料の OFF を使ってしまう）
 MAT = "nylon"
-TMP = os.path.join(ROOT, "_tmp_sweep", MAT)
+TMP = os.path.join(ROOT, "_tmp_sweep", MAT)              # 中間物（git に入らない）
+OUT = os.path.join(ROOT, "check", MAT, "sweep")          # 判定（git に入る）
 OPENSCAD = os.environ.get("OPENSCAD", r"C:\Program Files\OpenSCAD (Nightly)\openscad.exe")
 
 TOL = 0.05          # これ以下の隙間は「接触」として扱う（clash tolerance。意図した面接触を落とす）
@@ -403,7 +409,8 @@ def check(key, spec):
            "flex": flex, "deltas": sorted(meshes),
            "exact": hits, "tris": {"mover": max(len(m.faces) for m in meshes.values()),
                                    "world": len(world.faces)}}
-    json.dump(rep, open(os.path.join(TMP, "%s.json" % key), "w", encoding="utf-8"), ensure_ascii=False)
+    rep["src"] = stamp()                                     # どの模型から出た判定か
+    json.dump(rep, open(os.path.join(out_dir(MAT, "sweep"), "%s.json" % key), "w", encoding="utf-8"), ensure_ascii=False)
     return rep
 
 
@@ -419,7 +426,7 @@ def snippet(key, d):
 
 
 def main():
-    global MAT, TMP
+    global MAT, TMP, OUT
     args = sys.argv[1:]
     for i, a in enumerate(list(args)):                       # --mat resin / --mat=resin
         if a == "--mat" and i + 1 < len(args):
@@ -429,10 +436,11 @@ def main():
     if MAT not in ("resin", "nylon"):
         sys.exit("--mat は resin か nylon")
     TMP = os.path.join(ROOT, "_tmp_sweep", MAT)
+    OUT = os.path.join(ROOT, "check", MAT, "sweep")
     os.makedirs(TMP, exist_ok=True)
     paths = read_paths()
     keys = args or list(paths)                               # 道は材料で違う（ナイロン lid / レジン lwall rwall top hatch）
-    print(u"材料 %s（出る物は hardware/_tmp_sweep/%s/）" % (MAT, MAT))
+    print(u"材料 %s（判定は hardware/check/%s/sweep/・中間物は hardware/_tmp_sweep/%s/）" % (MAT, MAT, MAT))
     news = []
     for k in keys:
         if k not in paths:

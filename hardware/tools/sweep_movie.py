@@ -12,7 +12,8 @@ u"""入れる道の動画を焼く（sweep_chk.py が書いた JSON を読む）
 「再生しながらフレームごとに干渉を探し、フレーム番号・時刻・部品・干渉量の表を出す」形をしている。
 docs/COLLISION-SURVEY.md 参照。
 
-出る物: hardware/_tmp_sweep/<key>.mp4（作業場・git に入らない。--save で節目の物を残す）
+出る物: hardware/_tmp_sweep/<材料>/<key>.mp4（作業場・git に入らない。--save で節目の物を残す）
+読む物: hardware/check/<材料>/sweep/<key>.json（sweep_chk の判定・git に入る）
   色は 3 段。青 = めり込み無し（触れているのも含む）/ 橙 = 台帳にある（了承済み）/ 赤 = 新しいめり込み
   🔒 ユーザー 2026-09-18: 皮で触れているだけの所を黄色にしたら道の全域が黄色になり
   「入らない」と読めた。触れていることは文字（touch）に残す
@@ -28,14 +29,15 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import sweep_chk                                                                            # noqa: E402
 RIDE_SHAPE = None   # 仮締めで逃げる物の形（無い場面は None）
 KEEP_FRAMES = False   # --keep-frames のときだけ、動画にした後もコマを残す
-from sweep_chk import TMP, ROOT, TOL, SKIN_T, motion_bound, pose_mat, pose_at, delta, scad   # noqa: E402
+from sweep_chk import TMP, OUT, ROOT, TOL, SKIN_T, motion_bound, pose_mat, pose_at, delta, scad   # noqa: E402
 
 
 def set_mat(m):
     u"""材料を切り替える。sweep_chk 側の MAT/TMP も一緒に動かす（scad() がそれを読む）"""
-    global TMP
+    global TMP, OUT
     sweep_chk.MAT = m
     sweep_chk.TMP = TMP = os.path.join(ROOT, "_tmp_sweep", m)
+    sweep_chk.OUT = OUT = os.path.join(ROOT, "check", m, "sweep")
     os.makedirs(TMP, exist_ok=True)
 
 BLENDER = os.environ.get("BLENDER", r"C:\Program Files\Blender Foundation\Blender 5.2\blender.exe")
@@ -247,7 +249,7 @@ def save(tag, keys):
         if os.path.exists(src):
             shutil.copy2(src, os.path.join(dst, "%s.mp4" % name))
         for k in members(name):
-            f = os.path.join(TMP, "%s.json" % k)
+            f = os.path.join(OUT, "%s.json" % k)
             if not os.path.exists(f):
                 continue
             r = json.load(open(f, encoding="utf-8"))
@@ -282,7 +284,7 @@ def bake(name, peek=False):
     ks = members(name)
     reps, meshes = {}, {}
     for k in ks:
-        f = os.path.join(TMP, "%s.json" % k)
+        f = os.path.join(OUT, "%s.json" % k)
         if not os.path.exists(f):
             sys.exit("%s が無い。先に python hardware/tools/sweep_chk.py %s を回すこと" % (f, k))
         reps[k] = json.load(open(f, encoding="utf-8"))
@@ -336,18 +338,18 @@ def main():
     set_mat(mat)
     args = [a for a in argv if not a.startswith("-")]
     # 場面は sweep_chk が書いた JSON から取る（道は材料で違うので決め打ちにしない）
-    found = sorted(os.path.splitext(f)[0] for f in os.listdir(TMP) if f.endswith(".json"))
+    found = sorted(os.path.splitext(f)[0] for f in os.listdir(OUT) if f.endswith(".json")) if os.path.isdir(OUT) else []
     keys = args if (args and args != ["all"]) else [k for k in KEYS if k in found] or found
     # 名前を並べられたとき、JSON の無い場面で**残りをやめない**（飛ばして最後に鳴く）。
     # 2026-09-18: レジンに `oled` の道が無くなっていたのにそこで sys.exit し、
     #   残り 4 本を焼かずに終了コード 0 で抜けていた
-    miss = [k for k in keys if not os.path.exists(os.path.join(TMP, "%s.json" % k))]
+    miss = [k for k in keys if not os.path.exists(os.path.join(OUT, "%s.json" % k))]
     keys = [k for k in keys if k not in miss]
     for k in miss:
         print(u"⚠ %s は飛ばす（%s.json が無い。この材料にその道が無いか、先に sweep_chk を回していない）" % (k, k))
     if not keys:
         sys.exit("先に python hardware/tools/sweep_chk.py --mat %s を回す" % mat)
-    print(u"材料 %s（hardware/_tmp_sweep/%s/）: %s" % (mat, mat, " ".join(keys)))
+    print(u"材料 %s（判定 hardware/check/%s/sweep/ → 動画 hardware/_tmp_sweep/%s/）: %s" % (mat, mat, mat, " ".join(keys)))
     for k in keys:
         bake(k, peek)
     if tag and not peek:

@@ -603,7 +603,7 @@ preflight（MJF）: 底パーツ・蓋とも **🔴 0・二重面 0・中身 1 �
 
 ```
 python hardware/tools/sweep_chk.py hub rsp oled bat     # 検査
-python hardware/tools/sweep_movie.py bat                # 動画（_tmp_sweep/bat.mp4）
+python hardware/tools/sweep_movie.py bat                # 動画（_tmp_sweep/nylon/bat.mp4。判定は check/nylon/sweep/bat.json）
 ```
 
 | 道 | 旧（掃引・体積） | 新（距離＋厳密） |

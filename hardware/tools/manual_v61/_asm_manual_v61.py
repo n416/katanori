@@ -6,7 +6,8 @@
 #   python hardware/tools/manual_v61/_asm_manual_v61.py nylon        片方だけ（resin / nylon）
 #
 # 手順の文は下の STEPS_R / STEPS_N にしか無い。段の絵は _asm_sim_v61.scad、呼び名の絵は _asm_gloss_v61.scad。
-# 動きの当たりは _asm_chk_v61.py の結果（hardware/_tmp_v61man/asm_chk/<SW>.txt の MAX 行）をそのまま表に写す。先に回しておくこと。
+# 動きの当たりは _asm_chk_v61.py の結果（hardware/check/asm/<SW>.txt の MAX 行）をそのまま表に写す。先に回しておくこと。
+# 判定ファイルには模型の刻印（tools/check_stamp.py）が付いていて、今の模型と違えば表に「古い」と出す（値は隠さない）。
 # 線の長さは case の WIRE_LEN=true の echo から取る。書き方と見た目は v5（hardware/tools/manual_v5/_asm_manual_v5.py）に合わせた。
 # 🔴 case_v6_1.scad は読むだけ。ここで形の数字を持たない（文の中の数字は case と docs から写した物で、出どころを文に書く）
 import base64, math, os, re, subprocess, sys, concurrent.futures as cf
@@ -22,7 +23,8 @@ CASE = os.path.join(HW, 'case_v6_1.scad')
 SIM = os.path.join(HERE, '_asm_sim_v61.scad')
 GLOSS_SCAD = os.path.join(HERE, '_asm_gloss_v61.scad')
 TMP = os.path.join(HW, '_tmp_v61man')
-CHK = os.path.join(TMP, 'asm_chk')
+CHK = os.path.join(HW, 'check', 'asm')          # _asm_chk_v61.py の判定（git に入る）
+sys.path.insert(0, os.path.join(HW, 'tools')); import check_stamp            # noqa: E402  判定の刻印を今の模型と比べる
 OPENSCAD = os.environ.get('OPENSCAD', r'C:\Program Files\OpenSCAD (Nightly)\openscad.com')
 
 CAM_D = '43,26,22,30,0,315,300'         # 🔒 ユーザー 2026-09-16 夜「D」: 左前の真上寄り
@@ -151,21 +153,26 @@ def cuttable(mat):
 
 # ---------------------------------------------------------------- 当たりの表（_asm_chk_v61.py の結果）
 def chk_max(sw):
+    """(MAX の値, 刻印の状態 ok/old/none)。ファイルが無ければ None"""
     p = os.path.join(CHK, sw + '.txt')
     if not os.path.exists(p):
         return None
-    m = re.search(r'MAX ([0-9.]+) mm3', open(p, encoding='utf-8').read())
-    return float(m.group(1)) if m else None
+    txt = open(p, encoding='utf-8').read()
+    m = re.search(r'MAX ([0-9.]+) mm3', txt)
+    return (float(m.group(1)) if m else None, check_stamp.state(check_stamp.parse_line(txt)))
 
 
 def sweep_verdict(mat, key):
-    """tools/sweep_chk.py の結果（hardware/_tmp_sweep/<mat>/<key>.json）。判定と、了承済み／新しい当たりの数"""
+    """tools/sweep_chk.py の判定（hardware/check/<mat>/sweep/<key>.json）。判定と、了承済み／新しい当たりの数、刻印の状態"""
     import json
-    p = os.path.join(HW, '_tmp_sweep', mat, key + '.json')
+    p = os.path.join(HW, 'check', mat, 'sweep', key + '.json')
     if not os.path.exists(p):
         return None
     r = json.load(open(p, encoding='utf-8'))
-    return '<b>%s</b>（了承済み %d・新 %d）' % (r['verdict'], len(r.get('ok', [])), len(r.get('new', [])))
+    return ('<b>%s</b>（了承済み %d・新 %d）' % (r['verdict'], len(r.get('ok', [])), len(r.get('new', []))), check_stamp.state(r.get('src')))
+
+
+STALE = {'ok': '', 'old': ' <span class="old">古い（模型が変わった。回し直す）</span>', 'none': ' <span class="old">刻印無し</span>'}
 
 
 def chk_table(rows, mat='nylon'):
@@ -173,11 +180,11 @@ def chk_table(rows, mat='nylon'):
     for step, sw, what, note in rows:
         if sw.startswith('sweep:'):
             v = sweep_verdict(mat, sw[6:])
-            s = '（未実行: python hardware/tools/sweep_chk.py --mat %s %s）' % (mat, sw[6:]) if v is None else v
+            s = '（未実行: python hardware/tools/sweep_chk.py --mat %s %s）' % (mat, sw[6:]) if v is None else v[0] + STALE[v[1]]
             out.append('<tr><td class="n">%s</td><td class="d">%s</td><td>%s</td><td class="n hi">%s</td><td>%s</td></tr>' % (step, sw, what, s, note))
             continue
         v = chk_max(sw)
-        s = '（未実行）' if v is None else ('<b>0</b>' if v < 0.005 else '<b>%.2f</b> mm³' % v)
+        s = '（未実行）' if v is None else (('<b>0</b>' if v[0] < 0.005 else '<b>%.2f</b> mm³' % v[0]) + STALE[v[1]])
         out.append('<tr><td class="n">%s</td><td class="d">%s</td><td>%s</td><td class="n hi">%s</td><td>%s</td></tr>' % (step, sw, what, s, note))
     return ('<div class="tw"><table><thead><tr><th>手順</th><th>検査</th><th>動き</th><th>重なりの最大</th><th>読み</th></tr></thead><tbody>'
             + ''.join(out) + '</tbody></table></div>')
@@ -434,7 +441,7 @@ CHECKS = {
   ('8', 'n_lid', '蓋を真上から 14 → 0.3（左の板は 1.5 たわんだ姿）', 'この刻み（0.5）では 0。case の path_lid（14 段）では 0.07（模型の殻の角が口の R に触れる分）'),
   ('8', 'n_lid_seat', '最後の 0.3（板が戻った姿）', '0.3 の所の当たりは ReSpeaker の押さえ（設計どおり）'),
  ],
- # レジンは 2026-09-18 から tools/sweep_chk.py --mat resin の結果（hardware/_tmp_sweep/resin/<key>.json）を読む。
+ # レジンは 2026-09-18 から tools/sweep_chk.py --mat resin の判定（hardware/check/resin/sweep/<key>.json）を読む。
  #   _asm_chk_v61.py の r_* は 2026-09-16 版の動き（壁を横から当てる）なので使わない
  'resin': [
   ('1', 'sweep:bat', '電池を床へ', ''),
@@ -584,7 +591,7 @@ def build(mat):
             '<title>' + MAT[mat]['title'] + '</title>\n'
             '<link rel="preconnect" href="https://fonts.googleapis.com">\n<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n'
             '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=BIZ+UDPGothic:wght@400;700&family=JetBrains+Mono:wght@400;700&display=swap">\n'
-            '<style>' + V4.CSS + '\n.gloss{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}'
+            '<style>' + V4.CSS + '\n.old{color:#b00;font-weight:normal;font-size:.85em}\n.gloss{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}'
             '.gloss figure.g{margin:0;background:#fff;border:1px solid #e3e6ea;border-radius:10px;padding:8px}'
             '.gloss figure.g img{width:100%;height:auto;display:block}.gloss figcaption{font-size:.92em;margin-top:6px;color:#14171c}'
             'figure.sheet figcaption{font-size:.92em;color:#4a5560;margin-top:6px}</style>\n')

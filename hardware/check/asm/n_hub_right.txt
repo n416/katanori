@@ -1,0 +1,11 @@
+# src sha=377bb49d2d6e newest=2026-09-18 17:22 git=684553f+ ran=2026-09-18 18:56
+n_hub_right  T=0      0.00 mm3
+n_hub_right  T=0.1    0.00 mm3
+n_hub_right  T=0.2    0.00 mm3
+n_hub_right  T=0.3    0.00 mm3
+n_hub_right  T=0.4    0.06 mm3
+n_hub_right  T=0.5    0.14 mm3
+n_hub_right  T=0.6    0.23 mm3
+n_hub_right  T=0.7    0.29 mm3
+n_hub_right  T=0.8    0.34 mm3
+n_hub_right  MAX 0.34 mm3

@@ -1,0 +1,5 @@
+# src sha=377bb49d2d6e newest=2026-09-18 17:22 git=684553f+ ran=2026-09-18 18:56
+n_lid_seat   T=0.0    4.28 mm3
+n_lid_seat   T=0.15   2.16 mm3
+n_lid_seat   T=0.3    0.07 mm3
+n_lid_seat   MAX 4.28 mm3

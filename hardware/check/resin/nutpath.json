@@ -1,0 +1,518 @@
+{
+ "mat": "resin",
+ "dd": null,
+ "src": {
+  "sha": "377bb49d2d6e",
+  "newest": "2026-09-18 17:22",
+  "git": null,
+  "ran": "2026-09-18 18:18",
+  "note": "2026-09-18 に hardware/_tmp_* から移した。刻印は移した時の模型で押した（結果のほうが模型より新しかった）"
+ },
+ "probes": {
+  "pt0": {
+   "what": "上の柱のナット",
+   "kind": "nut",
+   "when": [
+    "deskWL",
+    "top"
+   ],
+   "free": [
+    "deskWL",
+    "top"
+   ],
+   "scenes": {
+    "deskWL": null,
+    "top": null
+   }
+  },
+  "pt1": {
+   "what": "上の柱のナット",
+   "kind": "nut",
+   "when": [
+    "deskWR",
+    "top"
+   ],
+   "free": [
+    "deskWR",
+    "top"
+   ],
+   "scenes": {
+    "deskWR": null,
+    "top": null
+   }
+  },
+  "pt2": {
+   "what": "上の柱のナット",
+   "kind": "nut",
+   "when": [
+    "deskWL",
+    "top"
+   ],
+   "free": [
+    "deskWL",
+    "top"
+   ],
+   "scenes": {
+    "deskWL": null,
+    "top": null
+   }
+  },
+  "pt3": {
+   "what": "上の柱のナット",
+   "kind": "nut",
+   "when": [
+    "deskWR",
+    "top"
+   ],
+   "free": [
+    "deskWR",
+    "top"
+   ],
+   "scenes": {
+    "deskWR": null,
+    "top": null
+   }
+  },
+  "pb0": {
+   "what": "前の下の柱のナット（口は前板側）",
+   "kind": "nut",
+   "when": [
+    "deskWL",
+    "top",
+    "front"
+   ],
+   "free": [
+    "deskWL",
+    "top",
+    "front"
+   ],
+   "scenes": {
+    "deskWL": null,
+    "top": null,
+    "front": null
+   }
+  },
+  "pb1": {
+   "what": "前の下の柱のナット（口は前板側）",
+   "kind": "nut",
+   "when": [
+    "deskWR",
+    "top",
+    "front"
+   ],
+   "free": [
+    "deskWR",
+    "top",
+    "front"
+   ],
+   "scenes": {
+    "deskWR": null,
+    "top": null,
+    "front": null
+   }
+  },
+  "pb2": {
+   "what": "壁の羽のナット（口はハッチ側）",
+   "kind": "nut",
+   "when": [
+    "deskWR",
+    "top",
+    "hatch"
+   ],
+   "free": [
+    "deskWR",
+    "top",
+    "hatch"
+   ],
+   "scenes": {
+    "deskWR": null,
+    "top": null,
+    "hatch": null
+   }
+  },
+  "pb3": {
+   "what": "壁の羽のナット（口はハッチ側）",
+   "kind": "nut",
+   "when": [
+    "deskWL",
+    "top",
+    "hatch"
+   ],
+   "free": [
+    "deskWL",
+    "top",
+    "hatch"
+   ],
+   "scenes": {
+    "deskWL": null,
+    "top": null,
+    "hatch": null
+   }
+  },
+  "hubn0": {
+   "what": "PCB のねじのナット（床の裏）",
+   "kind": "nut",
+   "when": [
+    "s3"
+   ],
+   "free": [
+    "s3"
+   ],
+   "scenes": {
+    "s3": null
+   }
+  },
+  "hubn1": {
+   "what": "PCB のねじのナット（床の裏）",
+   "kind": "nut",
+   "when": [
+    "s3"
+   ],
+   "free": [
+    "s3"
+   ],
+   "scenes": {
+    "s3": null
+   }
+  },
+  "hf": {
+   "what": "ハッチの足のナット（口は前）",
+   "kind": "nut",
+   "when": [
+    "deskH"
+   ],
+   "free": [
+    "deskH"
+   ],
+   "scenes": {
+    "deskH": null
+   }
+  },
+  "btnvP": {
+   "what": "会話ボタンの縦ねじのナット（ブロックの内面から・バスタブの前）",
+   "kind": "nut",
+   "when": [
+    "desk0"
+   ],
+   "free": [
+    "desk0"
+   ],
+   "scenes": {
+    "desk0": null
+   }
+  },
+  "btnvM": {
+   "what": "会話ボタンの縦ねじのナット（ブロックの内面から・バスタブの前）",
+   "kind": "nut",
+   "when": [
+    "desk0"
+   ],
+   "free": [
+    "desk0"
+   ],
+   "scenes": {
+    "desk0": null
+   }
+  },
+  "btnsP": {
+   "what": "会話ボタンのスイッチねじのナット",
+   "kind": "nut",
+   "when": [
+    "desk1"
+   ],
+   "free": [
+    "desk1"
+   ],
+   "scenes": {
+    "desk1": null
+   }
+  },
+  "btnsM": {
+   "what": "会話ボタンのスイッチねじのナット",
+   "kind": "nut",
+   "when": [
+    "desk1"
+   ],
+   "free": [
+    "desk1"
+   ],
+   "scenes": {
+    "desk1": null
+   }
+  },
+  "dbtnsP": {
+   "what": "会話ボタンのスイッチねじ",
+   "kind": "drv",
+   "when": [
+    "desk2"
+   ],
+   "free": [
+    "desk2"
+   ],
+   "scenes": {
+    "desk2": null
+   }
+  },
+  "dbtnsM": {
+   "what": "会話ボタンのスイッチねじ",
+   "kind": "drv",
+   "when": [
+    "desk2"
+   ],
+   "free": [
+    "desk2"
+   ],
+   "scenes": {
+    "desk2": null
+   }
+  },
+  "dbtnvP": {
+   "what": "会話ボタンの縦ねじ（バスタブの底から）",
+   "kind": "drv",
+   "when": [
+    "desk2"
+   ],
+   "free": [
+    "desk2"
+   ],
+   "scenes": {
+    "desk2": null
+   }
+  },
+  "dbtnvM": {
+   "what": "会話ボタンの縦ねじ（バスタブの底から）",
+   "kind": "drv",
+   "when": [
+    "desk2"
+   ],
+   "free": [
+    "desk2"
+   ],
+   "scenes": {
+    "desk2": null
+   }
+  },
+  "knobn0": {
+   "what": "つまみの島のナット（天板の裏から）",
+   "kind": "nut",
+   "when": [
+    "desk0"
+   ],
+   "free": [
+    "desk0"
+   ],
+   "scenes": {
+    "desk0": null
+   }
+  },
+  "knobn1": {
+   "what": "つまみの島のナット（天板の裏から）",
+   "kind": "nut",
+   "when": [
+    "desk0"
+   ],
+   "free": [
+    "desk0"
+   ],
+   "scenes": {
+    "desk0": null
+   }
+  },
+  "dknob0": {
+   "what": "つまみの島のねじ（持ち手を付ける前）",
+   "kind": "drv",
+   "when": [
+    "desk0"
+   ],
+   "free": [
+    "desk0"
+   ],
+   "scenes": {
+    "desk0": null
+   }
+  },
+  "dknob1": {
+   "what": "つまみの島のねじ（持ち手を付ける前）",
+   "kind": "drv",
+   "when": [
+    "desk0"
+   ],
+   "free": [
+    "desk0"
+   ],
+   "scenes": {
+    "desk0": null
+   }
+  },
+  "dhub0": {
+   "what": "PCB のねじ",
+   "kind": "drv",
+   "when": [
+    "s3"
+   ],
+   "free": [
+    "s3"
+   ],
+   "scenes": {
+    "s3": null
+   }
+  },
+  "dhub1": {
+   "what": "PCB のねじ",
+   "kind": "drv",
+   "when": [
+    "s3"
+   ],
+   "free": [
+    "s3"
+   ],
+   "scenes": {
+    "s3": null
+   }
+  },
+  "dtop0": {
+   "what": "天板のねじ",
+   "kind": "drv",
+   "when": [
+    "done"
+   ],
+   "free": [
+    "done"
+   ],
+   "scenes": {
+    "done": null
+   }
+  },
+  "dtop1": {
+   "what": "天板のねじ",
+   "kind": "drv",
+   "when": [
+    "done"
+   ],
+   "free": [
+    "done"
+   ],
+   "scenes": {
+    "done": null
+   }
+  },
+  "dtop2": {
+   "what": "天板のねじ",
+   "kind": "drv",
+   "when": [
+    "done"
+   ],
+   "free": [
+    "done"
+   ],
+   "scenes": {
+    "done": null
+   }
+  },
+  "dtop3": {
+   "what": "天板のねじ",
+   "kind": "drv",
+   "when": [
+    "done"
+   ],
+   "free": [
+    "done"
+   ],
+   "scenes": {
+    "done": null
+   }
+  },
+  "dpb0": {
+   "what": "前の下の柱のねじ（床の裏から）",
+   "kind": "drv",
+   "when": [
+    "done"
+   ],
+   "free": [
+    "done"
+   ],
+   "scenes": {
+    "done": null
+   }
+  },
+  "dpb1": {
+   "what": "前の下の柱のねじ（床の裏から）",
+   "kind": "drv",
+   "when": [
+    "done"
+   ],
+   "free": [
+    "done"
+   ],
+   "scenes": {
+    "done": null
+   }
+  },
+  "dpb2": {
+   "what": "壁の羽のねじ（床の裏から）",
+   "kind": "drv",
+   "when": [
+    "done"
+   ],
+   "free": [
+    "done"
+   ],
+   "scenes": {
+    "done": null
+   }
+  },
+  "dpb3": {
+   "what": "壁の羽のねじ（床の裏から）",
+   "kind": "drv",
+   "when": [
+    "done"
+   ],
+   "free": [
+    "done"
+   ],
+   "scenes": {
+    "done": null
+   }
+  },
+  "dhf": {
+   "what": "ハッチの足のねじ（床の裏から）",
+   "kind": "drv",
+   "when": [
+    "done"
+   ],
+   "free": [
+    "done"
+   ],
+   "scenes": {
+    "done": null
+   }
+  },
+  "spkn": {
+   "what": "スピーカーのナット（座の側から）",
+   "kind": "nut",
+   "when": [
+    "desk0"
+   ],
+   "free": [
+    "desk0"
+   ],
+   "scenes": {
+    "desk0": null
+   }
+  },
+  "dspk": {
+   "what": "スピーカーの上向きねじ（バスタブの裏から）",
+   "kind": "drv",
+   "when": [
+    "desk2"
+   ],
+   "free": [
+    "desk2"
+   ],
+   "scenes": {
+    "desk2": null
+   }
+  }
+ },
+ "tap": []
+}
