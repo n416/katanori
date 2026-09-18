@@ -70,6 +70,14 @@ python hardware/tools/sweep_movie.py lid
 python hardware/tools/sweep_movie.py bat --peek
 ```
 
+**コマ**（`hardware/_tmp_sweep/<材料>/<場面>_frames/*.png`）は、動画にできたら消す（1 本で数百 MB）。
+残したいときだけ `--keep-frames` を付ける。残っているコマがあると、焼くたびに最後に量が出る。
+同じ場面を焼き直すと、その場面の古いコマは先に捨てられる。
+
+```bash
+python hardware/tools/sweep_movie.py bat --keep-frames
+```
+
 絵の読み方:
 
 | 色 | 意味 |

@@ -5,6 +5,7 @@ u"""入れる道の動画を焼く（sweep_chk.py が書いた JSON を読む）
   python hardware/tools/sweep_movie.py          ← 5 場面とも動画（all でも同じ）
   python hardware/tools/sweep_movie.py bat      ← 1 場面だけ（蓋は lid）
   python hardware/tools/sweep_movie.py bat --peek  ← 3 枚だけ焼いて、動いているか見る（速い）
+  python hardware/tools/sweep_movie.py bat --keep-frames  ← 動画にした後もコマ（png）を残す。ふだんは消す
   python hardware/tools/sweep_movie.py --save      ← 焼いて docs/_img/sweep/<日付>/ に残す
 
 なぜ動画か: 数字だけでは人が判定できない。SolidWorks の Motion Study も
@@ -26,6 +27,7 @@ if hasattr(sys.stdout, "reconfigure"):
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import sweep_chk                                                                            # noqa: E402
 RIDE_SHAPE = None   # 仮締めで逃げる物の形（無い場面は None）
+KEEP_FRAMES = False   # --keep-frames のときだけ、動画にした後もコマを残す
 from sweep_chk import TMP, ROOT, TOL, SKIN_T, motion_bound, pose_mat, pose_at, delta, scad   # noqa: E402
 
 
@@ -311,10 +313,14 @@ def bake(name, peek=False):
     subprocess.run([FFMPEG, "-y", "-loglevel", "error", "-framerate", str(FPS),
                     "-i", os.path.join(out, "f%05d.png"),
                     "-c:v", "libx264", "-pix_fmt", "yuv420p", mp4], check=True)
+    if not KEEP_FRAMES:   # 動画になったらコマは要らない（1 本で数百 MB。焼くたびに描き直すので取っておく意味も無い）
+        for f in os.listdir(out): os.remove(os.path.join(out, f))
     print(u"        できました: %s" % mp4)
 
 
 def main():
+    global KEEP_FRAMES
+    KEEP_FRAMES = "--keep-frames" in sys.argv
     peek = "--peek" in sys.argv
     tag = next((a.split("=", 1)[1] if "=" in a else time.strftime("%Y-%m-%d")
                 for a in sys.argv[1:] if a.startswith("--save")), None)
@@ -332,7 +338,7 @@ def main():
     # 場面は sweep_chk が書いた JSON から取る（道は材料で違うので決め打ちにしない）
     found = sorted(os.path.splitext(f)[0] for f in os.listdir(TMP) if f.endswith(".json"))
     keys = args if (args and args != ["all"]) else [k for k in KEYS if k in found] or found
-    # 名前を並べられたとき、JSON の無い場面で**残りをやめない**（飛ばして最後に鳥く）。
+    # 名前を並べられたとき、JSON の無い場面で**残りをやめない**（飛ばして最後に鳴く）。
     # 2026-09-18: レジンに `oled` の道が無くなっていたのにそこで sys.exit し、
     #   残り 4 本を焼かずに終了コード 0 で抜けていた
     miss = [k for k in keys if not os.path.exists(os.path.join(TMP, "%s.json" % k))]
@@ -346,6 +352,11 @@ def main():
         bake(k, peek)
     if tag and not peek:
         save(tag, keys)
+    # 残っているコマを毎回見せる（--keep-frames で残した物を忘れて溜めない）
+    left = [os.path.join(d, f) for d, _, fs in os.walk(os.path.join(ROOT, "_tmp_sweep")) if d.endswith("_frames") for f in fs]
+    if left:
+        print(u"⚠ コマが残っている: %d 枚・%.0f MB（hardware/_tmp_sweep/*/*_frames/）。要らなければ消す"
+              % (len(left), sum(os.path.getsize(f) for f in left) / 1e6))
     if miss:
         sys.exit(u"焼けなかった場面がある: %s" % " ".join(miss))
 
