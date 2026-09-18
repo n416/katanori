@@ -155,7 +155,7 @@ def main():
         who = dict(zip(bj, ex.map(lambda j: hit(*j), bj)))
 
     print(u"材料 %s ／ 口 %d ／ 頭と工具の柱 φ%s ／ %.0f 秒（判定は hardware/check/%s/nutpath.json・当たりの形は hardware/_tmp_nutpath/%s/）"
-          % (MAT, len(probes), DD if DD is not None else "座ぐり", time.time() - t0, MAT))
+          % (MAT, len(probes), DD if DD is not None else "座ぐり", time.time() - t0, MAT, MAT))
     news, rep = [], {}
     for k, p in probes.items():
         free = [s for s in p["when"] if not res[(k, s)]]

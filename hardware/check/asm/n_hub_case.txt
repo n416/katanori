@@ -1,4 +1,4 @@
-# src sha=377bb49d2d6e newest=2026-09-18 17:22 git=684553f+ ran=2026-09-18 18:56
+# src sha=5d8e35752fe9 newest=2026-09-19 02:29 git=1bd36ae+ ran=2026-09-19 03:27
 n_hub_case   T=0      0.00 mm3
 n_hub_case   T=1.5    1.28 mm3
 n_hub_case   T=3.0    1.90 mm3

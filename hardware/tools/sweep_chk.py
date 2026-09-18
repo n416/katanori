@@ -59,14 +59,10 @@ def src_mtime():
     u"""模型の元ファイル（*.scad）のうち、いちばん新しい更新時刻"""
     global _SRC_MT
     if _SRC_MT is None:
-        ts = [os.path.getmtime(SCAD)]
-        for d in (ROOT, os.path.join(ROOT, "parts"), os.path.join(ROOT, "tools")):
-            if not os.path.isdir(d):
-                continue
-            for n in os.listdir(d):
-                if n.endswith(".scad"):
-                    ts.append(os.path.getmtime(os.path.join(d, n)))
-        _SRC_MT = max(ts)
+        # 🔴 2026-09-19: 模型の元ファイルは check_stamp.scad_files() に 1 か所で持つ（基板の pcb/ と STL も入る）。
+        #   ここで別に並べていたら pcb/ が抜けていて、基板を直しても作り置きの OFF が古いまま使われた
+        import check_stamp
+        _SRC_MT = max([os.path.getmtime(SCAD)] + [os.path.getmtime(f) for f in check_stamp.scad_files()])
     return _SRC_MT
 
 

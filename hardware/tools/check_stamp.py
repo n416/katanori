@@ -2,7 +2,7 @@
 u"""検査の判定に押す刻印と、判定の置き場（hardware/check/）。
 
 判定ファイルは git に入る証拠（基板の drc.json と同じ扱い）。だから「どの模型から出たか」を一緒に書く:
-  src.sha     模型の元ファイル（hardware/ parts/ tools/ tools/manual_v61/ の *.scad）の中身の sha256 の頭 12 桁
+  src.sha     模型の元ファイル（hardware/ parts/ tools/ tools/manual_v61/ pcb/ の *.scad と pcb/v61_*3d.stl）の中身の sha256 の頭 12 桁
   src.newest  そのうちいちばん新しい更新時刻
   src.git     実行時の HEAD（短い）。作業ツリーが汚れていれば末尾に +
   ran         実行した時刻
@@ -20,16 +20,22 @@ import hashlib, os, re, subprocess, time
 
 HW = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))          # hardware/
 CHECK = os.path.join(HW, "check")
-SCAD_DIRS = ("", "parts", "tools", os.path.join("tools", "manual_v61"))
+SCAD_DIRS = ("", "parts", "tools", os.path.join("tools", "manual_v61"), "pcb")
+# 🔴 2026-09-19: 基板の模型を入れていなかった。筐体は pcb/v61_parts.scad を include し、
+#   pcb/v61_board3d.stl・pcb/v61_parts3d.stl を import する（case_v6_1.scad）。基板だけを直した日に
+#   刻印も作り置きの判定も「変わっていない」と言い、掃引の検査と動画が 9/18 の基板の形のまま走った
+MODEL_STL = (os.path.join("pcb", "v61_board3d.stl"), os.path.join("pcb", "v61_parts3d.stl"))
 _SHA = None
 
 
 def scad_files():
+    u"""模型の元ファイル（*.scad と、筐体が import する基板の STL）"""
     out = []
     for d in SCAD_DIRS:
         p = os.path.join(HW, d)
         if os.path.isdir(p):
             out += [os.path.join(p, n) for n in sorted(os.listdir(p)) if n.endswith(".scad")]
+    out += [os.path.join(HW, f) for f in MODEL_STL if os.path.exists(os.path.join(HW, f))]
     return out
 
 

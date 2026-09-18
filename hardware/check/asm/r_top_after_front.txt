@@ -1,4 +1,4 @@
-# src sha=377bb49d2d6e newest=2026-09-18 17:22 git=684553f+ ran=2026-09-18 18:56
+# src sha=5d8e35752fe9 newest=2026-09-19 02:29 git=1bd36ae+ ran=2026-09-19 03:27
 r_top_after_front T=0      4.27 mm3
 r_top_after_front T=1      5.88 mm3
 r_top_after_front T=2      5.63 mm3
