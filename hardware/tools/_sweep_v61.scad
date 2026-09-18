@@ -3,6 +3,10 @@
 include <../case_v6_1.scad>
 SW_MOVER = ""; SW_WORLD = ""; SW_MODE = ""; SW_Q = [0, 0, 0, 0, 0, 0]; SW_C = [0, 0, 0];
 SW_D = 0;   // たわみ量（蓋の左の板が口で外へ出る量）。道の 7 つ目から来る
+// 「乗る物」（仮締めで逃げる物。いまはレジンの壁の場面の PCB）。持ち上げ量 lift を渡すと
+//   case_v6_1.scad の units_ride() が同じ式で姿勢を作る。python 側はこの形を素の姿勢で受け取り、
+//   自分で同じ行列を掛けて距離を測る。厳密な交わりのときだけ RIDE_LIFT を渡して scad に置かせる
+module sw_ride() units_ride(SW_WORLD, RIDE_LIFT);
 module sw_mover() {
     if (SW_MOVER == "hub")  hub_unit();
     if (SW_MOVER == "rsp")  { one("rsp");  one("riser"); }
@@ -39,13 +43,16 @@ module sw_world() {
     if (SW_WORLD == "hatch") world_for_hatch();
 }
 if (SW_MODE == "mover") sw_mover();
-if (SW_MODE == "world") sw_world();
+if (SW_MODE == "world") sw_world();          // 相手（乗る物は含めない。-D RIDE_ON=false で呼ぶ）
+if (SW_MODE == "ride")  sw_ride();           // 乗る物だけ。素の姿勢（RIDE_LIFT=0）で出して python が動かす
 // 箱だけ（動画で半透明に描く）。world_for_* と同じ world_box() を使う（ここで別に書くと必ずずれる）
 if (SW_MODE == "wshell") world_box(SW_WORLD);
 if (SW_MODE == "wunits") sw_units();   // 先に入っている物だけ（動画で中身として描く）
-if (SW_MODE == "hit")   intersection() { at_pose(SW_Q, SW_C) sw_mover(); sw_world(); }
+if (SW_MODE == "wride")  sw_ride();    // 乗る物だけ（動画が姿勢ごとに動かして描く）
+if (SW_MODE == "hit")   intersection() { at_pose(SW_Q, SW_C) sw_mover(); union() { sw_world(); sw_ride(); } }
 // 道・回す中心・端までの長さ（case_v6_1.scad が唯一の出どころ）
 //   ナイロンは 蓋（lid）／レジンは 左右の壁（lwall・rwall）。材料で道が違う
+echo(SWRIDE = [HUB_TILT_Y, HUB_AT[2], HUB_RIDE_DY]);   // 乗る物の軸 [Y, Z] と、軸から後ろの穴までの長さ
 if (SW_MODE == "pose") echo(SWPOSE = concat([["hub",  nylon() ? PATH_HUB : PATH_HUB_R, hub_c(), hub_r()],
                                              ["rsp",  PATH_RSP,  [0, 0, 0], 0],
                                              ["bat",  PATH_BAT,  [0, 0, 0], 0]],

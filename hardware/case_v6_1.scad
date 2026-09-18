@@ -381,8 +381,11 @@ PCB_SCR_D = 2.2;   PCB_FOOT_CL = 0.4;   // 蓋の足と板の穴の隙間   // M
 // ⭐ 2026-09-17: 後ろのレールの逃げ（板の後ろ左の角 0.894 × 0.3）を**廃止**した（🔒 ユーザー「たった 0.3mm で逃げもクソもない」）。
 //   板は左の窓から差して入るので後ろの縁 82mm 全部がレールを通る ⇒ 角を欠いても掃引は 0.544mm³ 残っていた。
 //   逃げは筐体側（flap_rail_pcb_relief）へ移した。板の外形は角の立った 82.024 × 37.4 の長方形に戻る
+// 2026-09-18: 四隅を丸める（ユーザー「４隅全部丸めればいい」）。レジンの壁を 45° 開くと、後ろのねじより後ろの
+//   壁の端が内側へ回り込み、角の立った板の後ろ左・後ろ右の角をかすめていた。外側の角なのでルーターの刃の太さの制限は無い
+PCB_CR = 3.5;   // 角の丸みの半径。⚠ 出どころは基板の外形（hardware/pcb/gen_pcb.py の BOARD_CR）。ふだんの模型は KiCad から書き出した v61_board3d.stl を使い、ここは PCB3D=false のときの予備の箱
 module pcb61() color("#2b6b3f") difference() {
-    translate(HUB_AT) cube([PCB_L, PCB_W, 1.6]);
+    translate(HUB_AT) linear_extrude(1.6) offset(r = PCB_CR, $fn = 64) offset(delta = -PCB_CR) square([PCB_L, PCB_W]);
     for (h = HUB_HOLES_W) translate([h[0], h[1], HUB_AT[2] - 1]) cylinder(d = PCB_SCR_D, h = 1.6 + 2, $fn = 24);
     // ⭐ 2026-09-16 夕: 角ごとの欠きを廃止。欠きは「板を真上から降ろす」前提で、壁に付いた上の柱・レール・蓋の足を通すための縁まで開いた穴だった。
     //   🔒 ユーザー 2026-09-16 夕「板を真上から降ろすのをやめるだけでは」→ 1.5 上げて左の窓から差し、柱の頭まで下ろす形（path_hub 174.08 → 0.59）。
@@ -1549,6 +1552,18 @@ module look_btnnut() {
     }
 }
 if (part == "look_btnnut") look_btnnut();
+// ---- 左の壁を 45° 開いたときの、PCB の後ろ左の角（2026-09-18）----
+//   壁は後ろのねじを軸に回るので、ねじより後ろの板の端は開くと内側へ回り込む。そこに PCB の角がかかる。
+//   赤 = 重なり ／ 水色 = PCB（羽に押されて傾いた姿勢）／ 半透明 = 開いた壁
+//   LOOK_A で開き角、LOOK_L で持ち上げを変えられる（Customizer でも）
+LOOK_A = 45; LOOK_L = 2.5;
+module look_lwall_open() {
+    module w() translate([0, 0, LOOK_L]) translate(lwall_c()) rotate([0, 0, -LOOK_A]) translate(-lwall_c()) p_lwall();
+    color(C_CASE, 0.35) w();
+    color("#7fb6e6") hub_ride(LOOK_L);
+    color("#ff1010") intersection() { w(); hub_ride(LOOK_L); }
+}
+if (part == "look_lwall_open") look_lwall_open();
 // スピーカーの試し刷り（print_deck / print_tub）は parts/spk_v5.scad で焼く（stl_v5.py の spktest / spktub）   // スピーカーの周りの組み立て図（天板・右の壁・前板・中身を箱で切る）
 if (part == "wires") { innards(); wires(); }
 if (part == "wiresonly") wires();
@@ -1714,7 +1729,11 @@ module hub_unit() one("hub");
 module units_for_hub() { one("bat"); }                                                         // PCB を入れるとき箱に居る物（電池は先でも後でも通るが、先に入っている方が厳しい）。🔒 トグルは PCB の後に付ける（ユーザー 2026-09-16 夕「そりゃそうでしょ」: 真上から降ろす PCB の道にトグルの胴がある）
 module units_for_rsp() { one("hub"); one("bat"); if (nylon()) one("tgl"); }   // レジンはつまみ（トグル）をどの場面にも置かない（後からいつでも付く）
 module units_for_oled() { one("hub"); one("bat"); one("tgl"); one("rsp"); one("riser"); }       // OLED は ReSpeaker の後（ライザーの前向きのメスが ReSpeaker の頭を跨ぐ）
-module units_for_bat() { one("hub"); one("tgl"); one("oled"); one("oriser"); one("rsp"); one("riser"); }
+// 電池を入れるとき箱に居る物。**材料で正反対**なので必ず分ける。
+//   ナイロンは PCB → トグル → ReSpeaker → OLED → 電池 → 蓋 で電池が最後 ＝ 全部居る。
+//   レジンは ① で電池がいちばん先 ＝ 何も居ない。
+//   🔴 2026-09-18: ここを分けず world_for_bat だけ分けたので、検査は床だけ・動画は全部入りでずれた
+module units_for_bat() { if (nylon()) { one("hub"); one("tgl"); one("oled"); one("oriser"); one("rsp"); one("riser"); } }
 module units_for_lid() { for (n = ["oled", "rsp", "hub", "riser", "oriser", "bat", "tgl"]) one(n); }
 // ---- レジン（板 6 枚）の場面 ----
 // 「そのとき箱になっている板」は**ここだけ**が持つ。検査（world_for_*）も
@@ -1733,12 +1752,35 @@ module world_box(k) {
 }
 // 先に入っている物（レジン）。⚠ つまみ（トグル）はどの場面にも置かない —— 後からいつでも付けられる
 module units_seated()   { one("bat"); one("hub"); one("rsp"); one("riser"); one("oriser"); }   // ⑧ までに座っている物
-module units_for_wall() { one("bat"); one("rsp"); one("riser"); one("oriser"); }   // ⑦ 壁を閉じるとき。OLED のライザーは ⑥ で ReSpeaker の後に上から入れて箱に残る。⚠ PCB（hub）は入れていない —— 入れると壁が閉じ際に後ろ左で 55.06mm3 当たる（2026-09-18 再測）。要確認
+// ⑦ 壁を閉じるとき箱に居る物。OLED のライザーは ⑥ で ReSpeaker の後に上から入れて箱に残る。
+//   PCB（hub）も ② から居る。羽（壁の下の柱）は ④ で後から PCB の下に入り、後ろ 2 角は
+//   **載るだけで締めない**（10.1a）。掃引は PCB を動かない剛体として扱うので、その載りと、
+//   壁を持ち上げる分の突き上げが重なりとして出る。理由を書いて台帳に載せる。
+//   🔴 見えると困るから外す、をやらない —— 外すと PCB に関する当たりが**全部**見えなくなる
+// ---- 仮締めで「逃げる」物（2026-09-18）----
+// 壁を持ち上げると、羽（壁の下の柱・頭 Z 12.0）が PCB の後ろ 2 角を押し上げる。
+//   後ろ 2 角は羽に**載るだけで締めない**（10.1a）ので、PCB は前 2 本のねじの線を軸に傾いて逃げる。
+//   PCB を動かない剛体として置くと、その載りが重なりとして出て、裏の本当の当たりが見えない。
+//   ⇒ **乗る物**として世界から分け、持ち上げ量 lift に追従させる（掃引も動画も同じ式を読む）。
+//   RIDE_ON を false にすると世界から外れる（掃引の道具が自分で動かすときに使う）
+RIDE_ON = true; RIDE_LIFT = 0;
+HUB_TILT_Y = PCB_Y0 + 3.5;                                    // 前 2 本のねじの線（傾きの軸）
+// 軸から、羽の上面の**いちばん前に来うる点**まで。羽は後ろのねじを真ん中に持ち、壁と一緒にその場で向きを変えるので、
+//   回すと四角の角が前へ出る（左の羽: 素の縁 43.59 → 45° で 42.51）。素の縁で傾きを決めると、その角が板に 0.1 入っていた
+//   （2026-09-18。検査の皮のしきい値 0.10 をわずかに越えて「新」と出た）。角の届く最も前（芯から対角の半分）で決める。
+//   代わりに、角が前に来ていない角度では羽と板の間が最大 0.1 ほど空く
+function wing_front_min() = min([for (p = [POSTS_B[2], POSTS_B[3]]) post_c(p)[1] - norm([post_w(p) / 2, post_dy(p) / 2])]);
+HUB_RIDE_DY = wing_front_min() - HUB_TILT_Y;
+function hub_ride_a(lift) = atan(lift / HUB_RIDE_DY);         // 逃げる角（lift 2.5 で 4.687°）
+module hub_ride(lift = 0) translate([0, HUB_TILT_Y, HUB_AT[2]]) rotate([hub_ride_a(lift), 0, 0])
+    translate([0, -HUB_TILT_Y, -HUB_AT[2]]) one("hub");
+module units_ride(k, lift = 0) { if (k == "lwall" || k == "rwall") hub_ride(lift); }   // 場面ごとの「乗る物」
+module units_for_wall() { one("bat"); one("rsp"); one("riser"); one("oriser"); }   // PCB は units_ride が持つ
 module units_for_top()   { units_seated(); }
 module units_for_front() { units_seated(); }                  // ⑩ OLED はフロントに付いて一緒に入るので、箱側には居ない
 module units_for_hatch() { units_seated(); one("oled"); }     // ⑪ フロントと一緒に OLED が入っている
-module world_for_lwall() { world_box("lwall"); units_for_wall(); }
-module world_for_rwall() { world_box("rwall"); units_for_wall(); }
+module world_for_lwall() { world_box("lwall"); units_for_wall(); if (RIDE_ON) units_ride("lwall", RIDE_LIFT); }
+module world_for_rwall() { world_box("rwall"); units_for_wall(); if (RIDE_ON) units_ride("rwall", RIDE_LIFT); }
 module world_for_top()   { world_box("top");   units_for_top(); }
 module world_for_front() { world_box("front"); units_for_front(); }
 module world_for_hatch() { world_box("hatch"); lid_units(); units_for_hatch(); }
@@ -1746,7 +1788,7 @@ module world_for_hatch() { world_box("hatch"); lid_units(); units_for_hatch(); }
 module world_for_hub()  { if (nylon()) shell(); else world_box("hub"); units_for_hub(); }
 module world_for_rsp()  { if (nylon()) shell(); else world_box("rsp"); units_for_rsp(); }   // ⑥ レジンは壁を 45° 開けているので、箱は床だけ
 module world_for_oled() { shell(); units_for_oled(); }
-module world_for_bat()  { if (nylon()) { shell(); units_for_bat(); } else world_box("bat"); }   // ① レジンはいちばん先。箱は床だけで、中には何も無い
+module world_for_bat()  { if (nylon()) shell(); else world_box("bat"); units_for_bat(); }   // ① レジンはいちばん先。箱は床だけで、中には何も無い
 module world_for_lid()  { shell(); units_for_lid(); }
 PCB_SLIDE = pcb_slide();   // 充電の USB-C が右の壁の内面より外へ出る量 0.8（最後に右へ滑る量）
 // ⭐ 2026-09-16 夕: PCB_LIFT を**数えて出す**ようにした。それまでは 1.5 の決め打ちで、

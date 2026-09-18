@@ -270,6 +270,10 @@ def stitch():
             if any((u - px) ** 2 + (v - py) ** 2 < (d / 2 + G.POST_KEEP + VIA / 2) ** 2
                    for px, py, d in G.POSTS):
                 continue
+            # 2026-09-18: 角を丸めた外形から 0.5 以上内側だけ（JLCPCB の銅→外形は 0.2 以上・推奨 0.3〜0.5）。
+            #   格子の端の 1.0 は直線の縁なら足りるが、丸めた隅では外形の外へ出る
+            if G.edge_gap(u, v) < 0.5 + VIA / 2:
+                continue
             X, Y = G.bx(u, v)
             me = ("circle", X, Y, VIA / 2)
             if all(check_pcb.gap(me, g) > CLR for _, _, g in allobj):

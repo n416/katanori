@@ -123,6 +123,20 @@ BOARD_L, BOARD_W = VB.L, VB.W                      # 82.024 × 37.4
 # 後ろの縁の欠き。x0, x1, この y から後ろの縁まで。
 # ⭐ 2026-09-16 夕: 数を 2 個に決め打ちしていたのをやめた（欠きが 1 個になったため）
 NOTCHES = [(n[0], n[2], n[1]) for n in VB.NOTCHES]
+# 2026-09-18: 四隅を丸める（ユーザー「４隅全部丸めればいい」）。レジンの筐体で左右の壁を 45° 開くと、
+#   後ろのねじより後ろの壁の端が内側へ回り込み、角の立った板の後ろの角をかすめていた。
+#   模型で測って 2.8 で消える。JLCPCB の外形の精度 ±0.2 で角が外へずれると丸めの効きが約 0.5 減るので 3.5。
+#   外側の角なのでルーターの刃の太さの制限は無い。欠きのある板では使わない（outline() が見る）
+BOARD_CR = 3.5
+
+
+def edge_gap(u, v):
+    """板の座標の点から、角を BOARD_CR で丸めた外形までの距離（内側が正）。"""
+    R = BOARD_CR
+    cx, cy = min(max(u, R), BOARD_L - R), min(max(v, R), BOARD_W - R)
+    if R > 0 and (u < R or u > BOARD_L - R) and (v < R or v > BOARD_W - R):
+        return R - math.hypot(u - cx, v - cy)
+    return min(u, BOARD_L - u, v, BOARD_W - v)
 MOUNT = list(VB.HOLES)            # M2 × 4（床から立つ柱 φ7 の上）
 MOUNT_D = VB.HOLE_D               # φ2.2
 MOUNT_KEEP = 0.5                  # 穴のまわりに **銅** を置かせない幅
@@ -886,14 +900,30 @@ def seg(x1, y1, x2, y2, layer="Edge.Cuts", width=0.1):
             ["uuid", Str(uid())]]
 
 
+def rounded_outline():
+    """角を BOARD_CR で丸めた外形（線 4 本 ＋ 弧 4 本）。欠きの無い板だけ（2026-09-18）。"""
+    R, L, W, k = BOARD_CR, BOARD_L, BOARD_W, math.sqrt(0.5)
+    o = [seg(*bx(R, 0), *bx(L - R, 0)), seg(*bx(L, R), *bx(L, W - R)),
+         seg(*bx(L - R, W), *bx(R, W)), seg(*bx(0, W - R), *bx(0, R))]
+    for cx, cy, sx, sy in ((L - R, R, 1, -1), (L - R, W - R, 1, 1), (R, W - R, -1, 1), (R, R, -1, -1)):
+        st, md, en = bx(cx, cy + sy * R), bx(cx + sx * R * k, cy + sy * R * k), bx(cx + sx * R, cy)
+        o.append(["gr_arc", ["start", f"{st[0]:.3f}", f"{st[1]:.3f}"], ["mid", f"{md[0]:.3f}", f"{md[1]:.3f}"],
+                  ["end", f"{en[0]:.3f}", f"{en[1]:.3f}"], ["stroke", ["width", "0.1"], ["type", "default"]],
+                  ["layer", Str("Edge.Cuts")], ["uuid", Str(uid())]])
+    return o
+
+
 def outline():
     """板の外形（44 × 81.2）と、上の縁の切り欠き。"""
     o = []
     # 左下 →（右回り）。上の辺は切り欠きで 2 本に割れる
     pts = outline_pts()
-    for i in range(len(pts)):
-        a, b = pts[i], pts[(i + 1) % len(pts)]
-        o.append(seg(*bx(*a), *bx(*b)))
+    if BOARD_CR > 0 and not NOTCHES:
+        o += rounded_outline()
+    else:
+        for i in range(len(pts)):
+            a, b = pts[i], pts[(i + 1) % len(pts)]
+            o.append(seg(*bx(*a), *bx(*b)))
     # 柱が通る抜き（丸）
     for px, py, d in POSTS:
         X, Y = bx(px, py)

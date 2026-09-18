@@ -62,6 +62,7 @@ ROUTE_COPPER = ["F.Cu", "In2.Cu", "B.Cu"]      # 自動配線に見せる層（I
 G.BOARD_L, G.BOARD_W = 82.024, 34.007
 CORNER_R = 1.27
 G.NOTCHES = [(0.0, 0.0, G.BOARD_W + 1), (G.BOARD_L, G.BOARD_L, G.BOARD_W + 1)]   # 欠きは無い（幅 0 の欠き）
+G.BOARD_CR = 0.0   # 2026-09-18: 角の丸めはハブの板（katanori61）だけ。音声の板は角の立った長方形のまま
 G.MOUNT = []     # 🔒 ユーザー 2026-09-16「XIAO の固定穴位置まで揃えなくてもいい」: 筐体 v6.1 にダボは無い。ReSpeaker Lite の穴は写さない
 G.MOUNT_D = 2.20
 G.POSTS = []

@@ -25,6 +25,7 @@ if hasattr(sys.stdout, "reconfigure"):
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import sweep_chk                                                                            # noqa: E402
+RIDE_SHAPE = None   # 仮締めで逃げる物の形（無い場面は None）
 from sweep_chk import TMP, ROOT, TOL, SKIN_T, motion_bound, pose_mat, pose_at, delta, scad   # noqa: E402
 
 
@@ -82,7 +83,7 @@ def world_parts(key, name):
     🔴 1 つの半透明の物にすると、手前の殻より奥が描かれず**先に入っている部品が画面から消える**
     （2026-09-18 に踏んだ: 蓋の動画で箱の中が空っぽに見えた）。別々の物として描く"""
     out = {}
-    for mode, tag in (("wshell", "shell"), ("wunits", "units")):
+    for mode, tag in (("wshell", "shell"), ("wunits", "units"), ("wride", "ride")):
         off = os.path.join(TMP, "%s_%s.off" % (key, mode))
         if not sweep_chk.cached(off):
             scad(["-D", 'SW_MODE="%s"' % mode, "-D", 'SW_WORLD="%s"' % key], off)
@@ -182,6 +183,14 @@ def build_frames(reps, shapes_by, world):
                 notes.append("%s%s touch" % (k, pz))
             else:
                 notes.append("%s%s gap=%.2fmm" % (k, pz, d))
+        if RIDE_SHAPE and sweep_chk.RIDE:
+            # 仮締めで「逃げる」物（レジンの壁の場面の PCB）。壁の持ち上げ量に追従して傾く。
+            #   姿勢の式は sweep_chk.ride_tf ＝ OpenSCAD の hub_ride() と同じ。
+            #   🔴 足すのは movers の**いちばん後ろ**。Blender は番号で形を引くので間に入れるとずれる
+            Rr, trr = sweep_chk.ride_tf(q[2])
+            Mr = np.eye(4); Mr[:3, :3], Mr[:3, 3] = Rr, trr
+            movers.append({"m": [float(x) for x in Mr.flatten()], "hidden": False,
+                           "shape": RIDE_SHAPE, "state": 0})
         note = "%s  s=%.3f   %s" % ("+".join(names), s, "   ".join(notes))
         if ghost_k:
             note = "%s  s=%.3f   >> overlap  (%s ghosted)   t=%.3fmm V=%.3fmm3" % (
@@ -208,8 +217,12 @@ def build_frames(reps, shapes_by, world):
         for _, _, m in shapes_by[k]:
             lo = np.minimum(lo, m.bounds[0] + tr.min(axis=0))
             hi = np.maximum(hi, m.bounds[1] + tr.max(axis=0))
-    return {"frames": out, "names": names, "world_parts": WPARTS,
-            "mover_shapes": [[nm for _, nm, _ in shapes_by[k]] for k in names],
+    ms = [[nm for _, nm, _ in shapes_by[k]] for k in names]
+    if RIDE_SHAPE and sweep_chk.RIDE:
+        ms.append([RIDE_SHAPE])          # 乗る物は動く物の最後（frames の movers と同じ並び）
+    return {"frames": out, "names": names + (["ride"] if len(ms) > len(names) else []),   # Blender は names の数だけ動く物を読む
+            "world_parts": WPARTS,
+            "mover_shapes": ms,
             "bbox": [list(map(float, lo)), list(map(float, hi))],
             "shapes": hitshapes, "tol": TOL, "skin": SKIN_T, "margin": 4.0}
 
@@ -273,8 +286,11 @@ def bake(name, peek=False):
         reps[k] = json.load(open(f, encoding="utf-8"))
         meshes[k] = shapes_of(reps[k], k, name, ks.index(k))
     world = stl_from_off(ks[0], "world")       # 外接箱を出すのに使う（描くのは下の 2 つ）
-    global WPARTS
+    global WPARTS, RIDE_SHAPE
     WPARTS = world_parts(ks[0], name)
+    RIDE_SHAPE = WPARTS.pop("ride", None)        # 乗る物は「箱」ではなく「動く物」として描く
+    if RIDE_SHAPE and sweep_chk.RIDE is None:
+        sweep_chk.read_paths()                   # 乗る物の軸（SWRIDE）を読む
     plan = build_frames(reps, meshes, world)
     if peek:                                   # 頭・入れ終わり（か交わり）・組み上がり の 3 枚だけ
         n = len(plan["frames"])

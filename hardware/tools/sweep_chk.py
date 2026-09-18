@@ -72,27 +72,89 @@ def cached(f):
     return os.path.exists(f) and os.path.getmtime(f) >= src_mtime()
 
 
+SCAD_HANG = 60     # 出力を書き終えてから、これだけ待っても終わらなければ固まったと見る（秒）
+SCAD_MAX = 900     # 出力が出ないまま、これだけ経ったらあきらめる（秒）
+
+
 def scad(args, out=None):
-    cmd = [OPENSCAD, "--backend=manifold", "-o", out or os.path.join(TMP, "_.echo"),
-           "-D", 'part="__none__"', "-D", 'MAT="%s"' % MAT] + args + [SCAD]
-    return subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
+    u"""OpenSCAD を 1 回回す。
+    🔴 2026-09-18: OpenSCAD（Nightly）が**出力を書き終えた後に終わらず固まる**ことがある。
+      hatch_hit008.off は 17:24 に書き終えて中身も正しいのに 14 分終わらず、掃引が止まった
+      （前日の oled_hit001 も同じで 15 時間残っていた。外から kill もできない）。
+      ⇒ 書かれた出力の大きさが SCAD_HANG 秒変わらなければ、待つのをやめて先へ進む"""
+    out = out or os.path.join(TMP, "_.echo")
+    cmd = [OPENSCAD, "--backend=manifold", "-o", out,
+           "-D", 'part="__none__"', "-D", 'MAT="%s"' % MAT,
+           "-D", "RIDE_ON=false"] + args + [SCAD]   # 乗る物は world から外す（sw_ride が別に出す）
+    t0 = time.time()
+    p = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    seen = None
+    while p.poll() is None:
+        time.sleep(0.2)
+        # 前の回の古いファイルを「書き終えた」と取り違えない（この回に書かれた物だけ見る）
+        if os.path.exists(out) and os.path.getmtime(out) >= t0:
+            sz = os.path.getsize(out)
+            if seen is None or seen[0] != sz:
+                seen = (sz, time.time())
+            elif time.time() - seen[1] > SCAD_HANG:
+                try:
+                    p.kill()
+                except Exception:
+                    pass
+                print(u"  ⚠ OpenSCAD が出力を書いた後に終わらない。待たずに先へ進む（%s）" % os.path.basename(out))
+                return None
+        elif time.time() - t0 > SCAD_MAX:
+            try:
+                p.kill()
+            except Exception:
+                pass
+            print(u"  ⚠ OpenSCAD が %d 秒たっても出力を書かない。あきらめる（%s）" % (SCAD_MAX, os.path.basename(out)))
+            return None
+    return None
 
 
 def read_paths():
     os.makedirs(TMP, exist_ok=True)
     ec = os.path.join(TMP, "pose.echo")
     scad(["-D", 'SW_MODE="pose"'], ec)
-    m = re.search(r"SWPOSE = (\[.*\])", open(ec, encoding="utf-8", errors="replace").read())
+    txt = open(ec, encoding="utf-8", errors="replace").read()
+    m = re.search(r"SWPOSE = (\[.*\])", txt)
     if not m:
         sys.exit("SWPOSE が読めない")
+    r = re.search(r"SWRIDE = (\[.*?\])", txt)
+    global RIDE
+    RIDE = json.loads(r.group(1)) if r else None   # [軸の Y, 軸の Z, 軸から後ろの穴まで]
     return {p[0]: {"path": p[1], "c": p[2], "r": p[3]} for p in json.loads(m.group(1))}
+
+
+RIDE = None   # [軸の Y, 軸の Z, 軸から後ろの穴まで]。read_paths が SWRIDE から読む
+
+
+def ride_tf(lift):
+    u"""乗る物（仮締めで逃げる物）の姿勢。持ち上げ量 lift のとき、前 2 本のねじの線を軸に傾く。
+    OpenSCAD の hub_ride() と同じ式。軸の値は SWRIDE で受け取る（2 か所に書くとずれる）"""
+    a = np.arctan2(float(lift), float(RIDE[2]))
+    ca, sa = np.cos(a), np.sin(a)
+    R = np.array([[1, 0, 0], [0, ca, -sa], [0, sa, ca]], float)
+    p = np.array([0.0, float(RIDE[0]), float(RIDE[1])])
+    return R, p - R.dot(p)
+
+
+def export_ride(key):
+    u"""乗る物だけを素の姿勢で出す。無い場面は None（OpenSCAD は中身が空だと何も書かない）"""
+    f = os.path.join(TMP, "%s_ride.off" % key)
+    if not cached(f):
+        if os.path.exists(f):
+            os.remove(f)
+        scad(["-D", 'SW_MODE="ride"', "-D", 'SW_WORLD="%s"' % key], f)
+    return trimesh.load(f) if os.path.exists(f) and os.path.getsize(f) > 40 else None
 
 
 def export(mode, name, key, d=None):
     u"""動かす物／相手を OFF で出す。d を渡すと、そのたわみ量の形を作る（形ごとに 1 ファイル）"""
     tag = "" if d is None else "_d%03d" % int(round(d * 100))
     f = os.path.join(TMP, "%s_%s%s.off" % (key, mode, tag))
-    var = "MOVER" if mode == "mover" else "WORLD"
+    var = "MOVER" if mode == "mover" else "WORLD"   # ride も WORLD（場面の名前で引く）
     if not cached(f):
         args = ["-D", 'SW_MODE="%s"' % mode, "-D", 'SW_%s="%s"' % (var, name)]
         if d is not None:
@@ -147,10 +209,11 @@ def bvh(mesh):
     return m
 
 
-def march(mover_at, world, path, c, r):
+def march(mover_at, world, path, c, r, ride=None):
     u"""距離クエリで道を走る。刻みは空いている距離から決める（Conservative Advancement）。
     mover_at(d) は、そのたわみ量の物（形が変わるので姿勢だけでは足りない）"""
     wo = fcl.CollisionObject(bvh(world), fcl.Transform())
+    ro = fcl.CollisionObject(bvh(ride), fcl.Transform()) if ride is not None else None
     out = []
     for i in range(len(path) - 1):
         a, b = path[i], path[i + 1]
@@ -165,6 +228,10 @@ def march(mover_at, world, path, c, r):
             mo.setTransform(fcl.Transform(R, tr))
             res = fcl.DistanceResult()
             d = float(fcl.distance(mo, wo, fcl.DistanceRequest(), res))
+            if ro is not None:                      # 乗る物は、その姿勢のときの持ち上げ量に追従する
+                Rr, tr2 = ride_tf(q[2])
+                ro.setTransform(fcl.Transform(Rr, tr2))
+                d = min(d, float(fcl.distance(mo, ro, fcl.DistanceRequest(), fcl.DistanceResult())))
             out.append({"s": i + t, "d": d, "dd": delta(q)})
             if t >= 1.0:
                 break
@@ -194,6 +261,7 @@ def exact_hit(key, q, c, idx=0):
     if os.path.exists(f):
         os.remove(f)
     scad(["-D", 'SW_MODE="hit"', "-D", 'SW_MOVER="%s"' % key, "-D", 'SW_WORLD="%s"' % key,
+          "-D", "RIDE_LIFT=%s" % round(float(q[2]), 6),   # 乗る物をこの持ち上げ量の姿勢に置く
           "-D", "SW_Q=%s" % json.dumps([round(v, 6) for v in q[:6]]),
           "-D", "SW_D=%s" % delta(q),                     # たわみ量。形が変わるので姿勢とは別に渡す
           "-D", "SW_C=%s" % json.dumps(list(c))], f)
@@ -305,7 +373,8 @@ def check(key, spec):
 
     mover_at(delta(spec["path"][0]))
     world = export("world", key, key)
-    sam = march(mover_at, world, spec["path"], spec["c"], spec["r"])
+    ride = export_ride(key)
+    sam = march(mover_at, world, spec["path"], spec["c"], spec["r"], ride)
     t_march = time.time() - t0
     iv = intervals(sam)
     M = sum(motion_bound(spec["path"][i], spec["path"][i + 1], spec["r"])
