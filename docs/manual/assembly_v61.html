@@ -1,4 +1,4 @@
-<!-- src sha=d77042108673 newest=2026-09-19 18:44 git=db0adb7+ ran=2026-09-19 19:07 -->
+<!-- src sha=d77042108673 newest=2026-09-19 18:44 git=28c8df3+ ran=2026-09-19 19:35 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>カタノリ v6.1 組み立て（レジン）</title>
@@ -185,7 +185,7 @@ a { color:var(--accent); }
   <p class="eyebrow">katanori &middot; enclosure v6.1 &middot; resin</p>
   <h1>カタノリ v6.1<br><em>組み立て（レジン）</em></h1>
   <p class="sub">板 6 枚（床・天板・左右の壁・フロント・ハッチ）を光造形で刷った版。上から順にやれば組める。<b>順番を変えると入らない物がある</b>ので、理由を各手順の「注意」「なぜ」に書いた。図面は <b>hardware/case_v6_1.scad</b>（MAT="resin"）。組む順は 🔒 ユーザー 2026-09-18（docs/SWEEP.md 9 章）。⚠ 2026-09-16 版（壁を横から当てる順）は捨てた。</p>
-  <p class="stamp">模型 <span class="d">d77042108673</span>（git db0adb7+）から 2026-09-19 19:07 に焼いた。判定は hardware/check/ の刻印と突き合わせている。</p>
+  <p class="stamp">模型 <span class="d">d77042108673</span>（git 28c8df3+）から 2026-09-19 19:35 に焼いた。判定は hardware/check/ の刻印と突き合わせている。</p>
   <nav class="rail"><a href="#s0">0</a> <a href="#s1">1</a> <a href="#s2">2</a> <a href="#s3">3</a> <a href="#s4">4</a> <a href="#s5">5</a> <a href="#s6">6</a> <a href="#s7">7</a> <a href="#s8">8</a> <a href="#s9">9</a> <a href="#s10">10</a> <a href="#s11">11</a></nav>
 </header>
 
@@ -217,8 +217,9 @@ a { color:var(--accent); }
 <li><b>XIAO のライザーの裏</b>に L 字のメス 1x7。<b>胴と板の間にはがき 2 枚（計 0.4 前後）を挟んだまま</b>はんだ付けし、足が固まったら抜いても残してもよい。L 字の軸を PCB の J1 に合わせ、垂らした板の下の端とピンヘッダーの樹脂の間を 0.4 空けるため（case_v6_1.scad の <span class="d">XRISER_T</span>・<span class="d">LSOCK_SHIM</span>）。コピー用紙は 1 枚 0.09 前後なので 2 枚では足りない。</li>
 <li><b>OLED のライザー</b>: 表に縦のメス 1x4、裏に L 字のメス 1x4。<b>はがきは挟まない</b>（板厚 1.6）。</li>
 <li><b>v6.1 は 1 枚の PCB に口が集まった</b>ので、v5 の 12 束は無い。線は 4 本で、<b>板の側は全部 JST-PH 2.0 の殻</b>（⭐ 2026-09-19 にトグルの 2 本が消えた。電源の押しボタンは板に直に付く）。</li>
-<li><div class="tw"><table><thead><tr><th>線</th><th>本数</th><th>板の口</th><th>口のピン</th><th>逆の端</th><th>色</th><th>模型の実長</th><th>切る長さ</th></tr></thead><tbody><tr><td class="w">スピーカー OUT</td><td class="n">2</td><td>J5（横出し・プラグは左 −X から挿す）</td><td class="n">1 SPK−・2 SPK+</td><td>スピーカーのリードに<b>直はんだ</b></td><td>1 白（仮）・2 青（仮）</td><td class="n">54</td><td class="n hi"><b>120 mm</b></td></tr><tr><td class="w">スピーカー IN</td><td class="n">2</td><td>J4（縦・プラグは上から挿す）</td><td class="n">1 SPK+・2 SPK−</td><td>ReSpeaker の J2（PH2.0 の 2 極プラグ）</td><td>1 青（仮）・2 白（仮）</td><td class="n">11</td><td class="n hi"><b>80 mm</b></td></tr><tr><td class="w">会話ボタン</td><td class="n">2</td><td>J6（縦・プラグは上から挿す）</td><td class="n">1 GND・2 D2</td><td>マイクロスイッチの <b>C</b>（GND）と <b>NO</b>（D2）に<b>直はんだ</b>。NC は空き</td><td>1 黒（白でも可）・2 紫</td><td class="n">36</td><td class="n hi"><b>105 mm</b></td></tr><tr><td class="w">リード</td><td class="n">2</td><td>J7（縦・上から挿す 2 極の殻）</td><td class="n">1 EN・2 GND</td><td>つまみの台座のリードスイッチの足に<b>直はんだ</b>（無極性）</td><td>1 橙・2 黒</td><td class="n">28</td><td class="n hi"><b>95 mm</b></td></tr></tbody></table></div><p>切る長さは、模型の線の道（case_v6_1.scad の <span class="d">wires</span>）の長い方の 1 本に <b>65</b>（v5 と同じ決まり: 端末処理 25 ＋ 天板を箱の脇に置いて挿す余り 40）を足して 5mm 単位に上げた。<b>同じ線の 2 本は同じ長さ</b>に切る。<b>リードは J7 の 2 極の殻</b>（⭐ 2026-09-19 にトグルをやめて 4 極 → 2 極・gen_sch.py）。</p><p><b>電池は切らない。</b>電池のリードの JST-PH のプラグをそのまま板の裏の J10 に挿す（模型の道の実長 14 mm。手持ちの電池のリードがこれより短いと届かない）。</p><p>色は v5 の決まり（🔒 2026-09-06: GND ＝ 黒か白・会話ボタンの信号 D2 ＝ 紫・EN ＝ 橙）を、v6.1 の同じネットに当てた。スピーカーの ± は v5 と同じく決めていない「仮」。</p></li>
-<li><b>板の側だけ先に圧着して殻に入れる。</b>逆の端はスピーカー IN（PH のプラグ）以外は裸のまま（手順 1 ではんだ）。</li>
+<li><div class="tw"><table><thead><tr><th>線</th><th>本数</th><th>板の口</th><th>口のピン</th><th>逆の端</th><th>色</th><th>模型の実長</th><th>切る長さ</th></tr></thead><tbody><tr><td class="w">スピーカー OUT</td><td class="n">2</td><td>J5（横出し・プラグは左 −X から挿す）</td><td class="n">1 SPK−・2 SPK+</td><td>スピーカーのリードに<b>直はんだ</b></td><td>1 白（仮）・2 青（仮）</td><td class="n">54</td><td class="n hi"><b>120 mm</b></td></tr><tr><td class="w">スピーカー IN</td><td class="n">2</td><td>J4（縦・プラグは上から挿す）</td><td class="n">1 SPK+・2 SPK−</td><td>ReSpeaker の J2（PH2.0 の 2 極プラグ）</td><td>1 青（仮）・2 白（仮）</td><td class="n">11</td><td class="n hi"><b>80 mm</b></td></tr><tr><td class="w">会話ボタン</td><td class="n">2</td><td>J6（縦・プラグは上から挿す）</td><td class="n">1 GND・2 D2</td><td>マイクロスイッチの <b>C</b>（GND）と <b>NO</b>（D2）。<b>DuPont のメスの端子</b>（殻なし）を圧着して挿し、はんだで固めて<b>収縮チューブ</b>で包む。NC は空き</td><td>1 黒（白でも可）・2 紫</td><td class="n">36</td><td class="n hi"><b>105 mm</b></td></tr><tr><td class="w">リード</td><td class="n">2</td><td>J7（縦・上から挿す 2 極の殻）</td><td class="n">1 EN・2 GND</td><td>つまみの台座のリードスイッチの足に<b>直はんだ</b>（無極性）</td><td>1 橙・2 黒</td><td class="n">28</td><td class="n hi"><b>95 mm</b></td></tr></tbody></table></div><p>切る長さは、模型の線の道（case_v6_1.scad の <span class="d">wires</span>）の長い方の 1 本に <b>65</b>（v5 と同じ決まり: 端末処理 25 ＋ 天板を箱の脇に置いて挿す余り 40）を足して 5mm 単位に上げた。<b>同じ線の 2 本は同じ長さ</b>に切る。<b>リードは J7 の 2 極の殻</b>（⭐ 2026-09-19 にトグルをやめて 4 極 → 2 極・gen_sch.py）。</p><p><b>電池は切らない。</b>電池のリードの JST-PH のプラグをそのまま板の裏の J10 に挿す（模型の道の実長 14 mm。手持ちの電池のリードがこれより短いと届かない）。</p><p>色は v5 の決まり（🔒 2026-09-06: GND ＝ 黒か白・会話ボタンの信号 D2 ＝ 紫・EN ＝ 橙）を、v6.1 の同じネットに当てた。スピーカーの ± は v5 と同じく決めていない「仮」。</p></li>
+<li><b>板の側だけ先に圧着して殻に入れる。</b>逆の端はスピーカー IN（PH のプラグ）と会話ボタン以外は裸のまま（手順 1 で直はんだ）。</li>
+<li><b>会話ボタンの逆の端</b>: <b>先に収縮チューブを 1 本ずつ線に通しておき</b>（板の側の殻はチューブを通らない）、DuPont のメスの端子を圧着する。<b>殻は付けない</b>（手順 1 で端子ごとはんだで固めるため）。</li>
 <li>⚠ 殻の 1 番の向きは、板のシルクと <span class="d">hardware/pcb/v61_map.svg</span> で確かめる。表のピンの並びは gen_sch.py の割り当てを写した物。</li></ol>
 <p class="cal note"><span class="tag">なぜ</span>口の場所と向きは PCB-V61.md 2 章・case_v6_1.scad の PCB_PARTS。</p>
 </div>
@@ -309,7 +310,8 @@ a { color:var(--accent); }
 <li><b>磁石</b>: つまみの軸の先に φ4 × 2 を入れる（レジンは φ4.10 に圧入）。磁石は PCB の AS5600 の真上 1.1 に来る（case_v6_1.scad の knob61）。🔴 <b>v6.1 のつまみの軸は、天板の裏から PCB の上まで伸びた長い軸</b>（🔒 ユーザー 2026-09-14「ノブはながーーい棒を備える事になりますがそれで良い」）。レジンの v6.1 のつまみは case_v6_1.scad の <span class="d">print_knob61</span> を <span class="d">-D MAT="resin"</span> で書き出す（長い軸・⭐ 2026-09-19）。</li>
 <li><b>会話ボタン</b>: <b>先に天板の裏の腕（ブロック 2 つ）の溝へ <span class="d">M2</span> ナットを 2 個、<u>バスタブ側（内側）の口</u>から差す</b>（🔒 ユーザー 2026-09-18「ナットの入口を内側に」。バスタブを付けると外壁が口を塞ぐ）。バスタブにマイクロスイッチを <span class="d">M2</span> 2 本で留め、押し子を上から通し、腕へ耳の下から <span class="d">M2</span> 2 本。</li>
 <li><b>スピーカー</b>: <b>先に手（倒した板 2 枚）の溝へ <span class="d">M2</span> ナットを 1 個ずつ、座の側（内側）から差す</b>（🔒 ユーザー 2026-09-18「スピーカーを入れる前にナット入れるだけでしょ」。入れたスピーカーの胴が口を塞ぐ）。スピーカーを天板の裏の小判の座へ<b>真下から真っすぐ</b>落とす（グリル側が天板側）。リードを後ろの縁から逃がしてバスタブを被せ、<b>バスタブの裏から上向きに</b> <span class="d">M2×4</span> を 2 本（⭐ 2026-09-18 横ねじをやめて上向きに・spk_v61.scad）。</li>
-<li><b>直はんだ 3 か所</b>（手順 0 で作った線の、殻の無い側）: 会話ボタン → スイッチの <b>C（黒）と NO（紫）</b>（端子はレバーの根元から C・NO・NC）、スピーカー OUT → スピーカーのリード、リード → リードスイッチの足。</li>
+<li><b>会話ボタン</b>: 手順 0 で付けた DuPont のメスの端子を、スイッチの <b>C（黒）と NO（紫）</b>へ根元まで挿す（端子はレバーの根元から C・NO・NC。NC は空き）。挿したまま端子の口とスイッチの端子をはんだで固め、<b>収縮チューブを端子の口から線の被覆まで被せて縮める</b>。隣どうしは 5.08 間隔で、むき出しの金属の間は 3 弱しかない。</li>
+<li><b>直はんだ 2 か所</b>（手順 0 で作った線の、殻の無い側）: スピーカー OUT → スピーカーのリード、リード → リードスイッチの足。</li>
 <li><b>OLED の L には何も付けない。</b>足の前面のダボ（φ2.8）が折れていないかだけ見る。</li></ol>
 
 </div>
