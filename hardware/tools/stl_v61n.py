@@ -29,7 +29,7 @@ def mat_defs(src, nylon=True):
 PARTS = [
     ('shell',      CASE, 'print_shell'),     # 底パーツ（床＋前＋後ろ＋右の壁＋左の壁の帯。2026-09-16 の分割）
     ('lid',        CASE, 'print_lid'),       # 蓋（天板＋左の板＋鉤＋PCB の受け。2026-09-16 まで 'top' = 天板だけだった）
-    ('knob',       KNOB, 'knob'),            # つまみ本体
+    ('knob',       CASE, 'print_knob61'),    # つまみ本体（長い軸・⭐ 2026-09-19。延長の長さは case が持つので case から出す。それまで KNOB の part="knob" で短い軸のまま）
     ('island',     KNOB, 'wall'),            # つまみの島（座金＋タブ）
     ('spktub',     SPK,  'print_tub'),       # スピーカーのバスタブ
     ('btn_piston', BTN,  'print_piston2'),   # 会話ボタンの押し子

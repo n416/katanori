@@ -67,3 +67,4 @@ hardware/_tmp_v61man/
 # 掃引検査の作業場（tools/sweep_chk.py が書く OFF と JSON）
 hardware/_tmp_sweep/
 hardware/_tmp_nutpath/
+hardware/_tmp_riser/

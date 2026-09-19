@@ -550,6 +550,12 @@ Z_NCV_BOT = Z_PCB_TOP; Z_NCV_TOP = Z_NCV_BOT + NCV_T;             // −18.1〜�
 SCR_TIP_Z  = (Z_WALL_T - SCR_CB_T) - M25_LEN;   // -12.0 ねじの先（増し肉を貫通して下へ出る）
 
 function knob_shaft_bot() = Z_MAG_BOT; function knob_shaft_d() = SHAFT_D;   // v6.1 が読む（軸の下端 −15.9・軸 φ7）。2026-09-14
+// 軸の延長（⭐ 2026-09-19）。🔒 ユーザー 2026-09-14「ノブはながーーい棒を備える事になりますがそれで良い」→ 2026-09-19「やってください」:
+//   v6.1 は磁石が PCB の上の AS5600 まで下りるので、軸を Z_MAG_BOT から下へ knob_ext() 伸ばし、磁石のポケットは伸ばした先に移す。
+//   長さは筐体（case_v6_1.scad の KNOB61_EXT）が $knob_ext で渡す。単体で開けば 0（v5 と同じ短い軸）。
+//   🔴 それまで長い軸は筐体の模型の絵（knob61_shaft）にしか無く、発注用の STL は短い軸のまま（2026-09-16 夜に気づいて放置）
+function knob_ext() = is_undef($knob_ext) ? 0 : $knob_ext;
+function knob_tip() = Z_MAG_BOT - knob_ext();   // 軸の下端＝磁石の下面
 function knob_deep()   = -Z_PCB_BOT;             // 19.7（v4 と同じ）
 function knob_grip_h() = Z_GRIP_B + GRIP_H;      // 5.5
 // 🪦 2026-09-09 に削除: knob_dish_d() / knob_bay_x() / knob_pad_y0() / knob_pad_y1() / knob_bay_y() / knob_pad_h()
@@ -612,8 +618,8 @@ module knob_part(cone = KNOB_CONE) {
                     translate([GRIP_D / 2, 0, 0]) cylinder(d = RIB_D, h = GRIP_H);
             }
             // 軸。まっすぐ1本
-            translate([0, 0, Z_MAG_BOT])
-                cylinder(d = SHAFT_D, h = Z_GRIP_B - Z_MAG_BOT + 0.01);
+            translate([0, 0, knob_tip()])
+                cylinder(d = SHAFT_D, h = Z_GRIP_B - knob_tip() + 0.01);
             // 回転のツメ。持ち手の裏から下ろす。限界止めのねじの胴に当たる。
             // 🔒 位置は v4 と同じ（当たり面 270度）。ずらすのは磁石（MAG2_ANG）の側
             rotate([0, 0, STOP_ANG - LUG_ARC])
@@ -647,7 +653,7 @@ module knob_part(cone = KNOB_CONE) {
             cylinder(d1 = SHAFT_D, d2 = ERING_GRV_D, h = Z_GRV_B - Z_CONE_B + 0.01);
         }
         // 磁石ポケット（AS5600用 φ4.10 × 2.2）。⚠ 壁 1.45（未実証）
-        translate([0, 0, Z_MAG_BOT - 0.01]) cylinder(d = MAG_D, h = MAG_DEPTH + 0.01);
+        translate([0, 0, knob_tip() - 0.01]) cylinder(d = MAG_D, h = MAG_DEPTH + 0.01);
         // 🔒 押し出し穴・空気穴・入口逃がしは開けない（v4 の経緯。抜くのは磁石で吸う）
         // リード用磁石。🔒 **円板を立てて、軸をリードの長手方向（接線）へ向ける。**
         //   ⚠ 面をリードに正対させる（軸を半径方向にする）と、リードの真正面が
@@ -671,7 +677,7 @@ module knob_part(cone = KNOB_CONE) {
         translate([-1, GRIP_D / 4, Z_GRIP_B + GRIP_H - 0.8]) cube([2, GRIP_D / 4, 1]);
         ch_top(GRIP_D / 2 + RIB_D / 2, Z_GRIP_B + GRIP_H, GRIP_CH);
         ch_bot(GRIP_D / 2 + RIB_D / 2, Z_GRIP_B, CH_S);
-        ch_bot(SHAFT_D / 2, Z_MAG_BOT, CH_S);
+        ch_bot(SHAFT_D / 2, knob_tip(), CH_S);
     }
 }
 
@@ -1242,7 +1248,7 @@ module knob_group(g, ex = 0) {   // ex: 分解図の倍率（0 = 組んだ姿）
     if (g == "hang") { hang_part(); hang_screws(); hang_nuts(); hang_pcb_screws(); hang_pcb_nuts(); }
     if (g == "ncov" && NCV) { nut_cover(); nut_cover_nuts(); }
     if (g == "mag") {
-        color("#bbb") translate([0, 0, Z_MAG_BOT]) cylinder(d = 4.0, h = 2.0);
+        color("#bbb") translate([0, 0, knob_tip()]) cylinder(d = 4.0, h = 2.0);
         // ⚠ 絵も B向き（軸は +X＝接線）。ポケットと同じ角度へ回す。
         //    ここが実物と違うと、当たり検査は効いていても目で見て気付けない
         color("#c0392b") rotate([0, 0, MAG2_ANG - 90])
@@ -1281,7 +1287,7 @@ module exploded() {
     //    当時の留め具は基板を受ける E リングで、いまはバスタブ 2 のねじとナット。
     translate([0, 0, -44]) { hang_part(); hang_screws(); hang_nuts(); hang_pcb_screws(); hang_pcb_nuts(); }   // 吊るす板（バスタブ 2）とねじ・ナット（2026-09-08）
     if (NCV) translate([0, 0, -22]) { nut_cover(); nut_cover_nuts(); }   // ナットの座カバー（基板の上）
-    translate([0, 0, 24]) color("#bbb") translate([0, 0, Z_MAG_BOT]) cylinder(d = 4.0, h = 2.0);
+    translate([0, 0, 24]) color("#bbb") translate([0, 0, knob_tip()]) cylinder(d = 4.0, h = 2.0);
 }
 
 // ---- 印刷の向き ----

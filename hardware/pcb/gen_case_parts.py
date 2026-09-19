@@ -296,6 +296,9 @@ def fmt(rows):
                      % ('"' + nm + '"', f[0], f[1], f[2], f[3], r["h"], r["dirn"], r["side"],
                         r["path"], r["leg"], legbox, note))
     lines.append("];")
+    # ⭐ 2026-09-19: つまみの軸のガイドの足の穴（v61_board.GUIDE_HOLES・板の座標）。筐体のガイド（case_v6_1.scad の kguide）がここから引く
+    lines.append("PCB_GUIDE_HOLES = [%s];   // 軸のガイドの足の穴（板の座標）。出どころ: hardware/pcb/v61_board.py の GUIDE_HOLES"
+                 % ", ".join("[%.3f, %.3f]" % h for h in VB.GUIDE_HOLES))
     return "\n".join(lines) + "\n"
 
 

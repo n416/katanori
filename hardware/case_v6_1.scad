@@ -13,6 +13,7 @@
 //   look_pwrbtn … 電源の押しボタン（後ろの壁の押し子の口・USB-C の口・PCB の縁の胴）
 //   look_pwrcap … 押しボタンとキャップの断面の模型（分解・切・入・押し切りの 4 つ）
 //   look_riserhang … XIAO のライザーの下へ垂らした板と、ハブのピンヘッダーの樹脂が接する所（断面）
+//   look_kguide … つまみの軸のガイド（平らな板・短い足 3 本・U4 を受ける口）の断面
 //   plugs    … 口だけ。v6.1 は空（DuPont は無く、XIAO も OLED もライザーのメスが受ける）
 //   open_flap … 蓋の左の板だけ外す（底パーツの左の帯・レールは残る）
 //   open_left … 全部組んだ状態で左の壁だけ取り払う（中を左から見る）
@@ -31,7 +32,7 @@
 //   seam_<板>_<板> … 板 2 枚の重なり（例 seam_top_front。0 が正）
 //   （皮・板・検査の語は皮を起こすときにここへ足す。既にある語の意味は変えない）
 // ============================================================
-part = "look_riserhang";
+part = "explode";
 MAT = "nylon";   // ["resin", "nylon"]   刷り方。"resin" = 自分の光造形（板 6 枚）／"nylon" = 外注 MJF（底パーツ＋蓋の 2 部品。蓋 = 天板＋左の板・2026-09-16）。GUI ではこの行を書き換える（Customizer でも選べる）。CLI は -D MAT="nylon"
 $mat = MAT;      // 🔴 部品ファイル（use）へ材料を配る。$ 付きは呼び出しの連鎖を伝わる（parts/mat.scad の説明）。PROPS_OFF などより前に置くこと
 // ---- 刷り方（🔒 ユーザー 2026-09-14「ナイロンで印刷する場合のモードが欲しいね」）----
@@ -269,7 +270,7 @@ UNITS = ["oled", "rsp", "hub", "riser", "oriser", "bat", "knob", "btn", "spk", "
 module one(n) {
     if (n == "oled") at_oled() oled_242();   // 2026-09-14: DuPont は廃止（ライザーのメスが受ける）
     if (n == "rsp")  at_rsp() respeaker_lite();   // 2026-09-14: XIAO の DuPont は廃止（ライザーのメスが受ける）
-    if (n == "hub")  { if (PCB3D) pcb61_solid(); else { pcb61(); usbc61(); pcb_parts61(); } color("#e8e8e8") pwr_btn61(); color("#f2f2f2") pwr_cap(); }   // 電源の押しボタンとキャップ（⭐ 2026-09-19。キャップは PCB を入れる前に押し子へ差すので PCB の一式）   // ⭐ 2026-09-16 夕: 既定は KiCad の 3D モデルごとのメッシュ（下の PCB3D）
+    if (n == "hub")  { hub_body(); kguide(); kguide_screws(); }   // ⭐ 2026-09-19: つまみの軸のガイドも PCB の一式（ねじのナットが板の裏なので、PCB を箱に入れる前に机の上で付ける）   // 電源の押しボタンとキャップ（⭐ 2026-09-19。キャップは PCB を入れる前に押し子へ差すので PCB の一式）   // ⭐ 2026-09-16 夕: 既定は KiCad の 3D モデルごとのメッシュ（下の PCB3D）
     if (n == "riser") riser61();   // XIAO の 2 列を受けるライザー（2026-09-14）
     if (n == "oriser") oriser61();   // OLED の 4 ピンを受けるライザー（2026-09-14）
     if (n == "bat")  at_bat()  lipo_1000mah();
@@ -278,6 +279,7 @@ module one(n) {
     if (n == "spk")  at_spk()  spk_body();
     if (n == "spktub") at_spk() spk_tub_all();
 }
+module hub_body() { if (PCB3D) pcb61_solid(); else { pcb61(); usbc61(); pcb_parts61(); } color("#e8e8e8") pwr_btn61(); color("#f2f2f2") pwr_cap(); }   // PCB と板に付いた物（ガイドを除く。見本の絵で色を分けるため）
 module others(n) for (m = UNITS) if (m != n) one(m);
 // ---- v6.1 充電の USB-C（🔒 ユーザー 2026-09-14「PCB 基板に USB の充電口を左壁に付けて」）----
 //   PCB の左の縁（X 6.0）に横出しのレセプタクル。殻 8.94 × 3.26（v5 の TC_PORT_SZ − 逃げ 0.6）・胴の奥行 7.35（⚠ 一般値）・板の縁から 3.0 出る（v6 の板と同じ数）。Y の位置は私の仮
@@ -424,9 +426,9 @@ RISER_SOCK_CY = 18.78;   // 🔒 基板担当 2026-09-14: 板に立てる 1x07 �
 //      足跡の外形 10.03 ＝ 胴 8.50 ＋ 足の曲がり 1.53 とも合う。
 //    ⇒ 胴は板の面から 2.54・接点の軸はその真ん中 1.27。**J1・J2 の +2.87 はこれで確定**
 //    ⚠ 残る仮定は「接点が 2.54 のちょうど真ん中」の 1 点だけ（この表に断面図は無く、A・B・TAIL の 3 つしか出ていない）
-LSOCK_T = 2.54;   // 胴がライザーの裏面から後ろへ出る厚み（📄 上のカタログ）
+//    ⭐ 2026-09-19: 買う品は SHOU HAN（ORDER-V61N.md）。寸法はその図面へ置き換えた（下の LSOCK_BODY の注）。奥行き 2.50 で接点の軸は 1.25
+LSOCK_T = 2.50;   // 胴がライザーの裏面から後ろへ出る厚み。⭐ 2026-09-19 買う品 SHOU HAN の図面で 2.54 → 2.50（下の LSOCK_BODY の注）。接点の軸は真ん中 1.25（図面に寸法なし・前の 1.27 と 0.02 違い）
 LSOCK_H = 10.03;  // 🔒 基板担当 2026-09-14（KiCad の実寸）: PinSocket 1x07 P2.54 Horizontal の樹脂は「ピンの列から口の側へ 10.03」。口はライザーの板の下端にあるので、胴は下端から上へ 10.03
-LSOCK_MARG = 1.27;   // 胴が列の両端へはみ出す量
 function riser_z0() = HUB_AT[2] + 1.6 + RISER_SOCK_H;   // L 字のメスの口（胴の下端）。OLED のライザーの板の下端もここ
 // XIAO のライザーの板の下端（⭐ 2026-09-19）。🔒 ユーザー「表面実装のメスなりオスなりさがさないと」→「模型の形を変えてください」:
 //   表の XIAO のメスを表面実装（SHOU HAN PM2.54-1x3PLT-H8.5-R C55218894 / 1x4PLT-H8.5-R C55218895・高さ 8.5）にする。
@@ -444,30 +446,35 @@ function riser_plate_z0() = HUB_AT[2] + 1.6 + RISER_BOT_CL;
 XSOCK_H = 8.80; XSOCK_BODY = 8.50; XSOCK_W = 2.50; XSOCK_FOOT = 4.70; XSOCK_LEG = [0.54, 0.25]; XSOCK_PAD = [1.02, 3.00]; XSOCK_HOLE = [1.0, 7.5];
 function xsock_len(n) = n * 2.54 + 0.5;
 CU_T = 0.035;   // 銅箔（1oz）
-// 裏の L 字のメス: 📄 Sullins（上の表）の A 8.50・B 2.54・TAIL 3.15 と KiCad の足跡の外形 10.03
-//   胴は口（下）から 8.50。その上 1.53 で足が板の側へ曲がり、ピンの列（口から 10.03）で板を貫いて、板の裏面（胴の座る面）から 3.15 出る
-LSOCK_BODY = 8.50; LSOCK_TAIL = 3.15; LSOCK_LEG = 0.64; LSOCK_DRILL = 1.0;
+// 裏の L 字のメス: 📄 SHOU HAN PM2.54-1xNPWZ-H8.5 の図面（https://www.lcsc.com/datasheet/C54876736.pdf・1x4 の C54876733 も同じ図）で 2026-09-19 に突き合わせ
+//   胴の長さ N × 2.54 + 0.5（±0.3）・奥行き 2.50（±0.15）・高さ 8.50（±0.15）・胴の座る面から足の先 3.20（±0.25）・胴の口から曲げた足の下の面 10.20（±0.3）・足 0.64 × 0.4・推奨穴 φ1.02
+//   足の列の高さは図面の 10.20 から足の厚みを引いて 9.8〜10.0。KiCad の足跡の 10.03 は ±0.3 の内なので LSOCK_H は変えない
+//   胴は口（下）から 8.50。その上 1.53 で足が板の側へ曲がり、ピンの列（口から 10.03）で板を貫いて、胴の座る面から 3.20 出る
+LSOCK_BODY = 8.50; LSOCK_TAIL = 3.20; LSOCK_LEG = 0.64; LSOCK_DRILL = 1.0;
 // XIAO のライザーだけ板を 1.2 にして、板の裏と L 字の胴の間にレジンの板切れ 0.4 を挟む（⭐ 2026-09-19 🔒 ユーザー「板の厚さを下げて、L 字ピンヘッダの樹脂の間にレジンの板切れ 0.4mm を噛ませますか」）。
 //   L 字の軸は 板の前面 + 1.2 + 0.4 + 1.27 で 1.6 のときと同じ（ハブの J1 と合ったまま）。垂らした板の裏とハブのピンヘッダーの樹脂の前の面の間が 0 → 0.4 空く。
-//   足は胴の上（口から 10.03）で板へ曲がるので、胴の下に挟む板切れに足の穴は要らない。板の前へ出る足は 3.15 − 0.4 − 1.2 = 1.55 で前と同じ。
+//   足は胴の上（口から 10.03）で板へ曲がるので、胴の下に挟む板切れに足の穴は要らない。板の前へ出る足は 3.20 − 0.4 − 1.2 = 1.60。
 //   JLC の 2 層の厚みの選択肢に 1.2 がある（0.8〜1.6 は同じ値段）。OLED のライザーは J2 と 1.6 で合っているので変えない
 XRISER_T = 1.2; LSOCK_SHIM = 0.4;
 function xsock_pins(r) = let (q = xiao_row_pts(r), n = round(abs(q[1][0] - q[0][0]) / 2.54) + 1) [for (k = [0 : n - 1]) min(q[0][0], q[1][0]) + k * 2.54];
-// 表の XIAO のメス 1 個（y = 板の前面。胴は −Y へ）。足 k は偶数が上・奇数が下（1x3 は 2 本上・1 本下）
-module xsock(xs, z, y) {
+// 表の XIAO のメス 1 個（y = 板の前面。胴は −Y へ）。足 k は偶数が s0 の向き（+1 上・−1 下）・奇数がその逆
+// XSOCK_S0 = [信号の列, 電源の列] の 1 本目の向き。基板の配線（pcb/gen_riser.py）がこれを読む:
+//   信号の列は D2 を下（線を下のすきまへ落とす）・D3 を上（ビアを D3 の下に打つ）、電源の列は 5V・3V3 を上・GND を下
+XSOCK_S0 = [-1, 1];
+module xsock(xs, z, y, s0 = 1) {
     n = len(xs); c = (xs[0] + xs[n - 1]) / 2;
     color("#333") difference() {
         translate([c - xsock_len(n) / 2, y - XSOCK_H, z - XSOCK_W / 2]) cube([xsock_len(n), XSOCK_BODY, XSOCK_W]);
         for (x = xs) translate([x - XSOCK_HOLE[0] / 2, y - XSOCK_H - 1, z - XSOCK_HOLE[0] / 2]) cube([XSOCK_HOLE[0], XSOCK_HOLE[1] + 1, XSOCK_HOLE[0]]);
     }
-    for (k = [0 : n - 1]) let (x = xs[k], sg = k % 2 == 0 ? 1 : -1) {
+    for (k = [0 : n - 1]) let (x = xs[k], sg = k % 2 == 0 ? s0 : -s0) {
         color("#d4af37") translate([x - XSOCK_LEG[0] / 2, y - CU_T - XSOCK_LEG[1], sg > 0 ? z : z - XSOCK_FOOT / 2]) cube([XSOCK_LEG[0], XSOCK_LEG[1], XSOCK_FOOT / 2]);   // 足（胴の下から列の外へ）
         color("#c87533") translate([x - XSOCK_PAD[0] / 2, y - CU_T, sg > 0 ? z : z - XSOCK_PAD[1]]) cube([XSOCK_PAD[0], CU_T, XSOCK_PAD[1]]);                         // パッド
     }
 }
 module riser61() {
     pins = riser_pin_x();
-    x0 = pins[0] - 1.27; x1 = HUB_AT[0] + RISER_SOCK_CY;   // 左の縁は裏の L 字のメスの胴の端（ピンの列の端 − 1.27 = X 2.50・左壁の内面 1.694 まで 0.806）
+    x0 = pins[0] - 1.27; x1 = HUB_AT[0] + RISER_SOCK_CY;   // 左の縁はピンの列の端 − 1.27 = X 2.50（左壁の内面 1.694 まで 0.806）。裏の L 字のメスの胴はそこから 0.25 左へ出る（X 2.25・壁まで 0.556）
     // 🔒 ユーザー 2026-09-19: ライザーはルーターで切る板で、外形は ±0.2 ずれる（JLCPCB・pcb/gen_pcb.py 128 行）。それまでの縁 X 2.0（ハブの板の左の縁に揃えた）は
     //    壁まで 0.306 で、最悪 0.106 にナイロンの ±0.3 が乗ると当たる。縁を胴の端まで引っ込め、壁との隙間を買う部品の樹脂で決める
     //    （2026-09-19 の精緻化で胴の端を XIAO の列ではなくハブの J1 のピンの列から取り直し、2.392 → 2.50）
@@ -477,9 +484,9 @@ module riser61() {
         translate([KNOB_AT[0], KNOB_AT[1], zp - 1]) cylinder(d = RISER_SHAFT_D, h = zt - zp + 2, $fn = 48);   // つまみの軸の逃げ（⚠ 2026-09-15 の測り: 軸は X 64.2〜71.2 でライザーの板から遠く、今は何も削っていない）
         lsock_drills(pins, y, zb, XRISER_T);                                                          // L 字のメスの足の穴
     }
-    for (r = [0, 1]) xsock(xsock_pins(r), riser_zs()[r], y);                                         // 表の XIAO のメス（表面実装）
-    color("#e8e0c8") translate([pins[0] - 1.27, y + XRISER_T, zb]) cube([pins[len(pins) - 1] - pins[0] + 2.54, LSOCK_SHIM, LSOCK_BODY]);   // レジンの板切れ 0.4（胴の下だけ）
-    lsock_body(pins[0] - 1.27, pins[len(pins) - 1] + 1.27, y + XRISER_T + LSOCK_SHIM, zb, pins);   // 裏面の L 字のメス（口は下・板のオスを受ける。板切れの上に座る）
+    for (r = [0, 1]) xsock(xsock_pins(r), riser_zs()[r], y, XSOCK_S0[r]);                            // 表の XIAO のメス（表面実装）
+    color("#e8e0c8") translate([(pins[0] + pins[len(pins) - 1] - xsock_len(len(pins))) / 2, y + XRISER_T, zb]) cube([xsock_len(len(pins)), LSOCK_SHIM, LSOCK_BODY]);   // レジンの板切れ 0.4（胴の下だけ）
+    lsock_body(y + XRISER_T + LSOCK_SHIM, zb, pins);   // 裏面の L 字のメス（口は下・板のオスを受ける。板切れの上に座る）
 }
 // ---- L 字のメスの胴（⭐ 2026-09-16 夕）----
 // 🔒 ユーザー「ピンヘッダ立てることそのものは問題ないでしょ」。
@@ -494,9 +501,10 @@ LSOCK_PIN_W = 1.2;    // 彫る幅（2.54 のピン 0.64 に片側 0.28 の遊�
 function riser_pin_x()  = [for (k = [0 : 6]) HUB_AT[0] + 1.770 + k * 2.54];
 function oriser_pin_x() = [for (k = [0 : 3]) HUB_AT[0] + 37.240 + k * 2.54];
 // y0 = 胴の座る面（ライザーの板の裏面）。胴は口（zb）から LSOCK_BODY、足はその上で板へ曲がり、ピンの列（zb + LSOCK_H）で板を貫く
-module lsock_body(x0, x1, y0, zb, pxs) {
+// 胴の長さは SHOU HAN の図面の N × 2.54 + 0.5（表の XIAO のメスと同じ式）。列の真ん中から左右へ
+module lsock_body(y0, zb, pxs) {
     color("#444") difference() {
-        translate([x0, y0, zb]) cube([x1 - x0, LSOCK_T, LSOCK_BODY]);
+        translate([(pxs[0] + pxs[len(pxs) - 1] - xsock_len(len(pxs))) / 2, y0, zb]) cube([xsock_len(len(pxs)), LSOCK_T, LSOCK_BODY]);
         // 🔴 Y は「胴の厚み − 壁 × 2」ではなく **ピンと同じ 1.2 を胴の真ん中**に取る。
         //   SOCK_WALL 1.0 を両側に置くと 2.54 − 2.0 = 0.54 しか残らず、2.54 ヘッダのピン 0.64 が入らない
         //   （2026-09-16 夕に実際に path_rsp 4.04 が残った）。真ん中に取れば壁は片側 0.67 になる
@@ -528,7 +536,7 @@ module oriser61() {
         translate([x0, oriser_y_pin(), oriser_z() - 1.27]) cube([x1 - x0, SOCK_D, 2.54]);
         translate([x0 + SOCK_WALL, oriser_y_pin() - 1, oriser_z() - 1.27 + 0.5]) cube([x1 - x0 - 2 * SOCK_WALL, SOCK_D - SOCK_WALL + 1, 2.54 - 1.0]);
     }
-    lsock_body(x0 - LSOCK_MARG, x1 + LSOCK_MARG, yf + RISER_T, zb, oriser_pin_x());   // 裏面の L 字のメス（口は下・穴あき）
+    lsock_body(yf + RISER_T, zb, oriser_pin_x());   // 裏面の L 字のメス（口は下・穴あき）。胴 10.66 は板 10.16 から左右へ 0.25 出る
 }
 // ---- v6.1 つまみ（🔒 ユーザー 2026-09-14「AS5600 を PCB 基板に落として」「ノブはながーーい棒を備える事になりますがそれで良い」）----
 //   knob_v5 の 持ち手・島・ねじ・ナット・E リング・磁石 はそのまま。AS5600 のモジュール基板と吊り（バスタブ 2）は無い。
@@ -541,16 +549,73 @@ function as_ic_h() = pcb_part("U4")[5];   // AS5600 の背（基板の模型が�
 AS_GAP = 1.1;   // 磁石の下面とチップの**天面**の隙間。ここは設計値のまま
 AS_IC_Z  = HUB_AT[2] + 1.6;                 // PCB の上面 レジン 9.6／ナイロン 13.6
 MAG61_Z0 = AS_IC_Z + as_ic_h() + AS_GAP;    // 磁石の下面。チップの実寸 1.75 から測るので ナイロンで 16.45（旧 15.8。1.1 と置いていたぶん 0.65 上がる）
-module knob61_shaft() translate([KNOB_AT[0], KNOB_AT[1], 0]) color("#d8dde3") translate([0, 0, MAG61_Z0 + 2.0 - 0.01]) cylinder(d = knob_shaft_d(), h = (Z_TOP + TOP_T + knob_shaft_bot()) - (MAG61_Z0 + 2.0) + 0.02);   // 伸ばした軸（蓋に付いて動く。lid_units が読む）
-module knob61() {
-    at_knob() for (g = KNOB61_GROUPS) knob_group(g);
-    knob61_shaft();
-    translate([KNOB_AT[0], KNOB_AT[1], 0]) {
-        translate([0, 0, MAG61_Z0]) magnet_as5600();                                            // 磁石 φ4 × 2
-        // ⛔ AS5600 のチップはここでは描かない（基板の模型が持つ）。2026-09-17 に消した
-    }
+// 軸の延長（⭐ 2026-09-19）: v5 の軸の下端（外面から −15.9）から磁石の下面 MAG61_Z0 まで。つまみの部品ファイルへ $knob_ext で渡す。
+//   軸は 1 本の刷り物になり、磁石 φ4 × 2 は伸ばした先のポケットに入る（つまみと一緒に蓋に付いて動く）。
+//   🔴 2026-09-19 まで延長は絵の円柱（knob61_shaft・磁石の上面で止まる）だけで、発注用の STL（parts/knob_v61.scad の part="knob"）は短い軸のまま。
+//      磁石も PCB の側に別に描いていた。刷る形は print_knob61 から出す（tools/stl_v61n.py の knob）
+KNOB61_EXT = (Z_TOP + TOP_T + knob_shaft_bot()) - MAG61_Z0;
+$knob_ext = KNOB61_EXT;
+module knob61() at_knob() for (g = KNOB61_GROUPS) knob_group(g);   // ⛔ AS5600 のチップはここでは描かない（基板の模型が持つ）。2026-09-17 に消した
+module print_knob61() rotate([180, 0, 0]) translate([0, 0, -knob_grip_h()]) knob_part();   // 持ち手の天面を下（knob_v61.scad の part="knob" と同じ向き）
+echo(str("knob61: 軸の延長 ", KNOB61_EXT, "（下端 Z ", MAG61_Z0, "）"));
+// ---- つまみの軸のガイド（⭐ 2026-09-19。🔒 ユーザー 2026-09-19「つまみの軸の精度をあげる方法として、基盤手前にガイドをつけたい」→「１がいい」＝基板に立てる）----
+//   🔒 ユーザー 2026-09-19「私は板に足がすこしついているくらいのイメージ」「板から足が伸びてるので良い」:
+//     平らな板 1 枚（軸の周りの丸 ＋ 足へ向かう 3 本の腕）を U4 の少し上に浮かせ、短い足 3 本で基板に立てる。
+//     🔴 最初は別セッションの叩き台（輪・漏斗・輪から下りる胴・腕）で描き、形が違う・刷れない（宙から始まる肉・突然出る輪）と言われて描き直した
+//   ・軸の穴: 軸 φ7 ＋ 島と同じ遊び 0.8。上の縁に面取り（降りてくる軸の先を拾う）
+//   ・位置は U4 の胴で取る。丸の下を U4 の足の上まで下ろした太い塊にし、中の口を下は U4 の胴の四角（嵌め 0.1）、チップの天面の上で軸の丸へ少しずつ移す
+//     （🔒 ユーザー「四角から丸にすこしずつ移行すればいい」。最初は板の裏から壁 0.8 の枠を下ろしていて「これじゃ割れちゃう」）。
+//     移る斜面は左右で水平から約 28°（高さ 1.0 で 1.85 入る。軸の先とチップの間が 1.1 しか無いので高さは取れない）。
+//     🔒 ユーザー「28° のまま刷る」: 45° は一般の目安で、このリポジトリの光造形の判定（宙から始まる肉 0・急な立ち上がり 0.25 / 実績 4.00）は通っている
+//   ・足 3 本（120° 等分・半径 12・基板の穴は PCB_GUIDE_HOLES）。ねじは押さえるだけ ⇒ 板と足の穴は φ2.8 と大きめ
+//     🔒 ユーザー 2026-09-19「だめだったら枠を無くしましょ。3 点穴があれば場所は固定できますし」: 刷って U4 の口がうまくいかなければ、
+//     口（丸の下の塊と前後の端の壁）を外し、KG_SCR_D を φ2.2（基板の穴と同じ）に絞って 3 本の足の穴で位置を取る
+//   ・板の外形を丸や三角にしないのは、右の 2 本の足の間に J4（背 6.0）が来るため
+//   ・刷る向きは板を下（print_kguide）。足と枠は板から上へ伸びるだけで、宙から始まる肉は無い
+//   ⚠ 私が置いた値: 板の高さと厚み、丸と腕の幅、口の嵌め 0.1、前後の端の壁 0.8、KG_LEAD_H 1.2（SOIC-8 の足の上端の一般値・図面で未確認）
+KG_BORE = knob_shaft_d() + 0.8; KG_BORE_CH = 0.5;
+KG_PLATE_T = 2.0; KG_HUB_D = 16.0; KG_ARM_W = 6.0; KG_PAD_D = 6.0; KG_LEG_D = 5.0; KG_SCR_D = 2.8;
+KG_FIT = 0.1; KG_WALL = 0.8; KG_END_CL = 0.5; KG_LEAD_H = 1.2; KG_TOP_CL = 0.1; KG_PART_CL = 0.3;   // KG_TOP_CL: 口の四角はチップの天面の 0.1 上まで・KG_PART_CL: 塊の下の部品（C42）の逃げ
+function kg_top() = AS_IC_Z + as_ic_h();                       // チップの天面（ナイロン 15.35）
+KG_PLATE_Z = [kg_top() + 0.85, kg_top() + 0.85 + KG_PLATE_T];   // 板 16.2〜18.2。軸の先（天面 + 1.1）は板の穴の中
+function kg_holes() = [for (h = PCB_GUIDE_HOLES) [HUB_AT[0] + h[0], PCB_Y0 + h[1]]];
+function kg_u4() = let (q = pcb_part("U4"), o = pcb_w(q)) [o[0], o[1], o[0] + q[2] - q[1], o[1] + q[4] - q[3]];   // U4 の胴 [x0, y0, x1, y1]（世界）
+assert(norm([(kg_u4()[0] + kg_u4()[2]) / 2 - KNOB_AT[0], (kg_u4()[1] + kg_u4()[3]) / 2 - KNOB_AT[1]]) < 0.01, "U4 の芯がつまみの軸と揃っていない");
+assert(len([for (h = kg_holes()) if (abs(norm(h - [KNOB_AT[0], KNOB_AT[1]]) - 12) > 0.01) 1]) == 0, "ガイドの足の穴が軸から 12 に無い（基板を動かしたら gen_case_parts.py を回す）");
+module kg_plate2d() let (c = [KNOB_AT[0], KNOB_AT[1]]) {
+    translate(c) circle(d = KG_HUB_D, $fn = 64);
+    for (h = kg_holes()) { hull() { translate(c) circle(d = KG_ARM_W, $fn = 32); translate(h) circle(d = KG_ARM_W, $fn = 32); } translate(h) circle(d = KG_PAD_D, $fn = 48); }
 }
-echo(str("knob61: shaft bottom Z ", MAG61_Z0 + 2.0, " top Z ", Z_TOP + TOP_T + knob_shaft_bot(), " len ", (Z_TOP + TOP_T + knob_shaft_bot()) - (MAG61_Z0 + 2.0)));
+module kguide() color("#e0c060") difference() {
+    b = kg_u4(); c = [KNOB_AT[0], KNOB_AT[1]]; zb = AS_IC_Z; zt = kg_top();
+    union() {
+        translate([0, 0, KG_PLATE_Z[0]]) linear_extrude(KG_PLATE_T) kg_plate2d();                                                   // 板
+        for (h = kg_holes()) translate([h[0], h[1], zb]) cylinder(d = KG_LEG_D, h = KG_PLATE_Z[0] - zb + 0.01, $fn = 48);           // 足
+        translate([c[0], c[1], zb + KG_LEAD_H]) cylinder(d = KG_HUB_D, h = KG_PLATE_Z[0] - zb - KG_LEAD_H + 0.01, $fn = 64);        // 丸の下の塊（U4 の足の上で止める）
+        translate([b[0] - KG_FIT - KG_WALL, b[1] - KG_FIT - KG_WALL, zb + KG_END_CL])                                                 // 前後の端（足の無い辺）だけ板の 0.5 上まで下ろす
+            cube([b[2] - b[0] + 2 * (KG_FIT + KG_WALL), b[3] - b[1] + 2 * (KG_FIT + KG_WALL), KG_LEAD_H - KG_END_CL + 0.01]);
+    }
+    // 口: 下は U4 の胴の四角（嵌め 0.1）、チップの天面の上で丸（軸の穴）へ少しずつ移す（🔒 ユーザー「四角から丸にすこしずつ移行すればいい」）
+    translate([b[0] - KG_FIT, b[1] - KG_FIT, zb - 1]) cube([b[2] - b[0] + 2 * KG_FIT, b[3] - b[1] + 2 * KG_FIT, zt + KG_TOP_CL - zb + 1]);
+    hull() {
+        translate([b[0] - KG_FIT, b[1] - KG_FIT, zt + KG_TOP_CL - 0.01]) cube([b[2] - b[0] + 2 * KG_FIT, b[3] - b[1] + 2 * KG_FIT, 0.01]);
+        translate([c[0], c[1], MAG61_Z0]) cylinder(d = KG_BORE, h = 0.01, $fn = 64);
+    }
+    translate([c[0], c[1], MAG61_Z0]) cylinder(d = KG_BORE, h = KG_PLATE_Z[1] - MAG61_Z0 + 1, $fn = 64);                            // 軸の穴（軸の先の高さから上）
+    translate([c[0], c[1], KG_PLATE_Z[1] - KG_BORE_CH]) cylinder(d1 = KG_BORE, d2 = KG_BORE + 2 * KG_BORE_CH + 0.02, h = KG_BORE_CH + 0.01, $fn = 64);   // 上の縁の面取り
+    translate([b[0] - KG_FIT - KG_WALL - 1, b[1] - KG_FIT, zb - 1]) cube([b[2] - b[0] + 2 * (KG_FIT + KG_WALL) + 2, b[3] - b[1] + 2 * KG_FIT, KG_LEAD_H + 1]);   // 左右（足の側）は足の上端より下を空ける
+    let (q = pcb_part("C42"), o = pcb_w(q)) translate([o[0] - KG_PART_CL, o[1] - KG_PART_CL, zb - 1]) cube([q[2] - q[1] + 2 * KG_PART_CL, q[4] - q[3] + 2 * KG_PART_CL, q[5] + KG_PART_CL + 1]);   // C42 の逃げ
+    for (h = kg_holes()) translate([h[0], h[1], zb - 1]) cylinder(d = KG_SCR_D, h = KG_PLATE_Z[1] - zb + 2, $fn = 24);              // ねじの通し
+}
+// 足のねじ M2（頭は板の上）と板の裏のナット（絵）
+module kguide_screws() color("#b8b8b8") for (h = kg_holes()) translate([h[0], h[1], 0]) {
+    translate([0, 0, KG_PLATE_Z[1]]) cylinder(d = 3.8, h = 1.3, $fn = 24);
+    translate([0, 0, HUB_AT[2] - FP_NUT_T]) cylinder(d = 2.0, h = KG_PLATE_Z[1] - (HUB_AT[2] - FP_NUT_T), $fn = 16);
+    translate([0, 0, HUB_AT[2] - FP_NUT_T]) cylinder(d = FP_NUT_AF / cos(30), h = FP_NUT_T, $fn = 6);
+}
+function kguide_screw_len() = KG_PLATE_Z[1] - (HUB_AT[2] - FP_NUT_T);   // 頭の座（板の上）から板の裏のナットの下まで
+echo(str("kguide: 板 Z ", KG_PLATE_Z[0], "〜", KG_PLATE_Z[1], "・足の長さ ", KG_PLATE_Z[0] - AS_IC_Z, "・ねじ M2 × ", kguide_screw_len(), " 以上"));
+module print_kguide() translate([0, 0, KG_PLATE_Z[1]]) mirror([0, 0, 1]) kguide();   // 板の上面を下（足と枠が上へ伸びる）。鏡で上下だけ返す（X・Y は世界のまま）
 function tail(s, k) = len(s) > k ? _join([for (i = [k : len(s) - 1]) s[i]]) : "";
 function _join(v, i = 0) = i >= len(v) ? "" : str(v[i], _join(v, i + 1));
 function starts(s, pre) = len(s) >= len(pre) && _join([for (i = [0 : len(pre) - 1]) s[i]]) == pre;
@@ -1725,6 +1790,19 @@ module pwr_look_one(press, exp = 0) {
 module look_pwrcap() for (i = [0 : 3]) translate([0, 0, (1.5 - i) * LOOK_PB_DX * 1.4])   // 上から ① 分解 ② 切 ③ 入 ④ 押し切り（横 +X から見ると 4 つの断面が縦に並ぶ）
     pwr_look_one(i == 0 ? 0 : i == 1 ? 0 : i == 2 ? 1.5 : 2.0, i == 0 ? PWR_LOOK_EXP : 0);
 if (part == "look_pwrcap") look_pwrcap();
+if (part == "print_knob61") print_knob61();   // つまみ（長い軸）。MJF は tools/stl_v61n.py の knob がこれを書き出す
+if (part == "print_kguide") print_kguide();   // つまみの軸のガイド（光造形）
+// ---- つまみの軸のガイドの見本（⭐ 2026-09-19）: 軸の芯で前後（Y）に切った −X の半分。黄 = ガイド・灰 = 基板の周り・銀 = つまみの軸と磁石・ねじ
+//   GUI: part="look_kguide"（右から見ると断面・上から見ると 3 本足）
+module look_kguide() {
+    c = KNOB_AT;
+    module half() translate([c[0] - 20, c[1] - 20, 0]) cube([20, 40, 60]);
+    module box() translate([c[0] - 20, c[1] - 20, HUB_AT[2] - 3]) cube([40, 40, 16]);
+    intersection() { union() { kguide(); kguide_screws(); } half(); }
+    color("gray", 0.6) intersection() { hub_body(); box(); half(); }
+    color("#d8dde3") intersection() { at_knob() { knob_group("knob"); knob_group("mag"); } translate([c[0] - 20, c[1] - 20, HUB_AT[2]]) cube([20, 40, 14]); }
+}
+if (part == "look_kguide") look_kguide();
 // 電源の押しボタンのキャップ（レジン・顔を下に置く向き。原点は顔の芯）
 if (part == "print_pwrcap") translate([-pwr_x(), 0, pwr_cap_face()]) rotate([-90, 0, 0]) translate([0, 0, -pwr_cap_z()]) pwr_cap();
 // ---- 左の壁を 45° 開いたときの、PCB の後ろ左の角（2026-09-18）----
@@ -1868,7 +1946,7 @@ module shell_open_left() { p_floor(); if (nylon()) fasten_lwall(); p_rwall(); p_
 //   抜くのは **蓋の左の板（lwall_flap）だけ**。底パーツに残る左の壁（前後の縦の稜の帯・床の左の稜・レール＝ lwall_strips）は残す。レジンは壁が 1 枚なので open_left と同じ振る舞い
 module shell_open_flap() { p_floor(); if (nylon()) { lwall_strips(); fasten_lwall(); } p_rwall(); p_front(); p_hatch(); }   // ナイロン: 底パーツ（左の壁は帯だけ・上の柱 2 本は前後の壁に付く）
 EXP_KNOB_S = 6;   // explode でつまみの群を散らす倍率（knob_v61 の knob_exp_dz × これ）
-module lid_units(tub = true) { at_knob() for (g = KNOB61_GROUPS) knob_group(g); knob61_shaft(); one("btn"); one("spk"); if (tub) one("spktub"); }   // tub=false: バスタブを付ける前の小組（nutpath_chk の机の場面 desk1）   // 蓋に付いて動く物（つまみの島・軸・会話ボタン・スピーカー・バスタブ）。磁石と AS5600 は PCB 側
+module lid_units(tub = true) { at_knob() for (g = KNOB61_GROUPS) knob_group(g); one("btn"); one("spk"); if (tub) one("spktub"); }   // tub=false: バスタブを付ける前の小組（nutpath_chk の机の場面 desk1）   // 蓋に付いて動く物（つまみの島・軸・会話ボタン・スピーカー・バスタブ）。磁石と AS5600 は PCB 側
 if (part == "shell") { assert(nylon(), "shell はナイロンの形。先頭の MAT を \"nylon\" にすること"); color(C_CASE) shell(); }
 if (part == "lid")   { assert(nylon(), "lid はナイロンの形。先頭の MAT を \"nylon\" にすること"); color(C_CASE) lid(); }
 if (part == "print_shell") { assert(nylon(), "print_shell はナイロンの形。先頭の MAT を \"nylon\" にすること"); shell(); }
@@ -2117,7 +2195,6 @@ if (part == "explode" && nylon()) {   // ナイロン（2026-09-16 の分割）:
         color(C_TOP61) lid();
         // 蓋に付く小組もばらす（ユーザー 2026-09-16 夕「explode でつまみとかボタンとかがバラけてない」）。上から入る物は天板の上へ、下から入る物は天板の下へ（左の板の下端 0.5 より上に収める）
         at_knob() for (g = KNOB61_GROUPS) translate([0, 0, knob_exp_dz(g) * EXP_KNOB_S]) knob_group(g, EXP_KNOB_S);   // つまみは knob_v61 の散らし方（持ち手 +27.6・磁石 +21.6・ねじ +15.6・島 +4.2・ナット −3.6・E リング −7.2）
-        translate([0, 0, knob_exp_dz("knob") * EXP_KNOB_S]) knob61_shaft();                             // 伸ばした軸は持ち手と一緒
         translate([0, 0, 15])  at_btn() btn3_piston();                                                    // 会話ボタンの押し子（上から）
         translate([0, 0, -20]) at_btn() { btn3_tub(); btn3_switch(); btn3_sw_screws(); btn3_v_screws(); }   // バスタブとスイッチとねじ（下から）
         translate([0, 0, -12]) one("spk");                                                                // スピーカー本体（下から・バスタブより上）
@@ -2137,7 +2214,6 @@ if (part == "explode" && !nylon()) {   // レジン: 箱全体の分解。🔒 �
     translate([0, 0, 80]) {                                                                                                 // 天板は上へ（60 → 80: ReSpeaker を +45 に上げたので、下に散らすバスタブが重ならない高さ）。小組はさらにばらす（ナイロンの explode と同じ散らし方・2026-09-16 夕）
         color("#c9d0d8") p_top();
         at_knob() for (g = KNOB61_GROUPS) translate([0, 0, knob_exp_dz(g) * EXP_KNOB_S]) knob_group(g, EXP_KNOB_S);
-        translate([0, 0, knob_exp_dz("knob") * EXP_KNOB_S]) knob61_shaft();
         translate([0, 0, 15])  at_btn() btn3_piston();
         translate([0, 0, -20]) at_btn() { btn3_tub(); btn3_switch(); btn3_sw_screws(); btn3_v_screws(); }
         translate([0, 0, -12]) one("spk");
