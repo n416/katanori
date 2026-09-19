@@ -1443,6 +1443,11 @@ assert(nylon() || norm(HUB_HOLES_W[3] - post_c(POSTS_B[2])) < SCR_COAX_TOL,
            " が ", norm(HUB_HOLES_W[3] - post_c(POSTS_B[2])), " ずれている（ねじが 1 本で通らない）"));
 function post_t_fwd(p) = (nylon() && post_front(p) && p[2] == true && p[0] < IN_X / 2) ? TL_FWD : 0;   // ナイロンの左前の上の柱だけ前の壁へ食い込む
 function post_t_y0(p) = p[1] - post_t_fwd(p);   // 上の柱の前の面 Y。⚠ post_front(p) は p[1] == FY_IN で見るので POSTS_T の値は動かさない
+// 上の柱のナットを入れる道（口の芯・向き）。⭐ 2026-09-20 tools/_nutpath_v61.scad から移した（検査と格子の両方が使う。写しを持たない）
+function pt_zmid(p) = Z_TOP - (p[2] ? EAR_T : 0) - POST_T_SKIN - NUT_T / 2;
+function pt_org(p)  = post_front(p) ? [(p[0] < IN_X / 2) ? p[0] + post_w(p) : p[0], post_t_y0(p) + post_dy(p) / 2, pt_zmid(p)]   // ⭐ 2026-09-18 Y は post_t_y0（左前は前の壁へ 0.8 食い込んでいる）
+                                    : [post_cx(p), p[1], pt_zmid(p)];
+function pt_dir(p)  = post_front(p) ? [(p[0] < IN_X / 2) ? 1 : -1, 0, 0] : [0, -1, 0];
 function post_cx(p) = p[0] + post_w(p) / 2;   // 上の柱のねじの芯 X（柱の中央）
 module top_screw_cuts() for (p = POSTS_T) translate([post_cx(p), post_t_y0(p) + post_dy(p) / 2, 0]) {
     translate([0, 0, Z_TOP - 1]) cylinder(d = SCR_D, h = TOP_T + 2, $fn = 24);
@@ -1565,7 +1570,12 @@ module rib_slab(k) { b = rib_h(k) + RIB_CLR;
 module plate_of(k) { if (k == "lwall") p_lwall(); if (k == "rwall") p_rwall(); if (k == "hatch") p_hatch(); if (k == "front") p_front(); if (k == "bridge") bridge(); }
 module plates_except(k) { if (k != "lwall") p_lwall(); if (k != "rwall") p_rwall(); if (k != "hatch") p_hatch(); if (k != "front") p_front(); p_floor(); p_top(); }
 module innards_except(k) for (n = UNITS) if (n != k) one(n);   // ブリッジ自身を障害物に数えない
-module rib_paths(k) { }   // 組む時に滑り込ませる物があればここへ。🔴 2026-09-14: v5 は Type-C 基板を左の壁沿いに滑らせる道を彫っていたが、v6.1 にその板は無い（充電の USB-C は PCB の上）。空にして格子を引き直した
+module rib_paths(k) { if (!nylon()) top_nut_paths(); }   // 組む時に滑り込ませる物があればここへ。🔴 2026-09-14: v5 は Type-C 基板を左の壁沿いに滑らせる道を彫っていたが、v6.1 にその板は無い（充電の USB-C は PCB の上）。空にして格子を引き直した
+// ⭐ 2026-09-20: 上の柱のナットを入れる道（口から NUT_PATH_L）を格子の障害物に入れる。入れていなかったので、右の壁の格子の線が
+//   右後ろの柱（pt1）の道を 0.83mm³（断面の 27%）塞いでいた（nutpath_chk.py --mat resin）。断面は検査の SLOT と同じ（溝の幅 × ナットの厚み）
+module top_nut_paths() for (p = POSTS_T) let (o = pt_org(p), d = pt_dir(p), w = NUT_AF + 0.1,
+        s = [d[0] != 0 ? 0.01 : w, d[1] != 0 ? 0.01 : w, NUT_T])
+    hull() for (k = [0, NUT_PATH_L]) translate(o + k * d) cube(s, center = true);
 // 板と一体の物（柱・棚・耳・爪・押さえ）もリブの障害物に数える。板の輪郭に含まれるので放っておくとリブがその上に立ち、柱の頭の横穴（ナット）や耳のねじ穴の端を埋める（🔒 ユーザー 2026-09-05「格子が六角の中に入ってきてない？」）
 module plate_features(k) {
     if (k == "lwall") { fasten_lwall(); }

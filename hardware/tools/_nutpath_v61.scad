@@ -26,10 +26,7 @@ DRV  = ["cyl", NP_DD];
 //   さらに、同じ規則をここと模型の 2 か所に書くのがそもそも間違いだった。
 //   4 本とも口として测れば、溝の無い柱は「口が塞がっている」として自分で出る。
 //   NPTAP は python 側の約束なので空で残す
-function pt_zmid(p) = Z_TOP - (p[2] ? EAR_T : 0) - POST_T_SKIN - NUT_T / 2;
-function pt_org(p)  = post_front(p) ? [(p[0] < IN_X / 2) ? p[0] + post_w(p) : p[0], post_t_y0(p) + post_dy(p) / 2, pt_zmid(p)]   // ⭐ 2026-09-18 Y は post_t_y0（左前は前の壁へ 0.8 食い込んでいる）
-                                    : [post_cx(p), p[1], pt_zmid(p)];
-function pt_dir(p)  = post_front(p) ? [(p[0] < IN_X / 2) ? 1 : -1, 0, 0] : [0, -1, 0];
+// pt_zmid / pt_org / pt_dir は case_v6_1.scad へ移した（⭐ 2026-09-20。格子の障害物 top_nut_paths() も同じ道を使う）
 function hubn_dir(i) = [cos(hub_nut_ang(i)), sin(hub_nut_ang(i)), 0];
 
 // ---- 口を使う場面（🔒 ユーザー 2026-09-18 の組む順から私が読んだ物。違っていたらここを直す）----
