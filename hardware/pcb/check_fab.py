@@ -155,7 +155,7 @@ def main():
 
     # 3. 取付穴
     print("\n取付穴 M2")
-    for bx, by in B.HOLES:
+    for bx, by in list(B.HOLES) + list(B.GUIDE_HOLES):   # 取付穴 4 ＋ 軸のガイドの足 3
         f = near(npth, bx, by) or near(pth, bx, by)
         print(f"   ({bx}, {by}) → " + (f"φ{f[0][2]:.2f}" if f else "❌ 無い"))
         if not f:

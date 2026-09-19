@@ -33,7 +33,6 @@ SWEEPS = {
     'n_hub_dn':    frange(0, 45, 1.5),
     'n_hub_back':  frange(0, 5.5, 0.25),
     'n_hub_right': frange(0, 0.8, 0.1),
-    'n_tgl':       frange(0, 16, 0.5),
     'n_rsp':       frange(0, 50, 1.5),
     'n_oled':      frange(0, 50, 1.5),
     'n_bat':       frange(0, 70, 2),

@@ -105,7 +105,7 @@ module np_scene(s) {
     if (s == "top")   world_for_top();                       // ⑧ 壁を閉じて本締め・天板の前
     if (s == "front") world_for_front();
     if (s == "hatch") world_for_hatch();
-    if (s == "done")  { for (n = UNITS) if (n != "tgl") one(n); if (nylon()) { shell(); lid(); } else { p_floor(); p_top(); p_lwall(); p_rwall(); p_front(); p_hatch(); ribs(); } }   // 組み上がり。トグルはどの場面にも置かない（🔒 ユーザー 2026-09-18）
+    if (s == "done")  { for (n = UNITS) one(n); if (nylon()) { shell(); lid(); } else { p_floor(); p_top(); p_lwall(); p_rwall(); p_front(); p_hatch(); ribs(); } }   // 組み上がり。トグルはどの場面にも置かない（🔒 ユーザー 2026-09-18）
     if (s == "desk0") np_plate();                                        // 机: 板だけ
     if (s == "desk1") { np_plate(); lid_units(tub = false); }           // 机: 板＋つまみ・会話ボタン・スピーカー（バスタブの前）
     if (s == "desk2") { np_plate(); lid_units(); }                       // 机: 板＋小組ぜんぶ

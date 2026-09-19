@@ -847,12 +847,17 @@ module wall_part() {
 //    🔒 2026-09-09: その後 2026-09-08 の吊りで柱そのものが無くなり、溝を持っていた post_solid() も消えた。
 //    （外から呼んでいるファイルは無いことを確認済み: grep knob_station_post_cut）
 
-module knob_station_add() difference() {
+module knob_station_add(arms = true) difference() {   // arms = false: 手 4 本を付けない（v6.1 の天板。段と六角ポケットは残す）
     union() {
-        translate([0, 0, Z_PAD_BOT]) linear_extrude(PAD_T) knob_station_pad2d();
+        translate([0, 0, Z_PAD_BOT]) difference() {
+            linear_extrude(PAD_T) knob_station_pad2d();
+            // 後ろの縁の段（🔒 ユーザー 2026-09-19「リードスイッチの段差もあるので全体的に調整して」）:
+            //   リードの入口の掘り上げ（REED_MOUTH_Z）を穴の所だけでなく +Y の縁の全幅に通し、切り欠きではなく 1 本の段にする
+            translate([-PAD_X, REED_IN, -1]) cube([2 * PAD_X, PAD_Y, REED_MOUTH_Z - Z_PAD_BOT + 1]);
+        }
         // 中央の段。ナットの六角ポケットはこの中だけに掘る（外周は薄いまま）
         translate([0, 0, Z_BOSS_BOT]) cylinder(d = BOSS_D, h = BOSS_T + 0.01);
-        hang_arms();    // 台座の裏から下ろす手 4 本（🔒 ユーザー 2026-09-08「4 本のダボを削除」でここは棒から手になった）
+        if (arms) hang_arms();    // 台座の裏から下ろす手 4 本（🔒 ユーザー 2026-09-08「4 本のダボを削除」でここは棒から手になった）
     }
     knob_station_hang_cut();
 }
@@ -945,9 +950,16 @@ module hang_check2() intersection() { hang_part(); union() { knob_station_add();
 //       docs/KNOB-ENCODER.md にある。いまの基板は 4 本のねじとナットで座る。
 
 // 板の輪郭。四隅を PAD_R で丸め、−Y は PAD_Y0 まで（中身が使っていない所だけを落としてある）
-module knob_station_pad2d()
-    offset(r = PAD_R) offset(r = -PAD_R)
-        translate([-PAD_X / 2, PAD_Y0]) square([PAD_X, PAD_Y / 2 - PAD_Y0]);
+// 右後ろ（+X +Y）の隅だけ丸めを大きくする（🔒 ユーザー 2026-09-19「角が筐体を固定する柱のせいでかけている。かけないように」）。
+//   v6.1 の天板では右後ろの上の柱（逃げ 0.3 込みで台座の局所 x ≥ 11.20・y ≥ 17.80）が r9 の隅に食い込み、top_post_clear() が角を欠いていた。
+//   決め方: 隅の円（芯 (PAD_X/2 − R, PAD_Y/2 − R)）が柱の逃げの角の点を外に置く最小の R ＋ 0.2 前後。
+//     ナイロン: 点 (11.20, 17.80) → R ≥ 10.53。11.0 で柱まで 0.48（逃げ 0.3 ＋ 0.18）
+//     レジン:   点 (10.35, 17.80) → R ≥ 11.73。12.2 で柱まで 0.48（柱が 0.85 左に居る）
+//   ⚠ 柱の位置は筐体（case_v6_1 の POSTS_T）から決まる従属値。柱が動いたら点を測り直すこと
+PAD_R_RB = nylon() ? 11.0 : 12.2;
+module knob_station_pad2d() hull()
+    for (c = [[-1, -1, PAD_R], [1, -1, PAD_R], [-1, 1, PAD_R], [1, 1, PAD_R_RB]])
+        translate([c[0] > 0 ? PAD_X / 2 - c[2] : -PAD_X / 2 + c[2], c[1] > 0 ? PAD_Y / 2 - c[2] : PAD_Y0 + c[2]]) circle(r = c[2]);
 
 // 🔒 2026-08-27 ここを 3 つに割った（形は 1mm³ も変えていない）。理由は _v4_props.py が
 //    「印刷の支柱を立ててはいけない体積」＝ **軸・ねじ・ナット・リード**だけを名指しで呼べるように。
@@ -963,10 +975,19 @@ module knob_station_screw_cut() {   // 留めねじ2本の通し穴と、裏か�
             cylinder(d = NUT_POCK_AF / cos(30), h = NUT_POCK_T + 0.01, $fn = 6);
     }
 }
+// 入口の掘り上げ（🔒 ユーザー 2026-09-19「リードスイッチの穴が深い」「もう少し入れやすくしたい」）。
+//   天井 REED_TOP（＝リードの高さ・磁石との距離）は動かさない。台座の裏をリードと足の溝の範囲だけ掘り上げ、
+//   呼び込みの始まりを −9 から REED_MOUTH_Z へ上げる。押し込む距離 8.0 → 4.5（圧入の座 3.5 ＋ 呼び込み 1.0）。
+//   ⚠ 2026-09-19 に一度、天井を下げて「浅く」したのは誤り（リードが磁石から離れる）。すぐ戻した
+REED_FUNNEL_H = 1.0;                                   // 残す呼び込みの高さ
+REED_MOUTH_Z  = REED_TOP - REED_TIGHT_H - REED_FUNNEL_H;   // 入口の面（ナイロン −5.5・レジン −5.0）
+REED_MOUTH_X  = REED_L / 2 + LEAD_CH_W + 0.3;          // 掘り上げの X の半幅（足の溝の外 0.3 まで）
 module knob_station_reed_cut() {    // リードの穴（圧入）と足の通り道
+    translate([-REED_MOUTH_X, REED_IN, Z_PAD_BOT - 1])
+        cube([2 * REED_MOUTH_X, PAD_Y / 2 - REED_IN + 1, REED_MOUTH_Z - Z_PAD_BOT + 1]);   // +Y は台座の縁の外まで（外側の 1.1 の壁も要らない・ユーザー 2026-09-19）
     hull() {
-        translate([-REED_L / 2 - REED_LOOSE, REED_IN, Z_PAD_BOT - 1])
-            cube([REED_L + 2 * REED_LOOSE, REED_W + REED_LOOSE, 1 + 0.01]);
+        translate([-REED_L / 2 - REED_LOOSE, REED_IN, REED_MOUTH_Z - 0.01])
+            cube([REED_L + 2 * REED_LOOSE, REED_W + REED_LOOSE, 0.01]);
         translate([-REED_L / 2, REED_IN, REED_TOP - REED_TIGHT_H])
             cube([REED_L, REED_W, 0.01]);
     }
@@ -1177,6 +1198,14 @@ module ering_part(ang = 0) {   // v6.1n: ERING_N 枚を溝の上端から下へ�
         rotate([0, 0, ang]) translate([0, 0, Z_GRV_T - ERING_T * (i + 1)])
             linear_extrude(ERING_T) ering_profile();
 }
+// 絵用: 1 枚ずつ色を変え、分解図では sep ずつ下へ離す（2 枚が重なって 1 枚に見えるため。🔒 ユーザー 2026-09-19「色を変えて explode では z も変えて」）
+ERING_COLORS = ["#c0c0c0", "#d4a017"];   // 上の 1 枚目 = 銀・2 枚目 = 金
+module ering_look(ang = 0, sep = 0) {
+    for (i = [0 : ERING_N - 1])
+        color(ERING_COLORS[i % len(ERING_COLORS)]) translate([0, 0, -i * sep])
+            rotate([0, 0, ang]) translate([0, 0, Z_GRV_T - ERING_T * (i + 1)])
+                linear_extrude(ERING_T) ering_profile();
+}
 // ⚠ 当たり検査への注記（2026-08-21 に書き直し）: 以前ここには「ねじの胴 φ2.5 が天板の
 //    下穴 φ2.1 へ食い込むのは意図した重なり」と書いてあった。**その下穴は廃止した。**
 //    天板は通し穴 φ3.0 になったので、ねじと天板はもう重ならない。噛むのはナットだけで、
@@ -1199,12 +1228,12 @@ module stop_nuts() {
 //   「持ち手・島・ねじ・E リング・基板」を別々に散らすため。assembly() はこれを順に呼ぶだけ
 KNOB_PARTS = ["knob", "mag", "screw", "wall", "nut", "ering", "pcb", "hang", "ncov"];   // ncov = ナットの座カバー（2026-09-08）   // hang = 吊るす板（足込み）とそのねじ・ナット（2026-09-08）   // 🔒 2026-08-28 pscr/pnut/pwas（基板の M2・ナット・座金）→ pring（E リング）→ 2026-09-09 に pring も削除（hang が持つ）
 function knob_parts() = KNOB_PARTS;   // use<> では変数が見えないので関数で渡す
-module knob_group(g) {
+module knob_group(g, ex = 0) {   // ex: 分解図の倍率（0 = 組んだ姿）。E リングの 1 枚ずつの離し方に使う
     if (g == "knob")  color("#d8dde3") knob_part();
     if (g == "wall")  color("#e03131") wall_part();
     if (g == "screw") color("#e8e8e8") stop_screws();
     if (g == "nut")   color("#b8b8b8") stop_nuts();
-    if (g == "ering") color("#c0c0c0") ering_part(-90);   // 口は −X（+X から差し込む先頭）
+    if (g == "ering") ering_look(-90, ex * 0.5);   // 口は −X（+X から差し込む先頭）
     // 🔒 2026-08-28 ユーザー指示で false → true。**基板はヘッダを付けたまま描く。**
     //   ヘッダは基板にはんだ付けされている物なので、基板の模型が持つのが正しい。
     //   false だった理由は 2026-08-21 の 0177c20 以来ひとつも記録が無い（AI が後から
@@ -1241,7 +1270,7 @@ module assembly(show_deck = true) {
 module exploded() {
     translate([0, 0, 30]) color("#d8dde3") knob_part();
     translate([0, 0, 14]) color("#e03131") wall_part();
-    translate([0, 0, -14]) color("#c0c0c0") ering_part(-90);
+    translate([0, 0, -14]) ering_look(-90, 3);
     translate([0, 0, -20]) color("#e8e8e8") stop_screws();
     color("#9aa5b1", 0.8) deck_test();
     // 🔒 2026-08-28 ここは板とチップを自前の箱で描いていた（穴もピン列も無い模型）。

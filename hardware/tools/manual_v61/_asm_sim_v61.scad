@@ -21,6 +21,7 @@ module top_units() { at_knob() for (g = KNOB61_GROUPS) knob_group(g); knob61_sha
 //  r1 床に電池 / r2 PCB（前の管 2 本・手前 2 本を締める）/ r3 左右の壁を後ろに嵌めて床の裏から仮締め / r4 壁を 45° 開く
 //  r5 ReSpeaker をライザーごと / r6 OLED のライザーを J2 へ / r7 壁を閉じて本締め / r8 天板の小組（絵は rtop）
 //  r9 天板を載せる / r10 OLED を嵌めたフロントを前から / r11 ハッチを後ろから
+//  （電源の押しボタンのキャップは PCB の一式 one("hub") に入っていて、r2 から写る。⭐ 2026-09-19 ハッチのトグルは外した）
 module r_walls(open, c) {   // 左右の壁（格子込み）。open なら後ろのねじを軸に 45° 開いた姿勢（case の PATH_LWALL[0] / PATH_RWALL[0]）
     if (open) { at_pose(PATH_LWALL[0], lwall_c()) { color(c) p_lwall(); panel_ribs("lwall", c); } at_pose(PATH_RWALL[0], rwall_c()) { color(c) p_rwall(); panel_ribs("rwall", c); } }
     else { color(c) p_lwall(); panel_ribs("lwall", c); color(c) p_rwall(); panel_ribs("rwall", c); }
@@ -34,23 +35,23 @@ module r_upto(n, hl) {
     if (n >= 6) color(hl == 6 ? HL : "#2b6b3f") one("oriser");
     if (n >= 9) { color(hl == 9 ? HL : C_CASE, hl == 9 ? 1 : 0.5) p_top(); color(hl == 9 ? HL : "#8a8f95") top_units(); }
     if (n >= 10) { color(hl == 10 ? HL : C_CASE) { p_front(); panel_ribs("front", hl == 10 ? HL : C_CASE); } color("#222") one("oled"); }
-    if (n >= 11) { color(hl == 11 ? HL : C_CASE) { p_hatch(); panel_ribs("hatch", hl == 11 ? HL : C_CASE); } color("#555") one("tgl"); }
+    if (n >= 11) { color(hl == 11 ? HL : C_CASE) { p_hatch(); panel_ribs("hatch", hl == 11 ? HL : C_CASE); } }
 }
 
 // ---- ナイロン（底パーツ＋蓋）----
-//  n2 底パーツ（ナットを入れる）/ n3 PCB / n4 トグル / n5 ReSpeaker をライザーごと / n6 OLED をライザーごと / n7 電池を左から / n8 蓋を真上から
+//  n2 底パーツ（ナットを入れる）/ n3 PCB（キャップを差した押しボタン付き）/ n4 ReSpeaker をライザーごと / n5 OLED をライザーごと / n6 電池を左から / n7 蓋を真上から
+//  ⭐ 2026-09-19: トグル（旧 n4）を外して繰り上げた
 module n_upto(n, hl) {
     color(C_CASE) shell();
     if (n >= 3) color(hl == 3 ? HL : "#2b6b3f") hub_all();
-    if (n >= 4) color(hl == 4 ? HL : "#555") one("tgl");
-    if (n >= 5) color(hl == 5 ? HL : "#3d5a73") rsp_unit();
-    if (n >= 6) color(hl == 6 ? HL : "#2b6b3f") oled_unit();
-    if (n >= 7) color(hl == 7 ? HL : "#6b7c8f") one("bat");
-    if (n >= 8) { color(hl == 8 ? HL : C_CASE, hl == 8 ? 1 : 0.5) lid(); color("#8a8f95") top_units(); }
+    if (n >= 4) color(hl == 4 ? HL : "#3d5a73") rsp_unit();
+    if (n >= 5) color(hl == 5 ? HL : "#2b6b3f") oled_unit();
+    if (n >= 6) color(hl == 6 ? HL : "#6b7c8f") one("bat");
+    if (n >= 7) { color(hl == 7 ? HL : C_CASE, hl == 7 ? 1 : 0.5) lid(); color("#8a8f95") top_units(); }
 }
 
 function isd(c) = ord(c) >= 48 && ord(c) <= 57;
-function stn(s, p) = (len(s) == 2 && s[0] == p && isd(s[1])) ? ord(s[1]) - 48 : (len(s) == 3 && s[0] == p && isd(s[1]) && isd(s[2])) ? (ord(s[1]) - 48) * 10 + ord(s[2]) - 48 : -1;   // "r1"〜"r11"・"n2"〜"n8" だけ（"rtop" などは手順ではない）
+function stn(s, p) = (len(s) == 2 && s[0] == p && isd(s[1])) ? ord(s[1]) - 48 : (len(s) == 3 && s[0] == p && isd(s[1]) && isd(s[2])) ? (ord(s[1]) - 48) * 10 + ord(s[2]) - 48 : -1;   // "r1"〜"r11"・"n2"〜"n7" だけ（"rtop" などは手順ではない）
 if (stn(ST, "r") > 0 && ST != "r8") r_upto(stn(ST, "r"), stn(ST, "r"));   // r8 は天板の小組（rtop）
 if (stn(ST, "n") > 0) n_upto(stn(ST, "n"), stn(ST, "n"));
 // 蓋・天板の小組（裏返して見る絵はカメラで回す）
@@ -62,8 +63,8 @@ if (ST == "oledsub") { color("#222") one("oled"); color(HL) one("oriser"); }
 // レジン: OLED をフロントに嵌めた物
 if (ST == "frontsub") { color(C_CASE) { p_front(); panel_ribs("front", C_CASE); } color(HL) one("oled"); }
 // ナイロン: 電池を左の窓から入れる途中（左へ 45 出した姿）
-if (ST == "nbat_in") { n_upto(6, 0); color(HL) translate([-45, 0, 0.5]) one("bat"); }
+if (ST == "nbat_in") { n_upto(5, 0); color(HL) translate([-45, 0, 0.5]) one("bat"); }
 // ナイロン: 蓋を降ろす途中（8 上・左の板は 1.5 外へたわんだ姿）
-if (ST == "nlid_in") { n_upto(7, 0); translate([0, 0, 8]) { color(HL, 0.9) lid_flexed(); color("#8a8f95") top_units(); } }
+if (ST == "nlid_in") { n_upto(6, 0); translate([0, 0, 8]) { color(HL, 0.9) lid_flexed(); color("#8a8f95") top_units(); } }
 // 線（最終の形）
 if (ST == "wires") { innards(); color("#e0b060") wires(); }

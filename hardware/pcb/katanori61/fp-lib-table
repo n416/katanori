@@ -12,4 +12,5 @@
   (lib (name "Package_TO_SOT_SMD")(type "KiCad")(uri "${KICAD10_FOOTPRINT_DIR}/Package_TO_SOT_SMD.pretty")(options "")(descr ""))
   (lib (name "Relay_SMD")(type "KiCad")(uri "${KICAD10_FOOTPRINT_DIR}/Relay_SMD.pretty")(options "")(descr ""))
   (lib (name "Resistor_SMD")(type "KiCad")(uri "${KICAD10_FOOTPRINT_DIR}/Resistor_SMD.pretty")(options "")(descr ""))
+  (lib (name "katanori")(type "KiCad")(uri "${KIPRJMOD}/../katanori.pretty")(options "")(descr ""))
 )

@@ -52,13 +52,13 @@ RISER_LEG = 3.0     # 🔒 2.54 ヘッダの規格の姿（樹脂 2.5・ピン 6
 # 🔴 筐体は名前で引く（pcb_part("J10 BAT") / pcb_mouth("J4  SPK IN") / j5_frame()）。
 #    ここの綴りを変えると筐体側が undef になって黙って壊れるので、既存の綴りをそのまま使う
 CASE_NAME = {"J4": "J4  SPK IN", "J5": "J5  SPK OUT", "J6": "J6  BTN2",
-             "J7": "J7  REED+TGL", "J10": "J10 BAT",
+             "J7": "J7  REED", "J10": "J10 BAT", "SW2": "SW2 POWER",
              "J1": "J1  RISER XIAO", "J2": "J2  RISER OLED", "K31": "K31 RELAY"}
 PORTS = {
     "J4":  (2,  PH_MATE_OUT, TH_LEG, "スピーカー IN。**縦**・上へ抜く（2026-09-16 夕に横出しから）"),
     "J5":  (-3, PH_MATE_OUT, TH_LEG, "スピーカー OUT。横出し・口は −X（左の縁）"),
     "J6":  (2,  PH_MATE_OUT, TH_LEG, "会話ボタン。**縦**・上へ抜く（2026-09-16 夕に横出しから）"),
-    "J7":  (2,  PH_MATE_OUT, TH_LEG, "リード＋トグル。縦・上へ抜く"),
+    "J7":  (2,  PH_MATE_OUT, TH_LEG, "リード。縦・上へ抜く（2026-09-19 にトグルをやめて 2 ピン）"),
     "J10": (-2, PH_MATE_OUT, TH_LEG, "電池。板の裏・縦・下へ抜く"),
     "J1":  (0,  0.0, RISER_LEG, "XIAO のライザーを受けるオスのピンヘッダ 1x07"),
     "J2":  (0,  0.0, RISER_LEG, "OLED のライザーを受けるオスのピンヘッダ 1x04"),

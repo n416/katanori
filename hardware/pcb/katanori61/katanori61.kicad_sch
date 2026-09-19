@@ -4332,6 +4332,178 @@
 			)
 			(embedded_fonts no)
 		)
+		(symbol "katanori:SW_XKB5858-Z-E"
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "SW"
+				(at -5.08 6.35 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "XKB5858-Z-E"
+				(at 0 -6.35 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" "katanori:SW_XKB5858-Z-E"
+				(at 0 -8.89 0)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" "https://www.lcsc.com/datasheet/C780038.pdf"
+				(at 0 -11.43 0)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" "Right-angle latching push switch, DPDT, 0.1A 30VDC (XKB, LCSC C780038, plunger 5.0). Datasheet circuit: 1-3 closed when released, open when latched"
+				(at 0 0 0)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "SW_XKB5858-Z-E_1_1"
+				(rectangle
+					(start -5.08 5.08)
+					(end 5.08 -5.08)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type background)
+					)
+				)
+				(pin passive line
+					(at -7.62 2.54 0)
+					(length 2.54)
+					(name "NC_A"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at -7.62 0.0 0)
+					(length 2.54)
+					(name "COM_A"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at -7.62 -2.54 0)
+					(length 2.54)
+					(name "B5"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "5"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 7.62 2.54 180)
+					(length 2.54)
+					(name "NO_A"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "3"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 7.62 0.0 180)
+					(length 2.54)
+					(name "B4"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "4"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 7.62 -2.54 180)
+					(length 2.54)
+					(name "B6"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "6"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
 		(symbol "Connector_Generic:Conn_01x07"
 			(pin_names
 				(offset 1.016)
@@ -11087,7 +11259,7 @@
 		(uuid "00a6b2ef-9987-5200-b9ce-768c37f6e82a")
 	)
 	(symbol
-		(lib_id "Connector_Generic:Conn_01x04")
+		(lib_id "Connector_Generic:Conn_01x02")
 		(at 132.08 243.84 0)
 		(unit 1)
 		(exclude_from_sim no)
@@ -11104,7 +11276,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "REED+TOGGLE"
+		(property "Value" "REED"
 			(at 135.08 245.44 0)
 			(effects
 				(font
@@ -11113,7 +11285,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "Connector_JST:JST_PH_B4B-PH-K_1x04_P2.00mm_Vertical"
+		(property "Footprint" "Connector_JST:JST_PH_B2B-PH-K_1x02_P2.00mm_Vertical"
 			(at 132.08 243.84 0)
 			(effects
 				(font
@@ -11131,7 +11303,7 @@
 				(hide yes)
 			)
 		)
-		(property "Note" "1 EN・2 GND → リード ／ 3 EN・4 GND → マスタートグル（縦の口・上から挿す）"
+		(property "Note" "1 EN・2 GND → リード（縦の口・上から挿す）"
 			(at 132.08 243.84 0)
 			(effects
 				(font
@@ -11146,12 +11318,6 @@
 		(pin "2"
 			(uuid "b0ad8e6e-f153-5b1d-9b66-55ff23375f82")
 		)
-		(pin "3"
-			(uuid "88f31cbd-e5f7-553a-8f85-ddbe533726d1")
-		)
-		(pin "4"
-			(uuid "a0c9a9b9-aebf-50cf-9851-4291824ebeeb")
-		)
 		(instances
 			(project "katanori61"
 				(path "/377120ba-3fb3-530c-9f35-c36cf0274025"
@@ -11163,27 +11329,6 @@
 	)
 	(wire
 		(pts
-			(xy 127.00 241.30)
-			(xy 124.46 241.30)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "0098d49d-d81c-5e35-966b-dfad0a45a764")
-	)
-	(label "EN"
-		(at 124.46 241.30 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right bottom)
-		)
-		(uuid "f2ce775f-f416-57b7-a7e4-531d35ab7d59")
-	)
-	(wire
-		(pts
 			(xy 127.00 243.84)
 			(xy 124.46 243.84)
 		)
@@ -11191,9 +11336,9 @@
 			(width 0)
 			(type default)
 		)
-		(uuid "53335066-3059-5e2f-95ac-9632d94090ea")
+		(uuid "88f31cbd-e5f7-553a-8f85-ddbe533726d1")
 	)
-	(label "GND"
+	(label "EN"
 		(at 124.46 243.84 180)
 		(effects
 			(font
@@ -11201,7 +11346,7 @@
 			)
 			(justify right bottom)
 		)
-		(uuid "fb97df66-ef61-5c43-947e-b53f8e2e00dd")
+		(uuid "a0c9a9b9-aebf-50cf-9851-4291824ebeeb")
 	)
 	(wire
 		(pts
@@ -11212,9 +11357,9 @@
 			(width 0)
 			(type default)
 		)
-		(uuid "d7892011-3b45-50eb-bce6-4f30a2b2bb74")
+		(uuid "0098d49d-d81c-5e35-966b-dfad0a45a764")
 	)
-	(label "EN"
+	(label "GND"
 		(at 124.46 246.38 180)
 		(effects
 			(font
@@ -11222,28 +11367,153 @@
 			)
 			(justify right bottom)
 		)
-		(uuid "f9e99d29-a13e-578c-9e1f-489f5907ab7b")
+		(uuid "f2ce775f-f416-57b7-a7e4-531d35ab7d59")
+	)
+	(symbol
+		(lib_id "katanori:SW_XKB5858-Z-E")
+		(at 157.48 248.92 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "53335066-3059-5e2f-95ac-9632d94090ea")
+		(property "Reference" "SW2"
+			(at 157.48 244.18 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "XKB5858-Z-E"
+			(at 157.48 254.66 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "katanori:SW_XKB5858-Z-E"
+			(at 157.48 248.92 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 157.48 248.92 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C780038"
+			(at 157.48 248.92 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Note" "電源の押しボタン（板の後ろの縁・押し子は後ろの壁から出る）。1 GND・3 EN"
+			(at 157.48 248.92 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "fb97df66-ef61-5c43-947e-b53f8e2e00dd")
+		)
+		(pin "2"
+			(uuid "d7892011-3b45-50eb-bce6-4f30a2b2bb74")
+		)
+		(pin "5"
+			(uuid "f9e99d29-a13e-578c-9e1f-489f5907ab7b")
+		)
+		(pin "3"
+			(uuid "ca696083-f31b-501b-8f50-9c8f52f7d919")
+		)
+		(pin "4"
+			(uuid "242e04ba-c662-5fa3-a14e-04b21444b6f7")
+		)
+		(pin "6"
+			(uuid "18f98bd7-bcdc-57d0-8686-051aaf82dad9")
+		)
+		(instances
+			(project "katanori61"
+				(path "/377120ba-3fb3-530c-9f35-c36cf0274025"
+					(reference "SW2")
+					(unit 1)
+				)
+			)
+		)
 	)
 	(wire
 		(pts
-			(xy 127.00 248.92)
-			(xy 124.46 248.92)
+			(xy 149.86 246.38)
+			(xy 147.32 246.38)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
-		(uuid "ca696083-f31b-501b-8f50-9c8f52f7d919")
+		(uuid "bf7bd2d7-bde3-5013-bc86-ef7529d0db97")
 	)
 	(label "GND"
-		(at 124.46 248.92 180)
+		(at 147.32 246.38 180)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
 			(justify right bottom)
 		)
-		(uuid "242e04ba-c662-5fa3-a14e-04b21444b6f7")
+		(uuid "80dca9ec-1144-545a-b234-36ea5ef7049c")
+	)
+	(no_connect
+		(at 149.86 248.92)
+		(uuid "c3009e2c-b87b-5a68-a171-862bd4535736")
+	)
+	(no_connect
+		(at 149.86 251.46)
+		(uuid "e47e02c4-29d8-5738-a03e-834adf63fb60")
+	)
+	(wire
+		(pts
+			(xy 165.10 246.38)
+			(xy 167.64 246.38)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "2443851b-494d-5737-96f5-4950196e56bc")
+	)
+	(label "EN"
+		(at 167.64 246.38 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "f228e65c-cd9b-5b70-8ecd-f4f71539a1f5")
+	)
+	(no_connect
+		(at 165.10 248.92)
+		(uuid "e07027b8-f8ac-5004-81e1-0e8edc143f61")
+	)
+	(no_connect
+		(at 165.10 251.46)
+		(uuid "e006cada-1cc5-5149-954a-cac8e006cba1")
 	)
 	(symbol
 		(lib_id "Connector_Generic:Conn_01x07")
@@ -11253,7 +11523,7 @@
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(uuid "18f98bd7-bcdc-57d0-8686-051aaf82dad9")
+		(uuid "e4a0c914-8464-545c-a4b9-302775ad63d6")
 		(property "Reference" "J1"
 			(at 236.68 197.52 0)
 			(effects
@@ -11300,25 +11570,25 @@
 			)
 		)
 		(pin "1"
-			(uuid "bf7bd2d7-bde3-5013-bc86-ef7529d0db97")
+			(uuid "c786b5be-ba51-5f30-8d24-c202d23b58f5")
 		)
 		(pin "2"
-			(uuid "80dca9ec-1144-545a-b234-36ea5ef7049c")
+			(uuid "e3e936e4-ee38-54e3-8b8f-0a5e7c5e05aa")
 		)
 		(pin "3"
-			(uuid "c3009e2c-b87b-5a68-a171-862bd4535736")
+			(uuid "3eaf3956-5989-5476-a14f-c9d7597324b8")
 		)
 		(pin "4"
-			(uuid "e47e02c4-29d8-5738-a03e-834adf63fb60")
+			(uuid "1bd9e2d8-9361-5b93-b249-36e124bf3fe2")
 		)
 		(pin "5"
-			(uuid "2443851b-494d-5737-96f5-4950196e56bc")
+			(uuid "6b76c756-c7eb-5be7-8eed-5447b7de656b")
 		)
 		(pin "6"
-			(uuid "f228e65c-cd9b-5b70-8ecd-f4f71539a1f5")
+			(uuid "fdf2df87-d402-5904-9237-7295a4873da3")
 		)
 		(pin "7"
-			(uuid "e07027b8-f8ac-5004-81e1-0e8edc143f61")
+			(uuid "cffe6906-3024-5c6d-a5aa-b7d0dca7d377")
 		)
 		(instances
 			(project "katanori61"
@@ -11338,7 +11608,7 @@
 			(width 0)
 			(type default)
 		)
-		(uuid "e006cada-1cc5-5149-954a-cac8e006cba1")
+		(uuid "484382c8-a60f-5b75-93d0-b5a78d68593b")
 	)
 	(label "V5"
 		(at 226.06 190.50 180)
@@ -11348,7 +11618,7 @@
 			)
 			(justify right bottom)
 		)
-		(uuid "e4a0c914-8464-545c-a4b9-302775ad63d6")
+		(uuid "8a984905-9bed-51d0-8703-0c9ac8e0be93")
 	)
 	(wire
 		(pts
@@ -11359,7 +11629,7 @@
 			(width 0)
 			(type default)
 		)
-		(uuid "c786b5be-ba51-5f30-8d24-c202d23b58f5")
+		(uuid "b7dfeb2e-8334-571c-8aaa-25f537f05637")
 	)
 	(label "GND"
 		(at 226.06 193.04 180)
@@ -11369,7 +11639,7 @@
 			)
 			(justify right bottom)
 		)
-		(uuid "e3e936e4-ee38-54e3-8b8f-0a5e7c5e05aa")
+		(uuid "a37d433e-b973-59c2-b792-e940afa8f1dc")
 	)
 	(wire
 		(pts
@@ -11380,7 +11650,7 @@
 			(width 0)
 			(type default)
 		)
-		(uuid "3eaf3956-5989-5476-a14f-c9d7597324b8")
+		(uuid "485ecfaa-cbcc-506c-9b34-e1cf55587959")
 	)
 	(label "V33"
 		(at 226.06 195.58 180)
@@ -11390,7 +11660,7 @@
 			)
 			(justify right bottom)
 		)
-		(uuid "1bd9e2d8-9361-5b93-b249-36e124bf3fe2")
+		(uuid "b3febb1a-3b16-541a-ab7c-553074049228")
 	)
 	(wire
 		(pts
@@ -11401,7 +11671,7 @@
 			(width 0)
 			(type default)
 		)
-		(uuid "6b76c756-c7eb-5be7-8eed-5447b7de656b")
+		(uuid "a32ae79f-ae44-5029-bff9-5187782a95c2")
 	)
 	(label "SDA"
 		(at 226.06 198.12 180)
@@ -11411,7 +11681,7 @@
 			)
 			(justify right bottom)
 		)
-		(uuid "fdf2df87-d402-5904-9237-7295a4873da3")
+		(uuid "4b80979c-ceb1-55ca-99dd-5f970f2fed21")
 	)
 	(wire
 		(pts
@@ -11422,7 +11692,7 @@
 			(width 0)
 			(type default)
 		)
-		(uuid "cffe6906-3024-5c6d-a5aa-b7d0dca7d377")
+		(uuid "eaae4bdf-53d6-5733-a07e-f48f01d4b62b")
 	)
 	(label "SCL"
 		(at 226.06 200.66 180)
@@ -11432,7 +11702,7 @@
 			)
 			(justify right bottom)
 		)
-		(uuid "484382c8-a60f-5b75-93d0-b5a78d68593b")
+		(uuid "4e9483ca-fb62-5f22-8cbb-c166f858aa37")
 	)
 	(wire
 		(pts
@@ -11443,7 +11713,7 @@
 			(width 0)
 			(type default)
 		)
-		(uuid "8a984905-9bed-51d0-8703-0c9ac8e0be93")
+		(uuid "59f224b2-f46a-5171-814f-d5d7e17195ee")
 	)
 	(label "BTN"
 		(at 226.06 203.20 180)
@@ -11453,7 +11723,7 @@
 			)
 			(justify right bottom)
 		)
-		(uuid "b7dfeb2e-8334-571c-8aaa-25f537f05637")
+		(uuid "c345ca87-0e54-5ae6-b111-f1e8af3da102")
 	)
 	(wire
 		(pts
@@ -11464,7 +11734,7 @@
 			(width 0)
 			(type default)
 		)
-		(uuid "a37d433e-b973-59c2-b792-e940afa8f1dc")
+		(uuid "0ebc0f83-fa27-5d4f-b145-998ac9f97fd4")
 	)
 	(label "IN"
 		(at 226.06 205.74 180)
@@ -11474,7 +11744,7 @@
 			)
 			(justify right bottom)
 		)
-		(uuid "485ecfaa-cbcc-506c-9b34-e1cf55587959")
+		(uuid "2c549584-d925-598b-8909-8a6df6f08aac")
 	)
 	(symbol
 		(lib_id "power:PWR_FLAG")
@@ -11484,7 +11754,7 @@
 		(in_bom no)
 		(on_board no)
 		(dnp no)
-		(uuid "b3febb1a-3b16-541a-ab7c-553074049228")
+		(uuid "bdaa1f86-a7f7-5464-baf2-3e2fff84e0f9")
 		(property "Reference" "#FLG01"
 			(at 335.74 243.24 0)
 			(effects
@@ -11524,7 +11794,7 @@
 			)
 		)
 		(pin "1"
-			(uuid "a32ae79f-ae44-5029-bff9-5187782a95c2")
+			(uuid "d212c640-b2fb-5358-8e70-a632f77b2b08")
 		)
 		(instances
 			(project "katanori61"
@@ -11543,7 +11813,7 @@
 			)
 			(justify left bottom)
 		)
-		(uuid "4b80979c-ceb1-55ca-99dd-5f970f2fed21")
+		(uuid "d44a4d0e-fda9-5254-a177-73a06b2ac41c")
 	)
 	(symbol
 		(lib_id "power:PWR_FLAG")
@@ -11553,7 +11823,7 @@
 		(in_bom no)
 		(on_board no)
 		(dnp no)
-		(uuid "eaae4bdf-53d6-5733-a07e-f48f01d4b62b")
+		(uuid "5b662767-50ad-5ae2-937c-77ff10df5173")
 		(property "Reference" "#FLG02"
 			(at 353.52 243.24 0)
 			(effects
@@ -11593,7 +11863,7 @@
 			)
 		)
 		(pin "1"
-			(uuid "4e9483ca-fb62-5f22-8cbb-c166f858aa37")
+			(uuid "dfe9a702-5b52-5c51-9292-6550e84b5373")
 		)
 		(instances
 			(project "katanori61"
@@ -11612,7 +11882,7 @@
 			)
 			(justify left bottom)
 		)
-		(uuid "59f224b2-f46a-5171-814f-d5d7e17195ee")
+		(uuid "9fc70582-008e-5b24-a797-78722e122178")
 	)
 	(symbol
 		(lib_id "power:PWR_FLAG")
@@ -11622,7 +11892,7 @@
 		(in_bom no)
 		(on_board no)
 		(dnp no)
-		(uuid "c345ca87-0e54-5ae6-b111-f1e8af3da102")
+		(uuid "a298186b-34ea-52a8-9f6b-552b7abaae63")
 		(property "Reference" "#FLG03"
 			(at 371.30 243.24 0)
 			(effects
@@ -11662,7 +11932,7 @@
 			)
 		)
 		(pin "1"
-			(uuid "0ebc0f83-fa27-5d4f-b145-998ac9f97fd4")
+			(uuid "1775229b-1b3e-5f25-ab66-be28947e7c19")
 		)
 		(instances
 			(project "katanori61"
@@ -11681,7 +11951,7 @@
 			)
 			(justify left bottom)
 		)
-		(uuid "2c549584-d925-598b-8909-8a6df6f08aac")
+		(uuid "bc869e0d-acb7-53f3-875d-c98026fef78d")
 	)
 	(symbol
 		(lib_id "power:PWR_FLAG")
@@ -11691,7 +11961,7 @@
 		(in_bom no)
 		(on_board no)
 		(dnp no)
-		(uuid "bdaa1f86-a7f7-5464-baf2-3e2fff84e0f9")
+		(uuid "c61de09a-44fc-5a48-8989-0ae356316583")
 		(property "Reference" "#FLG04"
 			(at 389.08 243.24 0)
 			(effects
@@ -11731,7 +12001,7 @@
 			)
 		)
 		(pin "1"
-			(uuid "d212c640-b2fb-5358-8e70-a632f77b2b08")
+			(uuid "47a8df24-5486-58cb-92b0-dfb1f6f3483e")
 		)
 		(instances
 			(project "katanori61"
@@ -11750,7 +12020,7 @@
 			)
 			(justify left bottom)
 		)
-		(uuid "d44a4d0e-fda9-5254-a177-73a06b2ac41c")
+		(uuid "a512844b-5b29-5a0c-a83f-d24c963755ed")
 	)
 	(text "昇圧 — Adafruit PowerBoost 1000C Rev B の写し（CC BY-SA 3.0・Limor Fried / Adafruit）"
 		(exclude_from_sim no)
@@ -11762,7 +12032,7 @@
 			)
 			(justify left bottom)
 		)
-		(uuid "5b662767-50ad-5ae2-937c-77ff10df5173")
+		(uuid "e4648343-e86e-511b-a7a7-b0cc4a9cf41a")
 	)
 	(text "充電 — 同じく PowerBoost 1000C Rev B の写し"
 		(exclude_from_sim no)
@@ -11774,7 +12044,7 @@
 			)
 			(justify left bottom)
 		)
-		(uuid "dfe9a702-5b52-5c51-9292-6550e84b5373")
+		(uuid "d4bdaca1-952e-5190-be12-2e0d806d36b3")
 	)
 	(text "電流計 — INA226（シャント 10mΩ・0x44）・電池と USB の口"
 		(exclude_from_sim no)
@@ -11786,7 +12056,7 @@
 			)
 			(justify left bottom)
 		)
-		(uuid "9fc70582-008e-5b24-a797-78722e122178")
+		(uuid "53a4ea18-f16e-5b64-84d3-622053859cff")
 	)
 	(text "ハブ — relay_board.html のミュートリレー・会話ボタン"
 		(exclude_from_sim no)
@@ -11798,7 +12068,7 @@
 			)
 			(justify left bottom)
 		)
-		(uuid "a298186b-34ea-52a8-9f6b-552b7abaae63")
+		(uuid "7c65d72b-6bc7-5883-af21-a9a65af1c951")
 	)
 	(text "口 — hub_ports.py の並びのまま（今の線がそのまま挿さる）"
 		(exclude_from_sim no)
@@ -11810,7 +12080,7 @@
 			)
 			(justify left bottom)
 		)
-		(uuid "1775229b-1b3e-5f25-ab66-be28947e7c19")
+		(uuid "a96745bb-85d7-54e4-ba6d-9d5b6038ca51")
 	)
 	(sheet_instances
 		(path "/"

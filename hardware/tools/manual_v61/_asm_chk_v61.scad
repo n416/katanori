@@ -26,16 +26,15 @@ module r_have(n) {
     if (n >= 8) { p_front(); panel_ribs("front"); one("oled"); }
 }
 // ---- ナイロン ----
-//  2 底パーツ / 3 PCB / 4 トグル / 5 ReSpeaker＋ライザー / 6 OLED＋ライザー / 7 電池
+//  2 底パーツ / 3 PCB / 4 ReSpeaker＋ライザー / 5 OLED＋ライザー / 6 電池（⭐ 2026-09-19 トグルを外して繰り上げた）
 module n_have(n) {
     shell();
     if (n >= 3) one("hub");
-    if (n >= 4) one("tgl");
-    if (n >= 5) rsp_unit();
-    if (n >= 6) oled_unit();
-    if (n >= 7) one("bat");
+    if (n >= 4) rsp_unit();
+    if (n >= 5) oled_unit();
+    if (n >= 6) one("bat");
 }
-PCB_DY = 5.5;   // ナイロンの PCB を前へ寄せて降ろす量（トグルの座と左後ろの上の柱をかわす）
+PCB_DY = 5.5;   // ナイロンの PCB を前へ寄せて降ろす量（2026-09-17 より前の動き。今の道は case の PATH_HUB・tools/sweep_chk.py）
 module mover() {
     // レジン
     if (SW == "r_hub")    translate([0, 0, T]) one("hub");                                  // 真上から柱へ          T = 上へ
@@ -45,14 +44,13 @@ module mover() {
     if (SW == "r_rwall")  translate([T, 0, 0]) { p_rwall(); panel_ribs("rwall"); }          // 右の壁を右から
     if (SW == "r_top")    translate([0, 0, T]) { p_top(); top_units(); }                    // 天板の小組を真上から
     if (SW == "r_front")  translate([0, -T, 0]) { p_front(); panel_ribs("front"); one("oled"); }   // OLED を嵌めたフロントを前から  T = 前へ
-    if (SW == "r_hatch")  translate([0, T, 0]) { p_hatch(); panel_ribs("hatch"); one("tgl"); }    // トグル付きのハッチを後ろから   T = 後ろへ
+    if (SW == "r_hatch")  translate([0, T, 0]) { p_hatch(); panel_ribs("hatch"); }    // ハッチを後ろから   T = 後ろへ
     if (SW == "r_top_after_front") translate([0, 0, T]) { p_top(); top_units(); }           // （比べる用）フロントの後に天板
     // ナイロン
     if (SW == "n_hub_case") { translate([-PCB_SLIDE, 0, T]) one("hub"); }                   // case の path_hub と同じ（0.8 左で真上から）
     if (SW == "n_hub_dn")   translate([-PCB_SLIDE, -PCB_DY, T]) one("hub");                 // 0.8 左・5.5 前で真上から柱の頭まで   T = 上へ
     if (SW == "n_hub_back") translate([-PCB_SLIDE, -T, 0]) one("hub");                      // 柱の頭の上で後ろへ 5.5 戻す          T = 前へ（5.5 → 0）
     if (SW == "n_hub_right") translate([-T, 0, 0]) one("hub");                              // 右へ 0.8 押して口を穴へ              T = 左へ（0.8 → 0）
-    if (SW == "n_tgl")      translate([0, -T, 0]) one("tgl");                               // トグルを箱の中から背面の穴へ         T = 前へ
     if (SW == "n_rsp")      translate([0, 0, T]) rsp_unit();
     if (SW == "n_oled")     translate([0, 0, T]) oled_unit();
     if (SW == "n_bat")      translate([-T, 0, 0.5]) one("bat");                             // 左の窓から（0.5 浮かせて）          T = 左へ
@@ -62,7 +60,7 @@ module mover() {
 function stage(s) = s == "r_hub" ? 1 : s == "r_rsp" ? 2 : s == "r_oriser" ? 3 : s == "r_lwall" ? 4 : s == "r_rwall" ? 5
                   : s == "r_top" ? 5.5 : s == "r_front" ? 7 : s == "r_hatch" ? 8 : s == "r_top_after_front" ? 5.5
                   : s == "n_hub_case" ? 2 : s == "n_hub_dn" ? 2 : s == "n_hub_back" ? 2 : s == "n_hub_right" ? 2
-                  : s == "n_tgl" ? 3 : s == "n_rsp" ? 4 : s == "n_oled" ? 5 : s == "n_bat" ? 6 : 7;
+                  : s == "n_rsp" ? 3 : s == "n_oled" ? 4 : s == "n_bat" ? 5 : 6;
 module have() { if (SW[0] == "r") r_have(stage(SW)); else n_have(stage(SW)); }
 module have_extra() { if (SW == "r_top_after_front") { p_front(); panel_ribs("front"); one("oled"); } }
 
