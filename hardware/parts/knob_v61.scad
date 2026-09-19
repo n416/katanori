@@ -1247,6 +1247,16 @@ module knob_group(g, ex = 0) {   // ex: 分解図の倍率（0 = 組んだ姿）
     if (g == "pcb")   translate([0, 0, Z_PCB_BOT]) rotate([0, 0, PCB_ROT]) as5600(show_connector = true, hous = false);   // 🔒 v5: DuPont は plug.scad が描く（2026-09-05）
     if (g == "hang") { hang_part(); hang_screws(); hang_nuts(); hang_pcb_screws(); hang_pcb_nuts(); }
     if (g == "ncov" && NCV) { nut_cover(); nut_cover_nuts(); }
+    // ⭐ 2026-09-19 🔒 ユーザー「モデルにリードスイッチがありません」: 台座のリードの穴（knob_station_reed_cut）に下から圧入した姿。
+    //   本体は穴の天井 REED_TOP に突き当て、足は両端で下へ曲げて縦の溝（LEAD_CH_W）を台座の裏 Z_PAD_BOT まで下ろす（上の手順 ⓪）
+    if (g == "reed") let (L = reed_body_l(), c = reed_body_sec(), y = REED_IN + REED_W / 2, zc = REED_TOP - c / 2,
+                          xl = REED_L / 2 + LEAD_CH_W / 2) {
+        color("#222") translate([-L / 2, y - c / 2, REED_TOP - c]) cube([L, c, c]);   // 🔒 ユーザー「リードスイッチは黒にしてください」
+        color("#999") for (s = [-1, 1]) {
+            hull() { translate([s * L / 2, y, zc]) sphere(d = 0.5, $fn = 12); translate([s * xl, y, zc]) sphere(d = 0.5, $fn = 12); }
+            hull() { translate([s * xl, y, zc]) sphere(d = 0.5, $fn = 12); translate([s * xl, y, Z_PAD_BOT - 0.5]) sphere(d = 0.5, $fn = 12); }
+        }
+    }
     if (g == "mag") {
         color("#bbb") translate([0, 0, knob_tip()]) cylinder(d = 4.0, h = 2.0);
         // ⚠ 絵も B向き（軸は +X＝接線）。ポケットと同じ角度へ回す。
@@ -1264,6 +1274,7 @@ function knob_exp_dz(g) =
     : g == "wall"  ?  0.7      // 島（へこみに落ちる）
     : g == "nut"   ? -0.6      // 島のナット ×2（天板の段の裏のポケット）
     : g == "ering" ? -1.2      // E リング（軸の溝へ横から）
+    : g == "reed"  ? -1.8      // リードスイッチ（台座の裏から穴へ押し込む）
     : g == "pcb"   ? -2.4      // AS5600 基板（4 本の棒に通す）
     : g == "hang"  ? -3.6      // 吊るす板とねじ（下から）
     : g == "ncov"  ?  1.2 : 0; // ナットの座カバー（基板の上に載せる）

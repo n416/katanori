@@ -87,7 +87,7 @@ def scad(args, out=None):
     out = out or os.path.join(TMP, "_.echo")
     cmd = [OPENSCAD, "--backend=manifold", "-o", out,
            "-D", 'part="__none__"', "-D", 'MAT="%s"' % MAT,
-           "-D", "RIDE_ON=false"] + args + [SCAD]   # 乗る物は world から外す（sw_ride が別に出す）
+           "-D", "RIDE_ON=false", "-D", "PCB_SILK=false"] + args + [SCAD]   # 乗る物は world から外す（sw_ride が別に出す）。シルクは厚み 0 の皮なので外す
     t0 = time.time()
     p = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     seen = None

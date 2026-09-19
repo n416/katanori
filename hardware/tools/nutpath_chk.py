@@ -39,7 +39,7 @@ MAT, TMP, DD = "nylon", "", None
 
 def run(args, out, src=SCAD, mat_var="MAT"):
     cmd = [OPENSCAD, "--backend=manifold"] + ([] if out.endswith(".echo") else ["--export-format", "binstl"]) \
-        + ["-o", out, "-D", 'part="__none__"', "-D", '%s="%s"' % (mat_var, MAT)] + args + [src]
+        + ["-o", out, "-D", 'part="__none__"', "-D", '%s="%s"' % (mat_var, MAT), "-D", "PCB_SILK=false"] + args + [src]   # シルクは厚み 0 の皮なので外す
     r = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
     txt = r.stdout + r.stderr
     if out.endswith(".echo") and os.path.exists(out):

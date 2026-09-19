@@ -24,7 +24,8 @@ SCAD_DIRS = ("", "parts", "tools", os.path.join("tools", "manual_v61"), "pcb")
 # 🔴 2026-09-19: 基板の模型を入れていなかった。筐体は pcb/v61_parts.scad を include し、
 #   pcb/v61_board3d.stl・pcb/v61_parts3d.stl を import する（case_v6_1.scad）。基板だけを直した日に
 #   刻印も作り置きの判定も「変わっていない」と言い、掃引の検査と動画が 9/18 の基板の形のまま走った
-MODEL_STL = (os.path.join("pcb", "v61_board3d.stl"), os.path.join("pcb", "v61_parts3d.stl"))
+MODEL_STL = (os.path.join("pcb", "v61_board3d.stl"), os.path.join("pcb", "v61_parts3d.stl"),
+             os.path.join("pcb", "v61_conn3d.stl"))   # ⭐ 2026-09-19 口（白）。シルクは pcb/v61_silk.scad（*.scad なので上で拾う）
 _SHA = None
 
 

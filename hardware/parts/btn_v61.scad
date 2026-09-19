@@ -382,7 +382,12 @@ module btn3_head() hull() {
         translate([0, 0, d[0]]) linear_extrude(0.01)
             offset(r = -d[1], $fn = 24) b3_ob2d(B3_HEAD_L, B3_HEAD_W);   // 小判
 }
-module btn3_piston(dn = 0) color("#8fb4d9") translate([0, 0, -dn]) {
+// ⭐ 2026-09-19 🔒 ユーザー「モデルの押し子なんですが左右逆です。設計ではたしかにあなたの設定している方向なんですが、
+//   V5で実験したところ逆が押し心地が良かったのです」: 押し子は芯のまわりに 180° 回して付ける（柱がレバーの根元側）。
+//   上の 2026-09-07 の試し刷りの「押し子 1 を逆（ポッチが根元側）で付ける … 押せて感触が良い」と同じ付け方。
+//   刷る形は変わらない（回すのは付ける向きだけ）
+B3_PISTON_RZ = 180;
+module btn3_piston(dn = 0) color("#f2f2f2") translate([0, 0, -dn]) rotate([0, 0, B3_PISTON_RZ]) {   // ⭐ 2026-09-19 🔒 ユーザー「押し子の色を白に」: #8fb4d9 → 白
     btn3_head();                                                                                 // 頭（2 段の面取り）
     // 裾（レール）。頭と同じ断面を部屋の底まで下ろして、案内の長さを稼ぐ
     translate([0, 0, B3_SKIRT_Z]) b3_ob(B3_HEAD_L, B3_HEAD_W, B3_Z_LIP_B - B3_SKIRT_Z);
@@ -395,7 +400,8 @@ module btn3_piston(dn = 0) color("#8fb4d9") translate([0, 0, -dn]) {
 // ============================================================
 // 9. 刷る物 ② バスタブ（上は全開。耳の下面は底とツライチ）
 // ============================================================
-module btn3_tub() color("#a8b6a0") difference() {
+// ⭐ 2026-09-19 🔒 ユーザー「各バスタブは全部オレンジにしてください」: #a8b6a0 → スピーカーのバスタブ（spk_v61 の spk_tub）と同じ #e0a040
+module btn3_tub() color("#e0a040") difference() {
     union() {
         translate([0, 0, B3_Z_TUB_B])                                                    // 器
             b3_box(B3_TUB_OX, B3_TUB_OY, B3_TUB_R, B3_TUB_TOP - B3_Z_TUB_B, B3_TUB_CY);
