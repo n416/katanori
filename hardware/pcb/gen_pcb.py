@@ -13,6 +13,7 @@
 """
 
 import math
+import re
 import pathlib
 import subprocess
 import sys
@@ -892,7 +893,7 @@ SILK_PORT = {
     "J6":  ("BTN2",     "S"),   # ⭐ 2026-09-19: W → S。S を避けていたのは横出しの頃のプラグの帯で、縦になって消えた
     "J7":  ("REED", "S"),
     "SW2": ("POWER", "S"),
-    "J10": ("BAT",      "W"),   # S は極性の ＋ − が先に座る
+    "J10": ("BAT",      "N"),   # S は極性の ＋ − が先に座る。⭐ 2026-09-19: W → N（W は裏の AS5600 の枠が通る）
 }
 # 🔴 電池の極性。逆接で INA226 から煙が出た事故があるのに、板の上には一文字も無かった
 #    （足形が持つピン 1 の小さな印だけ）。ネット名を出どころにして (ref, pin) で書く。
@@ -1085,6 +1086,255 @@ def silk(placed, boxes):
     print(f"  シルク: 口の名前 {len(SILK_PORT)} 個・極性 {len(SILK_POLARITY)} 個")
     for w in warn:
         print(f"  ⚠ シルク {w}")
+    return out
+
+
+# ⭐ 2026-09-19 🔒 ユーザー「裏のシルクに枠を書いて型番を書いておこうかと」「型番と役割を書いてください」:
+#   板の上で値段の高い部品 5 つ（LCSC の 1 個の単価・2026-09-19）の真裏を枠で囲み、型番と役割を書く（鏡文字）。
+#   ⚠ 置くのは配線と縫いのビアの後（route.py）。名前はビアの上に乗ってよい（膜で塞いである）
+SILK_COST = [
+    ("U1",  "TPS61090RSAR",     "5V BOOST"),       # $2.23
+    ("U2",  "MCP73871-2CCI/ML", "LIPO CHARGER"),   # $2.20
+    ("K31", "G6S-2F DC5",       "MUTE RELAY"),     # $1.49
+    ("U4",  "AS5600-ASOT",      "ANGLE SENSOR"),   # $1.37
+    ("U3",  "INA226AIDGSR",     "BAT MONITOR"),    # $0.78
+    # 🔒 ユーザー「シャントとケルビンの形も書いておいてほしいです。今回一番失敗したので」:
+    #   値段ではなく戒め。センスの線を内側の縁から取らず、10mΩ に 86.7mΩ が足されて 9.7 倍に読んだ（kelvin_tracks の注）
+    ("R41", "SHUNT 10mΩ",       "KELVIN SENSE"),
+    # 🔒 ユーザー「XIAOとOELDのインターフェイスも囲ってほしいです」: 値段ではなく、手で挿す口
+    ("J1",  "1x7 2.54mm",       "XIAO RISER"),
+    ("J2",  "1x4 2.54mm",       "OLED I2C"),
+    # 🔒 ユーザー「電源スイッチも欲しいです」
+    ("SW2", "XKB5858-Z-E",      "POWER SWITCH"),
+]
+COST_PAD = 0.4        # パッドの外接から枠の線まで [mm]
+SILK_TITLE = ["Katanori ver6.1n", "2026-09-19"]   # 裏から見て右上。日付は板を直したら書き換える
+FACE_W = 12.0         # 顔を描く画面（128 ドット）の幅 [mm]
+FACE_MIC = 0.25       # 口の大きさを決める声の大きさ（0〜1）
+COST_R = 0.6          # 枠の角の丸み [mm]
+
+
+def cost_silk(pcb):
+    """SILK_COST の部品の真裏に角の丸い枠と、型番・役割の 2 行を置く gr_* の並びを返す。"""
+    h, CLR, W = SILK_H, 0.3, SILK_T
+    ext, bpads, texts = {}, [], []
+    for f in find(pcb, "footprint"):
+        at = find1(f, "at")
+        fx, fy = float(at[1]), float(at[2])
+        fa = float(at[3]) if len(at) > 3 else 0.0
+        rs = [p[2] for p in find(f, "property") if str(p[1]) == "Reference"]
+        ref = str(rs[0]) if rs else ""
+        for q in find(f, "pad"):
+            pa, sz = find1(q, "at"), find1(q, "size")
+            dx, dy = rot_xy(float(pa[1]), float(pa[2]), fa)
+            pr = (float(pa[3]) if len(pa) > 3 else fa) % 180
+            rx, ry = (float(sz[1]) / 2, float(sz[2]) / 2) if abs(pr - 90) > 45 else (float(sz[2]) / 2, float(sz[1]) / 2)
+            bb = (fx + dx - rx, fy + dy - ry, fx + dx + rx, fy + dy + ry)
+            if ref:
+                e = ext.get(ref, bb)
+                ext[ref] = (min(e[0], bb[0]), min(e[1], bb[1]), max(e[2], bb[2]), max(e[3], bb[3]))
+            lay = str(find1(q, "layers"))
+            if "B.Cu" in lay or "*.Cu" in lay or str(q[2]) in ("thru_hole", "np_thru_hole"):
+                bpads.append(bb)
+        if ref in BACK_SIDE and ref in ext:  # 裏の部品（J10）は胴のシルクごと避ける
+            e = ext[ref]
+            texts.append((e[0] - 2.5, e[1] - 1.5, e[2] + 2.5, e[3] + 1.5))
+    for t in find(pcb, "gr_text"):
+        if "B.SilkS" in str(find1(t, "layer")):
+            at = find1(t, "at")
+            j = str(find1(find1(t, "effects"), "justify") or "")
+            w = len(str(t[1])) * h * 1.4 * 0.95
+            x, y = float(at[1]), float(at[2])
+            if "left" in j:                  # 鏡文字は寄せの向きと伸びる向きが逆になる
+                x0 = x - w if "mirror" in j else x
+            elif "right" in j:
+                x0 = x if "mirror" in j else x - w
+            else:
+                x0 = x - w / 2
+            texts.append((x0 - 1.0, y - h - 1.0, x0 + w + 1.0, y + h + 1.0))
+
+    def hit(a, b):
+        return a[0] < b[2] and b[0] < a[2] and a[1] < b[3] and b[1] < a[3]
+
+    def on_board(bb):
+        u0, v0 = xb(bb[0], bb[3])
+        u1, v1 = xb(bb[2], bb[1])
+        if min(edge_gap(u, v) for u in (u0, u1) for v in (v0, v1)) < 0.5:
+            return False
+        return not any(nx0 - 0.5 < u1 and u0 < nx1 + 0.5 and v1 > ny - 0.5 for nx0, nx1, ny in NOTCHES)
+
+    def line(a, c):
+        return ["gr_line", ["start", f"{a[0]:.3f}", f"{a[1]:.3f}"], ["end", f"{c[0]:.3f}", f"{c[1]:.3f}"],
+                ["stroke", ["width", str(W)], ["type", "solid"]], ["layer", Str("B.SilkS")], ["uuid", Str(uid())]]
+
+    def arc(c, r, a0):
+        pt = [(c[0] + r * math.cos(math.radians(a)), c[1] + r * math.sin(math.radians(a))) for a in (a0, a0 + 45, a0 + 90)]
+        return ["gr_arc", ["start", f"{pt[0][0]:.3f}", f"{pt[0][1]:.3f}"], ["mid", f"{pt[1][0]:.3f}", f"{pt[1][1]:.3f}"],
+                ["end", f"{pt[2][0]:.3f}", f"{pt[2][1]:.3f}"],
+                ["stroke", ["width", str(W)], ["type", "solid"]], ["layer", Str("B.SilkS")], ["uuid", Str(uid())]]
+
+    out, frames, taken_k = [], [], []
+    for ref, part, role in SILK_COST:
+        if ref not in ext:
+            print(f"  ⚠ 裏のシルク: {ref} が板に無い")
+            continue
+        e = ext[ref]
+        x0, y0, x1, y1 = e[0] - COST_PAD, e[1] - COST_PAD, e[2] + COST_PAD, e[3] + COST_PAD
+        r = COST_R
+        out += [line((x0 + r, y0), (x1 - r, y0)), line((x1, y0 + r), (x1, y1 - r)),
+                line((x1 - r, y1), (x0 + r, y1)), line((x0, y1 - r), (x0, y0 + r)),
+                arc((x1 - r, y0 + r), r, 270), arc((x1 - r, y1 - r), r, 0),
+                arc((x0 + r, y1 - r), r, 90), arc((x0 + r, y0 + r), r, 180)]
+        frames.append((ref, part, role, (x0, y0, x1, y1)))
+        if any(hit((x0 - W, y0 - W, x1 + W, y1 + W), b) and not hit((x0 + W, y0 + W, x1 - W, y1 - W), b) for b in bpads):
+            print(f"  ⚠ 裏のシルク: {ref} の枠の線が裏のパッドに掛かる")
+
+    # ---- つまみの軸のガイドの輪郭（AS5600 の上に立つ印刷部品。真上から見た形）----
+    # 🔒 ユーザー「AS5600のガイドはその四角ではなく、ガイド部品の輪郭です」。形は case_v6_1.scad の kg_plate2d():
+    #   軸の芯に丸 KG_HUB_D ＋ 足の穴（半径 VB.GUIDE_R・60／180／300°）へ幅 KG_ARM_W の腕、先に丸 KG_PAD_D。
+    #   ⚠ 数字は scad から読む（書き写さない）。腕の先の丸が腕の幅より大きくなったら、この描き方（腕の先 ＝ 半円）は成り立たない
+    kg = {k: float(v) for k, v in re.findall(r"(KG_HUB_D|KG_ARM_W|KG_PAD_D) = ([0-9.]+)",
+                                             (HERE.parents[0] / "case_v6_1.scad").read_text(encoding="utf-8"))}
+    assert kg["KG_PAD_D"] <= kg["KG_ARM_W"] + 1e-9, "ガイドの足の丸が腕より太い。輪郭の描き方を変える"
+    Rh, wa, Ra = kg["KG_HUB_D"] / 2, kg["KG_ARM_W"] / 2, VB.GUIDE_R
+    t0 = math.sqrt(Rh ** 2 - wa ** 2)       # 腕の縁が軸の丸と交わる所（腕の向きの距離）
+    da = math.degrees(math.atan2(wa, t0))
+
+    def P(ang, t, off=0.0):                 # 芯から ang 度へ t、左へ off（板の座標）→ 図面の座標
+        a_ = math.radians(ang)
+        return bx(SHAFT_CX + t * math.cos(a_) - off * math.sin(a_), SHAFT_CY + t * math.sin(a_) + off * math.cos(a_))
+
+    def arc3(p0, pm, p1):
+        return ["gr_arc", ["start", f"{p0[0]:.3f}", f"{p0[1]:.3f}"], ["mid", f"{pm[0]:.3f}", f"{pm[1]:.3f}"],
+                ["end", f"{p1[0]:.3f}", f"{p1[1]:.3f}"],
+                ["stroke", ["width", str(W)], ["type", "solid"]], ["layer", Str("B.SilkS")], ["uuid", Str(uid())]]
+    arms = sorted(math.degrees(math.atan2(hy - SHAFT_CY, hx - SHAFT_CX)) % 360 for hx, hy in VB.GUIDE_HOLES)
+    for i, ang in enumerate(arms):
+        nxt = arms[(i + 1) % len(arms)] + (360 if i == len(arms) - 1 else 0)
+        out.append(line(P(ang, t0, -wa), P(ang, Ra, -wa)))           # 腕の右の縁
+        out.append(line(P(ang, t0, wa), P(ang, Ra, wa)))             # 腕の左の縁
+        out.append(arc3(P(ang, Ra, -wa), P(ang, Ra + wa), P(ang, Ra, wa)))   # 腕の先（足の丸）
+        m = (ang + da + nxt - da) / 2                               # 次の腕までの軸の丸
+        out.append(arc3(P(ang + da, Rh), P(m, Rh), P(nxt - da, Rh)))
+    # 名前が輪郭の線に乗らないように、線の上の点を塞ぐ（形の中は空けておく。名前は中に入ってよい）
+    edge = []
+    for ang in arms:
+        edge += [P(ang, t0 + (Ra - t0) * k / 40, o) for k in range(41) for o in (-wa, wa)]
+        edge += [P(ang, Ra + wa * math.cos(math.radians(q)), wa * math.sin(math.radians(q)))
+                 for q in range(-90, 91, 5)]
+    for q in range(0, 360, 2):
+        X, Y = P(q, Rh)
+        a_ = min(abs((q - ang + 180) % 360 - 180) for ang in arms)
+        if a_ >= da:
+            edge.append((X, Y))
+    e_ = W / 2 + CLR
+    taken_k += [(X - e_, Y - e_, X + e_, Y + e_) for X, Y in edge]
+
+    # ---- ケルビンの線（銅の線の真裏を、同じ形でなぞる）----
+    #   ⚠ 座標は写さない。銅の線を作る kelvin_tracks() に同じ板を渡して、同じ点を取る
+    #   🔒 ユーザー: 抵抗の記号 → 枠とパッド → 枠だけ → 「パッドもあったほうがいいです」。
+    #   R41 は他の部品と同じ枠、その中に R41 と U3（8・10 番）のパッドの輪郭。
+    #   線が**パッドの内側の縁**から出ているのが見えないと、絵の意味が無い
+    fps = find(pcb, "footprint")
+    for ref, pad in (("R41", "1"), ("R41", "2"), ("U3", "8"), ("U3", "10")):
+        px, py, pw, ph = pad_box(fps, ref, pad)
+        a, b = (px - pw / 2, py - ph / 2), (px + pw / 2, py + ph / 2)
+        out += [line((a[0], a[1]), (b[0], a[1])), line((b[0], a[1]), (b[0], b[1])),
+                line((b[0], b[1]), (a[0], b[1])), line((a[0], b[1]), (a[0], a[1]))]
+    for net, _, _, pts in kelvin_tracks(fps):
+        out += [line(a, c) for a, c in zip(pts, pts[1:])]
+        for a, c in zip(pts, pts[1:]):
+            taken_k.append((min(a[0], c[0]) - 0.4, min(a[1], c[1]) - 0.4, max(a[0], c[0]) + 0.4, max(a[1], c[1]) + 0.4))
+
+    # ---- 型番と役割（2 行）。枠の上か下にそろえて置き、塞がっていれば左右、最後に少しずつ離す ----
+    PITCH = h * 1.5
+    taken = [(b[0] - CLR, b[1] - CLR, b[2] + CLR, b[3] + CLR) for _, _, _, b in frames] + taken_k
+    for ref, part, role, (x0, y0, x1, y1) in frames:
+        w = max(len(part), len(role)) * h * 0.95
+        th = PITCH + h
+        cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+        cand = []
+        for gap in [0.4 + 0.2 * k for k in range(16)]:
+            for sx in [0.0] + [d * s for d in (1.0, 2.0, 3.0, 4.0, 5.0) for s in (1, -1)]:
+                cand.append(("上", cx + sx, y0 - gap - th / 2))
+                cand.append(("下", cx + sx, y1 + gap + th / 2))
+            cand.append(("左", x0 - gap - w / 2, cy))
+            cand.append(("右", x1 + gap + w / 2, cy))
+        # 上下左右に無ければ、枠の芯から近い順に広く探す（シャントは U3 と U2 に挟まれている）
+        cand += sorted((("近く", cx + i * 0.2, cy + j * 0.2) for i in range(-50, 51) for j in range(-60, 61)),
+                       key=lambda c: (c[1] - cx) ** 2 + (c[2] - cy) ** 2)
+        for where, x, y in cand:
+            bb = (x - w / 2 - CLR, y - th / 2 - CLR, x + w / 2 + CLR, y + th / 2 + CLR)
+            if on_board(bb) and not any(hit(bb, o) for o in bpads + texts + taken):
+                taken.append((bb[0] - 1.0, bb[1] - 1.0, bb[2] + 1.0, bb[3] + 1.0))
+                out.append(silk_text(part, x, y - PITCH / 2, "B.SilkS", ["mirror"], h=h))
+                out.append(silk_text(role, x, y + PITCH / 2, "B.SilkS", ["mirror"], h=h))
+                print(f"  裏のシルク {ref}「{part} / {role}」: 枠の{where}")
+                break
+        else:
+            print(f"  ⚠ 裏のシルク {ref}「{part}」を置く場所が無い")
+
+    # ---- 板の名前と日付（裏から見て右上 ＝ 図面の左上の角に近い空き）----
+    # 🔒 ユーザー「右上にKatanori ver6.1n あと今日の日付を」（2026-09-19）
+    tw = max(len(t) for t in SILK_TITLE) * h * 0.95
+    title_at = None
+    th = PITCH * (len(SILK_TITLE) - 1) + h
+    X0, Y0 = ORG
+    for dx, dy in sorted(((i * 0.2, j * 0.2) for i in range(0, 200) for j in range(0, 90)),
+                         key=lambda d: d[0] ** 2 + (2 * d[1]) ** 2):
+        x, y = X0 + 1.0 + tw / 2 + dx, Y0 + 1.0 + th / 2 + dy
+        bb = (x - tw / 2 - CLR, y - th / 2 - CLR, x + tw / 2 + CLR, y + th / 2 + CLR)
+        if on_board(bb) and not any(hit(bb, o) for o in bpads + texts + taken):
+            for k, t in enumerate(SILK_TITLE):
+                out.append(silk_text(t, x, y - th / 2 + h / 2 + k * PITCH, "B.SilkS", ["mirror"], h=h))
+            taken.append(bb)
+            title_at = (x, bb[3])            # 顔はこの下に置く（文字の芯にそろえる）
+            print(f"  裏のシルク「{' / '.join(SILK_TITLE)}」: 角から ({dx:.1f}, {dy:.1f})")
+            break
+    else:
+        print(f"  ⚠ 裏のシルク「{SILK_TITLE[0]}」を置く場所が無い")
+
+    # ---- カタノリの顔（画面の目と口。裏から見て右上、板の名前の下）----
+    # 🔒 ユーザー「下にカタノリの顔（画面出力の目と口）を書いておいてください」（2026-09-19）
+    #   形は firmware/core/Face.cpp の話している顔（SPEAK）: 128 × 64 の画面に 目の丸 2 つ ＋ 口の四角。
+    #   ⚠ 数字は Face.cpp から読む（書き写さない）。口の大きさは声の大きさ FACE_MIC のとき
+    src = (HERE.parents[1] / "firmware" / "core" / "Face.cpp").read_text(encoding="utf-8")
+    sp = src[src.index("case RobotState::SPEAK:"):]
+    num = lambda k: float(re.search(k + r" = ([0-9.]+)f", sp).group(1))
+    lx, rx_, ey, er = num("target.leftCx"), num("target.rightCx"), num("target.leftCy"), num("target.rx")
+    mw0, mw1 = map(float, re.search(r"mouthWidth = ([0-9.]+)f \+ micLevelSmooth_ \* ([0-9.]+)f", src).groups())
+    mh0, mh1 = map(float, re.search(r"mouthHeight = ([0-9.]+)f \+ micLevelSmooth_ \* ([0-9.]+)f", src).groups())
+    mcx, mcy = map(float, re.search(r"mX = ([0-9]+) - mW / 2;\s*int mY = ([0-9]+) - mH / 2", src).groups())
+    mw, mh = mw0 + mw1 * FACE_MIC, mh0 + mh1 * FACE_MIC
+    k_ = FACE_W / 128.0
+    fw, fh = FACE_W, 64 * k_
+    shapes = [("c", lx, ey, er), ("c", rx_, ey, er), ("r", mcx - mw / 2, mcy - mh / 2, mcx + mw / 2, mcy + mh / 2)]
+    # 描く物の外接（画面の座標）: 目の上端から口の下端まで
+    sx0, sy0 = lx - er, ey - er
+    sx1, sy1 = rx_ + er, max(ey + er, mcy + mh / 2)
+    bw, bh = (sx1 - sx0) * k_, (sy1 - sy0) * k_
+    # 🔒 ユーザー（絵で指定）「こっちです」: 最初は下の縁に置いたが、右上の板の名前と日付の**すぐ下**（文字の芯にそろえる）
+    X0, Y1 = title_at if title_at else (ORG[0] + BOARD_L / 2, ORG[1])
+    for dx, dy in sorted(((i * 0.2, j * 0.2) for i in range(-50, 51) for j in range(0, 60)),
+                         key=lambda d: (d[0] / 2) ** 2 + d[1] ** 2):
+        x, y = X0 + dx, Y1 + 0.6 + bh / 2 + dy          # 板の名前の下の縁から
+        bb = (x - bw / 2 - CLR, y - bh / 2 - CLR, x + bw / 2 + CLR, y + bh / 2 + CLR)
+        if on_board(bb) and not any(hit(bb, o) for o in bpads + texts + taken):
+            ox, oy = x - bw / 2 - sx0 * k_, y - bh / 2 - sy0 * k_   # 画面の (0,0) の位置
+            st = ["stroke", ["width", str(W)], ["type", "solid"]]
+            for sh in shapes:
+                if sh[0] == "c":
+                    cx, cy, rr = ox + sh[1] * k_, oy + sh[2] * k_, sh[3] * k_
+                    out.append(["gr_circle", ["center", f"{cx:.3f}", f"{cy:.3f}"], ["end", f"{cx + rr:.3f}", f"{cy:.3f}"],
+                                st, ["fill", "yes"], ["layer", Str("B.SilkS")], ["uuid", Str(uid())]])
+                else:
+                    out.append(["gr_rect", ["start", f"{ox + sh[1] * k_:.3f}", f"{oy + sh[2] * k_:.3f}"],
+                                ["end", f"{ox + sh[3] * k_:.3f}", f"{oy + sh[4] * k_:.3f}"],
+                                st, ["fill", "yes"], ["layer", Str("B.SilkS")], ["uuid", Str(uid())]])
+            print(f"  裏のシルク 顔（幅 {bw:.1f} × 高さ {bh:.1f}・口 {mw:.0f}×{mh:.1f} ドット）: 板の名前の下から ({dx:+.1f}, {dy:.1f})")
+            break
+    else:
+        print("  ⚠ 裏のシルク 顔を置く場所が無い")
     return out
 
 

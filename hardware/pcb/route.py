@@ -288,6 +288,14 @@ def stitch():
     print(f"  GND を縫うビアを {len(put)} 個打った（格子 {PITCH}mm・φ{VIA}/{DRILL}）")
 
 
+def back_labels():
+    """裏のシルクに、値段の高い部品の枠と型番・役割を置く（gen_pcb.SILK_COST・2026-09-19）。ビアが全部そろった後で回す。"""
+    import gen_pcb as G
+    pcb = kisym.parse((OUT / f"{NAME}.kicad_pcb").read_text(encoding="utf-8"))[0]
+    body = list(pcb) + G.cost_silk(pcb)
+    (OUT / f"{NAME}.kicad_pcb").write_text(kisym.dump(body) + chr(10), encoding="utf-8")
+
+
 def drc():
     rpt = OUT / "drc.json"
     # 🔴 --refill-zones を付けないと、裏の GND のベタが埋まっていない状態で検査される
@@ -319,4 +327,6 @@ if __name__ == "__main__":
         run_freerouting()
     merge()
     stitch()
+    if NAME == "katanori61":
+        back_labels()
     drc()
