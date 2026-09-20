@@ -3445,6 +3445,150 @@ static void pumpWake() {
     }
 }
 
+/*
+ * ---------------------------------------------------------------------------
+ *  XMOS の音声処理の取り出し口（タップ点）
+ *
+ *  ReSpeaker Lite の XU316 は、マイクの処理を AEC → IC → NS → AGC の順に通す。
+ *  I2S に出すのをどの段にするかを、チャンネルごとに選べる。
+ *
+ *  🔴 ch0 の工場出荷の既定は 4（AGC まで通す）で、**最後の AGC が AEC の残留を
+ *  聞こえるレベルまで押し戻す**。2026-09-21 の実測（firmware/esp32/README.md
+ *  「再生中の残留」）と符合する: 残留が音量に依存しない（AGC は一定レベルまで
+ *  上げる）、騒音床が 38〜641 と 12倍動く。
+ *
+ *  ⚠ 出どころは respeaker/reSpeaker_Lite の Issue #9 に付いた個人のコメントで、
+ *  Seeed の公式資料ではない。値の意味も含めて、読み返して確かめてから使う。
+ *
+ *  | 値 | 取り出し口                      |
+ *  |----|--------------------------------|
+ *  | 0  | 生マイク                        |
+ *  | 1  | AEC                             |
+ *  | 2  | AEC + IC（2マイクのビームフォーム）|
+ *  | 3  | AEC + IC + NS                   |
+ *  | 4  | AEC + IC + NS + AGC（ch0 の既定）|
+ *
+ *  ⚠ XMOS のフラッシュに残る。焼き直しでは戻らないので、変えたら記録すること。
+ * ---------------------------------------------------------------------------
+ */
+static constexpr uint8_t kXmosAddr = 0x42;
+static constexpr uint8_t kXmosResidConfig = 0xF1;
+static constexpr uint8_t kXmosCmdTapCh0 = 0x30;
+static constexpr uint8_t kXmosCmdTapCh1 = 0x40;
+
+/*
+ * XMOS の Command Transport Protocol。書式は公式の例に合わせる
+ * （respeaker/reSpeaker_Lite の xiao_esp32s3_arduino_examples）。
+ *
+ * ⚠ 読み出しに cmd|0x80 は付けない。要求するバイト数は「欲しい数＋1」で、
+ * 先頭に status が入る（0 なら成功）。endTransmission() は通常終了で、
+ * repeated start にしない。ここを外すと status=2 で弾かれる。
+ */
+static int xmosRead(uint8_t resid, uint8_t cmd, uint8_t* out, uint8_t want) {
+    Wire.beginTransmission(kXmosAddr);
+    Wire.write(resid);
+    Wire.write(cmd);
+    Wire.write((uint8_t)(want + 1));
+    if (Wire.endTransmission() != 0) {
+        return -1;  // そもそも応答が無い
+    }
+    if (Wire.requestFrom(kXmosAddr, (uint8_t)(want + 1)) != want + 1) {
+        return -1;
+    }
+    const uint8_t status = Wire.read();
+    for (uint8_t i = 0; i < want; ++i) {
+        out[i] = Wire.read();
+    }
+    return status;  // 0 = 成功。それ以外はそのまま返す
+}
+
+/** 1バイト読む。成功なら 0〜255、失敗なら負。 */
+static int xmosRead1(uint8_t resid, uint8_t cmd) {
+    uint8_t v = 0;
+    const int st = xmosRead(resid, cmd, &v, 1);
+    if (st != 0) {
+        return st < 0 ? -1 : -st - 100;  // -100 未満は status を持っている印
+    }
+    return v;
+}
+
+/** 取り出し口を書く。 */
+static bool xmosWriteTap(uint8_t cmd, uint8_t value) {
+    Wire.beginTransmission(kXmosAddr);
+    Wire.write(kXmosResidConfig);
+    Wire.write(cmd);
+    Wire.write((uint8_t)1);  // 書くバイト数
+    Wire.write(value);
+    return Wire.endTransmission() == 0;
+}
+
+static const char* xmosTapName(int v) {
+    switch (v) {
+    case 0: return "生マイク";
+    case 1: return "AEC";
+    case 2: return "AEC+IC";
+    case 3: return "AEC+IC+NS（AGCなし）";
+    case 4: return "AEC+IC+NS+AGC（既定）";
+    default: return "不明";
+    }
+}
+
+static void xmosPrintRead(const char* label, int v) {
+    if (v == -1) {
+        Serial.printf("[XMOS] %-18s 応答なし\n", label);
+    } else if (v < -100) {
+        Serial.printf("[XMOS] %-18s status=%d（受け付けられていません）\n", label, -(v + 100));
+    } else {
+        Serial.printf("[XMOS] %-18s %d\n", label, v);
+    }
+}
+
+/** 素性と取り出し口を表示する。 */
+static void xmosPrintTaps() {
+    // まず確実に通るもので、通信そのものを確かめる
+    uint8_t ver[3] = {0, 0, 0};
+    const int vst = xmosRead(0xF0, 0xD8, ver, 3);
+    if (vst == 0) {
+        Serial.printf("[XMOS] ファーム版数        v%u.%u.%u\n",
+                      (unsigned)ver[0], (unsigned)ver[1], (unsigned)ver[2]);
+    } else {
+        xmosPrintRead("ファーム版数", vst < 0 ? -1 : -vst - 100);
+    }
+    xmosPrintRead("VNR値(0-100)", xmosRead1(kXmosResidConfig, 0x80));
+    xmosPrintRead("ミュート状態", xmosRead1(kXmosResidConfig, 0x81));
+
+    // ここからが本題。⚠ 出どころは Issue #9 の個人のコメントで未確認
+    const int a = xmosRead1(kXmosResidConfig, kXmosCmdTapCh0);
+    const int b = xmosRead1(kXmosResidConfig, kXmosCmdTapCh1);
+    xmosPrintRead("ch0 取り出し口", a);
+    xmosPrintRead("ch1 取り出し口", b);
+    if (a >= 0) {
+        Serial.printf("[XMOS]   ch0 = %s\n", xmosTapName(a));
+    }
+    if (b >= 0) {
+        Serial.printf("[XMOS]   ch1 = %s\n", xmosTapName(b));
+    }
+}
+
+/** ch0 の取り出し口を変える。 */
+static void xmosSetTapCh0(int v) {
+    if (v < 0 || v > 4) {
+        Serial.println("[XMOS] 値は 0〜4 です");
+        return;
+    }
+    const int before = xmosRead1(kXmosResidConfig, kXmosCmdTapCh0);
+    if (!xmosWriteTap(kXmosCmdTapCh0, (uint8_t)v)) {
+        Serial.println("[XMOS] 書き込みに失敗しました（応答なし）");
+        return;
+    }
+    delay(50);  // 反映を待つ
+    const int after = xmosRead1(kXmosResidConfig, kXmosCmdTapCh0);
+    Serial.printf("[XMOS] ch0 の取り出し口 %d → %d（%s）%s\n",
+                  before, after, xmosTapName(after),
+                  after == v ? "" : " ← 書けていません");
+    Serial.println("[XMOS] ⚠ この設定は XMOS のフラッシュに残ります。焼き直しでは戻りません");
+}
+
 /** ゲート音量を直接指定する。0なら騒音床からの自動計算に戻す。 */
 static void vadSetThreshold(float rms) {
     vadGateRms = rms < 0.0f ? 0.0f : rms;
@@ -4449,6 +4593,10 @@ static void handleSerial() {
             vadEnroll();
         } else if (strncmp(line, "vadth ", 6) == 0) {
             vadSetThreshold(atof(line + 6));
+        } else if (strcmp(line, "tap") == 0) {
+            xmosPrintTaps();
+        } else if (strncmp(line, "tap ", 4) == 0) {
+            xmosSetTapCh0(atoi(line + 4));
         } else if (strcmp(line, "scan2") == 0) {
             katanori::audioIo.scanConfigs();
         } else if (strncmp(line, "i2s ", 4) == 0) {

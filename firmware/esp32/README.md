@@ -761,6 +761,126 @@ BOOTボタンでも `1`/`2` を交互に切り替えられます。`au` で音�
 
 #### 次の一手（1つだけ）
 
+🔴 **XMOS のファームを v1.1.0 にして、ch0 の取り出し口から AGC を外す。**
+（2026-09-21 に一次資料を読んで決めた。スピーカーを抜く実験より先にこれ）
+
+**AGC が AEC の残留を押し戻している**という報告が、フォーラムと GitHub の両方にある。
+
+- Seeed フォーラム「Respeaker Lite AEC support」の hamstie（2025-03-17）:
+  「AEC は密な音楽の再生ではよく効くが、**発話だけの再生では効かない**。AGC が
+  捕捉信号を増幅し、録音された声を最大レベルまで持ち上げる。AGC が強すぎて変更できない」
+- respeaker/reSpeaker_Lite の Issue #9 のコメント（herve-clawd・**個人の投稿で Seeed の
+  公式回答ではない**）: 「AEC は動いている。罠は **ch0 の工場出荷の既定が AGC タップ**
+  （AEC+IC+NS+AGC のフルチェーン）で、最後の AGC が小さな残留を聞こえるレベルまで
+  押し戻すこと。ch0 を NS タップ（AGC なし）に下げるとエコーはほぼ消える」
+
+katanori が再生するのは**まさに発話**である。AGC は一定レベルまで持ち上げるので、
+**残留が音量に依存しない**ことの説明にもなる（実測がそうだった）。騒音床が 38〜641 と
+12倍動くのも同じ AGC の仕業である。
+
+##### 取り出し口（タップ点）の触り方
+
+XMOS Command Transport Protocol、I2C `0x42`、RESID `0xF1`（Configuration service）。
+
+| cmd | 対象 |
+|---|---|
+| `0x30` | ch0 の取り出し口 |
+| `0x40` | ch1 の取り出し口 |
+
+| 値 | 取り出し口 |
+|---|---|
+| 0 | 生マイク |
+| 1 | AEC |
+| 2 | AEC + IC（2マイクのビームフォーム） |
+| 3 | **AEC + IC + NS（AGC なし）** ← ここへ下げたい |
+| 4 | AEC + IC + NS + AGC ← ch0 の既定 |
+
+⚠ XMOS のフラッシュに残る。焼き直しでは戻らない。
+
+##### 🔴 v1.0.8 には無い（実機で確認・2026-09-21）
+
+シリアル `tap` で読める。
+
+```
+ファーム版数        v1.0.8       ← 通信は正常
+VNR値(0-100)      3             ← 読めている
+ミュート状態        status=2      ← 公式が「v1.0.9 以降が必要」と書いているコマンド
+ch0 取り出し口      status=3      ← 受け付けられない
+ch1 取り出し口      status=3
+```
+
+版数と VNR が読めるので I2C は生きている。status が返るのは**そのコマンドが
+この版に無い**ためで、Issue #9 のコメントは **v1.1.0 ch0-asr_ch1-mww** での話だった。
+
+⚠ **読み出しの書式を間違えると status=2 で弾かれる。** 公式の例
+（`xiao_esp32s3_arduino_examples/xiao_i2c_get_register_value`）に合わせること:
+`cmd|0x80` は**付けない**／要求するバイト数は「欲しい数＋1」（先頭が status）／
+`endTransmission()` は通常終了で repeated start にしない。
+
+##### v1.0.9 では直らない
+
+changelog（公式）:
+
+```
+v1.0.9: DAC 出力ゲインの既定を 0dB → -2dB、i2c で mute_status を読めるように
+v1.0.8: 新しいフラッシュ ZB25VQ32D 対応
+v1.0.7: i2c でスピーカーのミュートと出力チャンネルを制御
+v1.0.6: PRODUCT_STR を変更、ws2812 のバグ修正
+v1.0.5: i2c で vnr を読めるように
+```
+
+**AGC とタップ点に関する変更が1つも無い。**
+
+##### 書き込みの道は2つ。⭐ B を採る
+
+公式の `dfu_guide.md` によると、dfu-util からは3つの領域が見える。
+
+```
+alt=0, name="DFU FACTORY"
+alt=1, name="DFU UPGRADE"        ← 公式手順が使うのはここ（dfu-util -R -e -a 1 -D <bin>）
+alt=2, name="DFU DATAPARTITION"
+```
+
+| | 中身 | 判断 |
+|---|---|---|
+| A | 16kHz の v1.1.0（**factory** 版）を `-a 0` に書く | ❌ レート変換は要らないが、**公式手順に無い操作**。factory は工場出荷の復帰用で、壊した場合に戻せる保証が無い |
+| B | 48kHz の v1.1.0（**DFU** 版）を `-a 1` に書く | ⭐ **公式手順どおり。** 代わりに ESP32 側で 48k↔16k の変換が要るが **3:1 の整数比**なので、送りは3サンプル平均・再生は3倍に伸ばすだけ。DO 側のリサンプラは触らない |
+
+16kHz の v1.1.0 が factory 版しか無いのは 2026-07-26 に調べた通り
+（`respeaker_lite_i2s_factory_firmware_v1.1.0_ch0-asr_ch1-mww.bin`）。
+
+##### 手順
+
+1. **ReSpeaker の USB-C ポート**（3.5mm ジャック寄り。XIAO 側ではない）を PC へ繋ぐ
+   → 筐体を開ける必要がある
+2. `dfu-util -l` で 3 領域が見えるか確認（見えなければ Zadig で WINUSB を入れる）
+3. `dfu-util -R -e -a 1 -D respeaker_lite_i2s_dfu_firmware_48k_v1.1.0_ch0-asr_ch1-mww.bin`
+4. 機体のファームを 48kHz 対応にして、シリアル `tap` で ch0 を読む（4 のはず）
+5. `tap 3` で AGC を外し、`[QUIET]`／`[ECHO]` を測り直す
+6. 効かなければ v1.0.9（16kHz・DFU）へ戻せる
+
+⚠ **AGC を切ると全体の音量が下がる。** 小さい音を持ち上げる働きも無くなるので、
+VAD の検出線・ゲート・呼びかけの距離は測り直しになる（docs/WAKEUP.md 付録D/E）。
+
+##### 参考にした一次資料
+
+- `https://github.com/respeaker/reSpeaker_Lite` — ファーム一覧・I2C プロトコル・Arduino の例
+- `https://github.com/respeaker/reSpeaker_Lite/blob/master/xmos_firmwares/changelog.md`
+- `https://github.com/respeaker/reSpeaker_Lite/blob/master/xmos_firmwares/dfu_guide.md`
+- `https://github.com/respeaker/reSpeaker_Lite/issues/9` — タップ点の話（⚠ 個人の投稿）
+- `https://github.com/respeaker/reSpeaker_Lite/issues/5` — 「レジスタマップを公開してほしい」（未回答）
+- `https://forum.seeedstudio.com/t/respeaker-lite-aec-support/283114` — AGC が強すぎる報告、
+  スピーカーの周波数特性（イコライザ付きは AEC を壊す）、USB 版 v2.0.5〜2.0.7 の不具合報告
+
+##### スピーカーの選び方（Seeed の中の人・2025-04-01）
+
+> スピーカーの周波数特性が AEC の結果に大きく影響する。イコライザが付いていると
+> 出る音が参照チャンネルと食い違い、AEC が打ち消せない。**平坦な特性で内蔵アンプの
+> 無いスピーカー**を選び、JST2.0 で ReSpeaker Lite に繋ぐのが良い。
+
+#### 次の一手のあと（音響側の切り分け）
+
+
 **スピーカーの端子（PH2.0）を抜いて、同じ測定をする。** 音は出ないが I2S には
 同じデータが流れる。
 
