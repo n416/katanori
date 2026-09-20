@@ -313,21 +313,54 @@ bool AudioIo::setOutputMute(bool mute) {
         return false;
     }
 
-    // reg 0x41/0x42 = DAC左/右のデジタル音量。0.5dBステップ。
-    //   0x81 = -63.5dB (最小) / 0x00 = 0dB
-    // ミュートビットの解釈を誤っていても、こちらだけで実用上は無音になる。
-    codecWrite(0x41, mute ? 0x81 : 0x00);
-    codecWrite(0x42, mute ? 0x81 : 0x00);
+    /*
+     * reg 0x41/0x42 = DAC左/右のデジタル音量。0.5dBステップ。
+     *   0x81 = -63.5dB (最小) / 0xFF = -0.5dB / 0x00 = 0dB
+     *
+     * 🔴 一気に書き換えるとポップノイズが出る。
+     * -63.5dB から 0dB へ 1回で飛ばすと段差が音になり、マイクがそれを拾って
+     * Gemini が「人が喋った」と見なし、始めたばかりの応答を割り込みで捨てる
+     * （実機で何度も再現。文字起こしは "Porra." "能 做 。" など、短い雑音を
+     * 無理に言葉にしたもの）。コーデックのソフトステップはミュートビットには
+     * 効くが、この音量レジスタの書き換えには効かない。
+     *
+     * ⚠ マイクを止めて避けてはいけない。ロボットが喋り始めた直後に人が
+     * 割り込む場面で、その分だけ頭が切れる（ユーザー 2026-09-21
+     * 「カタノリXXXXしてって言うときに 0.5秒も切れるんだったら使い物にならん」）。
+     * 出さないようにするのが正しい。
+     */
+    static const uint8_t kFade[] = {0x81, 0x91, 0xA1, 0xB1, 0xC1,
+                                    0xD1, 0xE1, 0xF1, 0x00};
+    static constexpr size_t kFadeCount = sizeof(kFade) / sizeof(kFade[0]);
+    static constexpr uint32_t kFadeStepMs = 3;   // 全体で 24ms。1フレームに満たない
 
     // reg 0x40 = DACチャンネル設定2。D3=左ミュート, D2=右ミュート。
     // 他のビット(ソフトステップ等)を壊さないよう読んでから書き戻す。
+    // 解除のときは、音量を最小にしたままミュートビットを外してから上げる
+    // （逆にすると 0dB のままミュートが外れて、そこで段差が出る）
     uint8_t v = 0;
-    if (codecRead(0x40, v)) {
-        v = mute ? (v | 0x0C) : (v & ~0x0C);
-        codecWrite(0x40, v);
+    if (!mute && codecRead(0x40, v)) {
+        codecWrite(0x41, kFade[0]);
+        codecWrite(0x42, kFade[0]);
+        codecWrite(0x40, (uint8_t)(v & ~0x0C));
+    }
+
+    for (size_t i = 0; i < kFadeCount; ++i) {
+        const uint8_t step = mute ? kFade[kFadeCount - 1 - i] : kFade[i];
+        codecWrite(0x41, step);
+        codecWrite(0x42, step);
+        delay(kFadeStepMs);
+    }
+
+    // ミュートするときは、最小まで落としたあとにビットを立てる
+    if (mute && codecRead(0x40, v)) {
+        codecWrite(0x40, (uint8_t)(v | 0x0C));
     }
 
     muted_ = mute;
+    if (!mute) {
+        unmutedAt_ = millis();  // ここからしばらくはポップが乗る（AudioIo.h）
+    }
     Serial.printf("[CODEC] 出力を%sしました\n", mute ? "ミュート" : "ミュート解除");
     return true;
 }

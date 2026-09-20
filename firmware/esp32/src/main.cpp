@@ -26,10 +26,12 @@
 #include "NetLink.h"
 #include "AudioIo.h"
 #include "Provisioning.h"
+#include "Chimes.h"
 #include "VoiceClips.h"
 #include "Battery.h"
 #include "BootLog.h"
 #include "Settings.h"
+#include "WakeWatch.h"
 
 #include <qrcode.h>
 #include "Console.h" // 最後に置く（Serial を Wi-Fi モニタへも流す差し替え。Console.h）
@@ -1510,6 +1512,16 @@ static constexpr uint32_t PENDING_TURN_TIMEOUT_MS = 15000;
 // VAD計測モード（定義は下）。会話とマイクを共有するので、送信側から参照する。
 static bool vadMeasuringActive();
 static void vadFeed(const int16_t* pcm, size_t n);
+/** 呼びかけの見張り（待機中）。計測モードとは同時に動かさない。 */
+static bool vadWatchingActive();
+/** 通った区間をクラウドへ送る（別タスク。すぐ戻る）。 */
+static void vadSubmitWake();
+/** 見張りの世話。判定の結果を受け取り、待機中なら見張りを掛け直す。 */
+static void pumpWake();
+/** 見張りを止める。会話へ移るときは録音を続けたまま止める。 */
+static void vadStopWatching(bool keepRecording = false);
+/** いまの検出線（騒音床×倍率）。控えの無音を詰めるのに同じ線を使う。 */
+static float vadThreshold();
 
 /**
  * 状態機械を目的の状態まで歩かせる。
@@ -1660,6 +1672,17 @@ static void onControl(const char* json) {
 
 /** ウェイクワード相当。接続してから録音を始める。 */
 static void startTurn() {
+    // 🔒 ユーザー 2026-09-21「会話ボタンを押下した瞬間から保存しておいてほしい」。
+    // 繋がるまで待つ間も控えに貯め、繋がったところで drainToNetLink() が流す。
+    // 接続待ちで何度も呼ばれるので、印が無いときだけ打つ（＝最初の1回）
+    if (!katanori::wakeWatch.hasTurn()) {
+        katanori::wakeWatch.markTurn();
+        // 🔴 無音の時計もここから。繋がるまでの間、見張りは解けていて録音は
+        // 続いているので、更新しないと「60秒声が無かった」に即座に倒れて
+        // 会話が始まる前に閉じられる（実機で ★呼ばれました の直後に
+        // 「会話を終了しました」が出た）
+        convLastVoiceMs = millis();
+    }
     if (vadMeasuringActive()) {
         Serial.println("[TURN] VAD計測中です。'vad' で終了してから話しかけてください");
         return;
@@ -1697,9 +1720,14 @@ static void startTurn() {
     pendingTurn = false;
     streamEndMs = 0;
     convLastVoiceMs = millis(); // 無音の時計は会話を始めたところから
+    vadStopWatching(true);      // 見張りはここで終わり。録音は引き継ぐ
     katanori::audioIo.startRecording();
     robot.injectEvent(katanori::RobotEvent::WAKE_WORD);
     Serial.println("[TURN] 会話開始（発話の区切りは自動判定。もう一度ボタンで会話終了）");
+
+    // ボタンを押した（あるいは呼ばれた）ところから、繋がるまでに喋ったぶん。
+    // setupComplete を待ってから送る位置なので、Gemini に捨てられない
+    katanori::wakeWatch.drainToNetLink(vadThreshold());
 }
 
 /** 発話終了。audioStreamEnd を送ると Gemini が応答生成を始める。 */
@@ -1726,7 +1754,9 @@ static void endTurn() {
  */
 static bool conversationActive() {
     return pendingTurn || speaking ||
-           katanori::audioIo.isRecording() ||
+           // 見張りも録音を使うが会話ではない。含めるとボタンが「終了」に倒れて
+           // 会話を始められなくなる
+           (katanori::audioIo.isRecording() && !vadWatchingActive()) ||
            katanori::audioIo.isPlaying();
 }
 
@@ -1746,6 +1776,7 @@ static void endConversation() {
     endAfterReply = false;
     userHeardLen = 0;
     katanori::netLink.wsDisconnect();
+    katanori::wakeWatch.clearTurn();
     driveTo(katanori::RobotState::IDLE);
     Serial.println("[TURN] 会話を終了しました");
 }
@@ -2113,16 +2144,33 @@ static constexpr uint32_t kMenuTapMs = 400;
 /** 棒を出し始める時刻。短押しと棒が重ならないよう kMenuTapMs と同じにする。 */
 static constexpr uint32_t kMenuHoldShowMs = kMenuTapMs;
 
-static constexpr uint8_t kMenuItems = 5;
+static constexpr uint8_t kMenuItems = 7;
+/**
+ * 「よびな」の番号。
+ *
+ * 🔒 ユーザー 2026-09-21「WEBから名前を登録できるようにしてください。カタノリ本体の
+ *    設定からは見える＆リセットできるだけでいいです」。ここでは今の名前を見るのと、
+ *    既定（カタノリ）へ戻すことだけができる。登録は http://katanori.local/ から。
+ *    画面のフォントに漢字が無く、つまみとボタンでは文字を入れられないため。
+ */
+static constexpr uint8_t kMenuItemWakeName = 4;
+/**
+ * 「IPアドレス」の番号（見るだけ。押しても何も起きない）。
+ *
+ * 🔒 ユーザー 2026-09-21「192.168.0.15 を機体から見る方法がない気がするんですが」。
+ * ブラウザの設定ページを開くのに要るが、機体には出す場所が無かった。
+ * katanori.local が引けない環境では、これしか手がかりが無い。
+ */
+static constexpr uint8_t kMenuItemIp = 5;
 /** 「WiFiせってい」の番号（値を持たず、押すと Wi-Fi 設定モードへ入る）。 */
-static constexpr uint8_t kMenuItemWifi = 4;
+static constexpr uint8_t kMenuItemWifi = 6;
 /** 区切りの境目の遊び（3 度）。 */
 static constexpr uint16_t kMenuZoneHystRaw = (uint16_t)(3ul * 4096 / 360);
 /** 触らないとこの時間で出口へ進む（うっかり入った人を置き去りにしない）。 */
 static constexpr uint32_t kMenuTimeoutMs = 30000;
 // 画面の日本語フォント（b16_t_japanese1）には漢字も全角の「：」も無い。かなと ASCII だけ
 // 「おんりょうMAX」は 🔒 ユーザー 2026-09-12「設定追加しておこうよ」（Settings.h）。「さいだいおんりょう」は 145px で入らない
-static const char* const kMenuTitle[kMenuItems] = {"あかるさ", "ねむるまで", "きどうのこえ", "おんりょうMAX", "WiFiせってい"};
+static const char* const kMenuTitle[kMenuItems] = {"あかるさ", "ねむるまで", "きどうのこえ", "おんりょうMAX", "よびな", "IPアドレス", "WiFiせってい"};
 static const char* const kMenuSleepLabel[katanori::Settings::kSleepOptions] = {
     "しない", "1ふん", "3ふん", "5ふん", "10ふん"};
 
@@ -2136,6 +2184,8 @@ static uint8_t menuOptionCount(uint8_t item) {
     case 1: return katanori::Settings::kSleepOptions;
     case 2: return 2; // あり／なし
     case 3: return katanori::Settings::kMaxVolLevels;
+    case kMenuItemWakeName: return 2;  // そのまま／もどす
+    case kMenuItemIp: return 1;       // 見るだけ
     default: return 1;
     }
 }
@@ -2147,6 +2197,7 @@ static uint8_t menuStoredValue(uint8_t item) {
     case 1: return katanori::settings.sleepIndex();
     case 2: return katanori::settings.bootVoice() ? 0 : 1;
     case 3: return katanori::settings.maxVolume() - 1;
+    case kMenuItemWakeName: return 0;  // 押して入ったときは必ず「そのまま」
     default: return 0;
     }
 }
@@ -2296,6 +2347,9 @@ static void menuShortPress() {
             enterProvisioning();
             return;
         }
+        if (menuItem == kMenuItemIp) {
+            return;  // 見るだけ。変えるものが無い
+        }
         menuValue = menuSaved = menuStoredValue(menuItem);
         menuMode = MenuMode::Edit;
         menuPickupZone = (int8_t)menuZone(knobRelAngle(menuKnobRaw), menuOptionCount(menuItem), -1);
@@ -2306,6 +2360,11 @@ static void menuShortPress() {
         case 1: katanori::settings.setSleepIndex(menuValue); break;
         case 2: katanori::settings.setBootVoice(menuValue == 0); break;
         case 3: katanori::settings.setMaxVolume(menuValue + 1); break;
+        case kMenuItemWakeName:
+            if (menuValue == 1) {
+                katanori::settings.resetWakeName();
+            }
+            break;
         }
         menuMode = MenuMode::Browse;
         menuPickupZone = (int8_t)menuZone(knobRelAngle(menuKnobRaw), kMenuItems, -1);
@@ -2481,6 +2540,21 @@ static void drawMenuScreen() {
             break;
         case 1: drawMenuCentered(kMenuSleepLabel[v], y); break;
         case 2: drawMenuCentered(v == 0 ? "あり" : "なし", y); break;
+        case kMenuItemIp: {
+            // 数字とドットだけなので、小さいフォントでそのまま出せる
+            u8g2.setFont(u8g2_font_6x10_tf);
+            const String ip = katanori::netLink.wifiConnected()
+                                  ? WiFi.localIP().toString()
+                                  : String("WiFi みせつぞく");
+            u8g2.drawUTF8((128 - u8g2.getUTF8Width(ip.c_str())) / 2, y, ip.c_str());
+            u8g2.setFont(u8g2_font_b16_t_japanese1);
+            break;
+        }
+        case kMenuItemWakeName:
+            // 見るだけのときは今の名前。押して入ったら「もどす」かどうかを選ぶ
+            drawMenuCentered(editing ? (v == 0 ? "そのまま" : "もどす")
+                                     : katanori::settings.wakeName().c_str(), y);
+            break;
         default: drawMenuCentered("かいし", y); break;
         }
         u8g2.setDrawColor(1);
@@ -2492,7 +2566,10 @@ static void drawMenuScreen() {
         }
         // 「OFFのてまえ」の表示は 2026-09-11 に外した（ユーザー「そもそもOFFにならないように
         // なってますよね。それならメッセージ不要では」）。メニューの間はファームの OFF 判定をしない
-        drawMenuCentered(editing ? "おす:けってい" : (menuItem == kMenuItemWifi ? "おす:はじめる" : "おす:かえる"), 62);
+        drawMenuCentered(editing                    ? "おす:けってい"
+                         : menuItem == kMenuItemWifi ? "おす:はじめる"
+                         : menuItem == kMenuItemIp   ? "みるだけ"
+                                                     : "おす:かえる", 62);
     }
 
     u8g2.setFontMode(0);
@@ -2513,10 +2590,34 @@ static void drawMenuScreen() {
  */
 static bool echoGuardEnabled = false;
 
+/**
+ * ミュートを解いた直後、マイクを使わない時間。
+ *
+ * 🔒 ユーザー 2026-09-21「入れてください」。
+ * ポップそのものは AudioIo::setOutputMute() のフェード（24ms）で出さないように
+ * した。ここはその 24ms をまたぐだけの保険である。
+ *
+ * 🔴 これを伸ばして誤魔化してはいけない。ロボットが喋り始めた直後に人が
+ * 割り込む場面で、その分だけ頭が切れる（ユーザー 2026-09-21「カタノリXXXXして
+ * って言うときに 0.5秒も切れるんだったら使い物にならん」）。250ms を試して
+ * 撤回した。
+ *
+ * ⚠ 2026-09-12 に外したエコーガード（喋っている間ずっとマイクを送らない）とは
+ * 別物である。あれは ReSpeaker のハードウェア AEC があるのに人の割り込みまで
+ * 殺していた。こちらは AEC では消せない電気的なノイズを、0.25秒だけよける。
+ */
+static constexpr uint32_t kUnmuteBlankMs = 30;
+
 static void pumpMic() {
     static int16_t buf[512];
 
     if (!katanori::audioIo.isRecording()) {
+        return;
+    }
+
+    // ミュートを解いた直後のポップは、控えにも入れない（drain で送られるため）
+    const uint32_t unmutedAt = katanori::audioIo.unmutedAtMs();
+    if (unmutedAt != 0 && millis() - unmutedAt < kUnmuteBlankMs) {
         return;
     }
     size_t n = katanori::audioIo.readMic(buf, sizeof(buf) / sizeof(buf[0]));
@@ -2530,9 +2631,50 @@ static void pumpMic() {
         return;
     }
 
+    // 待機中の見張り。VAD を通った区間だけが POST /wake へ行く（WakeWatch.h）。
+    // ここで DO へは送らない。会話はまだ始まっていない
+    if (vadWatchingActive()) {
+        // 合図を鳴らしている間は貯めない。控えに入れると drain で送られ、
+        // Gemini が「人が喋った」と見なして応答を割り込みで捨てる
+        if (!katanori::audioIo.isPlaying()) {
+            katanori::wakeWatch.feed(buf, n);
+            vadFeed(buf, n);
+        }
+        return;
+    }
+
+    /*
+     * 再生中のマイクの音量を出す（残留エコーの実測用・2026-09-21）。
+     *
+     * ReSpeaker の AEC を通った後でもロボットの声が残り、Gemini が割り込みと
+     * 見なして応答を捨てる。再生中だけゲートを上げて人の声と分けたいので、
+     * まず残留がどれくらいの RMS なのかを測る。人が黙っている状態で読むこと。
+     */
+    if (katanori::audioIo.isPlaying()) {
+        static uint32_t echoProbeMs = 0;
+        if (millis() - echoProbeMs >= 300) {
+            echoProbeMs = millis();
+            double acc = 0.0;
+            for (size_t i = 0; i < n; ++i) {
+                acc += (double)buf[i] * (double)buf[i];
+            }
+            Serial.printf("[ECHO] 再生中のマイク RMS=%.0f\n", sqrt(acc / n));
+        }
+    }
+
     // 喋っている最中も送る（声で割り込める・仕様書 2章）。AEC が消した後の信号なので、
     // 自分の声は Gemini に届かない前提。切り分けのときだけ `echoguard` で止められる
     if (katanori::audioIo.isPlaying() && echoGuardEnabled) {
+        return;
+    }
+    // 会話中も控えに流しておく。繋ぎ直しになっても頭から出し直せる
+    katanori::wakeWatch.feed(buf, n);
+
+    // 🔴 控えを出し切るまでは、ここから送ってはいけない。
+    // 繋がった瞬間からライブで送ると、直後の drainToNetLink() が同じところを
+    // もう一度送って二重になる（実機で「肩乗り 聞こえますか？」が2回届いた）。
+    // 出し切るまでは貯めるだけにして、drain の後からライブに切り替える
+    if (katanori::wakeWatch.hasTurn()) {
         return;
     }
     katanori::netLink.sendAudio(buf, n);
@@ -2593,12 +2735,46 @@ static constexpr uint32_t VAD_RELEASE_MS = 500;
 static constexpr uint32_t VAD_MAX_SEGMENT_MS = 10000;
 
 /**
+ * 1区間の下限。これより短い区間は送らない。
+ *
+ * 単発の物音（0.1〜0.2秒）を落とすための下限である。
+ *
+ * 🔴 0.5秒にしてはいけない。
+ * 2026-09-21 の実測（docs/WAKEUP.md 付録D）で 1m の本人が 0.80〜2.32秒だったのを
+ * 根拠に 500 にしたが、あれは「3秒くらいの長めの発話」を頼んで取った値だった。
+ * 呼び名だけを短く言うと 0.36秒 にしかならず、**呼びかけそのものが落ちた**
+ * （実機で「カタノリ」が判定に出ず、顔も動かなかった）。
+ *
+ * 3m の誤検知も 0.36秒 だったので、長さでは分けられない。誤って通ったぶんは
+ * クラウドで「呼び名が入っていない」と判定されて落ちる。費用は文字起こし
+ * 1回ぶんで済むので、呼びかけを取りこぼすより安い。
+ *
+ * ⚠ 「呼びかけは短い」という長さの判定とは別物である。あちらは実測で逆に出て
+ * 捨てた（装着者の5秒の発話と家族の0.2秒の相槌が逆になる）。ここで見ているのは
+ * 喋った長さではなく、音が検出線を割らずに続いた時間である。
+ */
+static constexpr uint32_t VAD_MIN_SEGMENT_MS = 300;
+
+/**
  * 騒音床の追従の速さ（静かなフレーム1つあたり）。
  *
  * 部屋の静けさは時間で変わる。ReSpeaker側の自動音量調整でも絶対値が動く
  * （実測で床が38〜469まで12倍動いた）。1回測って固定にはできない。
  */
 static constexpr float VAD_FLOOR_ADAPT = 0.02f;
+
+/**
+ * 床を実勢へ寄せ直す間隔。
+ *
+ * 🔴 「静かなあいだだけ少しずつ追従」では足りない。
+ * 起動直後の2秒で測った床が実勢とずれていると（実機では床 2〜5 に対して
+ * 環境音が 100〜300 あった）、検出線を割る瞬間が来ないので「静か」と判定
+ * されず、追従が一度も掛からない。区間が閉じないまま 10秒 の打ち切りを
+ * 待つことになり、その間の呼びかけは全部取りこぼす。
+ *
+ * この窓の中の最小 RMS を見て、発話中でも床を寄せ直す。
+ */
+static constexpr uint32_t VAD_FLOOR_WINDOW_MS = 5000;
 /** 報告の間隔。 */
 static constexpr uint32_t VAD_REPORT_MS = 60000;
 
@@ -2610,6 +2786,9 @@ static constexpr float USD_JPY = 150.0f;
 static uint32_t vadStartMs = 0;
 static uint32_t vadLastReportMs = 0;
 static float vadNoiseFloor = 0.0f;
+/** 窓の中でいちばん静かだったところ。0 は未取得。 */
+static float vadFloorMin = 0.0f;
+static uint32_t vadFloorWindowMs = 0;
 static uint32_t vadCalibratedMs = 0;
 static uint32_t vadCalibrateFrames = 0;
 static bool vadInSpeech = false;
@@ -2808,7 +2987,9 @@ static void vadCloseSegment(bool forced) {
     vadSegLowRatio = vadSegTotalEnergy > 0.0
                          ? (float)sqrt(vadSegLowEnergy / vadSegTotalEnergy)
                          : 0.0f;
-    const bool passed = !forced && vadSegPeakRms >= vadGate();
+    const bool loudEnough = !forced && vadSegPeakRms >= vadGate();
+    const bool longEnough = voicedMs >= VAD_MIN_SEGMENT_MS;
+    const bool passed = loudEnough && longEnough;
     if (passed) {
         ++vadGatedSegments;
         vadGatedMs += vadCurrentMs;
@@ -2833,7 +3014,10 @@ static void vadCloseSegment(bool forced) {
     Serial.printf("[VAD] 区間 %.2f秒  音量RMS=%.0f (床の%.1f倍)  低域比=%.2f  [%s]  → %s\n",
                   voicedMs / 1000.0f, vadSegPeakRms, ratio, vadSegLowRatio,
                   forced ? "打ち切り" : (vadSegLabeled ? "自分" : "周囲"),
-                  forced ? "対象外" : (passed ? "送る" : "送らない"));
+                  forced ? "対象外"
+                         : passed       ? "送る"
+                         : loudEnough   ? "送らない(短い)"
+                                        : "送らない");
 
     vadCurrentMs = 0;
     vadBelowMs = 0;
@@ -2841,6 +3025,11 @@ static void vadCloseSegment(bool forced) {
     vadSegPeakRms = 0.0f;
     vadSegMinRms = 0.0f;
     vadSegLabeled = false;
+
+    // 見張り中にゲートを通った区間は、クラウドで文字にして呼び名と照合する
+    if (passed && vadWatchingActive()) {
+        vadSubmitWake();
+    }
 }
 
 /** マイクの1フレームを食わせる。送信はしない。 */
@@ -2894,6 +3083,30 @@ static void vadFeed(const int16_t* pcm, size_t n) {
         return;
     }
 
+    // 窓の中の最小値を追う。発話中でも床を実勢へ寄せられるようにするため
+    if (vadFloorMin == 0.0f || rms < vadFloorMin) {
+        vadFloorMin = rms;
+    }
+    if (millis() - vadFloorWindowMs >= VAD_FLOOR_WINDOW_MS) {
+        vadFloorWindowMs = millis();
+        if (vadFloorMin > 1.0f) {
+            const float before = vadNoiseFloor;
+            if (vadFloorMin > vadNoiseFloor) {
+                // 実勢のほうが高い＝床が低すぎて検出線を割れない。すぐ上げる
+                vadNoiseFloor = vadFloorMin;
+            } else {
+                // 静かになった側はゆっくり。物音の谷で下げすぎない
+                vadNoiseFloor = vadNoiseFloor * 0.7f + vadFloorMin * 0.3f;
+            }
+            if (vadMeasuring && (before < vadFloorMin * 0.5f || before > vadFloorMin * 2.0f)) {
+                Serial.printf("[VAD] 騒音床を %.0f → %.0f に寄せました（%u秒の底）\n",
+                              before, vadNoiseFloor,
+                              (unsigned)(VAD_FLOOR_WINDOW_MS / 1000));
+            }
+        }
+        vadFloorMin = 0.0f;
+    }
+
     const float threshold = vadNoiseFloor * VAD_MARGIN > VAD_MIN_THRESHOLD
                                 ? vadNoiseFloor * VAD_MARGIN : VAD_MIN_THRESHOLD;
 
@@ -2902,6 +3115,10 @@ static void vadFeed(const int16_t* pcm, size_t n) {
         vadAboveMs += frameMs;
         if (!vadInSpeech && vadAboveMs >= VAD_ATTACK_MS) {
             vadInSpeech = true;
+            // 立ち上がりぶんは既に過ぎているので、遡って取り出せるよう印を打つ
+            if (vadWatchingActive()) {
+                katanori::wakeWatch.markSegment();
+            }
             vadCurrentMs = vadAboveMs; // 立ち上がりぶんも有声に数える
             vadSegPeakRms = rms;
             vadSegMinRms = rms;
@@ -2929,9 +3146,13 @@ static void vadFeed(const int16_t* pcm, size_t n) {
         // 閉じないまま延々と続くのは、部屋が騒がしくなって床が古くなった証拠。
         // 打ち切って、この区間で一番静かだったところを新しい床として測り直す。
         if (vadInSpeech && vadCurrentMs >= VAD_MAX_SEGMENT_MS) {
+            // 🔴 閉じる前に控えること。vadCloseSegment() が vadSegMinRms を
+            // 0 に戻すので、後から読むと必ず 0 になり、床が据え置かれる
+            // （実機で「38 → 38 に測り直します」が延々続き、区間が閉じなくなった）
+            const float segMin = vadSegMinRms;
             vadCloseSegment(true);
             const float before = vadNoiseFloor;
-            vadNoiseFloor = vadSegMinRms > 1.0f ? vadSegMinRms : vadNoiseFloor;
+            vadNoiseFloor = segMin > 1.0f ? segMin : vadNoiseFloor;
             Serial.printf("[VAD] 音が途切れないため打ち切りました。騒音床を %.0f → %.0f に測り直します\n",
                           before, vadNoiseFloor);
         }
@@ -2954,35 +3175,28 @@ static void vadFeed(const int16_t* pcm, size_t n) {
     }
 
     // 無反応のときに何が起きているか分かるよう、5秒ごとに今の音量を出す
-    if (millis() - vadLastLevelMs >= VAD_LEVEL_MS) {
+    // （見張り中は出さない。待機はずっと続くのでログが流れてしまう）
+    if (vadMeasuring && millis() - vadLastLevelMs >= VAD_LEVEL_MS) {
         vadLastLevelMs = millis();
         Serial.printf("[VAD] 音量RMS=%.0f  床=%.0f  検出=%.0f  ゲート=%.0f  %s\n",
                       rms, vadNoiseFloor, threshold, vadGate(),
                       vadInSpeech ? "発話中" : "静か");
     }
 
-    if (vadCalibratedMs >= VAD_CALIBRATE_MS && millis() - vadLastReportMs >= VAD_REPORT_MS) {
+    if (vadMeasuring && vadCalibratedMs >= VAD_CALIBRATE_MS &&
+        millis() - vadLastReportMs >= VAD_REPORT_MS) {
         vadLastReportMs = millis();
         vadReport(false);
     }
 }
 
-/** 計測モードの開始・停止。 */
-static void vadToggle() {
-    if (vadMeasuring) {
-        vadMeasuring = false;
-        katanori::audioIo.stopRecording();
-        vadReport(true);
-        Serial.println("[VAD] 計測を終了しました");
-        return;
-    }
-
-    if (katanori::audioIo.isRecording()) {
-        Serial.println("[VAD] 会話中は計測できません");
-        return;
-    }
-
-    vadMeasuring = true;
+/**
+ * VAD の状態を初期に戻す。
+ *
+ * 騒音床から測り直すので、計測モードでも見張りでも入口で必ず通す。
+ * 部屋が変わったときに古い床を持ち越すと「発話中」のまま固まる。
+ */
+static void vadResetState() {
     vadNoiseFloor = 0.0f;
     vadCalibratedMs = 0;
     vadCalibrateFrames = 0;
@@ -3001,7 +3215,33 @@ static void vadToggle() {
     vadSegLowRatio = 0.0f;
     vadSelfLowSum = vadOtherLowSum = 0.0;
     vadLastLevelMs = millis();
+    vadFloorMin = 0.0f;
+    vadFloorWindowMs = millis();
     vadStartMs = vadLastReportMs = millis();
+}
+
+/** 計測モードの開始・停止。 */
+static void vadToggle() {
+    if (vadMeasuring) {
+        vadMeasuring = false;
+        katanori::audioIo.stopRecording();
+        vadReport(true);
+        Serial.println("[VAD] 計測を終了しました");
+        return;
+    }
+
+    // 見張りも録音を掴んでいる。計測は見張りと排他なので、先に解く
+    // （解かずに弾くと、見張りが動いている間はシリアルから計測に入れない）
+    if (vadWatchingActive()) {
+        vadStopWatching();
+    }
+    if (katanori::audioIo.isRecording()) {
+        Serial.println("[VAD] 会話中は計測できません");
+        return;
+    }
+
+    vadMeasuring = true;
+    vadResetState();
     katanori::audioIo.startRecording();
 
     Serial.println("[VAD] 計測を始めます。音声はどこにも送りません");
@@ -3013,6 +3253,116 @@ static void vadToggle() {
     Serial.println("[VAD]   どれが自分の声だったかを記録して、しきい値を計算します");
     Serial.println("[VAD] ゲートの決め方: 'vadme' で自分の声から自動設定 / "
                    "'vadth <RMS>' で直接指定");
+}
+
+/*
+ * ---------------------------------------------------------------------------
+ *  呼びかけの見張り（待機中）
+ *
+ *  計測モードと同じ VAD を回し、ゲートを通った区間だけを POST /wake へ送る。
+ *  文字起こしに呼び名が入っていれば、そのまま会話を始める。
+ * ---------------------------------------------------------------------------
+ */
+static bool vadWatching = false;
+
+static float vadThreshold() {
+    const float t = vadNoiseFloor * VAD_MARGIN;
+    return t > VAD_MIN_THRESHOLD ? t : VAD_MIN_THRESHOLD;
+}
+
+static bool vadWatchingActive() {
+    return vadWatching;
+}
+
+static void vadStopWatching(bool keepRecording) {
+    if (!vadWatching) {
+        return;
+    }
+    vadWatching = false;
+    // 会話へ移るときは止めない。止めると繋がるまでのあいだ音が拾えず、
+    // 「押した瞬間から保存する」が成り立たなくなる
+    if (!keepRecording) {
+        katanori::audioIo.stopRecording();
+    }
+}
+
+static void vadStartWatching() {
+    if (vadWatching || vadMeasuring) {
+        return;
+    }
+    if (katanori::audioIo.isRecording()) {
+        return;  // 会話中。終わってから掛け直す
+    }
+    if (!katanori::wakeWatch.ready() && !katanori::wakeWatch.begin()) {
+        return;  // PSRAM が取れなかった。見張りは諦める
+    }
+    vadWatching = true;
+    vadResetState();
+    katanori::audioIo.startRecording();
+    Serial.println("[WAKE] 見張りを始めます（呼ばれたと思った区間だけを送ります）");
+}
+
+/**
+ * 通った区間をクラウドへ送り、呼ばれていれば会話を始める。
+ *
+ * ⚠ 返事が来るまでここで止まる（実測で1〜2秒）。その間マイクは読まれない。
+ * 🔴 ユーザー 2026-09-21「Gemini応答までの間に喋ったものも送ってほしい」。
+ *    別タスクへ出して、待っている間もリングへ貯め続ける作りに替える。
+ */
+static void vadSubmitWake() {
+    // 呼び名はブラウザの設定ページ（http://katanori.local/）で登録する。
+    // 機体のメニューでは見るのと既定へ戻すことだけ（Settings.h）
+    if (!katanori::wakeWatch.submitAsync(katanori::settings.wakeName().c_str())) {
+        return;
+    }
+    // 🔴 聞いたことをすぐ顔に出す。
+    // 判定に3〜5秒、そのあと接続に2秒かかる。そのあいだ黙っていると、
+    // 呼んだ側は届いていないと思って呼び直す（実機で4回呼ばれ、その全部が
+    // 控えから送られて Gemini が別々の発話として扱い、応答が割り込みで
+    // 捨てられ続けた）。ユーザー 2026-09-21「応答がないからだよ。そりゃ呼ぶわ」
+    robot.injectEvent(katanori::RobotEvent::WAKE_WORD);
+
+    // 🔒 ユーザー 2026-09-21「ウェイク呼ばれて顔が反応してるけど、音だしたほうが
+    //    いいよ。品の良い音、木を２回叩いたような音とか」。機体を見ていないとき
+    //    （肩に載せている・別の部屋にいる）は顔では伝わらない
+    announce(katanori::chimes::WAKE_ACK, katanori::chimes::WAKE_ACK_SAMPLES,
+             "呼ばれたのに気づきました");
+}
+
+/**
+ * 見張りの世話。main loop から毎回呼ぶ。
+ *
+ * ・判定が返っていれば受け取り、呼ばれていれば会話を始める
+ * ・待機に戻っていれば見張りを掛け直す
+ */
+static void pumpWake() {
+    bool woke = false;
+    String text;
+    if (katanori::wakeWatch.takeResult(woke, text)) {
+        Serial.printf("[WAKE] %ums 「%s」 → %s\n",
+                      (unsigned)katanori::wakeWatch.lastElapsedMs(), text.c_str(),
+                      woke ? "★呼ばれました" : "呼びかけではありません");
+        if (woke) {
+            // 録音は止めない。繋がるまでのあいだも控えに貯め続ける
+            vadStopWatching(true);
+            startTurn();
+        } else {
+            katanori::wakeWatch.clearTurn();
+            driveTo(katanori::RobotState::IDLE);  // 呼びかけでなければ顔を戻す
+        }
+    }
+
+    // Wi-Fi 設定モードやスリープで録音を止められると、見張りは名ばかりになる
+    // （フラグは立ったままマイクが読まれない）。掛け直させる
+    if (vadWatching && !katanori::audioIo.isRecording()) {
+        vadWatching = false;
+    }
+
+    // 会話が終わって待機に戻ったら掛け直す。判定を待っている間は掛けない
+    if (!vadWatching && !vadMeasuring && !katanori::wakeWatch.busy() &&
+        !conversationActive() && katanori::netLink.wifiConnected()) {
+        vadStartWatching();
+    }
 }
 
 /** ゲート音量を直接指定する。0なら騒音床からの自動計算に戻す。 */
@@ -3072,8 +3422,12 @@ static void pumpTurnState() {
         convLastVoiceMs = millis();
     }
     // 誰も喋らないまま kConvSilenceMs 過ぎた
-    // （VAD 計測モードも録音を使うが、あれは会話ではないので閉じない）
-    if (katanori::audioIo.isRecording() && !vadMeasuringActive() &&
+    // （VAD 計測モードと呼びかけの見張りも録音を使うが、どちらも会話ではないので
+    //   閉じない。🔴 見張りを外すと、見張り開始→即「60秒無音」で会話終了→見張り
+    //   再開、の無限ループになる。convLastVoiceMs は会話を始めたときにしか
+    //   更新されないため、見張りでは常に時間切れの扱いになる）
+    if (katanori::audioIo.isRecording() && !vadMeasuringActive() && !vadWatchingActive() &&
+        !pendingTurn &&   // 繋がるのを待っている間はまだ会話ではない
         millis() - convLastVoiceMs >= kConvSilenceMs) {
         Serial.printf("[TURN] %u秒声が無かったので、会話を閉じます\n", (unsigned)(kConvSilenceMs / 1000));
         endConversation();
@@ -4558,6 +4912,7 @@ void loop() {
     katanori::netLink.loop();
     pumpPendingTurn(); // setupComplete は netLink.loop() の中で届く
     pumpMic();
+    pumpWake();
     pumpTurnState();
 
     // 仕様書どおり、内蔵LEDを通信中のステータス表示に使う
