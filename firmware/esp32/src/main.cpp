@@ -1447,12 +1447,9 @@ static void pumpOutputGate() {
     if (KATANORI_I2C_SILENCE) {
         return;
     }
-    static uint32_t emptySinceMs = 0;
-
     // つまみがOFF位置のあいだは何があっても閉じておく。
     // 手動 `unmute`（診断用）より物理操作を優先する。
     if (knobOff) {
-        emptySinceMs = 0;
         if (!katanori::audioIo.outputMuted()) {
             katanori::audioIo.setOutputMute(true);
         }
@@ -1463,24 +1460,24 @@ static void pumpOutputGate() {
         return;
     }
 
-    if (katanori::audioIo.isPlaying()) {
-        emptySinceMs = 0;
-        if (katanori::audioIo.outputMuted()) {
-            katanori::audioIo.setOutputMute(false);
-        }
-        return;
-    }
-
+    /*
+     * 🔴 つまみが ON のあいだは開けたままにする。鳴り終わるたびに閉めてはいけない。
+     *
+     * ReSpeaker の AEC は適応フィルタなので、ミュートされている間はエコーが
+     * 消えてフィルタが崩れる。解除してもエコーが戻るまで再収束が要り、その
+     * 数百ms は消せない。実測（2026-09-21）では、定常の残留が RMS 100〜450 に
+     * 対して、ミュート解除の直後だけ 1290〜12942 まで跳ね上がり、Gemini が
+     * 始めたばかりの応答を割り込みと見なして捨てていた。会話1ターンごとに
+     * 開け閉めしていたので、毎ターン起きていた。
+     *
+     * ⚠ 起動時の ROM ブートログの轟音（GPIO43 が UART0 TX と I2S DOUT を兼ねる）は
+     * これで守っているのではない。ミュートリレーの 10kΩ プルダウンが、ファームが
+     * 動いていない間は接点を開いて担保している。コーデックのミュートが要るのは
+     * リレーの接点を開閉する瞬間だけで、それは knobOff の側で行っている
+     * （2026-09-21 ユーザー「爆音対策はもうハードで超えてるじゃん」）。
+     */
     if (katanori::audioIo.outputMuted()) {
-        return;
-    }
-    if (emptySinceMs == 0) {
-        emptySinceMs = millis();
-        return;
-    }
-    if (millis() - emptySinceMs >= OUTPUT_TAIL_MS) {
-        emptySinceMs = 0;
-        katanori::audioIo.setOutputMute(true);
+        katanori::audioIo.setOutputMute(false);
     }
 }
 
@@ -2608,6 +2605,37 @@ static bool echoGuardEnabled = false;
  */
 static constexpr uint32_t kUnmuteBlankMs = 30;
 
+/**
+ * 再生が始まってから、AEC の係数が落ち着くまでの時間。
+ *
+ * 2026-09-21 実測: 再生開始直後の残留が RMS 8000〜13000、0.3〜0.6秒 で
+ * 134〜677 まで落ちる。安全側に 600ms とる。
+ */
+static constexpr uint32_t kAecSettleMs = 600;
+
+/**
+ * 収束後の再生中に「人が喋った」とみなす音量。
+ *
+ * 2026-09-21 実測: 収束後の残留が最大 677、1m の人の声が 1880〜2632。
+ * その間に置く。
+ */
+static constexpr float kPlaybackGateRms = 1000.0f;
+
+/** 再生が始まった時刻。0 なら再生していない。 */
+static uint32_t playStartedMs = 0;
+
+/**
+ * 再生が終わってから、見張りを始めるまでの間。
+ *
+ * 🔴 会話を終えた直後に見張りを始めると、スピーカーに残っているロボットの声を
+ * 拾う。ロボットは会話の中で自分の名前を言うので、それが「カタノリ」と
+ * 文字起こしされて自分で起動する（2026-09-21 実機: 会話終了の直後に
+ * 「区間 1.90秒 → 送る」→「カタノリ → ★呼ばれました」で勝手に会話が始まった）。
+ */
+static constexpr uint32_t kWatchAfterPlayMs = 1500;
+/** 最後に再生が終わった時刻。 */
+static uint32_t playEndedMs = 0;
+
 static void pumpMic() {
     static int16_t buf[512];
 
@@ -2623,6 +2651,26 @@ static void pumpMic() {
     size_t n = katanori::audioIo.readMic(buf, sizeof(buf) / sizeof(buf[0]));
     if (n == 0) {
         return;
+    }
+
+    /*
+     * 鳴らしていないときの音量を、再生中の [ECHO] とまったく同じ計算で出す。
+     *
+     * 🔴 これが無いと「再生中の RMS 1400」がロボットの声なのか部屋の音なのか
+     * 分からない。騒音床は 5 から 641 まで動くうえ VAD の追従値なので、この
+     * 計算とは別物である。比べられる数字を並べて初めて切り分けられる。
+     * ⚠ 見張り中も会話中も通る位置に置くこと（手前の分岐で return される）。
+     */
+    if (!katanori::audioIo.isPlaying()) {
+        static uint32_t quietProbeMs = 0;
+        if (millis() - quietProbeMs >= 1000) {
+            quietProbeMs = millis();
+            double qacc = 0.0;
+            for (size_t i = 0; i < n; ++i) {
+                qacc += (double)buf[i] * (double)buf[i];
+            }
+            Serial.printf("[QUIET] 鳴らしていないときRMS=%.0f\n", sqrt(qacc / n));
+        }
     }
 
     // 計測モード中は数えるだけ。送らない。
@@ -2644,21 +2692,50 @@ static void pumpMic() {
     }
 
     /*
-     * 再生中のマイクの音量を出す（残留エコーの実測用・2026-09-21）。
+     * 再生中は、AEC の残留を送らない。
      *
-     * ReSpeaker の AEC を通った後でもロボットの声が残り、Gemini が割り込みと
-     * 見なして応答を捨てる。再生中だけゲートを上げて人の声と分けたいので、
-     * まず残留がどれくらいの RMS なのかを測る。人が黙っている状態で読むこと。
+     * ReSpeaker の AEC は 28〜39dB 引いている（2026-09-21 実測: 再生開始直後の
+     * RMS 8000〜13000 が、収束後は 134〜677 になる）。引けないのは適応フィルタが
+     * 係数を学習するあいだで、無音のあとに音が始まるたびに 0.3〜0.6秒 かかる。
+     *
+     * 🔴 そこを送ると、Gemini が自分の声を「人が喋った」と見なして、始めたばかりの
+     * 応答を割り込みとして捨てる。実機では毎ターン起きていた（generationComplete の
+     * 直後に必ず ACTIVITY_START → interrupted）。
+     *
+     * ⚠ 「喋っている間ずっと送らない」ではない（2026-09-12 にユーザーが外した
+     * エコーガードはそれで、人の割り込みまで殺していた）。収束前の 600ms を避け、
+     * そのあとは残留（最大 677）を超える音だけ通す。0.6秒たてば割り込める。
      */
+    if (!katanori::audioIo.isPlaying()) {
+        if (playStartedMs != 0) {
+            playEndedMs = millis();  // 見張りを始めるのはここから少し置いて
+        }
+        playStartedMs = 0;  // 次に鳴り始めたところから測り直す
+    }
     if (katanori::audioIo.isPlaying()) {
+        if (playStartedMs == 0) {
+            playStartedMs = millis();
+        }
+        double acc = 0.0;
+        for (size_t i = 0; i < n; ++i) {
+            acc += (double)buf[i] * (double)buf[i];
+        }
+        const float rms = (float)sqrt(acc / n);
+
+        // 残留とつまみの位置を並べて出す。飽和で AEC が効かなくなる境目を
+        // 押さえるため（2026-09-21・音量を下げると割り込みが消えた）
         static uint32_t echoProbeMs = 0;
         if (millis() - echoProbeMs >= 300) {
             echoProbeMs = millis();
-            double acc = 0.0;
-            for (size_t i = 0; i < n; ++i) {
-                acc += (double)buf[i] * (double)buf[i];
-            }
-            Serial.printf("[ECHO] 再生中のマイク RMS=%.0f\n", sqrt(acc / n));
+            Serial.printf("[ECHO] 残留RMS=%.0f  つまみ=%d%%  再生から%ums\n",
+                          rms, knobPercent, (unsigned)(millis() - playStartedMs));
+        }
+
+        if (millis() - playStartedMs < kAecSettleMs) {
+            return;  // 収束前。この音は自分の声しか入っていない
+        }
+        if (rms < kPlaybackGateRms) {
+            return;  // 残留の範囲。人が喋っていない
         }
     }
 
@@ -3339,8 +3416,9 @@ static void pumpWake() {
     bool woke = false;
     String text;
     if (katanori::wakeWatch.takeResult(woke, text)) {
-        Serial.printf("[WAKE] %ums 「%s」 → %s\n",
+        Serial.printf("[WAKE] %ums 「%s」 言葉でない確率=%s → %s\n",
                       (unsigned)katanori::wakeWatch.lastElapsedMs(), text.c_str(),
+                      katanori::wakeWatch.lastNoSpeech().c_str(),
                       woke ? "★呼ばれました" : "呼びかけではありません");
         if (woke) {
             // 録音は止めない。繋がるまでのあいだも控えに貯め続ける
@@ -3358,9 +3436,11 @@ static void pumpWake() {
         vadWatching = false;
     }
 
-    // 会話が終わって待機に戻ったら掛け直す。判定を待っている間は掛けない
+    // 会話が終わって待機に戻ったら掛け直す。判定を待っている間は掛けない。
+    // 鳴り終わった直後は、残っているロボットの声を拾うので少し置く
     if (!vadWatching && !vadMeasuring && !katanori::wakeWatch.busy() &&
-        !conversationActive() && katanori::netLink.wifiConnected()) {
+        !conversationActive() && katanori::netLink.wifiConnected() &&
+        (playEndedMs == 0 || millis() - playEndedMs >= kWatchAfterPlayMs)) {
         vadStartWatching();
     }
 }

@@ -253,6 +253,15 @@ void WakeWatch::runSubmit() {
                     text_ = body.substring(ts + 8, te);
                 }
             }
+            // 「言葉ではない確率」。雑音を呼び名と読み違えていないか見るため
+            const int ns = body.indexOf("\"no_speech\":");
+            if (ns >= 0) {
+                int e = ns + 12;
+                while (e < (int)body.length() && body[e] != ',' && body[e] != '}') {
+                    ++e;
+                }
+                noSpeech_ = body.substring(ns + 12, e);
+            }
             if (text_.length() == 0) {
                 // 空で返ったときだけ中身を出す。音声が届いていないのか、
                 // 届いたが言葉として拾えなかったのかを分ける

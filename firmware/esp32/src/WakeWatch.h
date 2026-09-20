@@ -122,6 +122,12 @@ public:
     /** 最後の判定にかかった時間 [ms]。 */
     uint32_t lastElapsedMs() const { return lastMs_; }
 
+    /**
+     * 直前の判定の「言葉ではない確率」（whisper の no_speech_prob の最大値）。
+     * 空なら取れていない。雑音を呼び名と読み違えていないかを見る。
+     */
+    const String& lastNoSpeech() const { return noSpeech_; }
+
 private:
     static void taskEntry(void* arg);
     void runSubmit();
@@ -141,6 +147,7 @@ private:
     volatile bool done_ = false;
     bool woke_ = false;
     String text_;
+    String noSpeech_;
     String name_;
     uint8_t* payload_ = nullptr;      // タスクへ渡す一続きのPCM
     size_t payloadBytes_ = 0;

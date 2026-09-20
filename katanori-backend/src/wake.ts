@@ -122,8 +122,23 @@ export async function handleWake(request: Request, env: { AI: any }): Promise<Re
     });
 
     const text: string = (res?.text ?? "").trim();
+
+    /*
+     * 「言葉ではない確率」の最大値。
+     *
+     * 🔴 initial_prompt に呼び名を入れているので、雑音でもそれに引っ張られて
+     * 呼び名を出すことがある（2026-09-21 実機: 低域比 0.90 の 1.9秒 の音が
+     * 「カタノリ」と文字起こしされ、勝手に会話が始まった。人は喋っていない）。
+     * whisper が区間ごとに返す no_speech_prob を見れば、言葉かどうかが分かる。
+     */
+    const segs: any[] = Array.isArray(res?.segments) ? res.segments : [];
+    const noSpeech = segs.length > 0
+      ? Math.max(...segs.map((g) => Number(g?.no_speech_prob ?? 0)))
+      : null;
+
     return json({
       text,
+      no_speech: noSpeech,
       wake: containsName(text, name),
       name,
       ms: Date.now() - started,
