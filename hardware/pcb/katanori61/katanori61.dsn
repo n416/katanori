@@ -76,13 +76,13 @@
       (place R45 799000.0 -496000.0 front 0)
     )
     (component R44
-      (place R44 820000.0 -496000.0 front 0)
+      (place R44 827500.0 -496000.0 front 0)
     )
     (component R15
       (place R15 727500.0 -667000.0 front 0)
     )
     (component R46
-      (place R46 840000.0 -698000.0 front 0)
+      (place R46 840000.0 -693000.0 front 0)
     )
     (component C2
       (place C2 618000.0 -690000.0 front 0)
@@ -121,16 +121,10 @@
       (place C41 808000.0 -539000.0 front 0)
     )
     (component R42
-      (place R42 570000.0 -619000.0 front 0)
+      (place R42 570000.0 -622000.0 front 0)
     )
     (component R43
-      (place R43 570000.0 -598000.0 front 0)
-    )
-    (component R1
-      (place R1 618000.0 -544000.0 front 0)
-    )
-    (component R2
-      (place R2 653000.0 -544000.0 front 0)
+      (place R43 570000.0 -595000.0 front 0)
     )
     (component R13
       (place R13 740000.0 -539000.0 front 0)
@@ -154,10 +148,10 @@
       (place C31 969000.0 -586000.0 front 0)
     )
     (component R31
-      (place R31 842000.0 -599000.0 front 0)
+      (place R31 842000.0 -603000.0 front 0)
     )
     (component R32
-      (place R32 842000.0 -579000.0 front 0)
+      (place R32 842000.0 -575000.0 front 0)
     )
     (component J4
       (place J4 1143000.0 -678500.0 front 0)
@@ -348,14 +342,6 @@
     (image R43
       (pin Rect[T]Pad_10250x14000um 1 -9125.0 -0.0)
       (pin Rect[T]Pad_10250x14000um 2 9125.0 -0.0)
-    )
-    (image R1
-      (pin Rect[T]Pad_10250x14000um 1 -9125.0 -0.0)
-      (pin Rect[T]Pad_10250x14000um 2 9125.0 -0.0)
-    )
-    (image R2
-      (pin Rect[T]Pad_8000x9500um 1 -8250.0 -0.0)
-      (pin Rect[T]Pad_8000x9500um 2 8250.0 -0.0)
     )
     (image R13
       (pin Rect[T]Pad_10250x14000um 1 -9125.0 -0.0)
@@ -626,13 +612,10 @@
       (pins R3-2 R4-1 U1-14)
     )
     (net "GND"
-      (pins C1-2 C2-2 C31-2 C32-2 C4-2 C41-2 C42-2 C6-2 C7-2 C8-2 C9-2 J1-2 J10-1 J13-A1 J13-A12 J13-B1 J13-B12 J13-SH J2-1 J6-1 J7-2 Q31-2 R15-1 R16-1 R17-1 R2-2 R32-2 R4-2 R44-2 R45-2 R46-2 R7-2 SW2-1 U1-10 U1-13 U1-17 U1-5 U1-6 U1-7 U2-10 U2-11 U2-21 U3-2 U3-7 U4-4 U4-8)
+      (pins C1-2 C2-2 C31-2 C32-2 C4-2 C41-2 C42-2 C6-2 C7-2 C8-2 C9-2 J1-2 J10-1 J13-A1 J13-A12 J13-B1 J13-B12 J13-SH J2-1 J6-1 J7-2 Q31-2 R15-1 R16-1 R17-1 R32-2 R4-2 R44-2 R45-2 R46-2 R7-2 SW2-1 U1-10 U1-13 U1-17 U1-5 U1-6 U1-7 U1-9 U2-10 U2-11 U2-21 U3-2 U3-7 U4-4 U4-8)
     )
     (net "IN"
       (pins J1-7 R31-1)
-    )
-    (net "LBI"
-      (pins R1-2 R2-1 U1-9)
     )
     (net "PROG1"
       (pins R16-2 U2-13)
@@ -677,9 +660,9 @@
       (pins R6-2 R7-1 U2-2)
     )
     (net "VSYS"
-      (pins C1-1 C4-1 L1-1 R1-1 R13-1 U1-8 U2-1 U2-20)
+      (pins C1-1 C4-1 L1-1 R13-1 U1-8 U2-1 U2-20)
     )
-    (class kicad_default "" "BASE" "BATG" "BTN" "CC1" "CC2" "COL" "EN" "FB" "GND" "IN" "LBI" "PROG1" "PROG3" "SCL" "SDA" "THERM" "V33" "VBUS" "VPCC"
+    (class kicad_default "" "BASE" "BATG" "BTN" "CC1" "CC2" "COL" "EN" "FB" "GND" "IN" "PROG1" "PROG3" "SCL" "SDA" "THERM" "V33" "VBUS" "VPCC"
       (circuit (use_via Via[0-2]_600:300_um))
       (rule (width 2000) (clearance 1500))
     )
@@ -732,7 +715,7 @@
     (wire (path F.Cu 5000 627500.0 -584000.0 627500.0 -571750.0) (net "GND") (type protect))
     (wire (path F.Cu 5000 773500.0 -583000.0 773500.0 -570750.0) (net "GND") (type protect))
     (wire (path F.Cu 5000 798500.0 -539000.0 798500.0 -526750.0) (net "GND") (type protect))
-    (wire (path F.Cu 5000 820000.0 -505125.0 820000.0 -515250.0) (net "GND") (type protect))
+    (wire (path F.Cu 5000 827500.0 -505125.0 827500.0 -515250.0) (net "GND") (type protect))
     (wire (path F.Cu 5000 799000.0 -505125.0 799000.0 -515250.0) (net "GND") (type protect))
     (via Via[0-2]_600:300_um 613250.0 -624250.0 (net "GND") (type protect))
     (via Via[0-2]_600:300_um 613250.0 -637750.0 (net "GND") (type protect))
@@ -752,7 +735,7 @@
     (via Via[0-2]_600:300_um 627500.0 -571750.0 (net "GND") (type protect))
     (via Via[0-2]_600:300_um 773500.0 -570750.0 (net "GND") (type protect))
     (via Via[0-2]_600:300_um 798500.0 -526750.0 (net "GND") (type protect))
-    (via Via[0-2]_600:300_um 820000.0 -515250.0 (net "GND") (type protect))
+    (via Via[0-2]_600:300_um 827500.0 -515250.0 (net "GND") (type protect))
     (via Via[0-2]_600:300_um 799000.0 -515250.0 (net "GND") (type protect))
   )
 )
