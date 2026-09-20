@@ -2,7 +2,7 @@
 	(version 20241229)
 	(generator "katanori")
 	(layer "F.Cu")
-	(descr "XKB5858-Z-E（LCSC C780038）横向き・自己保持の押しボタン DPDT。パッドは JLC（EasyEDA）の足形 SW-TH_XKB5858-Z-E のまま（-75 と同じ 6 個）。胴 5.8 × 奥行き 5.2（原点から前 3.70・後ろ 1.52）、押し子が前（−Y）へ 5.0 出る（根元 3.0 幅 × 2.0・先 2.5 幅 × 3.1。先はキャップを差す段）。⭐ 2026-09-19: -75（押し子 2.5）ではキャップが 0.3 しか掛からないので替えた。押し子は Dwgs.User に置く（F.Fab に置くと筐体の部品表の胴の箱が押し子まで伸びる。押し子は筐体側が断面で描く）。📄 https://www.lcsc.com/datasheet/C780035.pdf")
+	(descr "XKB5858-Z-E（LCSC C780038）横向き・自己保持の押しボタン DPDT。パッドは JLC（EasyEDA）の足形 SW-TH_XKB5858-Z-E のまま（-75 と同じ 6 個）。胴 5.8 × 奥行き 5.2（原点から前 3.70・後ろ 1.52）、押し子が前（−Y）へ 5.0 出る（根元 3.0 幅 × 2.0・先 2.5 幅 × 3.1。先はキャップを差す段）。⭐ 2026-09-19: -75（押し子 2.5）ではキャップが 0.3 しか掛からないので替えた。押し子は Dwgs.User に置く（F.Fab に置くと筐体の部品表の胴の箱が押し子まで伸びる。押し子は筐体側が断面で描く）。📄 hardware/ref/xkb5858/C780038.pdf（図面の PART NO. 欄が XKB5858-Z-E・A1 版 2025-06-23。前に貼ってあった C780035.pdf は替える前の -75 の品番のリンクだった）")
 	(tags "switch push latching right angle")
 	(property "Reference" "REF**" (at 0 3.2 0) (layer "F.SilkS") (effects (font (size 1 1) (thickness 0.15))))
 	(property "Value" "XKB5858-Z-E" (at 0 4.6 0) (layer "F.Fab") (effects (font (size 1 1) (thickness 0.15))))
