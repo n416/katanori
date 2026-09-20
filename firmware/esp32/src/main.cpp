@@ -534,8 +534,44 @@ static uint8_t wifiFailures = 0;
  * 会話が終わるほうが利用者には理不尽）。
  */
 static bool wifiEverConnected = false;
+/**
+ * 起動してから「繋ぐか、Wi-Fi設定モードへ渡すか」の振り分けがまだ済んでいないか。
+ *
+ * 待機スリープを止めてよいのはこの間だけ。振り分けが済めば、設定モードにいる間は
+ * provisioning.active() が起きたままにするし、繋がらないまま普段の画面へ戻ったのなら
+ * 眠ってよい。ここを wifiEverConnected で見ていたときは、電波の届かない場所に置いた
+ * 機体が永久に Awake のままになり、ミュートリレーのコイルに電流が流れ続けていた
+ * （G6S-2F DC5 は実測で電池から約45mA）。
+ */
+static bool wifiInitialDecisionPending = true;
 /** 一度も繋がらないまま何回失敗したら設定モードへ落ちるか。 */
 static constexpr uint8_t WIFI_FAILURES_TO_PROVISIONING = 3;
+/**
+ * 今の設定モードは機体が自分で入ったものか（3回失敗しての振り分け）。
+ *
+ * メニューの「WiFiせってい」で入った設定モードは、人がその場で選んだもの。
+ * 3回失敗して入った設定モードは、誰も頼んでいない。だから後者だけは、誰も来なければ
+ * 機体が自分で畳む。そうしないと、電波の届かない場所に置いた機体が設定画面のまま
+ * 止まり、ミュートリレーのコイルに電流が流れ続ける（電池から約45mA）。
+ */
+static bool provAuto = false;
+/** 自分で入った設定モードを、誰も来ないので畳んだか。次に起きるまで入り直さない。 */
+static bool provGaveUp = false;
+/**
+ * 自分で入った設定モードで、スマホが1台も繋がらないまま待つ上限。
+ *
+ * 画面のQRを見つけて、スマホのWi-Fi一覧から katanori-setup を選ぶまでの時間。
+ * 1台でも繋がれば（Phase::CONNECTED）数え直すので、設定の途中で切られることはない。
+ */
+static constexpr uint32_t PROV_AUTO_GIVEUP_MS = 5u * 60u * 1000u;
+/**
+ * 設定モードの画面を最後に描いたときの見た目（QR/文字 と Phase）。-1 = まだ描いていない。
+ *
+ * QRを読ませている最中に無用な全面転送（約29ms）を挟まないための間引き。設定モードへ
+ * 入るたびに -1 へ戻す。戻さないと、一度抜けて（普段の顔で画面を上書きして）から同じ
+ * 見た目で入り直したときに「変わっていない」と判断され、QRが出ないまま待つことになる。
+ */
+static int provRenderSig = -1;
 
 /**
  * 直近の失敗が「そのSSIDが電波に出ていない」だったか。
@@ -1294,6 +1330,8 @@ static void pumpPowerDown() {
     }
     if (!asleep && powerIdleAsleep) {
         powerIdleAsleep = false;
+        // 人が来た。畳んだ設定モードへもう一度入れるようにする（また3回失敗したら出す）
+        provGaveUp = false;
         Serial.printf("[PWR] 起きます（%s）\n", lastActivityWhy);
     }
 
@@ -1734,6 +1772,7 @@ static void announce(const int16_t* pcm, size_t samples, const char* what) {
 static void noteWifiUp() {
     wifiFailures = 0;
     wifiEverConnected = true;
+    wifiInitialDecisionPending = false;
     if (!bootAnnounced) {
         bootAnnounced = true;
 
@@ -1765,8 +1804,21 @@ static void noteWifiUp() {
     }
 }
 
-/** Wi-Fi設定モードへ入る。入ったことを声でも伝える。 */
-static bool enterProvisioning() {
+/**
+ * Wi-Fi設定モードへ入る。入ったことを声でも伝える。
+ *
+ * automatic = 3回失敗しての振り分けで入った（人は頼んでいない）。この場合だけ
+ * pumpProvisioningGiveUp() が、誰も来なければ畳む。
+ */
+static bool enterProvisioning(bool automatic = false) {
+    // 渡す先が決まった。この先は provisioning.active() が起きたままを担う
+    // （begin() が失敗しても同じ。入れなかったぶん起きたまま待つ理由は無い）。
+    wifiInitialDecisionPending = false;
+    provAuto = automatic;
+    provRenderSig = -1; // 入り直しでも必ず一度描く
+    if (!automatic) {
+        provGaveUp = false; // 人が自分で設定モードを開いた。振り分けも作り直してよい
+    }
     // 設定ページ（katanori.local）も 80 番を使うので、先に畳む
     katanori::settings.webSuspend();
     if (!katanori::provisioning.begin()) {
@@ -1910,7 +1962,10 @@ static void pumpAutoConnect() {
     // authBad は1回では信じない。再起動直後の初回接続は、正しいパスワードでも
     // ハンドシェイク不成立(理由15)で落ちることがある（実機で確認。設定を保存→
     // 再起動→即「設定してください」に戻るループの正体がこれだった）。
-    if (!wifiEverConnected &&
+    // provGaveUp = 一度この振り分けで設定モードへ入ったが、誰も来ないので畳んだ。
+    // 入り直すと畳んだ意味が無い（設定画面と普段の画面を往復するだけで眠れない）。
+    // ボタンで起こされたら作り直す（pumpPowerDown の「起きます」）。
+    if (!wifiEverConnected && !provGaveUp &&
         ((authBad && wifiFailures >= 2) ||
          wifiFailures >= WIFI_FAILURES_TO_PROVISIONING)) {
         // 保存された設定では繋がらない。利用者が自分で直せるよう設定モードへ。
@@ -1923,7 +1978,7 @@ static void pumpAutoConnect() {
         ssidMissing = false;
         nextWifiTryMs = 0;
         setNetMessage("");
-        if (!enterProvisioning()) {
+        if (!enterProvisioning(true)) {
             setNetMessage("WiFiを", "せっていして");
         }
         return;
@@ -1964,10 +2019,18 @@ static void pumpPendingTurn() {
 /**
  * 待機スリープの段階。pumpPowerDown() から毎回呼ばれる。
  *
- * 「使っている」間は時計を進めない。会話（接続待ち・録音・受信・再生）、Wi-Fi設定モード、
+ * 「使っている」間は時計を進めない。会話（接続待ち・録音・受信・再生）、
  * VAD計測、表示の確認（`bn`・自己診断）、手動 `unmute`、Wi-Fi モニタが繋がっている間
- * （眠ると無線ごと切れて、見ている人の手が止まる）、そして一度もWi-Fiに繋がって
- * いない間（初回の接続と設定モードへの振り分けを眠りで止めない）。
+ * （眠ると無線ごと切れて、見ている人の手が止まる）、そして起動直後の振り分けが
+ * 済むまでの間（初回の接続と設定モードへの振り分けを眠りで止めない）。
+ *
+ * 振り分けが「済むまで」であって「繋がるまで」ではない。ここを wifiEverConnected で
+ * 見ると、電波の届かない場所の機体が永久に Awake になり、接点を開く muteRelaySet(false)
+ * まで辿り着かず、ミュートリレーのコイルに電流が流れ続ける。
+ *
+ * Wi-Fi設定モードはここに並べない。設定モードの間は loop が上の枝で return するので、
+ * pumpPowerDown() も、この関数も呼ばれない。3回失敗して自分で入った設定モードを畳むのは
+ * pumpProvisioningGiveUp() の役目。
  */
 static IdleStage idleStageNow() {
     uint32_t now = millis();
@@ -1975,9 +2038,9 @@ static IdleStage idleStageNow() {
         lastActivityMs = now; // つまみOFFの間は数えない（ONへ戻した直後に眠らないように）
         return IdleStage::Awake;
     }
-    bool busy = conversationActive() || katanori::provisioning.active() ||
+    bool busy = conversationActive() ||
                 vadMeasuringActive() || bannerDemo || outputGateOverride ||
-                !wifiEverConnected || katanori::console.remoteActive() || menuActive() ||
+                wifiInitialDecisionPending || katanori::console.remoteActive() || menuActive() ||
                 static_cast<int32_t>(now - selfTestUntilMs) < 0;
     if (busy) {
         noteActivity("会話・設定など");
@@ -4031,6 +4094,7 @@ static void exitProvisioning() {
         return;
     }
     katanori::provisioning.stop();
+    provAuto = false;
     // 自動接続のカウンタを畳む。設定し直した直後に「3回失敗したから設定モード」へ
     // すぐ戻ってしまうのを防ぐ。
     wifiFailures = 0;
@@ -4348,6 +4412,57 @@ void setup() {
     Serial.println("[BOOT] ready. 自己診断の後、顔が表示されれば Stage 1 完了です。");
 }
 
+/**
+ * 自分で入った設定モードを、誰も来なければ畳む。設定モード中の loop から毎回呼ぶ。
+ *
+ * 3回失敗して入った設定モードは、誰も頼んでいない。人が来ないなら出ていくべきで、
+ * 出ていかないと loop が設定モードの枝で return し続け、pumpPowerDown() まで届かない。
+ * 無操作の時計も進まないので、接点を開く muteRelaySet(false) に辿り着かず、ミュート
+ * リレーのコイルに電流が流れ続ける（電池から約45mA）。電波の届かない場所に置いた
+ * 機体がこれになる。
+ *
+ * 人が選んだ「WiFiせってい」（メニュー）には効かせない。その場に人が居て、自分で
+ * 開いた設定モードだから、畳むかどうかも人が決める。
+ *
+ * 畳んだ後は普段の枝へ戻る。無操作の時計が進んで接点が開き、待機スリープに入る。
+ * 自動接続は眠るまで回り続けるので、その間に電波が戻れば繋がる。
+ */
+static void pumpProvisioningGiveUp() {
+    static uint32_t waitingSinceMs = 0;
+    if (!katanori::provisioning.active() || !provAuto || !idleSleepEnabled) {
+        waitingSinceMs = 0;
+        return;
+    }
+    if (katanori::provisioning.phase() != katanori::Provisioning::Phase::WAITING) {
+        waitingSinceMs = 0; // スマホが繋がっている／保存済み。設定の最中を切らない
+        return;
+    }
+    uint32_t now = millis();
+    if (waitingSinceMs == 0) {
+        waitingSinceMs = now;
+        return;
+    }
+    if (now - waitingSinceMs < PROV_AUTO_GIVEUP_MS) {
+        return;
+    }
+    waitingSinceMs = 0;
+    Serial.printf("[NET] 設定モードに%u分だれも来ませんでした。畳んで眠ります"
+                  "（ボタンで起こせば、また設定モードへ入れます）\n",
+                  (unsigned)(PROV_AUTO_GIVEUP_MS / 60000u));
+    exitProvisioning(); // provAuto はこの中で下りる
+    provGaveUp = true;  // 畳んだ直後に振り分けが入り直さないように（起きたら消える）
+
+    // 無操作の時計を Drowsy の入口へ置く。設定モードの間は loop が上で return して
+    // いたので、この時計は設定モードへ入る前のまま（ボタンを触ったかどうかで値が
+    // ばらつく）。そのまま普段の枝へ戻すと、Asleep へ飛び越して接点と無線が同じ周回で
+    // 落ちることがある。🔒 ユーザー 2026-09-11「スリープに入る時、リレーを落としてから
+    // カウントダウンしてからWifi落としてほしい。リレーの音で気が付いて戻した時に
+    // Wifiが生きていた方がいい」。ここで入口へ揃えれば、接点が開く -> kIdleDrowsyMs 数える
+    // -> 無線を止める、の順は必ず通る。引き算が桁を回っても、経過は uint32 の差で正しい。
+    lastActivityMs = millis() - idleSleepMs;
+    lastActivityWhy = "設定モードを畳みました";
+}
+
 void loop() {
 #if KATANORI_MIN_BOOT
     // 診断: 5秒ごとに1秒だけマイクを読む。それ以外は何もしない。
@@ -4403,13 +4518,18 @@ void loop() {
     // Wi-Fi設定モード中は顔も音声も止めて、設定画面だけを回す
     if (katanori::provisioning.active()) {
         katanori::provisioning.loop();
+        // 自分で入った設定モードに誰も来なければ、ここで畳んで普段の枝へ戻す
+        pumpProvisioningGiveUp();
+        if (!katanori::provisioning.active()) {
+            delay(1);
+            return; // 畳んだ直後。次の周回から普段の枝（pumpPowerDown）が動く
+        }
 
         // 変化したときだけ描き直す。QRを読ませている最中に無用な
         // 全面転送(約29ms)を挟むと読み取りの邪魔になる。
-        static int lastSig = -1;
         int sig = (provShowQr ? 1 : 0) * 16 + static_cast<int>(katanori::provisioning.phase());
-        if (sig != lastSig) {
-            lastSig = sig;
+        if (sig != provRenderSig) {
+            provRenderSig = sig;
             renderProvisioning();
         }
         delay(1);
