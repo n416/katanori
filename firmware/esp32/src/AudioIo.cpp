@@ -46,11 +46,37 @@ constexpr size_t SCRATCH_BYTES = READ_FRAMES * sizeof(int32_t) * 2;
 
 bool driverInstalled = false;
 
+/*
+ * マイクの受け皿。読み取り用のタスク（captureTask）が I2S から読み続けてここへためる。
+ *
+ * 🔴 main loop が I2S を直接読んでいたころは、Gemini への接続（TLS の握手で 1〜2 秒
+ * loop が止まる）の間にマイクが読まれず、I2S の DMA（64ms 分）が溢れて音が消えていた。
+ * 「カタノリ、今日の天気は？」の続きがまるごと落ちた（2026-09-22 実機）。
+ * 5 秒あれば、接続がもたついても取りこぼさない。
+ */
+constexpr uint32_t CAP_SAMPLES = KATANORI_AUDIO_RATE * 5;
+int16_t* capMain = nullptr;   // 会話・VAD 用（KATANORI_MIC_CHANNEL・KATANORI_MIC_GAIN）
+int16_t* capWake = nullptr;   // 呼び名の聞き分け用（ch1 を 16 倍）
+volatile uint32_t capW = 0;   // 書いた総数（タスクだけが進める）
+volatile uint32_t capR = 0;   // 読んだ総数（readMic だけが進める）
+volatile uint32_t capDropped = 0;
+volatile int capHoldCount = 0;  // 診断のコマンドが I2S を直に触る間は止める
+volatile bool capHeld = false;
+
 } // namespace
 
 AudioIo audioIo;
 
 bool AudioIo::applyConfig(bool slave, bool msbFormat, int bits) {
+    // 実行中に張り替えるときは、読み取り用のタスクを止めてから（入れ子になってよい）
+    if (started_) {
+        holdCapture(true);
+    }
+    struct Release {
+        AudioIo* a;
+        bool on;
+        ~Release() { if (on) a->holdCapture(false); }
+    } release{this, started_};
     if (started_ || driverInstalled) {
         i2s_driver_uninstall(I2S_PORT);
         driverInstalled = false;
@@ -156,7 +182,23 @@ bool AudioIo::begin() {
         return false;
     }
 
+    // マイクの受け皿と読み取り用のタスク（capMain の説明）
+    capMain = static_cast<int16_t*>(heap_caps_malloc(CAP_SAMPLES * sizeof(int16_t), MALLOC_CAP_SPIRAM));
+    capWake = static_cast<int16_t*>(heap_caps_malloc(CAP_SAMPLES * sizeof(int16_t), MALLOC_CAP_SPIRAM));
+    if (capMain == nullptr || capWake == nullptr) {
+        Serial.println("[I2S] マイクの受け皿（PSRAM）が取れません");
+        return false;
+    }
     started_ = true;
+    // main loop と同じ core 1 で、loop より高い優先度。loop が TLS の握手で止まっていても
+    // 割り込んで読む。I2S の読み出しで待つ間は CPU を譲る
+    ok = xTaskCreatePinnedToCore(captureTask, "katanori_mic", 4096, this, 5, nullptr, 1);
+    if (ok != pdPASS) {
+        Serial.println("[I2S] マイクのタスクの起動に失敗");
+        started_ = false;
+        return false;
+    }
+
     Serial.printf("[I2S] 初期化しました  %dHz 16bit stereo  %s / %s\n",
                   KATANORI_AUDIO_RATE,
                   KATANORI_I2S_SLAVE ? "SLAVE" : "MASTER",
@@ -175,12 +217,8 @@ void AudioIo::startRecording() {
     if (!started_) {
         return;
     }
-    // 前のターンの残りを持ち込まない
-    size_t n = 0;
-    int32_t dummy[64];
-    while (i2s_read(I2S_PORT, dummy, sizeof(dummy), &n, 0) == ESP_OK && n > 0) {
-        // 読み捨てるだけ
-    }
+    // 前のターンの残りを持ち込まない（受け皿を空にする）
+    capR = capW;
     sentSamples_ = 0;
     recording_ = true;
 }
@@ -211,8 +249,12 @@ int16_t AudioIo::applyMicGain(int16_t v) {
     return static_cast<int16_t>(g);
 }
 
-size_t AudioIo::readMic(int16_t* out, size_t maxSamples, int16_t* wakeOut) {
-    if (!started_ || !recording_) {
+/**
+ * マイクから読む。readMic が受け皿から取り出すのに対し、こちらは I2S を直に読む。
+ * 読み取り用のタスク（captureTask）だけが呼ぶ。
+ */
+size_t AudioIo::captureFromI2s(int16_t* out, size_t maxSamples, int16_t* wakeOut, TickType_t wait) {
+    if (!started_) {
         return 0;
     }
 
@@ -230,7 +272,7 @@ size_t AudioIo::readMic(int16_t* out, size_t maxSamples, int16_t* wakeOut) {
 
     size_t bytesRead = 0;
     // タイムアウト0 = 溜まっているぶんだけ。描画を止めない。
-    if (i2s_read(I2S_PORT, stereoScratch, want, &bytesRead, 0) != ESP_OK) {
+    if (i2s_read(I2S_PORT, stereoScratch, want, &bytesRead, wait) != ESP_OK) {
         return 0;
     }
 
@@ -306,9 +348,80 @@ size_t AudioIo::readMic(int16_t* out, size_t maxSamples, int16_t* wakeOut) {
     if (produced == 0) {
         return 0;  // 端数だけだった。次の呼び出しでそろう
     }
-    micLevel_ = peak / 32768.0f;
-    sentSamples_ += produced;
+    if (recording_) {
+        micLevel_ = peak / 32768.0f;
+    }
     return produced;
+}
+
+void AudioIo::captureTask(void* arg) {
+    static_cast<AudioIo*>(arg)->runCapture();
+}
+
+void AudioIo::runCapture() {
+    static int16_t mainBuf[512];
+    static int16_t wakeBuf[512];
+    for (;;) {
+        if (capHoldCount > 0) {
+            capHeld = true;
+            vTaskDelay(pdMS_TO_TICKS(5));
+            continue;
+        }
+        capHeld = false;
+        const size_t n = captureFromI2s(mainBuf, 512, wakeBuf, pdMS_TO_TICKS(40));
+        if (n == 0) {
+            vTaskDelay(1);  // I2S が止まっているときに core 1 を占有しない
+            continue;
+        }
+        if (!recording_) {
+            continue;  // 録音していないときは読み捨てる（DMA を溢れさせない）
+        }
+        for (size_t i = 0; i < n; ++i) {
+            if (capW - capR >= CAP_SAMPLES) {
+                ++capDropped;  // 受け皿が一杯。読む側が 5 秒止まっている
+                continue;
+            }
+            const uint32_t at = capW % CAP_SAMPLES;
+            capMain[at] = mainBuf[i];
+            capWake[at] = wakeBuf[i];
+            capW = capW + 1;
+        }
+    }
+}
+
+size_t AudioIo::readMic(int16_t* out, size_t maxSamples, int16_t* wakeOut) {
+    if (!started_ || !recording_) {
+        return 0;
+    }
+    const uint32_t avail = capW - capR;
+    const size_t n = avail < maxSamples ? avail : maxSamples;
+    for (size_t i = 0; i < n; ++i) {
+        const uint32_t at = (capR + i) % CAP_SAMPLES;
+        out[i] = capMain[at];
+        if (wakeOut) {
+            wakeOut[i] = capWake[at];
+        }
+    }
+    capR = capR + n;
+    sentSamples_ += n;
+    return n;
+}
+
+uint32_t AudioIo::micDropped() const {
+    return capDropped;
+}
+
+void AudioIo::holdCapture(bool hold) {
+    if (hold) {
+        ++capHoldCount;
+        // タスクが I2S から手を離すまで待つ（1 回の読み出しは最長 40ms）
+        const uint32_t t0 = millis();
+        while (started_ && !capHeld && millis() - t0 < 200) {
+            delay(1);
+        }
+    } else if (capHoldCount > 0) {
+        --capHoldCount;
+    }
 }
 
 /**
@@ -584,6 +697,7 @@ void AudioIo::scanConfigs() {
 
     bool wasRecording = recording_;
     recording_ = false;
+    holdCapture(true);  // I2S を直に読むので、読み取り用のタスクを止める
 
     const bool saveSlave = curSlave_;
     const bool saveMsb = curMsb_;
@@ -702,6 +816,7 @@ void AudioIo::scanConfigs() {
         applyConfig(saveSlave, saveMsb, saveBits);
     }
 
+    holdCapture(false);
     recording_ = wasRecording;
 }
 
@@ -713,6 +828,7 @@ void AudioIo::micTest(uint32_t durationMs) {
 
     bool wasRecording = recording_;
     recording_ = false; // 送信側と競合させない
+    holdCapture(true);  // I2S を直に読むので、読み取り用のタスクを止める
 
     Serial.printf("[TEST] マイクを%.1f秒読みます。何か喋ってください...\n",
                   durationMs / 1000.0f);
@@ -807,6 +923,7 @@ void AudioIo::micTest(uint32_t durationMs) {
         }
     }
 
+    holdCapture(false);
     recording_ = wasRecording;
 
     Serial.printf("[TEST] 読めたフレーム: %u (%.2f秒ぶん) / 読み出し%u回中 空%u回\n",

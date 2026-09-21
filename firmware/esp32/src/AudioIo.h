@@ -152,6 +152,15 @@ public:
     bool setOutputMute(bool mute);
     bool outputMuted() const { return muted_; }
 
+    /** マイクの受け皿が一杯で捨てたサンプル数（読む側が 5 秒止まった）。 */
+    uint32_t micDropped() const;
+
+    /**
+     * 読み取り用のタスクを止める／再開する（入れ子にしてよい）。
+     * 診断のコマンドが I2S を直に読むあいだ、奪い合わないように止める。
+     */
+    void holdCapture(bool hold);
+
     /** マイクのゲインで振り切れたサンプル数（多いなら倍率を下げる）。 */
     uint32_t micClipped() const { return micClipped_; }
 
@@ -222,6 +231,9 @@ public:
 
 private:
     static void playbackTask(void* arg);
+    static void captureTask(void* arg);
+    void runCapture();
+    size_t captureFromI2s(int16_t* out, size_t maxSamples, int16_t* wakeOut, TickType_t wait);
     void runPlayback();
 
     /** 現在のスロット幅での1フレームのバイト数（ステレオ）。 */
