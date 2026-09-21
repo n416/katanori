@@ -211,7 +211,7 @@ int16_t AudioIo::applyMicGain(int16_t v) {
     return static_cast<int16_t>(g);
 }
 
-size_t AudioIo::readMic(int16_t* out, size_t maxSamples) {
+size_t AudioIo::readMic(int16_t* out, size_t maxSamples, int16_t* wakeOut) {
     if (!started_ || !recording_) {
         return 0;
     }
@@ -252,6 +252,17 @@ size_t AudioIo::readMic(int16_t* out, size_t maxSamples) {
      */
     int32_t peak = 0;
     size_t produced = 0;
+    // 聞き分け用（ch1 を 16 倍）。32bit スロットなら 32bit の段で倍にする（AudioIo.h の wakeOut）
+    auto wakeRaw = [&](size_t i) -> int64_t {
+        if (curBits_ == 32) {
+            return stereoScratch[i * 2 + 1];
+        }
+        return static_cast<int64_t>(reinterpret_cast<const int16_t*>(stereoScratch)[i * 2 + 1]) << 16;
+    };
+    auto wakeOf = [](int64_t v32) -> int16_t {
+        const int64_t v = v32 >> 12;  // 16bit へは >>16。4 つ少なく落として 16 倍
+        return static_cast<int16_t>(v > 32767 ? 32767 : (v < -32768 ? -32768 : v));
+    };
     for (size_t i = 0; i < got; ++i) {
         int16_t s;
         if (curBits_ == 32) {
@@ -264,14 +275,22 @@ size_t AudioIo::readMic(int16_t* out, size_t maxSamples) {
 
         if (RATE_RATIO == 1) {
             s = applyMicGain(s);
+            if (wakeOut) {
+                wakeOut[produced] = wakeOf(wakeRaw(i));
+            }
             out[produced++] = s;
         } else {
             decimAcc_ += s;
+            decimAccWake_ += wakeRaw(i);
             if (++decimCount_ >= RATE_RATIO) {
                 const int16_t avg = applyMicGain(
                     static_cast<int16_t>(decimAcc_ / RATE_RATIO));
+                if (wakeOut) {
+                    wakeOut[produced] = wakeOf(decimAccWake_ / RATE_RATIO);
+                }
                 out[produced++] = avg;
                 decimAcc_ = 0;
+                decimAccWake_ = 0;
                 decimCount_ = 0;
                 s = avg;  // ピークは出したサンプルで見る
             } else {

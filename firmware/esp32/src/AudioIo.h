@@ -116,7 +116,12 @@ public:
      * マイクから読めるぶんだけ読んでモノラル化する。ブロックしない。
      * @return 書き込んだサンプル数 (0 = まだ溜まっていない)
      */
-    size_t readMic(int16_t* out, size_t maxSamples);
+    size_t readMic(int16_t* out, size_t maxSamples, int16_t* wakeOut = nullptr);
+    // wakeOut: 同じサンプル数ぶん、呼び名の聞き分け用の音を書く（MicroWake.h）。
+    // XMOS の ch1（mww 向け・取り出し口 1）を、32bit のまま 16 倍して 16bit に落としたもの。
+    // 2026-09-22 の試験で、取り出し口 3 の ch0 より当たりが良かった。
+    // ch1 は話しても RMS 40 前後と小さく、16bit に落としてから倍にすると細かさが消えるので、
+    // 32bit の段で倍にする
 
     // --- 再生 ---
     /** 再生キューへ積む。実時間より速く届くのでバッファで吸収する。 */
@@ -237,6 +242,7 @@ private:
     // 48kHz のファームで 16kHz へ落とすときの持ち越し（readMic）
     uint32_t micClipped_ = 0;   // ゲインで振り切れたサンプル数
     int32_t decimAcc_ = 0;
+    int64_t decimAccWake_ = 0;  // wakeOut 用（ch1 の 32bit 値を足す）
     int decimCount_ = 0;
     // 16kHz から 48kHz へ伸ばすときの前のサンプル（writeMono）
     int32_t upsamplePrev_ = 0;

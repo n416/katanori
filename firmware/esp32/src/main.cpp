@@ -32,6 +32,7 @@
 #include "BootLog.h"
 #include "Settings.h"
 #include "WakeWatch.h"
+#include "MicroWake.h"
 
 #include <qrcode.h>
 #include "Console.h" // 最後に置く（Serial を Wi-Fi モニタへも流す差し替え。Console.h）
@@ -2649,8 +2650,11 @@ static constexpr uint32_t kWatchAfterPlayMs = 1500;
 /** 最後に再生が終わった時刻。 */
 static uint32_t playEndedMs = 0;
 
+static void onMicroWake();
+
 static void pumpMic() {
     static int16_t buf[512];
+    static int16_t wakeBuf[512];  // 呼び名の聞き分け用（ch1 を 16 倍・AudioIo.h の wakeOut）
 
     if (!katanori::audioIo.isRecording()) {
         return;
@@ -2661,7 +2665,7 @@ static void pumpMic() {
     if (unmutedAt != 0 && millis() - unmutedAt < kUnmuteBlankMs) {
         return;
     }
-    size_t n = katanori::audioIo.readMic(buf, sizeof(buf) / sizeof(buf[0]));
+    size_t n = katanori::audioIo.readMic(buf, sizeof(buf) / sizeof(buf[0]), wakeBuf);
     if (n == 0) {
         return;
     }
@@ -2700,6 +2704,10 @@ static void pumpMic() {
         if (!katanori::audioIo.isPlaying()) {
             katanori::wakeWatch.feed(buf, n);
             vadFeed(buf, n);
+            // 呼び名は機体の中で聞き分ける（MicroWake.h）。クラウドへは送らない
+            if (katanori::microWake.feed(wakeBuf, n)) {
+                onMicroWake();
+            }
         }
         return;
     }
@@ -3165,10 +3173,8 @@ static void vadCloseSegment(bool forced) {
     vadSegMinRms = 0.0f;
     vadSegLabeled = false;
 
-    // 見張り中にゲートを通った区間は、クラウドで文字にして呼び名と照合する
-    if (passed && vadWatchingActive()) {
-        vadSubmitWake();
-    }
+    // 🔴 2026-09-22 から呼び名は機体の中で聞き分ける（MicroWake）。VAD の区間を whisper へ
+    // 送る判定は、咳で毎回起きたので捨てた（docs/WAKEUP.md の却下したもの）
 }
 
 /** マイクの1フレームを食わせる。送信はしない。 */
@@ -3495,10 +3501,36 @@ static void vadStartWatching() {
     if (!katanori::wakeWatch.ready() && !katanori::wakeWatch.begin()) {
         return;  // PSRAM が取れなかった。見張りは諦める
     }
+    if (!katanori::microWake.ready() && !katanori::microWake.begin()) {
+        return;  // 内部 RAM が取れなかった。見張りは諦める
+    }
     vadWatching = true;
     vadResetState();
+    katanori::microWake.reset();  // 前の見張りの状態を引きずらない
     katanori::audioIo.startRecording();
-    Serial.println("[WAKE] 見張りを始めます（呼ばれたと思った区間だけを送ります）");
+    Serial.println("[WAKE] 見張りを始めます（機体の中で「カタノリ」を聞き分けます）");
+}
+
+/**
+ * 機体の中の聞き分けが「カタノリ」を聞いた。
+ *
+ * 顔と音で知らせる所は whisper のときと同じ（vadSubmitWake の説明）。
+ * 判定が機体の中で一瞬で済むので、待たせる間は無い。
+ */
+static void onMicroWake() {
+    Serial.printf("[WAKE] ★呼ばれました（確からしさ %.3f・推論 1 回 %uus）\n",
+                  katanori::microWake.peak(), (unsigned)katanori::microWake.avgInvokeUs());
+    robot.injectEvent(katanori::RobotEvent::WAKE_WORD);
+    announce(katanori::chimes::WAKE_ACK, katanori::chimes::WAKE_ACK_SAMPLES,
+             "呼ばれたのに気づきました");
+    // 会話の頭は呼び名の前から。「カタノリ、〇〇して」の続きまで Gemini に届く。
+    // startTurn は印が無いときだけ打つので、先にこちらで遡った印を打っておく
+    if (!katanori::wakeWatch.hasTurn()) {
+        katanori::wakeWatch.markTurn(1500);
+        convLastVoiceMs = millis();  // startTurn が印を打たないぶん、無音の時計をここで
+    }
+    vadStopWatching(true);  // 録音は止めない。繋がるまでのあいだも控えに貯め続ける
+    startTurn();
 }
 
 /**
