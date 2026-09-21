@@ -157,18 +157,20 @@ void runOnce() {
                 invokes ? (unsigned long)(tInvoke / invokes) : 0UL, maxProb);
 }
 
-// 録音を 1 つ流す。前に 0.5 秒の無音を置いて内部の状態をならし、
-// ESPHome と同じく直近 5 回の平均（sliding_window_size）でしきい値 0.9 を越えるかを見る
+// 録音を 1 つ流す。PC の predict_clip と同じ条件にするため、録音ごとに前処理とモデルの
+// 内部状態を初期化し、無音を足さずに頭から流す（前の録音の状態を引きずると数字がずれた）。
+// 判定は ESPHome と同じく直近 5 回の平均（sliding_window_size）がしきい値 0.9 を越えるか
 void runClip(const TestClip& c) {
-  static const int16_t silence[8000] = {0};
+  FrontendReset(&gFrontendState);
+  gInterp->Reset();
   TfLiteTensor* in = gInterp->input(0);
   const int stride = in->dims->data[1];
   uint8_t win[5] = {0};
-  int wi = 0, filled = 0;
+  int wi = 0, filled = 0, n = 0;
   float maxProb = 0, maxAvg = 0;
-  for (int pass = 0; pass < 2; pass++) {
-    const int16_t* p = pass == 0 ? silence : c.data;
-    size_t left = pass == 0 ? 8000 : c.len;
+  {
+    const int16_t* p = c.data;
+    size_t left = c.len;
     while (left > 0) {
       size_t used = 0;
       FrontendOutput fo = FrontendProcessSamples(&gFrontendState, p, left, &used);
@@ -185,10 +187,10 @@ void runClip(const TestClip& c) {
       uint8_t prob = gInterp->output(0)->data.uint8[0];
       win[wi] = prob;
       wi = (wi + 1) % 5;
-      if (pass == 1) {
+      maxProb = max(maxProb, prob / 255.0f);
+      if (++n >= 5) {
         int sum = 0;
         for (uint8_t v : win) sum += v;
-        maxProb = max(maxProb, prob / 255.0f);
         maxAvg = max(maxAvg, sum / 5.0f / 255.0f);
       }
     }
