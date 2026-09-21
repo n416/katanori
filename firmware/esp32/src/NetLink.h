@@ -164,6 +164,7 @@ private:
     void persist();
     /** 同名SSIDを先頭へ移動（無ければ先頭へ追加、あふれた最古は削除）。 */
     void upsertFront(const char* ssid);
+    void moveToBack(const String& ssid);
     /** creds_[idx] へ1回だけ接続を試す。 */
     bool tryConnectOne(int idx, uint32_t timeoutMs, WaitHook onWait);
 

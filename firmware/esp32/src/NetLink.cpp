@@ -375,6 +375,28 @@ void NetLink::persist() {
     }
 }
 
+/**
+ * 一覧の一番下へ下げる（もう一度試しても繋がらなかった候補）。
+ * 下にあるものほど、新しい SSID を足したときに枠から追い出される。
+ */
+void NetLink::moveToBack(const String& ssid) {
+    int found = -1;
+    for (int i = 0; i < credCount_; ++i) {
+        if (creds_[i].ssid == ssid) {
+            found = i;
+            break;
+        }
+    }
+    if (found < 0 || found == credCount_ - 1) {
+        return;
+    }
+    const Cred moved = creds_[found];
+    for (int i = found; i < credCount_ - 1; ++i) {
+        creds_[i] = creds_[i + 1];
+    }
+    creds_[credCount_ - 1] = moved;
+}
+
 void NetLink::upsertFront(const char* ssid) {
     int found = -1;
     for (int i = 0; i < credCount_; ++i) {
@@ -586,9 +608,14 @@ bool NetLink::wifiConnect(uint32_t timeoutMs, WaitHook onWait) {
 
         // 起動直後やdisconnect直後はスキャンを開始できず -2 が返る（実機で確認。
         // 'scan' コマンドにも同じ知見がある）。少し置いてから、駄目なら1回だけやり直す。
+        // 🔴 2 回（0.2 秒・0.5 秒待ち）では起動直後に毎回 -2 のままだった（2026-09-22 実機）。
+        // 見えるかどうか分からないまま保存順に総当たりすると、件数が多いほど繋がる候補に
+        // たどり着くのが遅れる。待ちを延ばしながら 5 回まで試す
+        static const int kScanWaitMs[] = {200, 500, 1000, 1500, 2000};
         int n = WIFI_SCAN_FAILED;
-        for (int attempt = 0; attempt < 2 && n < 0; ++attempt) {
-            for (int t = 0; t < (attempt == 0 ? 200 : 500); t += 20) {
+        int attempt = 0;
+        for (; attempt < 5 && n < 0; ++attempt) {
+            for (int t = 0; t < kScanWaitMs[attempt]; t += 20) {
                 if (onWait != nullptr) {
                     onWait();
                 }
@@ -607,6 +634,9 @@ bool NetLink::wifiConnect(uint32_t timeoutMs, WaitHook onWait) {
             }
         }
 
+        if (n >= 0 && attempt > 1) {
+            Serial.printf("[NET] スキャンは %d 回目で通りました\n", attempt);
+        }
         if (n > 0) {
             int rssi[kMaxCreds];
             for (int i = 0; i < credCount_; ++i) {
@@ -648,6 +678,10 @@ bool NetLink::wifiConnect(uint32_t timeoutMs, WaitHook onWait) {
     // --- 順に試す ---
     anyAuthFail_ = false;
     allNoAp_ = true;
+    // もう一度試しても繋がらなかった候補。どれかに繋がったら一番下へ下げる
+    // （ユーザー 2026-09-22「失敗してるなら順位下げるんじゃないの？」）
+    String failed[kMaxCreds];
+    int nFailed = 0;
     for (int i = 0; i < credCount_; ++i) {
         if (i > 0) {
             WiFi.disconnect(false, false); // 前候補の再接続試行を確実に止めてから
@@ -671,14 +705,24 @@ bool NetLink::wifiConnect(uint32_t timeoutMs, WaitHook onWait) {
             ok = tryConnectOne(order[i], timeoutMs, onWait);
         }
         if (ok) {
-            // 繋がったSSIDを「最新」へ繰り上げる。次回はスキャン前でもこれが先頭
-            if (order[i] != 0) {
-                String ssid = creds_[order[i]].ssid;
+            // 繋がったSSIDを「最新」へ繰り上げる。次回はスキャン前でもこれが先頭。
+            // その手前で繋がらなかった候補は一番下へ下げる。
+            // ⚠ 起動直後の一時的な弾かれ（1 回目の 202 など）は、上のもう一度で繋がるので下げない
+            const String ssid = creds_[order[i]].ssid;
+            const bool moveUp = order[i] != 0;
+            if (moveUp) {
                 upsertFront(ssid.c_str());
+            }
+            for (int f = 0; f < nFailed; ++f) {
+                moveToBack(failed[f]);
+                Serial.printf("[NET] 繋がらなかった \"%s\" を一覧の一番下へ下げました\n", failed[f].c_str());
+            }
+            if (moveUp || nFailed > 0) {
                 persist();
             }
             return true;
         }
+        failed[nFailed++] = creds_[order[i]].ssid;
         if (reasonIsAuth(lastReason)) {
             anyAuthFail_ = true;
         }
