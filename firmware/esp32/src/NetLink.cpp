@@ -654,10 +654,12 @@ bool NetLink::wifiConnect(uint32_t timeoutMs, WaitHook onWait) {
             delay(100);
         }
         bool ok = tryConnectOne(order[i], timeoutMs, onWait);
-        if (!ok && (lastReason == 15 || lastReason == 204)) {
+        if (!ok && (lastReason == 15 || lastReason == 202 || lastReason == 204)) {
             // ハンドシェイク不成立は「パスワード誤り」と「再起動直後のタイミング」の
             // 両方で出る（実機で正しいパスワードでも初回に理由15を確認）。
             // 1回で結論を出さず、同じ候補をもう一度だけ試す。
+            // 🔴 202 AUTH_FAIL も同じ（2026-09-22 実機: 書き込み直後の起動で毎回 1 回目だけ
+            // 202 で弾かれ、見えない残りの候補を試して 5 秒待った 2 周目に 0.6 秒で繋がっていた）
             Serial.println("[NET] ハンドシェイク不成立。同じ設定でもう一度だけ試します");
             WiFi.disconnect(false, false);
             for (int t = 0; t < 300; t += 20) {
