@@ -3745,7 +3745,33 @@ static void xmosSetTapCh0(int v) {
     Serial.printf("[XMOS] ch0 の取り出し口 %d → %d（%s）%s\n",
                   before, after, xmosTapName(after),
                   after == v ? "" : " ← 書けていません");
-    Serial.println("[XMOS] ⚠ この設定は XMOS のフラッシュに残ります。焼き直しでは戻りません");
+    Serial.println("[XMOS] ⚠ 電源を入れ直すと出荷時（4）に戻ります。起動時は xmosApplyTapAtBoot() が 3 を書きます");
+}
+
+/*
+ * 起動時に ch0 の取り出し口を 3（AEC+IC+NS・AGC なし）にする。
+ *
+ * 🔴 取り出し口は XMOS に残らない。2026-09-21 に 3 へ変えて「ロボットの声が残る」問題を
+ * 直したが、2026-09-22 に `tap` で読むと 4（出荷時・AGC あり）に戻っていた。それまでは
+ * 「フラッシュに残る」と書いていて、起動時に書く処理が無かった。
+ * XMOS は ESP32 と同時に立ち上がるので、応答するまで少し待って書く。
+ */
+static constexpr int kXmosTapCh0AtBoot = 3;
+
+static void xmosApplyTapAtBoot() {
+    for (int i = 0; i < 30; ++i) {  // 最大 3 秒
+        if (xmosWriteTap(kXmosCmdTapCh0, (uint8_t)kXmosTapCh0AtBoot)) {
+            delay(50);
+            const int now = xmosReadCfg(kXmosCmdTapCh0);
+            if (now == kXmosTapCh0AtBoot) {
+                Serial.printf("[XMOS] ch0 の取り出し口を %d（%s）にしました\n", now, xmosTapName(now));
+                return;
+            }
+        }
+        delay(100);
+    }
+    Serial.printf("[XMOS] !! ch0 の取り出し口を %d にできませんでした（今は %d）。ロボットの声が残ります\n",
+                  kXmosTapCh0AtBoot, xmosReadCfg(kXmosCmdTapCh0));
 }
 
 /** ゲート音量を直接指定する。0なら騒音床からの自動計算に戻す。 */
@@ -5038,6 +5064,10 @@ void setup() {
     Serial.println(" katanori firmware - Stage 1 (face only)");
     Serial.println("=============================================");
     printBootInfo();
+    if (!KATANORI_I2C_SILENCE && KATANORI_XMOS_RATE == 48000) {
+        // 取り出し口を選べるのは 48kHz の v1.1.0 だけ（platformio.ini の xiao_esp32s3_48k）
+        xmosApplyTapAtBoot();
+    }
     // なぜ再起動したのか（前回のリセットの理由と、落ちる直前の様子）。BootLog.h
     katanori::bootlog::begin();
     // 利用者の設定（明るさ・眠るまで・起動の声）。反映は OLED の初期化の後（applySettings）
