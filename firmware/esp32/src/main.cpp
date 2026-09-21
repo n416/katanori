@@ -2652,6 +2652,43 @@ static uint32_t playEndedMs = 0;
 
 static void onMicroWake();
 
+/** 呼ばれたあと、合図の音を鳴らす機会を待っているか（onMicroWake・pumpWakeChime）。 */
+static bool wakeChimePending = false;
+static uint32_t wakeChimeAtMs = 0;     // 呼ばれた時刻
+static uint32_t wakeQuietSinceMs = 0;  // 静かになった時刻（0 = 話している）
+static constexpr uint32_t kWakeChimeQuietMs = 600;     // これだけ静かなら言い終えた
+static constexpr uint32_t kWakeChimeTimeoutMs = 8000;  // 静かにならなくても鳴らす
+static float vadThreshold();
+
+/**
+ * 言い終えて一息ついたところで、呼ばれたのに気づいた合図を鳴らす。
+ *
+ * 🔒 ユーザー 2026-09-21「品の良い音、木を２回叩いたような音」（機体を見ていないときにも分かる）。
+ * 鳴らす時刻は、呼び名とその続きを言い終えた後（onMicroWake の説明）。
+ */
+static void pumpWakeChime(const int16_t* pcm, size_t n) {
+    if (!wakeChimePending) {
+        return;
+    }
+    double acc = 0.0;
+    for (size_t i = 0; i < n; ++i) {
+        acc += (double)pcm[i] * (double)pcm[i];
+    }
+    const float rms = (float)sqrt(acc / n);
+    const uint32_t now = millis();
+    if (rms >= vadThreshold()) {
+        wakeQuietSinceMs = 0;
+    } else if (wakeQuietSinceMs == 0) {
+        wakeQuietSinceMs = now;
+    }
+    const bool quiet = wakeQuietSinceMs != 0 && now - wakeQuietSinceMs >= kWakeChimeQuietMs;
+    if (quiet || now - wakeChimeAtMs >= kWakeChimeTimeoutMs) {
+        wakeChimePending = false;
+        announce(katanori::chimes::WAKE_ACK, katanori::chimes::WAKE_ACK_SAMPLES,
+                 "呼ばれたのに気づきました");
+    }
+}
+
 static void pumpMic() {
     static int16_t buf[512];
     static int16_t wakeBuf[512];  // 呼び名の聞き分け用（ch1 を 16 倍・AudioIo.h の wakeOut）
@@ -2669,6 +2706,7 @@ static void pumpMic() {
     if (n == 0) {
         return;
     }
+    pumpWakeChime(buf, n);
 
     /*
      * 鳴らしていないときの音量を、再生中の [ECHO] とまったく同じ計算で出す。
@@ -3521,12 +3559,19 @@ static void onMicroWake() {
     Serial.printf("[WAKE] ★呼ばれました（確からしさ %.3f・推論 1 回 %uus）\n",
                   katanori::microWake.peak(), (unsigned)katanori::microWake.avgInvokeUs());
     robot.injectEvent(katanori::RobotEvent::WAKE_WORD);
-    announce(katanori::chimes::WAKE_ACK, katanori::chimes::WAKE_ACK_SAMPLES,
-             "呼ばれたのに気づきました");
+    // 🔒 合図の音はここでは鳴らさない。言い終えて一息ついたところで pumpWakeChime が鳴らす
+    // （ユーザー 2026-09-22「合図の音を出すタイミングはウェイクと続きを受け取ってからに」）。
+    // 呼ばれた直後に鳴らすと「カタノリ、今日の天気は？」の続きが合図と重なり、再生中の
+    // マイクを捨てる処理（kAecSettleMs）で続きがまるごと消えていた
+    wakeChimePending = true;
+    wakeChimeAtMs = millis();
+    wakeQuietSinceMs = 0;
     // 会話の頭は呼び名の前から。「カタノリ、〇〇して」の続きまで Gemini に届く。
-    // startTurn は印が無いときだけ打つので、先にこちらで遡った印を打っておく
+    // startTurn は印が無いときだけ打つので、先にこちらで遡った印を打っておく。
+    // 🔴 2 秒遡る。判定は言い終えてから少し遅れて出るので、1.5 秒では頭の「カ」まで
+    // 届かない回があった（2026-09-22 実機で「たのり」）
     if (!katanori::wakeWatch.hasTurn()) {
-        katanori::wakeWatch.markTurn(1500);
+        katanori::wakeWatch.markTurn(2000);
         convLastVoiceMs = millis();  // startTurn が印を打たないぶん、無音の時計をここで
     }
     vadStopWatching(true);  // 録音は止めない。繋がるまでのあいだも控えに貯め続ける

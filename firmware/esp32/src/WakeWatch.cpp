@@ -98,6 +98,15 @@ static constexpr uint32_t kFrameSamples = 320;
  */
 static constexpr uint32_t kKeepSilenceFrames = 10;  // 200ms
 
+/**
+ * 声の直前に残す長さ。
+ *
+ * 🔴 「カ」の k は息を止めてから弾く小さな音で、ゲートを越えない。直前の無音と一緒に
+ * 捨てると、大きな母音から先だけが届く。2026-09-22 の実機で、呼び名を 5 回送って
+ * 4 回が「たのに」「あたのに」と聞き取られた。声のあるフレームの手前はゲート未満でも残す。
+ */
+static constexpr uint32_t kPreRollFrames = 15;  // 300ms（160ms でも 3 回に 1 回「たのり」だった）
+
 uint32_t WakeWatch::drainToNetLink(float gateRms) {
     trimmed_ = 0;
     if (!ring_ || !hasTurn_) {
@@ -111,29 +120,49 @@ uint32_t WakeWatch::drainToNetLink(float gateRms) {
         return 0;
     }
 
-    int16_t chunk[kDrainChunk];
-    size_t fill = 0;
-    uint32_t sent = 0;
-    uint32_t silentRun = 0;   // 続いている無音フレームの数
-    bool stopped = false;
-
-    for (uint32_t off = 0; off + kFrameSamples <= count && !stopped; off += kFrameSamples) {
+    // 先にフレームごとの声の有無を全部測る。声の手前（kPreRollFrames）を残すには、
+    // 後ろのフレームを見てから前のフレームの扱いを決める必要がある
+    const uint32_t frames = count / kFrameSamples;
+    uint8_t* keep = (uint8_t*)calloc(frames ? frames : 1, 1);  // 0=捨てる 1=声 2=残す無音
+    if (!keep) {
+        return 0;
+    }
+    for (uint32_t f = 0; f < frames; ++f) {
         // このフレームの音量。リングは環状なので添字を折り返す
         double acc = 0.0;
         for (uint32_t i = 0; i < kFrameSamples; ++i) {
-            const double v = ring_[(rpos + off + i) % ringLen_];
+            const double v = ring_[(rpos + f * kFrameSamples + i) % ringLen_];
             acc += v * v;
         }
-        const float rms = (float)sqrt(acc / kFrameSamples);
-
-        if (rms < gateRms) {
-            ++silentRun;
-            if (silentRun > kKeepSilenceFrames) {
-                trimmed_ += kFrameSamples;   // ひと呼吸ぶんを超えた無音は落とす
-                continue;
+        if ((float)sqrt(acc / kFrameSamples) >= gateRms) {
+            keep[f] = 1;
+            for (uint32_t b = 1; b <= kPreRollFrames && b <= f; ++b) {
+                if (keep[f - b] == 0) {
+                    keep[f - b] = 2;  // 声の手前（k の破裂など、ゲート未満の子音）
+                }
             }
-        } else {
+        }
+    }
+    // 無音はひと呼吸ぶんだけ残す（声の手前として残したものは数えない）
+    uint32_t silentRun = 0;
+    for (uint32_t f = 0; f < frames; ++f) {
+        if (keep[f] != 0) {
             silentRun = 0;
+        } else if (++silentRun <= kKeepSilenceFrames) {
+            keep[f] = 2;
+        }
+    }
+
+    int16_t chunk[kDrainChunk];
+    size_t fill = 0;
+    uint32_t sent = 0;
+    bool stopped = false;
+
+    for (uint32_t f = 0; f < frames && !stopped; ++f) {
+        const uint32_t off = f * kFrameSamples;
+        if (keep[f] == 0) {
+            trimmed_ += kFrameSamples;   // ひと呼吸ぶんを超えた無音は落とす
+            continue;
         }
 
         for (uint32_t i = 0; i < kFrameSamples; ++i) {
@@ -151,6 +180,7 @@ uint32_t WakeWatch::drainToNetLink(float gateRms) {
     if (!stopped && fill > 0 && netLink.sendAudio(chunk, fill)) {
         sent += fill;
     }
+    free(keep);
 
     Serial.printf("[WAKE] 繋がるまでに溜めた %.1f秒ぶんを送りました（無音 %.1f秒を詰めた）\n",
                   sent / (float)kRate, trimmed_ / (float)kRate);
