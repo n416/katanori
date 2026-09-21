@@ -22,6 +22,7 @@
 
 #ifdef MWW_LIVE
 #include <driver/i2s.h>
+#include <mbedtls/base64.h>
 #else
 #include "test_clips.h"
 #endif
@@ -243,12 +244,89 @@ bool setupI2s() {
   return true;
 }
 
+// 聞き分けに渡しているのと同じ 16kHz の音を、PSRAM の輪に直近 40 秒ぶん常にためておき、
+// シリアルで d を受けたら古い順に PC へ吐く。PC の推論にかけて機体の数字と突き合わせるため。
+// ⚠ 合図で録り始める形は、合図が届くまでの数秒に話した分が入らなかった（2026-09-22）
+// 3 回目（2026-09-22）: 16kHz に落とす前の 48kHz をためる。機体の「3 つの平均」と PC で
+// 正しく落としたものを同じ音で比べ、落とし方が当たりを下げているかを見る。
+// 48kHz × 2ch × 16bit で PSRAM に入るのは 25 秒まで
+constexpr uint32_t kCapRate = 48000;
+constexpr uint32_t kCapSamples = kCapRate * 25;  // 25 秒
+int16_t* gCap[2] = {nullptr, nullptr};        // kInputs[0]（ch0x4）と kInputs[1]（ch1x4）
+uint32_t gCapHead = 0;                        // 次に書く位置
+bool gCapFull = false;
+bool gFrozen = false;       // 取り出しの間はためない
+uint32_t gSnapN = 0, gSnapStart = 0;
+
+void sendLine(int c, uint32_t idx) {
+  static uint8_t b64[4200];
+  static int16_t tmp[1500];
+  const uint32_t off = idx * 1500;
+  const uint32_t m = min((uint32_t)1500, gSnapN - off);
+  for (uint32_t i = 0; i < m; i++) tmp[i] = gCap[c][(gSnapStart + off + i) % kCapSamples];
+  size_t olen = 0;
+  mbedtls_base64_encode(b64, sizeof(b64), &olen, (const uint8_t*)tmp, m * 2);
+  Serial.printf("L %d %lu ", c, (unsigned long)idx);
+  Serial.write(b64, olen);
+  Serial.write('\n');
+  Serial.flush();
+}
+
+// d: ためるのを止めて全行を送る。USB シリアルは送りが詰まると黙って行を捨てる
+// （859 行中 1〜3 行が欠けた）ので、行に番号を付け、PC が欠けた行を g <ch> <番号> で
+// 取り直す。u で再びためはじめる
+void dumpCapture() {
+  gFrozen = true;
+  gSnapN = gCapFull ? kCapSamples : gCapHead;
+  gSnapStart = gCapFull ? gCapHead : 0;
+  const uint32_t lines = (gSnapN + 1499) / 1500;
+  Serial.printf("\nCAP %lu %lu %lu %s %s\n", (unsigned long)gSnapN, (unsigned long)lines,
+                (unsigned long)kCapRate, kInputs[0].name,
+                kInputs[1].name);
+  for (int c = 0; c < 2; c++) {
+    for (uint32_t i = 0; i < lines; i++) sendLine(c, i);
+  }
+  Serial.println("CAPEND");
+}
+
+void handleSerial() {
+  static char cmd[32];
+  static int len = 0;
+  while (Serial.available()) {
+    const char ch = Serial.read();
+    if (ch != '\n') {
+      if (len < (int)sizeof(cmd) - 1) cmd[len++] = ch;
+      continue;
+    }
+    cmd[len] = 0;
+    len = 0;
+    if (strcmp(cmd, "d") == 0 && gCap[1]) {
+      dumpCapture();
+    } else if (strcmp(cmd, "u") == 0) {
+      gFrozen = false;
+    } else if (cmd[0] == 'g' && gFrozen) {
+      int c = 0;
+      unsigned long idx = 0;
+      if (sscanf(cmd + 1, "%d %lu", &c, &idx) == 2 && c >= 0 && c < 2) sendLine(c, idx);
+    }
+  }
+}
+
 void pumpMic() {
   size_t bytes = 0;
   if (i2s_read(kPort, gRaw, sizeof(gRaw), &bytes, pdMS_TO_TICKS(50)) != ESP_OK) return;
   const size_t frames = bytes / (sizeof(int32_t) * 2);
   size_t produced = 0;
   for (size_t i = 0; i < frames; i++) {
+    if (gCap[1] && !gFrozen) {
+      // kInputs[0]/[1] と同じ 4 倍（32bit を 14 ずらす）で、48kHz のままためる
+      gCap[0][gCapHead] = (int16_t)constrain(gRaw[i * 2] >> 14, -32768, 32767);
+      gCap[1][gCapHead] = (int16_t)constrain(gRaw[i * 2 + 1] >> 14, -32768, 32767);
+      if (++gCapHead == kCapSamples) {
+        gCapHead = 0;
+        gCapFull = true;
+      }
+    }
     gAcc[0] += gRaw[i * 2];
     gAcc[1] += gRaw[i * 2 + 1];
     if (++gAccN < kRatio) continue;
@@ -330,6 +408,8 @@ void setup() {
     Serial.println("[mww] I2S の初期化に失敗");
     return;
   }
+  gCap[0] = (int16_t*)heap_caps_malloc(kCapSamples * 2, MALLOC_CAP_SPIRAM);
+  gCap[1] = (int16_t*)heap_caps_malloc(kCapSamples * 2, MALLOC_CAP_SPIRAM);
   Serial.printf("[mww] 空きヒープ 内部 %u\n", (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
 #endif
 }
@@ -341,6 +421,8 @@ void loop() {
   if (!gDet.interp) return;
   for (const TestClip& c : kClips) runClip(c);
 #else
-  if (gDet[kN - 1].interp) pumpMic();
+  if (!gDet[kN - 1].interp) return;
+  handleSerial();
+  pumpMic();
 #endif
 }
