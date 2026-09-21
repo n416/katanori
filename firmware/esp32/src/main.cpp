@@ -3512,6 +3512,20 @@ static int xmosRead1(uint8_t resid, uint8_t cmd) {
     return v;
 }
 
+/**
+ * 設定を1バイト読む。
+ *
+ * 🔴 読み出しは cmd に 0x80 を立てる。
+ * 公式の Arduino 例（xiao_i2c_get_register_value）は VNR(0x80) と
+ * ミュート状態(0x81) を「そのまま」読んでいるが、あれは**もともと 0x80 が
+ * 立っている番号**なので区別が付かない。取り出し口（0x30/0x40）を 0x80 無しで
+ * 読むと status=3 で弾かれ、0xB0/0xC0 なら値が返る（2026-09-21 に総当たりで確認）。
+ * 書き込みは 0x80 を立てない。
+ */
+static int xmosReadCfg(uint8_t cmd) {
+    return xmosRead1(kXmosResidConfig, (uint8_t)(cmd | 0x80));
+}
+
 /** 取り出し口を書く。 */
 static bool xmosWriteTap(uint8_t cmd, uint8_t value) {
     Wire.beginTransmission(kXmosAddr);
@@ -3558,8 +3572,8 @@ static void xmosPrintTaps() {
     xmosPrintRead("ミュート状態", xmosRead1(kXmosResidConfig, 0x81));
 
     // ここからが本題。⚠ 出どころは Issue #9 の個人のコメントで未確認
-    const int a = xmosRead1(kXmosResidConfig, kXmosCmdTapCh0);
-    const int b = xmosRead1(kXmosResidConfig, kXmosCmdTapCh1);
+    const int a = xmosReadCfg(kXmosCmdTapCh0);
+    const int b = xmosReadCfg(kXmosCmdTapCh1);
     xmosPrintRead("ch0 取り出し口", a);
     xmosPrintRead("ch1 取り出し口", b);
     if (a >= 0) {
@@ -3570,19 +3584,42 @@ static void xmosPrintTaps() {
     }
 }
 
+/**
+ * RESID 0xF1（設定サービス）のコマンドを総当たりで読む。
+ *
+ * 読み出しだけなので何も壊さない。status=0 で返るものが、その版に実在する
+ * コマンドである。Issue #9 のコメントにあった 0x30/0x40 は v1.1.0 でも通らず
+ * （status=3）、番号が違うと見て探すために足した（2026-09-21）。
+ */
+static void xmosProbe(uint8_t resid) {
+    Serial.printf("[XMOS] RESID 0x%02X を総当たりします（読み出しのみ）\n", resid);
+    int found = 0;
+    for (int cmd = 0; cmd <= 0xFF; ++cmd) {
+        uint8_t v[4] = {0, 0, 0, 0};
+        // まず1バイトで試す。通れば実在する
+        const int st = xmosRead(resid, (uint8_t)cmd, v, 1);
+        if (st == 0) {
+            ++found;
+            Serial.printf("[XMOS]   cmd 0x%02X = %u\n", cmd, (unsigned)v[0]);
+        }
+        delay(3);  // 詰めて叩くと取りこぼす
+    }
+    Serial.printf("[XMOS] %d 個ありました\n", found);
+}
+
 /** ch0 の取り出し口を変える。 */
 static void xmosSetTapCh0(int v) {
     if (v < 0 || v > 4) {
         Serial.println("[XMOS] 値は 0〜4 です");
         return;
     }
-    const int before = xmosRead1(kXmosResidConfig, kXmosCmdTapCh0);
+    const int before = xmosReadCfg(kXmosCmdTapCh0);
     if (!xmosWriteTap(kXmosCmdTapCh0, (uint8_t)v)) {
         Serial.println("[XMOS] 書き込みに失敗しました（応答なし）");
         return;
     }
     delay(50);  // 反映を待つ
-    const int after = xmosRead1(kXmosResidConfig, kXmosCmdTapCh0);
+    const int after = xmosReadCfg(kXmosCmdTapCh0);
     Serial.printf("[XMOS] ch0 の取り出し口 %d → %d（%s）%s\n",
                   before, after, xmosTapName(after),
                   after == v ? "" : " ← 書けていません");
@@ -4593,6 +4630,10 @@ static void handleSerial() {
             vadEnroll();
         } else if (strncmp(line, "vadth ", 6) == 0) {
             vadSetThreshold(atof(line + 6));
+        } else if (strcmp(line, "probe") == 0) {
+            xmosProbe(0xF1);
+        } else if (strcmp(line, "probe0") == 0) {
+            xmosProbe(0xF0);
         } else if (strcmp(line, "tap") == 0) {
             xmosPrintTaps();
         } else if (strncmp(line, "tap ", 4) == 0) {

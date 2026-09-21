@@ -66,9 +66,16 @@ bool AudioIo::applyConfig(bool slave, bool msbFormat, int bits) {
     cfg.communication_format = msbFormat ? I2S_COMM_FORMAT_STAND_MSB
                                          : I2S_COMM_FORMAT_STAND_I2S;
     cfg.intr_alloc_flags = ESP_INTR_FLAG_LEVEL1;
-    // 4 x 256フレーム = 64ms。OLEDの全面転送(約29ms)の間の取りこぼしを防ぐには
-    // 十分で、かつ「無音を流し続ける」方式で応答音声に乗る遅延を抑えられる。
-    cfg.dma_buf_count = 4;
+    /*
+     * 4 x 256フレーム = 16kHz で 64ms。OLEDの全面転送(約29ms)の間の取りこぼしを
+     * 防ぐには十分で、かつ「無音を流し続ける」方式で応答音声に乗る遅延を抑えられる。
+     *
+     * 🔴 48kHz では同じ数だと 21ms にしかならず、描画の 29ms の間に必ず溢れる。
+     * 溢れた不連続が「静かなのに RMS 数千」として出てきて、VAD が誤って起動した
+     * （2026-09-21 実機。QUIET が中央 49 から数千へ跳ねた）。比のぶん増やして
+     * 時間を揃える。増える内蔵RAMは 32bitステレオで 16KB ほど。
+     */
+    cfg.dma_buf_count = 4 * RATE_RATIO;
     cfg.dma_buf_len = 256;
     cfg.use_apll = false;
     cfg.tx_desc_auto_clear = true; // 送るものが無いときは無音を流す
@@ -628,11 +635,13 @@ void AudioIo::scanConfigs() {
                 // スロット幅が合っていないと、静かに見えてもレートが倍になる
                 // （32bitスロットを16bitで2回に割って読んでいる状態）。
                 float fps = frames / 0.6f;
-                bool rateOk = fps > KATANORI_AUDIO_RATE * 0.85f &&
-                              fps < KATANORI_AUDIO_RATE * 1.15f;
+                // ⚠ ここで数えているのは i2s_read から来た生のフレームなので、
+                //    比べる相手は KATANORI_XMOS_RATE（48kHz 版なら 48000）である
+                bool rateOk = fps > KATANORI_XMOS_RATE * 0.85f &&
+                              fps < KATANORI_XMOS_RATE * 1.15f;
                 if (!rateOk && frames > 0) {
                     Serial.printf("[SCAN]    ^ 実測 %.0f fps は %dHz と合いません（除外）\n",
-                                  fps, KATANORI_AUDIO_RATE);
+                                  fps, KATANORI_XMOS_RATE);
                 }
                 if (rateOk && rms >= 0.0f && rms < best.rms) {
                     best = { slave, msb, bits, rms, peak, frames };
