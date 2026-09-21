@@ -4752,7 +4752,8 @@ static void handleSerial() {
             vadEnroll();
         } else if (strncmp(line, "vadth ", 6) == 0) {
             vadSetThreshold(atof(line + 6));
-        } else if (strcmp(line, "wake") == 0) {
+        } else if (strcmp(line, "wakeword") == 0) {
+            // ⚠ "wake" は別のコマンド（スリープから起こす）が先に使っている
             const bool on = !katanori::settings.wakeEnabled();
             katanori::settings.setWakeEnabled(on);
             if (!on) {

@@ -111,8 +111,13 @@ export async function handleWake(request: Request, env: { AI: any }): Promise<Re
       audio: arrayBufferToBase64(wrapWav(pcm, rate)),
       language: "ja",
       task: "transcribe",
-      // 呼び名を先に見せて、その表記で出させる。漢字に化けると照合できない
-      initial_prompt: name,
+      /*
+       * 🔴 呼び名を initial_prompt で先に見せてはいけない（2026-09-21 に外した）。
+       * 表記を揃えるために入れていたが、咳のような非言語音まで呼び名に寄せられて
+       * 「カタノリ」と出力され、会話が勝手に始まった。そのとき whisper は
+       * no_speech=0（言葉である）と返していて、こちらでも落とせなかった。
+       * 外すと呼び名が漢字（肩乗り・片野）で返りやすくなるので、照合側で拾う。
+       */
       // 繰り返しの幻聴を抑える（無音に近い区間で効く）
       condition_on_previous_text: false,
       // 探索を1本に絞る。ここで見たいのは呼び名が入っているかだけで、
