@@ -17,6 +17,7 @@
 #include "tensorflow/lite/schema/schema_generated.h"
 
 #include "katanori_model.h"
+#include "test_clips.h"
 
 namespace {
 
@@ -156,6 +157,46 @@ void runOnce() {
                 invokes ? (unsigned long)(tInvoke / invokes) : 0UL, maxProb);
 }
 
+// 録音を 1 つ流す。前に 0.5 秒の無音を置いて内部の状態をならし、
+// ESPHome と同じく直近 5 回の平均（sliding_window_size）でしきい値 0.9 を越えるかを見る
+void runClip(const TestClip& c) {
+  static const int16_t silence[8000] = {0};
+  TfLiteTensor* in = gInterp->input(0);
+  const int stride = in->dims->data[1];
+  uint8_t win[5] = {0};
+  int wi = 0, filled = 0;
+  float maxProb = 0, maxAvg = 0;
+  for (int pass = 0; pass < 2; pass++) {
+    const int16_t* p = pass == 0 ? silence : c.data;
+    size_t left = pass == 0 ? 8000 : c.len;
+    while (left > 0) {
+      size_t used = 0;
+      FrontendOutput fo = FrontendProcessSamples(&gFrontendState, p, left, &used);
+      p += used;
+      left -= used;
+      if (fo.size == 0) {
+        if (used == 0) break;
+        continue;
+      }
+      toInt8(fo, in->data.int8 + filled * kFeatureSize);
+      if (++filled < stride) continue;
+      filled = 0;
+      if (gInterp->Invoke() != kTfLiteOk) return;
+      uint8_t prob = gInterp->output(0)->data.uint8[0];
+      win[wi] = prob;
+      wi = (wi + 1) % 5;
+      if (pass == 1) {
+        int sum = 0;
+        for (uint8_t v : win) sum += v;
+        maxProb = max(maxProb, prob / 255.0f);
+        maxAvg = max(maxAvg, sum / 5.0f / 255.0f);
+      }
+    }
+  }
+  Serial.printf("[mww] %-20s %.2f秒  最大 %.3f  5回平均の最大 %.3f  %s\n", c.name, c.len / 16000.0f,
+                maxProb, maxAvg, maxAvg > 0.9f ? "起きる" : "起きない");
+}
+
 }  // namespace
 
 void setup() {
@@ -173,4 +214,11 @@ void setup() {
                 (unsigned)heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
 }
 
-void loop() { delay(1000); }
+// 書き込み直後の出力を取りこぼしても読めるよう、5 秒ごとに繰り返す
+void loop() {
+  delay(5000);
+  if (!gInterp) return;
+  Serial.printf("[mww] arena 使用 %u / %u バイト\n", (unsigned)gInterp->arena_used_bytes(), (unsigned)kTensorArenaSize);
+  runOnce();
+  for (const TestClip& c : kClips) runClip(c);
+}
