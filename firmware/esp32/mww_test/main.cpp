@@ -19,8 +19,10 @@
 
 #include "katanori_model.h"
 #include "okay_nabu_model.h"
+#include "katanori_cv_model.h"
 
 #ifdef MWW_LIVE
+#include <Wire.h>
 #include <driver/i2s.h>
 #include <mbedtls/base64.h>
 #else
@@ -197,11 +199,13 @@ struct Input {
 };
 // 2 回目（2026-09-22）: 既製の Okay Nabu を同じ聞き方で載せ、機体の聞き方が正しいかを切り分ける。
 // 1 回目の結果（カタノリ・8 回）では ch0x4 が一番ましで、ch1 は音が小さすぎた
+// 3 回目（2026-09-22 朝）: ch0 の取り出し口を 3 にした状態で、大勢の声だけで学習した
+// katanori_cv と昨夜の katanori を比べる。2 回目の Okay Nabu は 0.97 に届かなかった（最大 0.795）
 constexpr Input kInputs[] = {
-    {"nabu_ch0x4", 0, 14, kOkayNabuModel, 0.97f},
-    {"nabu_ch1x4", 1, 14, kOkayNabuModel, 0.97f},  // ESPHome の ReSpeaker Lite 用設定と同じ
-    {"nabu_ch0x16", 0, 12, kOkayNabuModel, 0.97f},
-    {"kata_ch0x4", 0, 14, kKatanoriModel, 0.9f},
+    {"old_ch0x4", 0, 14, kKatanoriModel, 0.9f},
+    {"cv_ch0x4", 0, 14, kKatanoriCvModel, 0.7f},
+    {"cv_ch0x16", 0, 12, kKatanoriCvModel, 0.7f},
+    {"cv_ch1x16", 1, 12, kKatanoriCvModel, 0.7f},  // ch1 は取り出し口 1（AEC のみ）で音が小さい
 };
 constexpr int kN = sizeof(kInputs) / sizeof(kInputs[0]);
 
@@ -220,6 +224,22 @@ bool gInEvent = false;
 float gEvMax[kN] = {0};
 uint32_t gEvStart = 0, gEvQuietSince = 0;
 int gEvCount = 0;
+
+// XMOS の取り出し口を読む（本体の main.cpp の xmosReadCfg と同じ書式・読み出しは cmd|0x80）。
+// 取り出し口は電源を入れ直すと 4 に戻るので、測る前に必ず確かめる
+int gTap[2] = {-1, -1};  // 起動時に読んだ ch0・ch1 の取り出し口
+
+int xmosReadTap(uint8_t cmd) {
+  Wire.beginTransmission(0x42);
+  Wire.write(0xF1);
+  Wire.write((uint8_t)(cmd | 0x80));
+  Wire.write((uint8_t)2);
+  if (Wire.endTransmission() != 0) return -1;
+  if (Wire.requestFrom((uint8_t)0x42, (uint8_t)2) != 2) return -1;
+  const uint8_t status = Wire.read();
+  const uint8_t v = Wire.read();
+  return status == 0 ? v : -1;
+}
 
 bool setupI2s() {
   i2s_config_t cfg = {};
@@ -252,7 +272,7 @@ bool setupI2s() {
 // 48kHz × 2ch × 16bit で PSRAM に入るのは 25 秒まで
 constexpr uint32_t kCapRate = 48000;
 constexpr uint32_t kCapSamples = kCapRate * 25;  // 25 秒
-int16_t* gCap[2] = {nullptr, nullptr};        // kInputs[0]（ch0x4）と kInputs[1]（ch1x4）
+int16_t* gCap[2] = {nullptr, nullptr};        // ch0 と ch1 を 4 倍して 48kHz のまま
 uint32_t gCapHead = 0;                        // 次に書く位置
 bool gCapFull = false;
 bool gFrozen = false;       // 取り出しの間はためない
@@ -281,8 +301,8 @@ void dumpCapture() {
   gSnapStart = gCapFull ? gCapHead : 0;
   const uint32_t lines = (gSnapN + 1499) / 1500;
   Serial.printf("\nCAP %lu %lu %lu %s %s\n", (unsigned long)gSnapN, (unsigned long)lines,
-                (unsigned long)kCapRate, kInputs[0].name,
-                kInputs[1].name);
+                (unsigned long)kCapRate, "ch0x4",
+                "ch1x4");
   for (int c = 0; c < 2; c++) {
     for (uint32_t i = 0; i < lines; i++) sendLine(c, i);
   }
@@ -374,7 +394,7 @@ void pumpMic() {
   }
   if (now - gLastReport >= 5000) {
     gLastReport = now;
-    Serial.print("[耳] RMS");
+    Serial.printf("[耳] 取り出し口 ch0=%d ch1=%d  RMS", gTap[0], gTap[1]);
     for (int k = 0; k < kN; k++) {
       Serial.printf("  %s %5.0f(振切%lu)", kInputs[k].name, gSqN ? sqrt(gSq[k] / gSqN) : 0.0,
                     (unsigned long)gClip[k]);
@@ -400,6 +420,9 @@ void setup() {
                 (unsigned)kTensorArenaSize);
 #else
   Serial.println("[mww] マイクの ch0 と ch1 を同時に聞く試験");
+  Wire.begin(5, 6, 400000);
+  gTap[0] = xmosReadTap(0x30);
+  gTap[1] = xmosReadTap(0x40);
   for (int k = 0; k < kN; k++) {
     gDet[k].modelData = kInputs[k].model;
     if (!gDet[k].begin()) return;
