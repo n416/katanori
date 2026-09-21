@@ -390,6 +390,11 @@ static void drawDrowsyScreen();
 /** 長押しの進み具合の画面（定義は「メニュー」の節）。 */
 static void drawHoldScreen(const char* line1, const char* line2, uint32_t held, uint32_t showMs);
 
+/** 計測モードかどうか（定義は「VAD計測モード」の節）。 */
+static bool vadMeasuringActive();
+/** 計測モードの画面（いまのラベルと音量。定義は同じ節）。 */
+static void drawVadScreen();
+
 class Esp32Hal : public katanori::IHal {
 public:
     uint32_t millis() override {
@@ -437,6 +442,14 @@ public:
         // メニュー（会話ボタン長押し）の間はメニューだけ
         if (menuActive()) {
             drawMenuScreen();
+            return;
+        }
+
+        // 🔒 ユーザー 2026-09-21「me をあなたが書いてから実際に送られるまでに
+        //    ラグがあるでしょ？正確かどうかが全然わからない。だったらカタノリの
+        //    OLED になにか出してよ」。計測中は画面でラベルと音量を見せる
+        if (vadMeasuringActive()) {
+            drawVadScreen();
             return;
         }
 
@@ -2784,7 +2797,20 @@ static constexpr uint32_t VAD_CALIBRATE_MS = 2000;
 /** 騒音床の何倍を超えたら有声とみなすか。 */
 static constexpr float VAD_MARGIN = 3.0f;
 /** 静かすぎる部屋で騒音床が0近くになったときの下限。 */
-static constexpr float VAD_MIN_THRESHOLD = 60.0f;
+/*
+ * 🔴 AGC を外したので下げた（60 → 20・2026-09-21）。
+ *
+ * 60 は AGC があった頃の値で、あのときは騒音床が 12〜641 で動いていたから
+ * 「床が低く測られすぎたときの保険」として意味があった。AGC を切ったあとは
+ * 床が 1〜2 まで下がり、60 は床の30〜60倍にあたる。本来の検出線は床×3 なので
+ * 3〜6 であるべきところで、**声を出しても検出線を越えなかった**
+ * （実機で画面の棒が縦線に届かず、区間が1つも立たなかった）。
+ *
+ * 20 の根拠: 静かなときの実測が RMS 1〜11。そこを越えず、遠い声（121）も
+ * 近い声（922）も区間にはなる。遠い声はこのあとのゲートで落とす。
+ * ⚠ サンプルが少ない（遠い1件・近い1件）。測り直して詰める。
+ */
+static constexpr float VAD_MIN_THRESHOLD = 20.0f;
 /**
  * 装着者ゲートの既定値（騒音床の何倍）。
  *
@@ -2796,6 +2822,21 @@ static constexpr float VAD_MIN_THRESHOLD = 60.0f;
  * （装着者の5秒の発話と家族の短い相槌が、長さでは逆に出る）。
  */
 static constexpr float VAD_GATE_MARGIN = 13.0f;
+
+/*
+ * ゲートの下限。
+ *
+ * 🔴 検出線の下限（VAD_MIN_THRESHOLD）と分けること。以前は同じ値を使っていたが、
+ * 検出線は「音があるか」、ゲートは「装着者が喋ったか」で役目が違う。AGC を外して
+ * 床が 1〜2 になると「床の何倍」が意味を失う（どんな物音でも数十倍になる）ので、
+ * ゲートは絶対値で押さえる。
+ *
+ * 200 の根拠（2026-09-21・AGC なし・ゲイン16 の実測）: 呼びかけが 288 で通る
+ * 必要がある（300 だと落ちた）。遠い声は 121。
+ * ⚠ 咳は 921 まで出るので、音量では落とせない。立ち上がりの速さで分ける
+ * （vadSegPeakMs）。
+ */
+static constexpr float VAD_MIN_GATE = 200.0f;
 
 /** これだけ続けて超えたら発話開始とみなす（単発の物音を弾く）。 */
 static constexpr uint32_t VAD_ATTACK_MS = 96;
@@ -2832,6 +2873,16 @@ static constexpr uint32_t VAD_MAX_SEGMENT_MS = 10000;
  */
 static constexpr uint32_t VAD_MIN_SEGMENT_MS = 300;
 
+/*
+ * ❌ 「山までの時間で咳を落とす」は効かなかった（2026-09-21・判定から外した）。
+ *
+ * 1回目の咳は 0ms（1フレーム以内にピーク）で、呼びかけの 104ms と分かれて
+ * 見えた。ところが次の咳は 542ms・553ms と出た。区間が複数の音をまとめたり、
+ * 咳の後に息や声が続いたりすると「頭からピークまで」は意味を失う。
+ * 計測（ログの「山まで○ms」）だけは残す。判定に戻すなら、区間の頭の
+ * 数フレームの上がり方を見るなど、測り方から作り直すこと。
+ */
+
 /**
  * 騒音床の追従の速さ（静かなフレーム1つあたり）。
  *
@@ -2863,6 +2914,8 @@ static constexpr float USD_JPY = 150.0f;
 static uint32_t vadStartMs = 0;
 static uint32_t vadLastReportMs = 0;
 static float vadNoiseFloor = 0.0f;
+/** 直前に読んだフレームの音量。計測モードの画面が見る。 */
+static float vadLastRms = 0.0f;
 /** 窓の中でいちばん静かだったところ。0 は未取得。 */
 static float vadFloorMin = 0.0f;
 static uint32_t vadFloorWindowMs = 0;
@@ -2879,6 +2932,13 @@ static uint32_t vadBelowMs = 0;
  * 区間ごとの実測値を出す。しきい値はこの数字を見てから決める。
  */
 static float vadSegPeakRms = 0.0f;
+/**
+ * 区間の頭からピークに達するまでの時間 [ms]。
+ *
+ * 咳は 10〜30ms でピークに達するが、声は母音が立ち上がるまでに 100ms 以上かかる。
+ * 音量では分けられない（実機で呼びかけ 288 に対して咳が 921）ので、ここで分ける。
+ */
+static uint32_t vadSegPeakMs = 0;
 
 /**
  * 装着者ゲート。この音量を超えた区間だけ「装着者が喋った」とみなす。
@@ -2963,7 +3023,7 @@ static float vadGate() {
         return vadGateRms;
     }
     const float g = vadNoiseFloor * VAD_GATE_MARGIN;
-    return g > VAD_MIN_THRESHOLD ? g : VAD_MIN_THRESHOLD;
+    return g > VAD_MIN_GATE ? g : VAD_MIN_GATE;
 }
 // 直近の報告区間ぶん
 static uint32_t vadSegments = 0;
@@ -3088,8 +3148,9 @@ static void vadCloseSegment(bool forced) {
         }
     }
 
-    Serial.printf("[VAD] 区間 %.2f秒  音量RMS=%.0f (床の%.1f倍)  低域比=%.2f  [%s]  → %s\n",
+    Serial.printf("[VAD] 区間 %.2f秒  音量RMS=%.0f (床の%.1f倍)  低域比=%.2f  山まで%ums  [%s]  → %s\n",
                   voicedMs / 1000.0f, vadSegPeakRms, ratio, vadSegLowRatio,
+                  (unsigned)vadSegPeakMs,
                   forced ? "打ち切り" : (vadSegLabeled ? "自分" : "周囲"),
                   forced ? "対象外"
                          : passed       ? "送る"
@@ -3100,6 +3161,7 @@ static void vadCloseSegment(bool forced) {
     vadBelowMs = 0;
     vadAboveMs = 0;
     vadSegPeakRms = 0.0f;
+    vadSegPeakMs = 0;
     vadSegMinRms = 0.0f;
     vadSegLabeled = false;
 
@@ -3160,6 +3222,8 @@ static void vadFeed(const int16_t* pcm, size_t n) {
         return;
     }
 
+    vadLastRms = rms;  // 計測モードの画面が見る
+
     // 窓の中の最小値を追う。発話中でも床を実勢へ寄せられるようにするため
     if (vadFloorMin == 0.0f || rms < vadFloorMin) {
         vadFloorMin = rms;
@@ -3198,6 +3262,7 @@ static void vadFeed(const int16_t* pcm, size_t n) {
             }
             vadCurrentMs = vadAboveMs; // 立ち上がりぶんも有声に数える
             vadSegPeakRms = rms;
+            vadSegPeakMs = 0;  // 区間の頭。ここからピークまでを測る
             vadSegMinRms = rms;
             vadSegLowEnergy = lowAcc;
             vadSegTotalEnergy = acc;
@@ -3208,6 +3273,7 @@ static void vadFeed(const int16_t* pcm, size_t n) {
             vadCurrentMs += frameMs;
             if (rms > vadSegPeakRms) {
                 vadSegPeakRms = rms;
+                vadSegPeakMs = vadCurrentMs;  // 頭から何msでここまで上がったか
             }
             if (rms < vadSegMinRms) {
                 vadSegMinRms = rms;
@@ -3297,6 +3363,59 @@ static void vadResetState() {
     vadStartMs = vadLastReportMs = millis();
 }
 
+/**
+ * 計測モードの画面。
+ *
+ * いまどちらのラベルで記録しているかと、音量を棒で見せる。喋る側がこれを見て
+ * タイミングを取れるようにするため（シリアルから `me` を送る側と、喋る側の
+ * 間のラグをなくす）。
+ */
+static void drawVadScreen() {
+    const bool self = vadLabelSelf || vadLabelSelfLatched;
+
+    u8g2.setFontMode(1);
+    u8g2.setFont(u8g2_font_b16_t_japanese1);
+    u8g2.drawUTF8(0, 14, "けいそくちゅう");
+    u8g2.drawHLine(0, 17, 128);
+
+    // ラベル。白抜きで大きく出す（遠目でも分かるように）
+    u8g2.drawBox(0, 22, 128, 22);
+    u8g2.setDrawColor(0);
+    const char* label = self ? "じぶん" : "まわり";
+    const int w = u8g2.getUTF8Width(label);
+    u8g2.drawUTF8((128 - w) / 2, 39, label);
+    u8g2.setDrawColor(1);
+
+    // いまの音量と、検出線を越えているか。棒は対数にしないと小さい音が見えない
+    const float rms = vadLastRms;
+    const float th = vadThreshold();
+    char line[32];
+    snprintf(line, sizeof(line), "RMS %4.0f / %4.0f", rms, th);
+    u8g2.setFont(u8g2_font_6x10_tf);
+    u8g2.drawStr(0, 54, line);
+
+    int bar = 0;
+    if (rms > 1.0f) {
+        // 1〜10000 を 0〜128 へ。log10 で潰す
+        bar = (int)(log10f(rms) / 4.0f * 128.0f);
+        if (bar > 128) bar = 128;
+        if (bar < 0) bar = 0;
+    }
+    u8g2.drawFrame(0, 57, 128, 7);
+    if (bar > 2) {
+        u8g2.drawBox(1, 58, bar - 2, 5);
+    }
+    // 検出線の位置に印
+    if (th > 1.0f) {
+        int mark = (int)(log10f(th) / 4.0f * 128.0f);
+        if (mark > 127) mark = 127;
+        if (mark < 0) mark = 0;
+        u8g2.drawVLine(mark, 55, 10);
+    }
+    u8g2.setFontMode(0);
+    u8g2.sendBuffer();
+}
+
 /** 計測モードの開始・停止。 */
 static void vadToggle() {
     if (vadMeasuring) {
@@ -3366,6 +3485,9 @@ static void vadStopWatching(bool keepRecording) {
 static void vadStartWatching() {
     if (vadWatching || vadMeasuring) {
         return;
+    }
+    if (!katanori::settings.wakeEnabled()) {
+        return;  // 呼びかけは切（Settings.h。既定は切）
     }
     if (katanori::audioIo.isRecording()) {
         return;  // 会話中。終わってから掛け直す
@@ -4630,6 +4752,12 @@ static void handleSerial() {
             vadEnroll();
         } else if (strncmp(line, "vadth ", 6) == 0) {
             vadSetThreshold(atof(line + 6));
+        } else if (strcmp(line, "wake") == 0) {
+            const bool on = !katanori::settings.wakeEnabled();
+            katanori::settings.setWakeEnabled(on);
+            if (!on) {
+                vadStopWatching();
+            }
         } else if (strcmp(line, "probe") == 0) {
             xmosProbe(0xF1);
         } else if (strcmp(line, "probe0") == 0) {

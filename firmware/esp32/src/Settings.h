@@ -86,6 +86,17 @@ public:
     /** 呼び名を既定（カタノリ）へ戻す。機体のメニューから使う。 */
     void resetWakeName();
 
+    /**
+     * 呼びかけで会話を始めるか。
+     *
+     * 🔴 既定は「切」。2026-09-21 の実機で、咳が「カタノリ」と文字起こしされて
+     * 確実に起動する状態だった（whisper は咳を「言葉である」と判定し、立ち上がりの
+     * 速さで落とす試みも外れた）。切ってあれば会話ボタンだけになり、今までどおり
+     * 確実に動く。呼びかけの調整はその上で続ける。
+     */
+    bool wakeEnabled() const { return wakeOn_; }
+    void setWakeEnabled(bool on);
+
     /** カタカナだけでできているか。文字数も返す。 */
     static bool isKatakanaOnly(const String& s, uint8_t& chars);
 
@@ -113,6 +124,7 @@ private:
     uint8_t sleepIdx_ = 2;            // 既定は今までと同じ 3 分
     bool bootVoice_ = true;
     uint8_t maxVol_ = kMaxVolLevels;  // 既定は今までと同じ（天井のまま）
+    bool wakeOn_ = false;             // 呼びかけ。既定は切
     String wakeName_;                 // begin() で既定を入れる
     void (*onChange_)() = nullptr;
     bool webUp_ = false;

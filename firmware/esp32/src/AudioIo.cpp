@@ -195,6 +195,22 @@ size_t AudioIo::frameBytes() const {
     return (curBits_ == 32) ? 8 : 4;
 }
 
+/** 固定ゲインを掛けて 16bit に収める（AudioIo.h の KATANORI_MIC_GAIN）。 */
+int16_t AudioIo::applyMicGain(int16_t v) {
+    if (KATANORI_MIC_GAIN == 1) {
+        return v;
+    }
+    int32_t g = static_cast<int32_t>(v) * KATANORI_MIC_GAIN;
+    if (g > 32767) {
+        g = 32767;
+        ++micClipped_;
+    } else if (g < -32768) {
+        g = -32768;
+        ++micClipped_;
+    }
+    return static_cast<int16_t>(g);
+}
+
 size_t AudioIo::readMic(int16_t* out, size_t maxSamples) {
     if (!started_ || !recording_) {
         return 0;
@@ -247,11 +263,13 @@ size_t AudioIo::readMic(int16_t* out, size_t maxSamples) {
         }
 
         if (RATE_RATIO == 1) {
+            s = applyMicGain(s);
             out[produced++] = s;
         } else {
             decimAcc_ += s;
             if (++decimCount_ >= RATE_RATIO) {
-                const int16_t avg = static_cast<int16_t>(decimAcc_ / RATE_RATIO);
+                const int16_t avg = applyMicGain(
+                    static_cast<int16_t>(decimAcc_ / RATE_RATIO));
                 out[produced++] = avg;
                 decimAcc_ = 0;
                 decimCount_ = 0;

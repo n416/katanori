@@ -71,6 +71,14 @@ void handleRoot() {
     }
     h += F("<div style='font-size:13px;color:#666;clear:both'>5 がこれまでの最大。1 つ下げるごとに少し小さくなる（これより上には設定できない）</div></fieldset>");
 
+    h += F("<fieldset><legend>呼びかけで会話を始める</legend>");
+    h += String("<label><input type=radio name=k value=1") +
+         (settings.wakeEnabled() ? " checked" : "") + ">する</label>";
+    h += String("<label><input type=radio name=k value=0") +
+         (settings.wakeEnabled() ? "" : " checked") + ">しない</label>";
+    h += F("<div style='font-size:13px;color:#666;clear:both'>しないときは会話ボタンだけで話しかけます。"
+           "咳や物音で誤って起動することがあるため、いまは「しない」が既定です</div></fieldset>");
+
     h += F("<fieldset><legend>呼びかけの名前（この名前で呼ぶと会話が始まる）</legend>");
     h += String("<input type=text name=w style='transform:none;font-size:20px;padding:8px;width:12em' maxlength=") + String(Settings::kWakeNameMaxChars) +
          " pattern='[ァ-ヺー]+' value='" + settings.wakeName() + "'>";
@@ -95,6 +103,9 @@ void handleSave() {
     }
     if (settingsHttp.hasArg("m")) {
         settings.setMaxVolume((uint8_t)settingsHttp.arg("m").toInt());
+    }
+    if (settingsHttp.hasArg("k")) {
+        settings.setWakeEnabled(settingsHttp.arg("k").toInt() != 0);
     }
     if (settingsHttp.hasArg("w")) {
         // 弾かれても他の設定は保存する。入力欄には元の名前が戻って見える
@@ -174,6 +185,18 @@ bool Settings::setWakeName(const String& name) {
     return true;
 }
 
+void Settings::setWakeEnabled(bool on) {
+    if (wakeOn_ == on) {
+        return;
+    }
+    wakeOn_ = on;
+    Preferences p;
+    p.begin("cfg", false);
+    p.putUChar("wakeon", on ? 1 : 0);
+    p.end();
+    Serial.printf("[CFG] 呼びかけを%sにしました\n", on ? "入" : "切");
+}
+
 void Settings::resetWakeName() {
     wakeName_ = kDefaultWakeName;
     Preferences p;
@@ -190,6 +213,7 @@ void Settings::begin() {
     sleepIdx_ = p.getUChar("sleep", 2);
     bootVoice_ = p.getUChar("voice", 1) != 0;
     maxVol_ = p.getUChar("maxvol", kMaxVolLevels);
+    wakeOn_ = p.getUChar("wakeon", 0) != 0;  // 既定は切（Settings.h）
     wakeName_ = p.getString("wake", kDefaultWakeName);
     uint8_t chars = 0;
     if (!isKatakanaOnly(wakeName_, chars) || chars > kWakeNameMaxChars) {

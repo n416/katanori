@@ -77,6 +77,23 @@
 #define KATANORI_XMOS_RATE 16000
 #endif
 
+/*
+ * マイクに掛ける固定のゲイン（倍）。
+ *
+ * 🔴 XMOS の AGC を外すと、AGC が担っていた増幅も無くなって感度が落ちる
+ * （2026-09-21 実機: 普通の声が RMS 36 までしか入らず、かなり大きな声でないと
+ * 検出線を越えなかった）。そのぶんをここで取り戻す。
+ *
+ * ⚠ AGC とは別物である。AGC は入力の大きさで倍率を変えるので、小さい残留エコーも
+ * 引き上げて AEC を台無しにする。こちらは常に同じ倍率なので、**残留と声の比は
+ * 変わらない**。AEC の効果はそのまま残る。
+ *
+ * 1 なら素通し（AGC が生きている 16kHz 版はこちら）。
+ */
+#ifndef KATANORI_MIC_GAIN
+#define KATANORI_MIC_GAIN 1
+#endif
+
 // マイクのどちらのチャンネルを使うか。
 // ch0-asr/ch1-mww ファームでは 0 = 音声認識向け、1 = ウェイクワード向け。
 #ifndef KATANORI_MIC_CHANNEL
@@ -130,6 +147,9 @@ public:
     bool setOutputMute(bool mute);
     bool outputMuted() const { return muted_; }
 
+    /** マイクのゲインで振り切れたサンプル数（多いなら倍率を下げる）。 */
+    uint32_t micClipped() const { return micClipped_; }
+
     /**
      * 最後にミュートを解いた時刻 [ms]。0 なら一度も解いていない。
      *
@@ -178,6 +198,7 @@ public:
      * @param bits 16 または 32（スロット幅）
      */
     bool applyConfig(bool slave, bool msbFormat, int bits);
+    int16_t applyMicGain(int16_t v);
 
     /**
      * マスタ/スレーブ × 標準I2S/左詰め × 16/32bit の全組み合わせを試し、
@@ -214,6 +235,7 @@ private:
     // 控えめに置く。肩＝耳元数cmの装着位置が基準。上げるのは `vol` かつまみで。
     volatile float gain_ = 0.15f;
     // 48kHz のファームで 16kHz へ落とすときの持ち越し（readMic）
+    uint32_t micClipped_ = 0;   // ゲインで振り切れたサンプル数
     int32_t decimAcc_ = 0;
     int decimCount_ = 0;
     // 16kHz から 48kHz へ伸ばすときの前のサンプル（writeMono）
