@@ -18,6 +18,7 @@
 #include "tensorflow/lite/schema/schema_generated.h"
 
 #include "katanori_model.h"
+#include "okay_nabu_model.h"
 
 #ifdef MWW_LIVE
 #include <driver/i2s.h>
@@ -64,6 +65,7 @@ void setupResolver() {
 
 // 前処理 1 つとモデル 1 つの組。ch0 と ch1 を同時に比べるため 2 つ持てるようにする
 struct Detector {
+  const uint8_t* modelData = kKatanoriModel;
   FrontendConfig cfg{};
   FrontendState fs{};
   tflite::MicroInterpreter* interp = nullptr;
@@ -91,7 +93,7 @@ struct Detector {
       Serial.println("[mww] 前処理の初期化に失敗");
       return false;
     }
-    const tflite::Model* model = tflite::GetModel(kKatanoriModel);
+    const tflite::Model* model = tflite::GetModel(modelData);
     if (model->version() != TFLITE_SCHEMA_VERSION) {
       Serial.printf("[mww] モデルの版が違う: %lu\n", (unsigned long)model->version());
       return false;
@@ -189,12 +191,16 @@ struct Input {
   const char* name;
   int ch;     // I2S の何番目のスロットか
   int shift;  // 32bit 値を右へずらす量。16 で素通し、14 で 4 倍、12 で 16 倍
+  const uint8_t* model;
+  float cutoff;
 };
+// 2 回目（2026-09-22）: 既製の Okay Nabu を同じ聞き方で載せ、機体の聞き方が正しいかを切り分ける。
+// 1 回目の結果（カタノリ・8 回）では ch0x4 が一番ましで、ch1 は音が小さすぎた
 constexpr Input kInputs[] = {
-    {"ch0x16", 0, 12},  // 本体の会話と同じ（KATANORI_MIC_GAIN=16）
-    {"ch0x4", 0, 14},
-    {"ch1x4", 1, 14},   // ESPHome と同じ
-    {"ch1x16", 1, 12},
+    {"nabu_ch0x4", 0, 14, kOkayNabuModel, 0.97f},
+    {"nabu_ch1x4", 1, 14, kOkayNabuModel, 0.97f},  // ESPHome の ReSpeaker Lite 用設定と同じ
+    {"nabu_ch0x16", 0, 12, kOkayNabuModel, 0.97f},
+    {"kata_ch0x4", 0, 14, kKatanoriModel, 0.9f},
 };
 constexpr int kN = sizeof(kInputs) / sizeof(kInputs[0]);
 
@@ -283,7 +289,7 @@ void pumpMic() {
       gEvCount++;
       Serial.printf("[呼] %2d 回目", gEvCount);
       for (int k = 0; k < kN; k++) {
-        Serial.printf("  %s %.3f%s", kInputs[k].name, gEvMax[k], gEvMax[k] > kCutoff ? "★" : "  ");
+        Serial.printf("  %s %.3f%s", kInputs[k].name, gEvMax[k], gEvMax[k] > kInputs[k].cutoff ? "★" : "  ");
       }
       Serial.println();
     }
@@ -316,8 +322,9 @@ void setup() {
                 (unsigned)kTensorArenaSize);
 #else
   Serial.println("[mww] マイクの ch0 と ch1 を同時に聞く試験");
-  for (Detector& d : gDet) {
-    if (!d.begin()) return;
+  for (int k = 0; k < kN; k++) {
+    gDet[k].modelData = kInputs[k].model;
+    if (!gDet[k].begin()) return;
   }
   if (!setupI2s()) {
     Serial.println("[mww] I2S の初期化に失敗");
