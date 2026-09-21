@@ -13,9 +13,22 @@ namespace {
 
 constexpr i2s_port_t I2S_PORT = I2S_NUM_0;
 
+/*
+ * XMOS のレートと機体の中のレートの比（AudioIo.h）。
+ *
+ * 16kHz 版のファームなら 1 で、下の変換は全部素通しになる（コンパイル時に消える）。
+ * 48kHz 版なら 3。
+ */
+constexpr int RATE_RATIO = KATANORI_XMOS_RATE / KATANORI_AUDIO_RATE;
+static_assert(RATE_RATIO >= 1, "XMOS のレートが機体のレートより低い");
+static_assert(KATANORI_XMOS_RATE == KATANORI_AUDIO_RATE * RATE_RATIO,
+              "XMOS のレートは機体のレートの整数倍でなければならない");
+
 // I2S から一度に読む量。ステレオ16bit なので 1フレーム = 4バイト。
 // 512フレーム = 32ms 相当。OLEDの全面転送(約29ms)の間に溜まる量を吸収できる。
-constexpr size_t READ_FRAMES = 512;
+// ⚠ 48kHz のときは3フレームで1サンプルになるので、同じ時間ぶんを読むには
+//    比のぶん増やす必要がある（減らすと1回の呼び出しで 10ms 分しか取れない）。
+constexpr size_t READ_FRAMES = 512 * RATE_RATIO;
 
 // 再生バッファ。PSRAM があれば潤沢に取る。
 // 16kHz/16bit モノラルなので 1秒 = 32000バイト。
@@ -46,7 +59,7 @@ bool AudioIo::applyConfig(bool slave, bool msbFormat, int bits) {
     i2s_config_t cfg = {};
     cfg.mode = static_cast<i2s_mode_t>(
         (slave ? I2S_MODE_SLAVE : I2S_MODE_MASTER) | I2S_MODE_TX | I2S_MODE_RX);
-    cfg.sample_rate = KATANORI_AUDIO_RATE;
+    cfg.sample_rate = KATANORI_XMOS_RATE;  // 機体の中のレートではなく XMOS の実レート
     cfg.bits_per_sample = (bits == 32) ? I2S_BITS_PER_SAMPLE_32BIT
                                        : I2S_BITS_PER_SAMPLE_16BIT;
     cfg.channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT; // ステレオ
@@ -181,7 +194,12 @@ size_t AudioIo::readMic(int16_t* out, size_t maxSamples) {
     }
 
     const size_t fb = frameBytes();
-    size_t frames = maxSamples < READ_FRAMES ? maxSamples : READ_FRAMES;
+    // 48kHz のときは 3 フレームで 1 サンプルになるので、欲しいサンプル数の
+    // 比のぶんだけフレームを読む
+    size_t frames = maxSamples * RATE_RATIO;
+    if (frames > READ_FRAMES) {
+        frames = READ_FRAMES;
+    }
     size_t want = frames * fb;
     if (want > SCRATCH_BYTES) {
         want = (SCRATCH_BYTES / fb) * fb;
@@ -198,34 +216,55 @@ size_t AudioIo::readMic(int16_t* out, size_t maxSamples) {
         return 0;
     }
 
-    // ステレオ -> モノラル。ch0 = 音声認識向けの処理済み信号。
+    /*
+     * ステレオ -> モノラル。ch0 = 音声認識向けの処理済み信号。
+     *
+     * 48kHz のファームでは、ここで 3 サンプルの平均を 1 つにして 16kHz へ落とす
+     * （AudioIo.h の KATANORI_XMOS_RATE）。呼び出し側は常に 16kHz を受け取る。
+     *
+     * ⚠ 平均は簡易な低域通過で、8kHz あたりの落ちは -6dB ほどしかない。折り返しが
+     * 音声認識に響くようなら FIR に替える。まず平均で測る（ReSpeaker の
+     * ノイズ抑制を通った後なので高域はもともと少ない）。
+     * ⚠ 端数は次の呼び出しへ持ち越す。ここで捨てると 3 回に 1 回ずつ音が飛ぶ。
+     */
     int32_t peak = 0;
-    if (curBits_ == 32) {
-        // XMOS は32bitスロットで送ってくる。実データは上位16bit。
-        const int32_t* src = stereoScratch;
-        for (size_t i = 0; i < got; ++i) {
-            int16_t s = static_cast<int16_t>(src[i * 2 + KATANORI_MIC_CHANNEL] >> 16);
-            out[i] = s;
-            int32_t a = s < 0 ? -static_cast<int32_t>(s) : s;
-            if (a > peak) {
-                peak = a;
+    size_t produced = 0;
+    for (size_t i = 0; i < got; ++i) {
+        int16_t s;
+        if (curBits_ == 32) {
+            // XMOS は32bitスロットで送ってくる。実データは上位16bit。
+            s = static_cast<int16_t>(stereoScratch[i * 2 + KATANORI_MIC_CHANNEL] >> 16);
+        } else {
+            const int16_t* src = reinterpret_cast<const int16_t*>(stereoScratch);
+            s = src[i * 2 + KATANORI_MIC_CHANNEL];
+        }
+
+        if (RATE_RATIO == 1) {
+            out[produced++] = s;
+        } else {
+            decimAcc_ += s;
+            if (++decimCount_ >= RATE_RATIO) {
+                const int16_t avg = static_cast<int16_t>(decimAcc_ / RATE_RATIO);
+                out[produced++] = avg;
+                decimAcc_ = 0;
+                decimCount_ = 0;
+                s = avg;  // ピークは出したサンプルで見る
+            } else {
+                continue;  // まだ 1 サンプル分そろっていない
             }
         }
-    } else {
-        const int16_t* src = reinterpret_cast<const int16_t*>(stereoScratch);
-        for (size_t i = 0; i < got; ++i) {
-            int16_t s = src[i * 2 + KATANORI_MIC_CHANNEL];
-            out[i] = s;
-            int32_t a = s < 0 ? -static_cast<int32_t>(s) : s;
-            if (a > peak) {
-                peak = a;
-            }
+        const int32_t a = s < 0 ? -static_cast<int32_t>(s) : s;
+        if (a > peak) {
+            peak = a;
         }
     }
 
+    if (produced == 0) {
+        return 0;  // 端数だけだった。次の呼び出しでそろう
+    }
     micLevel_ = peak / 32768.0f;
-    sentSamples_ += got;
-    return got;
+    sentSamples_ += produced;
+    return produced;
 }
 
 /**
@@ -234,37 +273,61 @@ size_t AudioIo::readMic(int16_t* out, size_t maxSamples) {
  */
 void AudioIo::writeMono(const int16_t* mono, size_t samples, TickType_t wait) {
     static int32_t slot[512]; // L,R 交互。タスク専用なので静的で構わない
-    const size_t maxFrames = (curBits_ == 32) ? (sizeof(slot) / sizeof(int32_t) / 2)
-                                              : (sizeof(slot) / sizeof(int32_t));
+    const size_t slotFrames = (curBits_ == 32) ? (sizeof(slot) / sizeof(int32_t) / 2)
+                                               : (sizeof(slot) / sizeof(int32_t));
+    /*
+     * 48kHz のファームでは、16kHz の 1 サンプルを 3 フレームへ伸ばす
+     * （AudioIo.h の KATANORI_XMOS_RATE）。呼び出し側は常に 16kHz で渡してよい。
+     *
+     * ⚠ 同じ値を3つ並べる（ゼロ次ホールド）と階段状の段差が高域の雑音になる。
+     * 前のサンプルとの間を線形に埋める。掛け算と割り算が1サンプルあたり数回で済む。
+     * ⚠ 前回の最後の値を跨いで覚えておくこと。呼び出しの切れ目で段差を作らない。
+     */
+    const size_t maxIn = slotFrames / RATE_RATIO;  // 1周で処理できる入力サンプル数
 
     size_t done = 0;
     while (done < samples) {
         size_t n = samples - done;
-        if (n > maxFrames) {
-            n = maxFrames;
+        if (n > maxIn) {
+            n = maxIn;
         }
 
-        size_t bytes;
-        if (curBits_ == 32) {
-            for (size_t i = 0; i < n; ++i) {
-                int32_t v = static_cast<int32_t>(mono[done + i]) << 16;
-                slot[i * 2] = v;      // L
-                slot[i * 2 + 1] = v;  // R
+        size_t frames = 0;
+        for (size_t i = 0; i < n; ++i) {
+            const int32_t cur = mono[done + i];
+            for (int k = 0; k < RATE_RATIO; ++k) {
+                int32_t v;
+                if (RATE_RATIO == 1) {
+                    v = cur;
+                } else {
+                    // prev から cur へ (k+1)/RATE_RATIO だけ進んだところ
+                    v = upsamplePrev_ + (cur - upsamplePrev_) * (k + 1) / RATE_RATIO;
+                }
+                if (curBits_ == 32) {
+                    const int32_t w = v << 16;
+                    slot[frames * 2] = w;      // L
+                    slot[frames * 2 + 1] = w;  // R
+                } else {
+                    const uint16_t u = static_cast<uint16_t>(static_cast<int16_t>(v));
+                    slot[frames] = static_cast<int32_t>(u | (static_cast<uint32_t>(u) << 16));
+                }
+                ++frames;
             }
-            bytes = n * 8;
-        } else {
-            for (size_t i = 0; i < n; ++i) {
-                uint16_t u = static_cast<uint16_t>(mono[done + i]);
-                slot[i] = static_cast<int32_t>(u | (static_cast<uint32_t>(u) << 16));
-            }
-            bytes = n * 4;
+            upsamplePrev_ = cur;
         }
 
+        const size_t bytes = frames * ((curBits_ == 32) ? 8 : 4);
         size_t written = 0;
         if (i2s_write(I2S_PORT, slot, bytes, &written, wait) != ESP_OK || written == 0) {
             return;
         }
-        done += written / ((curBits_ == 32) ? 8 : 4);
+        const size_t framesWritten = written / ((curBits_ == 32) ? 8 : 4);
+        if (framesWritten < frames) {
+            // 書き切れなかった。次の呼び出しで続きから積み直す
+            done += framesWritten / RATE_RATIO;
+            return;
+        }
+        done += n;
     }
 }
 

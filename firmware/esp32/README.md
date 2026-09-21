@@ -855,9 +855,25 @@ alt=2, name="DFU DATAPARTITION"
    → 筐体を開ける必要がある
 2. `dfu-util -l` で 3 領域が見えるか確認（見えなければ Zadig で WINUSB を入れる）
 3. `dfu-util -R -e -a 1 -D respeaker_lite_i2s_dfu_firmware_48k_v1.1.0_ch0-asr_ch1-mww.bin`
-4. 機体のファームを 48kHz 対応にして、シリアル `tap` で ch0 を読む（4 のはず）
-5. `tap 3` で AGC を外し、`[QUIET]`／`[ECHO]` を測り直す
-6. 効かなければ v1.0.9（16kHz・DFU）へ戻せる
+4. 機体のファームを 48kHz 用の env で焼く（**2026-09-21 に用意済み**）
+
+   ```
+   pio run -e xiao_esp32s3_48k -t upload --upload-port COM5
+   ```
+
+   48k↔16k の変換は `AudioIo` の中だけ。`readMic()` が 3 サンプルの平均を 1 つに
+   落とし、`writeMono()` が 1 つを 3 つへ線形に伸ばす。**呼び出し側（main.cpp /
+   NetLink / WakeWatch / DO）は無改造**で、いままで通り 16kHz を渡し受けする。
+   16kHz の env（`xiao_esp32s3`）では比が 1 になり、変換はコンパイル時に消える。
+
+5. シリアル `tap` で ch0 を読む（**4** のはず）。読めれば Issue #9 の情報が当たり
+6. `tap 3` で AGC を外し、`[QUIET]`／`[ECHO]` を測り直す
+7. 効かなければ v1.0.9（16kHz・DFU）へ戻し、env も `xiao_esp32s3` に戻す
+
+⚠ **ファームと env は必ず揃える。** 食い違うと音が 3倍速か 3分の1 の速さになる。
+
+⚠ 間引きは 3 サンプルの平均で、8kHz あたりの落ちは -6dB ほどしかない。折り返しが
+文字起こしに響くようなら FIR に替える（`AudioIo::readMic` のコメント）。
 
 ⚠ **AGC を切ると全体の音量が下がる。** 小さい音を持ち上げる働きも無くなるので、
 VAD の検出線・ゲート・呼びかけの距離は測り直しになる（docs/WAKEUP.md 付録D/E）。

@@ -54,10 +54,27 @@
 #define KATANORI_I2S_MSB_FORMAT 0
 #endif
 
-// ReSpeaker Lite の I2S ファームは 16kHz / 16bit / ステレオ。
-// Gemini の入力仕様も 16kHz なので変換は不要。
+// 機体の中を流れる音のレート。Gemini の入力仕様が 16kHz なのでここは動かさない。
+// 呼び出し側（main.cpp / NetLink / WakeWatch）が見るのは常にこのレートである。
 #ifndef KATANORI_AUDIO_RATE
 #define KATANORI_AUDIO_RATE 16000
+#endif
+
+/*
+ * ReSpeaker Lite の I2S ファームが動いているレート。
+ *
+ * 16kHz 版（v1.0.8 / v1.0.9）は 16000、48kHz 版（v1.1.0 ch0-asr_ch1-mww）は 48000。
+ *
+ * 🔴 AGC を外すために 48kHz 版へ移る（firmware/esp32/README.md「再生中の残留」）。
+ * ch0 の取り出し口を選ぶ I2C コマンドは v1.1.0 にしか無く、16kHz の v1.1.0 は
+ * factory 版しか配られていないため、公式手順で書ける 48kHz の DFU 版を使う。
+ *
+ * 48000 / 16000 = 3 の整数比なので、変換は AudioIo の中だけで済む。
+ * 読むときは3サンプルを平均して1つにし、書くときは1つを3つへ伸ばす。
+ * ⚠ 上の KATANORI_AUDIO_RATE との比は整数でなければならない。
+ */
+#ifndef KATANORI_XMOS_RATE
+#define KATANORI_XMOS_RATE 16000
 #endif
 
 // マイクのどちらのチャンネルを使うか。
@@ -196,6 +213,11 @@ private:
     // 既定音量。0.30で「大きすぎてびっくりした」（2026-08-05・実機で本人）ため
     // 控えめに置く。肩＝耳元数cmの装着位置が基準。上げるのは `vol` かつまみで。
     volatile float gain_ = 0.15f;
+    // 48kHz のファームで 16kHz へ落とすときの持ち越し（readMic）
+    int32_t decimAcc_ = 0;
+    int decimCount_ = 0;
+    // 16kHz から 48kHz へ伸ばすときの前のサンプル（writeMono）
+    int32_t upsamplePrev_ = 0;
     bool muted_ = true;   // 既定はミュート。起動時の轟音を防ぐため。
     uint32_t unmutedAt_ = 0;  // 最後にミュートを解いた時刻（ポップをまたぐため）
 
