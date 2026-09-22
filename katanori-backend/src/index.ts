@@ -1,12 +1,9 @@
 import { Downsampler, base64ToInt16, arrayBufferToBase64 } from "./resample";
 import { FILLERS_B64, FILLER_INFO, FILLER_RATE, FILLER_VOICE } from "./fillers";
-import { handleWake } from "./wake";
 
 export interface Env {
   ROBOT_DO: DurableObjectNamespace;
   GEMINI_API_KEY: string;
-  /** Workers AI。呼びかけ判定（POST /wake）の文字起こしに使う。 */
-  AI: any;
 }
 
 /**
@@ -134,10 +131,6 @@ export default {
         const id = env.ROBOT_DO.idFromName("robot-1");
         const stub = env.ROBOT_DO.get(id);
         return await stub.fetch(request);
-      }
-      // 呼びかけ判定。会話の前段なので DO には入れない（wake.ts の頭を参照）
-      if (new URL(request.url).pathname === "/wake" && request.method === "POST") {
-        return await handleWake(request, env);
       }
       return new Response("Katanori DO Server is running.", { status: 200 });
     } catch (e: any) {

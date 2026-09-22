@@ -76,14 +76,8 @@ void handleRoot() {
          (settings.wakeEnabled() ? " checked" : "") + ">する</label>";
     h += String("<label><input type=radio name=k value=0") +
          (settings.wakeEnabled() ? "" : " checked") + ">しない</label>";
-    h += F("<div style='font-size:13px;color:#666;clear:both'>しないときは会話ボタンだけで話しかけます。"
-           "咳や物音で誤って起動することがあるため、いまは「しない」が既定です</div></fieldset>");
-
-    h += F("<fieldset><legend>呼びかけの名前（この名前で呼ぶと会話が始まる）</legend>");
-    h += String("<input type=text name=w style='transform:none;font-size:20px;padding:8px;width:12em' maxlength=") + String(Settings::kWakeNameMaxChars) +
-         " pattern='[ァ-ヺー]+' value='" + settings.wakeName() + "'>";
-    h += F("<div style='font-size:13px;color:#666;clear:both'>カタカナだけ・8文字まで。"
-           "機体のメニューでは今の名前を見るのと、カタノリに戻すことだけができます</div></fieldset>");
+    h += F("<div style='font-size:13px;color:#666;clear:both'>「カタノリ」と呼ぶと会話が始まります。"
+           "しないときは会話ボタンだけで話しかけます</div></fieldset>");
 
     h += F("<button type=submit>保存</button></form>"
            "<p style='font-size:13px;color:#666'>機体のメニュー（会話ボタンを長押し）からも同じ設定を変えられます。</p>"
@@ -106,14 +100,6 @@ void handleSave() {
     }
     if (settingsHttp.hasArg("k")) {
         settings.setWakeEnabled(settingsHttp.arg("k").toInt() != 0);
-    }
-    if (settingsHttp.hasArg("w")) {
-        // 弾かれても他の設定は保存する。入力欄には元の名前が戻って見える
-        if (!settings.setWakeName(settingsHttp.arg("w"))) {
-            Serial.printf("[CFG] 呼び名「%s」は使えません（カタカナ%u文字まで）\n",
-                          settingsHttp.arg("w").c_str(),
-                          (unsigned)Settings::kWakeNameMaxChars);
-        }
     }
     Serial.printf("[CFG] 設定ページから保存しました（%s）\n",
                   settingsHttp.client().remoteIP().toString().c_str());
@@ -140,51 +126,6 @@ uint16_t Settings::sleepMinutesAt(uint8_t idx) {
     return idx < kSleepOptions ? kSleepMin[idx] : kSleepMin[2];
 }
 
-const char* const Settings::kDefaultWakeName = "カタノリ";  // カタノリ
-
-/**
- * カタカナだけでできているか。
- *
- * UTF-8 の3バイト文字だけを見て、カタカナ（U+30A1〜U+30FA）と長音（U+30FC）に限る。
- * 中黒（U+30FB）は名前に要らないので外す。ブラウザの pattern だけに任せず
- * ここでも見るのは、設定ページが同じ LAN の誰からでも叩けるため。
- */
-bool Settings::isKatakanaOnly(const String& s, uint8_t& chars) {
-    chars = 0;
-    const uint8_t* p = (const uint8_t*)s.c_str();
-    while (*p) {
-        if ((p[0] & 0xF0) != 0xE0 || (p[1] & 0xC0) != 0x80 || (p[2] & 0xC0) != 0x80) {
-            return false;
-        }
-        const uint32_t cp = ((uint32_t)(p[0] & 0x0F) << 12) |
-                            ((uint32_t)(p[1] & 0x3F) << 6) |
-                            (uint32_t)(p[2] & 0x3F);
-        if (!((cp >= 0x30A1 && cp <= 0x30FA) || cp == 0x30FC)) {
-            return false;
-        }
-        ++chars;
-        p += 3;
-    }
-    return chars > 0;
-}
-
-bool Settings::setWakeName(const String& name) {
-    uint8_t chars = 0;
-    if (!isKatakanaOnly(name, chars) || chars > kWakeNameMaxChars) {
-        return false;
-    }
-    if (wakeName_ == name) {
-        return true;
-    }
-    wakeName_ = name;
-    Preferences p;
-    p.begin("cfg", false);
-    p.putString("wake", wakeName_);
-    p.end();
-    Serial.printf("[CFG] 呼び名を「%s」にしました\n", wakeName_.c_str());
-    return true;
-}
-
 void Settings::setWakeEnabled(bool on) {
     if (wakeOn_ == on) {
         return;
@@ -197,15 +138,6 @@ void Settings::setWakeEnabled(bool on) {
     Serial.printf("[CFG] 呼びかけを%sにしました\n", on ? "入" : "切");
 }
 
-void Settings::resetWakeName() {
-    wakeName_ = kDefaultWakeName;
-    Preferences p;
-    p.begin("cfg", false);
-    p.remove("wake");
-    p.end();
-    Serial.printf("[CFG] 呼び名を既定の「%s」へ戻しました\n", wakeName_.c_str());
-}
-
 void Settings::begin() {
     Preferences p;
     p.begin("cfg", true);
@@ -214,11 +146,6 @@ void Settings::begin() {
     bootVoice_ = p.getUChar("voice", 1) != 0;
     maxVol_ = p.getUChar("maxvol", kMaxVolLevels);
     wakeOn_ = p.getUChar("wakeon", 0) != 0;  // 既定は切（Settings.h）
-    wakeName_ = p.getString("wake", kDefaultWakeName);
-    uint8_t chars = 0;
-    if (!isKatakanaOnly(wakeName_, chars) || chars > kWakeNameMaxChars) {
-        wakeName_ = kDefaultWakeName;  // 古い値や壊れた値は既定に戻す
-    }
     p.end();
     if (maxVol_ < 1 || maxVol_ > kMaxVolLevels) maxVol_ = kMaxVolLevels;
     if (bright_ < 1 || bright_ > kBrightLevels) bright_ = kBrightLevels;

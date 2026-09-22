@@ -1526,7 +1526,6 @@ static void vadFeed(const int16_t* pcm, size_t n);
 /** 呼びかけの見張り（待機中）。計測モードとは同時に動かさない。 */
 static bool vadWatchingActive();
 /** 通った区間をクラウドへ送る（別タスク。すぐ戻る）。 */
-static void vadSubmitWake();
 /** 見張りの世話。判定の結果を受け取り、待機中なら見張りを掛け直す。 */
 static void pumpWake();
 /** 見張りを止める。会話へ移るときは録音を続けたまま止める。 */
@@ -2155,16 +2154,7 @@ static constexpr uint32_t kMenuTapMs = 400;
 /** 棒を出し始める時刻。短押しと棒が重ならないよう kMenuTapMs と同じにする。 */
 static constexpr uint32_t kMenuHoldShowMs = kMenuTapMs;
 
-static constexpr uint8_t kMenuItems = 7;
-/**
- * 「よびな」の番号。
- *
- * 🔒 ユーザー 2026-09-21「WEBから名前を登録できるようにしてください。カタノリ本体の
- *    設定からは見える＆リセットできるだけでいいです」。ここでは今の名前を見るのと、
- *    既定（カタノリ）へ戻すことだけができる。登録は http://katanori.local/ から。
- *    画面のフォントに漢字が無く、つまみとボタンでは文字を入れられないため。
- */
-static constexpr uint8_t kMenuItemWakeName = 4;
+static constexpr uint8_t kMenuItems = 6;
 /**
  * 「IPアドレス」の番号（見るだけ。押しても何も起きない）。
  *
@@ -2172,16 +2162,16 @@ static constexpr uint8_t kMenuItemWakeName = 4;
  * ブラウザの設定ページを開くのに要るが、機体には出す場所が無かった。
  * katanori.local が引けない環境では、これしか手がかりが無い。
  */
-static constexpr uint8_t kMenuItemIp = 5;
+static constexpr uint8_t kMenuItemIp = 4;
 /** 「WiFiせってい」の番号（値を持たず、押すと Wi-Fi 設定モードへ入る）。 */
-static constexpr uint8_t kMenuItemWifi = 6;
+static constexpr uint8_t kMenuItemWifi = 5;
 /** 区切りの境目の遊び（3 度）。 */
 static constexpr uint16_t kMenuZoneHystRaw = (uint16_t)(3ul * 4096 / 360);
 /** 触らないとこの時間で出口へ進む（うっかり入った人を置き去りにしない）。 */
 static constexpr uint32_t kMenuTimeoutMs = 30000;
 // 画面の日本語フォント（b16_t_japanese1）には漢字も全角の「：」も無い。かなと ASCII だけ
 // 「おんりょうMAX」は 🔒 ユーザー 2026-09-12「設定追加しておこうよ」（Settings.h）。「さいだいおんりょう」は 145px で入らない
-static const char* const kMenuTitle[kMenuItems] = {"あかるさ", "ねむるまで", "きどうのこえ", "おんりょうMAX", "よびな", "IPアドレス", "WiFiせってい"};
+static const char* const kMenuTitle[kMenuItems] = {"あかるさ", "ねむるまで", "きどうのこえ", "おんりょうMAX", "IPアドレス", "WiFiせってい"};
 static const char* const kMenuSleepLabel[katanori::Settings::kSleepOptions] = {
     "しない", "1ふん", "3ふん", "5ふん", "10ふん"};
 
@@ -2195,7 +2185,6 @@ static uint8_t menuOptionCount(uint8_t item) {
     case 1: return katanori::Settings::kSleepOptions;
     case 2: return 2; // あり／なし
     case 3: return katanori::Settings::kMaxVolLevels;
-    case kMenuItemWakeName: return 2;  // そのまま／もどす
     case kMenuItemIp: return 1;       // 見るだけ
     default: return 1;
     }
@@ -2208,7 +2197,6 @@ static uint8_t menuStoredValue(uint8_t item) {
     case 1: return katanori::settings.sleepIndex();
     case 2: return katanori::settings.bootVoice() ? 0 : 1;
     case 3: return katanori::settings.maxVolume() - 1;
-    case kMenuItemWakeName: return 0;  // 押して入ったときは必ず「そのまま」
     default: return 0;
     }
 }
@@ -2371,11 +2359,6 @@ static void menuShortPress() {
         case 1: katanori::settings.setSleepIndex(menuValue); break;
         case 2: katanori::settings.setBootVoice(menuValue == 0); break;
         case 3: katanori::settings.setMaxVolume(menuValue + 1); break;
-        case kMenuItemWakeName:
-            if (menuValue == 1) {
-                katanori::settings.resetWakeName();
-            }
-            break;
         }
         menuMode = MenuMode::Browse;
         menuPickupZone = (int8_t)menuZone(knobRelAngle(menuKnobRaw), kMenuItems, -1);
@@ -2561,11 +2544,6 @@ static void drawMenuScreen() {
             u8g2.setFont(u8g2_font_b16_t_japanese1);
             break;
         }
-        case kMenuItemWakeName:
-            // 見るだけのときは今の名前。押して入ったら「もどす」かどうかを選ぶ
-            drawMenuCentered(editing ? (v == 0 ? "そのまま" : "もどす")
-                                     : katanori::settings.wakeName().c_str(), y);
-            break;
         default: drawMenuCentered("かいし", y); break;
         }
         u8g2.setDrawColor(1);
@@ -2753,7 +2731,7 @@ static void pumpMic() {
         return;
     }
 
-    // 待機中の見張り。VAD を通った区間だけが POST /wake へ行く（WakeWatch.h）。
+    // 待機中の見張り。呼び名は機体の中で聞き分け、会話の頭は控えに貯める（WakeWatch.h）。
     // ここで DO へは送らない。会話はまだ始まっていない
     if (vadWatchingActive()) {
         // 合図を鳴らしている間は貯めない。控えに入れると drain で送られ、
@@ -3319,10 +3297,6 @@ static void vadFeed(const int16_t* pcm, size_t n) {
         vadAboveMs += frameMs;
         if (!vadInSpeech && vadAboveMs >= VAD_ATTACK_MS) {
             vadInSpeech = true;
-            // 立ち上がりぶんは既に過ぎているので、遡って取り出せるよう印を打つ
-            if (vadWatchingActive()) {
-                katanori::wakeWatch.markSegment();
-            }
             vadCurrentMs = vadAboveMs; // 立ち上がりぶんも有声に数える
             vadSegPeakRms = rms;
             vadSegPeakMs = 0;  // 区間の頭。ここからピークまでを測る
@@ -3518,8 +3492,8 @@ static void vadToggle() {
  * ---------------------------------------------------------------------------
  *  呼びかけの見張り（待機中）
  *
- *  計測モードと同じ VAD を回し、ゲートを通った区間だけを POST /wake へ送る。
- *  文字起こしに呼び名が入っていれば、そのまま会話を始める。
+ *  呼び名は機体の中で聞き分ける（MicroWake.h）。VAD は騒音床を追うためだけに回し、
+ *  その検出線（vadThreshold）を合図の音の「言い終えた」と、控えの無音詰めに使う。
  * ---------------------------------------------------------------------------
  */
 static bool vadWatching = false;
@@ -3571,8 +3545,10 @@ static void vadStartWatching() {
 /**
  * 機体の中の聞き分けが「カタノリ」を聞いた。
  *
- * 顔と音で知らせる所は whisper のときと同じ（vadSubmitWake の説明）。
- * 判定が機体の中で一瞬で済むので、待たせる間は無い。
+ * 🔴 聞いたことはすぐ顔に出す。黙っていると、呼んだ側は届いていないと思って
+ * 呼び直す（ユーザー 2026-09-21「応答がないからだよ。そりゃ呼ぶわ」）。
+ * 🔒 音でも知らせる（ユーザー 2026-09-21「品の良い音、木を２回叩いたような音とか」）。
+ * 機体を見ていないとき（肩に載せている・別の部屋にいる）は顔では伝わらない。
  */
 static void onMicroWake() {
     Serial.printf("[WAKE] ★呼ばれました（越えた瞬間の確からしさ %.3f・推論 1 回 %uus）\n",
@@ -3600,65 +3576,18 @@ static void onMicroWake() {
 }
 
 /**
- * 通った区間をクラウドへ送り、呼ばれていれば会話を始める。
- *
- * ⚠ 返事が来るまでここで止まる（実測で1〜2秒）。その間マイクは読まれない。
- * 🔴 ユーザー 2026-09-21「Gemini応答までの間に喋ったものも送ってほしい」。
- *    別タスクへ出して、待っている間もリングへ貯め続ける作りに替える。
- */
-static void vadSubmitWake() {
-    // 呼び名はブラウザの設定ページ（http://katanori.local/）で登録する。
-    // 機体のメニューでは見るのと既定へ戻すことだけ（Settings.h）
-    if (!katanori::wakeWatch.submitAsync(katanori::settings.wakeName().c_str())) {
-        return;
-    }
-    // 🔴 聞いたことをすぐ顔に出す。
-    // 判定に3〜5秒、そのあと接続に2秒かかる。そのあいだ黙っていると、
-    // 呼んだ側は届いていないと思って呼び直す（実機で4回呼ばれ、その全部が
-    // 控えから送られて Gemini が別々の発話として扱い、応答が割り込みで
-    // 捨てられ続けた）。ユーザー 2026-09-21「応答がないからだよ。そりゃ呼ぶわ」
-    robot.injectEvent(katanori::RobotEvent::WAKE_WORD);
-
-    // 🔒 ユーザー 2026-09-21「ウェイク呼ばれて顔が反応してるけど、音だしたほうが
-    //    いいよ。品の良い音、木を２回叩いたような音とか」。機体を見ていないとき
-    //    （肩に載せている・別の部屋にいる）は顔では伝わらない
-    announce(katanori::chimes::WAKE_ACK, katanori::chimes::WAKE_ACK_SAMPLES,
-             "呼ばれたのに気づきました");
-}
-
-/**
- * 見張りの世話。main loop から毎回呼ぶ。
- *
- * ・判定が返っていれば受け取り、呼ばれていれば会話を始める
- * ・待機に戻っていれば見張りを掛け直す
+ * 見張りの世話。main loop から毎回呼ぶ。待機に戻っていれば見張りを掛け直す。
  */
 static void pumpWake() {
-    bool woke = false;
-    String text;
-    if (katanori::wakeWatch.takeResult(woke, text)) {
-        Serial.printf("[WAKE] %ums 「%s」 言葉でない確率=%s → %s\n",
-                      (unsigned)katanori::wakeWatch.lastElapsedMs(), text.c_str(),
-                      katanori::wakeWatch.lastNoSpeech().c_str(),
-                      woke ? "★呼ばれました" : "呼びかけではありません");
-        if (woke) {
-            // 録音は止めない。繋がるまでのあいだも控えに貯め続ける
-            vadStopWatching(true);
-            startTurn();
-        } else {
-            katanori::wakeWatch.clearTurn();
-            driveTo(katanori::RobotState::IDLE);  // 呼びかけでなければ顔を戻す
-        }
-    }
-
     // Wi-Fi 設定モードやスリープで録音を止められると、見張りは名ばかりになる
     // （フラグは立ったままマイクが読まれない）。掛け直させる
     if (vadWatching && !katanori::audioIo.isRecording()) {
         vadWatching = false;
     }
 
-    // 会話が終わって待機に戻ったら掛け直す。判定を待っている間は掛けない。
+    // 会話が終わって待機に戻ったら掛け直す。
     // 鳴り終わった直後は、残っているロボットの声を拾うので少し置く
-    if (!vadWatching && !vadMeasuring && !katanori::wakeWatch.busy() &&
+    if (!vadWatching && !vadMeasuring &&
         !conversationActive() && katanori::netLink.wifiConnected() &&
         (playEndedMs == 0 || millis() - playEndedMs >= kWatchAfterPlayMs)) {
         vadStartWatching();

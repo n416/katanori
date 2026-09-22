@@ -1,10 +1,6 @@
 #include "WakeWatch.h"
 
-#include <HTTPClient.h>
-#include <WiFiClientSecure.h>
-
 #include "NetLink.h"
-#include "RootCa.h"
 
 namespace katanori {
 
@@ -12,14 +8,6 @@ WakeWatch wakeWatch;
 
 /** マイクのレート。ReSpeaker Lite から来るのは 16kHz 固定。 */
 static constexpr uint32_t kRate = 16000;
-
-/**
- * 送信タスクのスタック。
- *
- * TLS のハンドシェイクで深く潜るため、通常のタスクより厚く取る。
- * 8KB では足りずに落ちる（mbedTLS の作業領域が積まれる）。
- */
-static constexpr uint32_t kTaskStack = 16384;
 
 /** 1回に NetLink へ渡すサンプル数。4KB ぶん。 */
 static constexpr size_t kDrainChunk = 2048;
@@ -56,15 +44,6 @@ void WakeWatch::feed(const int16_t* pcm, size_t n) {
     }
     wpos_ = w;
     written_ += n;
-}
-
-void WakeWatch::markSegment(uint32_t backMs) {
-    if (!ring_) {
-        return;
-    }
-    const uint32_t back = kRate * backMs / 1000;
-    segAt_ = written_ > back ? written_ - back : 0;
-    hasSeg_ = true;
 }
 
 void WakeWatch::markTurn(uint32_t backMs) {
@@ -185,142 +164,6 @@ uint32_t WakeWatch::drainToNetLink(float gateRms) {
     Serial.printf("[WAKE] 繋がるまでに溜めた %.1f秒ぶんを送りました（無音 %.1f秒を詰めた）\n",
                   sent / (float)kRate, trimmed_ / (float)kRate);
     return sent;
-}
-
-bool WakeWatch::submitAsync(const char* name) {
-    if (!ring_ || !hasSeg_ || busy_) {
-        return false;
-    }
-    hasSeg_ = false;
-
-    uint32_t count = 0, rpos = 0;
-    locate(written_, wpos_, ringLen_, segAt_, count, rpos);
-    const uint32_t maxSamples = kRate * WakeWatch::kMaxSendMs / 1000;
-    if (count > maxSamples) {
-        count = maxSamples;  // 頭から kMaxSendMs ぶんだけ送る
-    }
-    if (count == 0) {
-        return false;
-    }
-
-    // タスクへ渡すぶんを一続きへ写す。リングは走り続けるので、ここで確定させる
-    payloadBytes_ = count * sizeof(int16_t);
-    payload_ = (uint8_t*)ps_malloc(payloadBytes_);
-    if (!payload_) {
-        Serial.println("[WAKE] 送信用のPSRAMが取れませんでした");
-        payloadBytes_ = 0;
-        return false;
-    }
-    int16_t* dst = (int16_t*)payload_;
-    for (uint32_t i = 0; i < count; ++i) {
-        dst[i] = ring_[(rpos + i) % ringLen_];
-    }
-
-    // 呼ばれていた場合、この区間の頭から Gemini へ渡す（「カタノリ、〜」の
-    // 呼びかけごと会話に含める）。呼びかけでなければ呼び出し側が捨てる
-    turnAt_ = segAt_;
-    hasTurn_ = true;
-
-    name_ = name && *name ? name : "";
-    busy_ = true;
-    done_ = false;
-    woke_ = false;
-    text_ = "";
-
-    // 送信は別タスク。ここで待つと main loop が止まり、返事を待つあいだの
-    // マイクが読まれない（＝会話の頭が欠ける）
-    if (xTaskCreatePinnedToCore(taskEntry, "wakepost", kTaskStack, this, 1,
-                                nullptr, 0) != pdPASS) {
-        Serial.println("[WAKE] 送信タスクを作れませんでした");
-        free(payload_);
-        payload_ = nullptr;
-        payloadBytes_ = 0;
-        busy_ = false;
-        return false;
-    }
-    return true;
-}
-
-void WakeWatch::taskEntry(void* arg) {
-    static_cast<WakeWatch*>(arg)->runSubmit();
-    vTaskDelete(nullptr);
-}
-
-void WakeWatch::runSubmit() {
-    const uint32_t t0 = millis();
-
-    String url = String("https://") + KATANORI_WS_HOST + "/wake?rate=" + String(kRate);
-    if (name_.length() > 0) {
-        url += "&name=";
-        // 呼び名はカタカナなので、そのままではURLに載らない。パーセント符号化する
-        for (size_t i = 0; i < name_.length(); ++i) {
-            const uint8_t c = (uint8_t)name_[i];
-            if (isalnum(c)) {
-                url += (char)c;
-            } else {
-                char hex[4];
-                snprintf(hex, sizeof(hex), "%%%02X", c);
-                url += hex;
-            }
-        }
-    }
-
-    WiFiClientSecure client;
-    client.setCACert(KATANORI_ROOT_CA_PEM);
-    HTTPClient http;
-    http.setTimeout(10000);
-    if (http.begin(client, url)) {
-        http.addHeader("Content-Type", "application/octet-stream");
-        const int code = http.POST(payload_, payloadBytes_);
-        if (code == 200) {
-            const String body = http.getString();
-            // 小さなJSONなのでパーサは積まない。必要なのは2つだけ
-            woke_ = body.indexOf("\"wake\":true") >= 0;
-            const int ts = body.indexOf("\"text\":\"");
-            if (ts >= 0) {
-                const int te = body.indexOf('"', ts + 8);
-                if (te > ts) {
-                    text_ = body.substring(ts + 8, te);
-                }
-            }
-            // 「言葉ではない確率」。雑音を呼び名と読み違えていないか見るため
-            const int ns = body.indexOf("\"no_speech\":");
-            if (ns >= 0) {
-                int e = ns + 12;
-                while (e < (int)body.length() && body[e] != ',' && body[e] != '}') {
-                    ++e;
-                }
-                noSpeech_ = body.substring(ns + 12, e);
-            }
-            if (text_.length() == 0) {
-                // 空で返ったときだけ中身を出す。音声が届いていないのか、
-                // 届いたが言葉として拾えなかったのかを分ける
-                Serial.printf("[WAKE] 空でした: %s\n", body.c_str());
-            }
-        } else {
-            Serial.printf("[WAKE] 送信に失敗しました (HTTP %d)\n", code);
-        }
-        http.end();
-    } else {
-        Serial.println("[WAKE] 接続を開始できませんでした");
-    }
-
-    free(payload_);
-    payload_ = nullptr;
-    payloadBytes_ = 0;
-    lastMs_ = millis() - t0;
-    done_ = true;
-    busy_ = false;
-}
-
-bool WakeWatch::takeResult(bool& woke, String& text) {
-    if (!done_) {
-        return false;
-    }
-    done_ = false;
-    woke = woke_;
-    text = text_;
-    return true;
 }
 
 } // namespace katanori

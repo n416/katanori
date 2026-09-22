@@ -145,7 +145,7 @@ SPEC_SIM.md        同上（詳細）
 | 部品の寸法と出どころ | [docs/DIMENSIONS.md](docs/DIMENSIONS.md) |
 | 3D プリンタ（レジン）と MJF の数字 | [docs/PRINT.md](docs/PRINT.md) |
 | シミュレーター | [docs/SIMULATOR.md](docs/SIMULATOR.md) |
-| ウェイクワードの計画 | [docs/WAKEUP.md](docs/WAKEUP.md) |
+| 呼びかけ（ウェイクワード） | [docs/WAKEUP.md](docs/WAKEUP.md) |
 | 保留中の自前の音声の板 | [docs/VOICE-BOARD.md](docs/VOICE-BOARD.md) |
 | 打ち切った筐体の記録（v2〜v6） | CASE-V2 / V3 / V4* / V5-PLAN / V6-PLAN |
 
@@ -232,8 +232,8 @@ python simulator\wrapper.py
 **その先（人に渡すため）**: 肩への固定・重量 → 認証・費用の上限・QRペアリング → 実使用者テスト。
 **フェーズ2**: 遠隔モジュール（Stackchan）を BLE で足す（[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)）。
 
-⬜ **保留中**: 呼びかけ検知（ウェイクワード）は今もボタン起動＝レベル0のまま
-（計画は [docs/WAKEUP.md](docs/WAKEUP.md)）。証明書の有効期限検証は
+呼びかけ（「カタノリ」固定）は機体の中で聞き分けて動く。誤爆の調べが残る
+（[docs/WAKEUP.md](docs/WAKEUP.md)）。⬜ **保留中**: 証明書の有効期限検証は
 `CONFIG_MBEDTLS_HAVE_TIME_DATE` が無効で未検証だが、ピン留め済みなので実害は薄い。
 自前の音声の板は量産の計画が立つまで保留（[docs/VOICE-BOARD.md](docs/VOICE-BOARD.md)）。
 

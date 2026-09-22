@@ -9,8 +9,3 @@ class_name = "RobotDO"
 [[migrations]]
 tag = "v1"
 new_classes = ["RobotDO"]
-
-# 呼びかけ判定の文字起こし（POST /wake）。whisper-large-v3-turbo を使う。
-# 音声1分 $0.00051・無料枠は1日1万ニューロン（約3.5時間ぶん）。
-[ai]
-binding = "AI"
