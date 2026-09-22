@@ -59,6 +59,12 @@ public:
 
     /** WebSocketのポンプ。loop() から毎回呼ぶこと。 */
     void loop();
+    /**
+     * 受信を待たせる（true の間は ws.loop() を回さない）。
+     * ソケットから読まなければ TCP の窓が埋まってサーバー側が送るのを待つ。再生キューが満杯に
+     * 近いとき main loop が立てる（長い返事は実時間より速く届くので、捨てずに向こうで持たせる）。
+     */
+    void holdReceive(bool hold);
 
     // --- Wi-Fi 資格情報 (NVSへ永続化) ---
     //

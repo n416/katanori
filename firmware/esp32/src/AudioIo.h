@@ -116,8 +116,23 @@ public:
      * マイクから読めるぶんだけ読んでモノラル化する。ブロックしない。
      * @return 書き込んだサンプル数 (0 = まだ溜まっていない)
      */
-    size_t readMic(int16_t* out, size_t maxSamples, int16_t* wakeOut = nullptr);
+    size_t readMic(int16_t* out, size_t maxSamples, int16_t* wakeOut = nullptr,
+                   uint8_t* playOut = nullptr);
     // wakeOut: 同じサンプル数ぶん、呼び名の聞き分け用の音を書く（MicroWake.h）。
+    // playOut: 読んだ音を録ったとき、スピーカーが鳴っていたか（MIC_PLAY_*）。1 回に返す音は
+    //          全部同じ印になるよう、印が変わる所で読むのを止める。
+
+    /*
+     * 録った時点で付ける、スピーカーの状態の印（readMic の playOut）。
+     *
+     * 🔴 「自分の声を鳴らしている間の音か」は、読んだ時点の isPlaying() と millis() で決めてはいけない。
+     * main loop が Wi-Fi の探索で止まると、たまった音をあとで読む。その時点で鳴り始めていれば、
+     * 鳴る前に録った人の声まで自分の声として捨てる（2026-09-22 実機、探索中の「いま何時？」が
+     * 「ちょっと待ってね」を鳴らし始めた直後に読まれて捨てられた）。録ったタスクが印を付ける。
+     */
+    static constexpr uint8_t MIC_PLAY_NONE = 0;     // 鳴っていなかった
+    static constexpr uint8_t MIC_PLAY_SETTLING = 1; // 鳴り始めてから KATANORI_AEC_SETTLE_MS 以内、またはつまみを回した直後（AEC が収束する前）
+    static constexpr uint8_t MIC_PLAY_SETTLED = 2;  // 鳴っていた（AEC は収束済み）
     // XMOS の ch1（mww 向け・取り出し口 1）を、32bit のまま 16 倍して 16bit に落としたもの。
     // 2026-09-22 の試験で、取り出し口 3 の ch0 より当たりが良かった。
     // ch1 は話しても RMS 40 前後と小さく、16bit に落としてから倍にすると細かさが消えるので、
@@ -126,8 +141,46 @@ public:
     // --- 再生 ---
     /** 再生キューへ積む。実時間より速く届くのでバッファで吸収する。 */
     void play(const int16_t* pcm, size_t samples);
-    /** 割り込み時: 未再生ぶんを破棄する。 */
+    /**
+     * 鳴っている音を止める（キューも空にする）。すぐ戻る。
+     *
+     * 実際に止めるのは鳴らすタスク。KATANORI_FADE_MS かけて音量を 0 にしてから、残りを読み捨てる。
+     * 🔴 他のタスクから送り口（I2S の DMA）やキューに触ってはいけない。以前はここで
+     * xStreamBufferReset と i2s_zero_dma_buffer を呼んでいて、鳴らすタスクが書いている最中に
+     * 別のコアから DMA を書き換えていた（2026-09-22 に外した）。送り口に触るのは鳴らすタスクだけ。
+     */
     void stopPlayback();
+
+    /**
+     * 再生中の割り込みの見張り。マイクを読むタスクの中で数える（armVoiceWatch と同じ理由）。
+     * AEC が落ち着いたあとの再生中に、threshold を越える声が minMs 続いたら（300ms までの切れ目は
+     * 続きとみなす）、その場で stopPlayback() し、印を立てる。0 で見張らない。
+     */
+    void armBargeIn(float threshold, uint32_t minMs);
+    /**
+     * つまみが動いた。それから KATANORI_KNOB_HOLD_MS の間、録った音に MIC_PLAY_SETTLING の印を付ける
+     * （割り込みの見張りも、再生中の送りも休む）。
+     * 🔒 ユーザー 2026-09-23「つまみを上げる方向に回している時ってのは話を聞こうとしている状態なんで
+     * 割り込む必要がそもそもない」。実測では、再生中につまみを 18→56% に回した直後の 3 秒、残留が
+     * 2143 まで跳ねた（黙っていたのに）。main loop から呼んでよい（印を付けるのはタスク）。
+     */
+    void noteKnobMoved();
+    /** 割り込みで止めた印。立っていれば true を返して消す。 */
+    bool takeBargeIn();
+
+    /**
+     * 前に呼んでからの、マイクの音量（音のかたまりごとの RMS）の最大。ch0（会話用）と ch1（AEC だけ）。
+     * マイクのタスクが数える（main loop が止まっても抜けない）。played はその間にスピーカーが鳴ったか。
+     * 再生中に話しかけた声がどれだけ残るかを測るため（2026-09-22）。
+     */
+    void takeLevels(float& ch0Max, float& ch1Max, bool& played);
+
+    /** 再生キューに溜まっているサンプル数（16kHz）。 */
+    size_t queuedSamples() const;
+    /** 再生キューに入る最大のサンプル数（16kHz）。 */
+    size_t queueCapacitySamples() const;
+    /** キューが満杯で捨てたサンプル数の累計。 */
+    uint32_t droppedSamples() const { return droppedSamples_; }
     bool isPlaying() const;
 
     /** 直近のマイクピーク (0.0〜1.0)。顔の口パク・波形表示に使う。 */
@@ -154,6 +207,23 @@ public:
 
     /** マイクの受け皿が一杯で捨てたサンプル数（読む側が 5 秒止まった）。 */
     uint32_t micDropped() const;
+
+    /**
+     * 声が続いたかの見張り。マイクを読むタスクの中で数える。
+     *
+     * 🔴 main loop で数えてはいけない。Wi-Fi の探索（約 3 秒）や TLS の握手で loop が止まり、
+     * その間の声を取りこぼす（2026-09-22 実機、探索中の「いま何時？」が捨てられた）。
+     * タスクは止まらずに読み続けるので、声が minMs 続いた時点で印を立てられる。
+     *
+     * @param minMs  これだけ声が続いたら印を立てる。0 で見張りをやめる（印も消す）
+     * 音節の間の 300ms までの切れ目は続きとみなす。再生中の音は数えない（自分の声）。
+     * 見張りの条件を変えても、立った印は takeVoiceFired() で受け取るまで残る。
+     */
+    void armVoiceWatch(uint32_t minMs);
+    /** 声とみなす音量（RMS）。main loop が騒音床から決めて渡し続ける。 */
+    void setVoiceThreshold(float rms);
+    /** 印が立っていれば true を返し、印を消す。 */
+    bool takeVoiceFired();
 
     /**
      * 読み取り用のタスクを止める／再開する（入れ子にしてよい）。
@@ -233,6 +303,8 @@ private:
     static void playbackTask(void* arg);
     static void captureTask(void* arg);
     void runCapture();
+    void watchVoice(const int16_t* pcm, size_t n);
+    void watchBargeIn(const int16_t* pcm, size_t n, uint8_t play);
     size_t captureFromI2s(int16_t* out, size_t maxSamples, int16_t* wakeOut, TickType_t wait);
     void runPlayback();
 

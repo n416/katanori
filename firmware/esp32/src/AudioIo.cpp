@@ -32,7 +32,10 @@ constexpr size_t READ_FRAMES = 512 * RATE_RATIO;
 
 // 再生バッファ。PSRAM があれば潤沢に取る。
 // 16kHz/16bit モノラルなので 1秒 = 32000バイト。
-constexpr size_t PLAY_BUF_PSRAM = 512 * 1024; // 16秒
+// 🔴 Gemini の返事は実時間の 2〜3 倍で届く。512KB（16.4 秒）では 25 秒の返事で満杯になり、
+// 越えた分を捨てて途中が抜けた（2026-09-22）。満杯に近づくと受信を待たせる（main loop の
+// holdReceive）ので上限は保険。ユーザー指定で 2MB（4MB はやりすぎ）
+constexpr size_t PLAY_BUF_PSRAM = 2 * 1024 * 1024; // 65.5秒
 constexpr size_t PLAY_BUF_DRAM  = 48 * 1024;  // 1.5秒
 
 StreamBufferHandle_t playBuf = nullptr;
@@ -57,9 +60,39 @@ bool driverInstalled = false;
 constexpr uint32_t CAP_SAMPLES = KATANORI_AUDIO_RATE * 5;
 int16_t* capMain = nullptr;   // 会話・VAD 用（KATANORI_MIC_CHANNEL・KATANORI_MIC_GAIN）
 int16_t* capWake = nullptr;   // 呼び名の聞き分け用（ch1 を 16 倍）
+uint8_t* capPlay = nullptr;   // 録ったときのスピーカーの状態（AudioIo::MIC_PLAY_*）
+
+/**
+ * 再生が始まってから、AEC の係数が落ち着くまで [ms]。
+ * 2026-09-21 実測: 再生開始直後の残留が RMS 8000〜13000、0.3〜0.6秒 で 134〜677 まで落ちる。安全側に 600ms。
+ */
+constexpr uint32_t KATANORI_AEC_SETTLE_MS = 600;
 volatile uint32_t capW = 0;   // 書いた総数（タスクだけが進める）
 volatile uint32_t capR = 0;   // 読んだ総数（readMic だけが進める）
 volatile uint32_t capDropped = 0;
+// 声が続いたかの見張り（armVoiceWatch）。条件は main loop が書き、数えるのはタスクだけ
+volatile uint32_t vwMinSamples = 0;   // 0 = 見張らない
+volatile float vwThreshold = 1e9f;
+volatile bool vwFired = false;
+uint32_t vwRun = 0;                   // 続いている声のサンプル数（タスクだけが触る）
+uint32_t vwGap = 0;                   // 声が途切れてからのサンプル数
+volatile bool vwReset = false;        // 条件が変わった。数え直す
+// 音量を下げてから止める（stopPlayback）。頼むのは誰でもよく、実際に下げるのは鳴らすタスクだけ
+constexpr uint32_t KATANORI_FADE_MS = 150;
+volatile bool fadeReq = false;
+// 再生中の割り込みの見張り（armBargeIn）
+volatile float biThreshold = 0.0f;
+volatile uint32_t biMinSamples = 0;   // 0 = 見張らない
+// つまみを回した直後は AEC が合わせ直すので、この間は再生の始まりと同じ扱い（noteKnobMoved）
+constexpr uint32_t KATANORI_KNOB_HOLD_MS = 1000;
+volatile uint32_t knobHoldW = 0;      // この録音位置までは MIC_PLAY_SETTLING（main loop が書く）
+volatile bool biFired = false;
+uint32_t biRun = 0;                   // タスクだけが触る
+uint32_t biGap = 0;
+// 音量の最大（takeLevels）。タスクが書き、main loop が読んで消す
+volatile float lvl0Max = 0.0f;
+volatile float lvl1Max = 0.0f;
+volatile bool lvlPlayed = false;
 volatile int capHoldCount = 0;  // 診断のコマンドが I2S を直に触る間は止める
 volatile bool capHeld = false;
 
@@ -167,7 +200,9 @@ bool AudioIo::begin() {
         return false;
     }
 
-    playBuf = xStreamBufferCreateStatic(playBufSize, 1, playBufStorage, &playBufStruct);
+    // 入れられるのは「渡した大きさ − 1」バイト。+1 で渡して、容量を偶数（＝サンプルの切れ目）にする
+    // （2026-09-22: 524287 バイトだったため、満杯で奇数バイトに切れて以降が雑音になった。play() の説明）
+    playBuf = xStreamBufferCreateStatic(playBufSize + 1, 1, playBufStorage, &playBufStruct);
     if (playBuf == nullptr) {
         Serial.println("[I2S] StreamBuffer作成に失敗");
         i2s_driver_uninstall(I2S_PORT);
@@ -185,7 +220,8 @@ bool AudioIo::begin() {
     // マイクの受け皿と読み取り用のタスク（capMain の説明）
     capMain = static_cast<int16_t*>(heap_caps_malloc(CAP_SAMPLES * sizeof(int16_t), MALLOC_CAP_SPIRAM));
     capWake = static_cast<int16_t*>(heap_caps_malloc(CAP_SAMPLES * sizeof(int16_t), MALLOC_CAP_SPIRAM));
-    if (capMain == nullptr || capWake == nullptr) {
+    capPlay = static_cast<uint8_t*>(heap_caps_malloc(CAP_SAMPLES, MALLOC_CAP_SPIRAM));
+    if (capMain == nullptr || capWake == nullptr || capPlay == nullptr) {
         Serial.println("[I2S] マイクの受け皿（PSRAM）が取れません");
         return false;
     }
@@ -376,6 +412,31 @@ void AudioIo::runCapture() {
         if (!recording_) {
             continue;  // 録音していないときは読み捨てる（DMA を溢れさせない）
         }
+        watchVoice(mainBuf, n);
+        // 録った時点のスピーカーの状態（MIC_PLAY_* の説明）。鳴り始めを音の数で数える
+        static uint32_t playStartW = 0;
+        static bool wasPlaying = false;
+        const bool playing = isPlaying();
+        if (playing && !wasPlaying) {
+            playStartW = capW;
+        }
+        wasPlaying = playing;
+        const bool settling = (capW - playStartW < KATANORI_AUDIO_RATE / 1000 * KATANORI_AEC_SETTLE_MS) ||
+                              ((int32_t)(knobHoldW - capW) > 0);
+        const uint8_t play = !playing ? MIC_PLAY_NONE : settling ? MIC_PLAY_SETTLING : MIC_PLAY_SETTLED;
+        watchBargeIn(mainBuf, n, play);
+        {
+            double a0 = 0.0, a1 = 0.0;
+            for (size_t i = 0; i < n; ++i) {
+                a0 += (double)mainBuf[i] * mainBuf[i];
+                a1 += (double)wakeBuf[i] * wakeBuf[i];
+            }
+            const float r0 = (float)sqrt(a0 / n);
+            const float r1 = (float)sqrt(a1 / n);
+            if (r0 > lvl0Max) lvl0Max = r0;
+            if (r1 > lvl1Max) lvl1Max = r1;
+            if (play == MIC_PLAY_SETTLED) lvlPlayed = true;  // AEC が落ち着いたあとの再生中
+        }
         for (size_t i = 0; i < n; ++i) {
             if (capW - capR >= CAP_SAMPLES) {
                 ++capDropped;  // 受け皿が一杯。読む側が 5 秒止まっている
@@ -384,17 +445,144 @@ void AudioIo::runCapture() {
             const uint32_t at = capW % CAP_SAMPLES;
             capMain[at] = mainBuf[i];
             capWake[at] = wakeBuf[i];
+            capPlay[at] = play;
             capW = capW + 1;
         }
     }
 }
 
-size_t AudioIo::readMic(int16_t* out, size_t maxSamples, int16_t* wakeOut) {
+/** 声が続いたかを数える（armVoiceWatch の説明）。読み取り用のタスクだけが呼ぶ。 */
+void AudioIo::watchVoice(const int16_t* pcm, size_t n) {
+    if (vwReset) {
+        vwReset = false;
+        vwRun = 0;
+        vwGap = 0;
+    }
+    const uint32_t minSamples = vwMinSamples;
+    if (minSamples == 0 || vwFired || isPlaying()) {
+        vwRun = 0;
+        return;
+    }
+    double acc = 0.0;
+    for (size_t i = 0; i < n; ++i) {
+        acc += (double)pcm[i] * (double)pcm[i];
+    }
+    if ((float)sqrt(acc / n) >= vwThreshold) {
+        if (vwGap > KATANORI_AUDIO_RATE * 300 / 1000) {
+            vwRun = 0;  // 300ms を超えて途切れた。別の声として数え直す
+        }
+        vwGap = 0;
+        vwRun += n;
+        if (vwRun >= minSamples) {
+            vwFired = true;
+            vwRun = 0;
+        }
+    } else {
+        vwGap += n;
+    }
+}
+
+/** 再生中に話しかけられたかを数える（armBargeIn の説明）。読み取り用のタスクだけが呼ぶ。 */
+void AudioIo::watchBargeIn(const int16_t* pcm, size_t n, uint8_t play) {
+    const uint32_t minSamples = biMinSamples;
+    if (minSamples == 0 || play != MIC_PLAY_SETTLED || fadeReq) {
+        biRun = 0;
+        biGap = 0;
+        return;
+    }
+    double acc = 0.0;
+    for (size_t i = 0; i < n; ++i) {
+        acc += (double)pcm[i] * (double)pcm[i];
+    }
+    if ((float)sqrt(acc / n) >= biThreshold) {
+        if (biGap > KATANORI_AUDIO_RATE * 300 / 1000) {
+            biRun = 0;  // 300ms を超えて途切れた。別の声として数え直す
+        }
+        biGap = 0;
+        biRun += n;
+        if (biRun >= minSamples) {
+            biRun = 0;
+            biFired = true;
+            stopPlayback();  // その場で止め始める（main loop を待たない）
+        }
+    } else {
+        biGap += n;
+    }
+}
+
+void AudioIo::armBargeIn(float threshold, uint32_t minMs) {
+    biThreshold = threshold;
+    biMinSamples = KATANORI_AUDIO_RATE / 1000 * minMs;
+}
+
+void AudioIo::noteKnobMoved() {
+    knobHoldW = capW + KATANORI_AUDIO_RATE / 1000 * KATANORI_KNOB_HOLD_MS;
+}
+
+bool AudioIo::takeBargeIn() {
+    if (!biFired) {
+        return false;
+    }
+    biFired = false;
+    return true;
+}
+
+void AudioIo::takeLevels(float& ch0Max, float& ch1Max, bool& played) {
+    ch0Max = lvl0Max;
+    ch1Max = lvl1Max;
+    played = lvlPlayed;
+    lvl0Max = 0.0f;
+    lvl1Max = 0.0f;
+    lvlPlayed = false;
+}
+
+size_t AudioIo::queuedSamples() const {
+    return playBuf != nullptr ? xStreamBufferBytesAvailable(playBuf) / sizeof(int16_t) : 0;
+}
+
+size_t AudioIo::queueCapacitySamples() const {
+    return playBufSize / sizeof(int16_t);
+}
+
+void AudioIo::armVoiceWatch(uint32_t minMs) {
+    vwMinSamples = KATANORI_AUDIO_RATE / 1000 * minMs;
+    vwReset = true;
+    if (minMs == 0) {
+        vwFired = false;
+    }
+}
+
+void AudioIo::setVoiceThreshold(float rms) {
+    vwThreshold = rms;
+}
+
+bool AudioIo::takeVoiceFired() {
+    if (!vwFired) {
+        return false;
+    }
+    vwFired = false;
+    return true;
+}
+
+size_t AudioIo::readMic(int16_t* out, size_t maxSamples, int16_t* wakeOut, uint8_t* playOut) {
     if (!started_ || !recording_) {
         return 0;
     }
     const uint32_t avail = capW - capR;
-    const size_t n = avail < maxSamples ? avail : maxSamples;
+    size_t n = avail < maxSamples ? avail : maxSamples;
+    if (n > 0) {
+        // 印が変わる所で止める（1 回に返す音は全部同じ印）
+        const uint8_t first = capPlay[capR % CAP_SAMPLES];
+        for (size_t i = 1; i < n; ++i) {
+            if (capPlay[(capR + i) % CAP_SAMPLES] != first) {
+                n = i;
+                break;
+            }
+        }
+        if (playOut) {
+            *playOut = first;
+        }
+    }
     for (size_t i = 0; i < n; ++i) {
         const uint32_t at = (capR + i) % CAP_SAMPLES;
         out[i] = capMain[at];
@@ -493,8 +681,26 @@ void AudioIo::play(const int16_t* pcm, size_t samples) {
         return;
     }
     size_t bytes = samples * sizeof(int16_t);
+    /*
+     * 🔴 満杯のときはサンプルの切れ目でしか書かない。
+     * StreamBuffer は 1 バイト単位なので、入る分だけ書くと奇数バイトで切れることがあり、
+     * 以降の 16bit の音が全部 1 バイトずれてフルスケールの雑音になる。長い返事で
+     * 当時の容量（16.4 秒ぶん）を越えて届いたときに起きて、鳴らすタスクがキューが空になるまで雑音を書き続けた
+     * （2026-09-22 実機。再生 25 秒目で書いた音の最大が 152 → 624 = 32767 × 音量。
+     * キューの容量が 524287 バイトと奇数だったので、満杯の最後の書き込みは必ず奇数で切れていた）。
+     * 容量は begin() で偶数に直したが、ここでも切れ目を守る。
+     */
+    size_t space = xStreamBufferSpacesAvailable(playBuf) & ~(size_t)1;
+    if (space < bytes) {
+        droppedSamples_ += (bytes - space) / sizeof(int16_t);
+        bytes = space;
+    }
+    if (bytes == 0) {
+        return;
+    }
     size_t sent = xStreamBufferSend(playBuf, pcm, bytes, 0); // 待たない
     if (sent < bytes) {
+        // 空きを見てから書くまでに減ることは無い（書くのは main loop だけ）。念のため数える
         droppedSamples_ += (bytes - sent) / sizeof(int16_t);
     }
 }
@@ -647,10 +853,9 @@ void AudioIo::setGain(float g) {
 }
 
 void AudioIo::stopPlayback() {
-    if (playBuf != nullptr) {
-        xStreamBufferReset(playBuf);
+    if (isPlaying()) {
+        fadeReq = true;  // 実際に止めるのは鳴らすタスク（runPlayback）
     }
-    i2s_zero_dma_buffer(I2S_PORT);
 }
 
 bool AudioIo::isPlaying() const {
@@ -663,6 +868,7 @@ void AudioIo::playbackTask(void* arg) {
 
 void AudioIo::runPlayback() {
     static int16_t mono[256];
+    uint32_t fadeLeft = 0;  // 音量を下げ終わるまでのサンプル数（stopPlayback）
     static const int16_t silence[256] = { 0 };
 
     for (;;) {
@@ -678,6 +884,28 @@ void AudioIo::runPlayback() {
                     mono[i] = static_cast<int16_t>(mono[i] * g);
                 }
             }
+            // 止めるよう頼まれた（stopPlayback）。KATANORI_FADE_MS かけて 0 まで下げ、残りを捨てる
+            constexpr uint32_t kFadeSamples = KATANORI_AUDIO_RATE / 1000 * KATANORI_FADE_MS;
+            if (fadeReq) {
+                if (fadeLeft == 0) {
+                    fadeLeft = kFadeSamples;
+                }
+                for (size_t i = 0; i < samples; ++i) {
+                    mono[i] = static_cast<int16_t>(mono[i] * ((float)fadeLeft / kFadeSamples));
+                    if (fadeLeft > 0) {
+                        --fadeLeft;
+                    }
+                }
+                if (fadeLeft == 0) {
+                    // 下げ終わった。残りは読んで捨てる（自分は受け取る側なので、読み捨てれば空になる）
+                    writeMono(mono, samples, portMAX_DELAY);
+                    playedSamples_ += samples;
+                    while (xStreamBufferReceive(playBuf, mono, sizeof(mono), 0) > 0) {
+                    }
+                    fadeReq = false;
+                    continue;
+                }
+            }
             writeMono(mono, samples, portMAX_DELAY);
             playedSamples_ += samples;
         } else {
@@ -685,6 +913,8 @@ void AudioIo::runPlayback() {
             // TXを止めるとDMAが枯渇し、条件によっては直前の内容を繰り返して
             // 大音量のノイズになる。無音を流し続ければ確実に静かになる。
             writeMono(silence, sizeof(silence) / sizeof(silence[0]), portMAX_DELAY);
+            fadeReq = false;  // 鳴らすものが無くなった。下げる途中でも頼みは終わり
+            fadeLeft = 0;
         }
     }
 }

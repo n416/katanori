@@ -523,6 +523,12 @@ static katanori::RobotCore robot(hal);
 static bool speaking = false;
 // Geminiがターンを終えたか。再生キューが空になるまで IDLE には戻らない。
 static bool turnComplete = false;
+/**
+ * 機体の側で割り込んだあと、同じ返事の残りを捨てるか。
+ * Gemini がまだ返事を作っている最中に止めたとき、続きの音が届いて鳴り直すのを防ぐ。
+ * その返事の終わり（turnComplete か interrupted）で解く。
+ */
+static bool dropReplyAudio = false;
 // audioStreamEnd を送った時刻（応答遅延の実測用）
 static uint32_t streamEndMs = 0;
 
@@ -886,9 +892,15 @@ static bool muteRelayClosed = false;
  * 開くときは出力LOWで能動的に落とす。10kΩ のプルダウンは残しておいて、
  * 「ファームが動いていないとき」の担保に専念させる。
  */
+/** `spkcut` で接点を開けたまま鍵を掛けたか。掛かっている間は、どこからも閉じない（スピーカーに関わる試験用。再起動で外れる）。 */
+static bool relayLockedOpen = false;
+
 static void muteRelaySet(bool closed) {
     if (KATANORI_MUTE_RELAY_PIN < 0) {
         return;
+    }
+    if (closed && relayLockedOpen) {
+        return;  // スピーカーを切り離した試験中（spkcut）
     }
     if (closed == muteRelayClosed) {
         return;
@@ -958,6 +970,7 @@ static void knobSetPercent(int pct) {
     if (knobPercent < 0 || endstop || abs(pct - knobPercent) >= 2) {
         knobPercent = pct;
         applyKnobVolume(pct);
+        katanori::audioIo.noteKnobMoved();  // 回した直後は割り込みも送りも休む（AudioIo.h の説明）
         noteActivity("つまみ");
         // 回した本人に見えるように画面へ出す。ただし復帰アニメ直後の1回だけは
         // 捨てる（顔が戻るのを先に見せる。回し続ければ次からは普通に出る）
@@ -1169,6 +1182,8 @@ static bool powerRelayDown = false;
 static bool powerIdleAsleep = false;
 /** 眠りから呼ばれたときの、待たせる声の段階（説明は pumpWakeChime の手前）。 */
 static uint8_t sleepWakeStage = 0;
+/** 眠りから呼ばれたあと、話しかけられたか（一息で続けた・待っている間に話した）。pumpWakeEngage。 */
+static bool wakeEngaged = false;
 /** 音声の初期化が通ったか。通っていなければ接点は閉じない（setup の方針と同じ）。 */
 static bool audioReady = false;
 
@@ -1376,9 +1391,8 @@ static void pumpPowerDown() {
             muteRelaySet(true);
         }
     }
-    // 眠りから呼ばれたときは、「ちょっと待ってね」を鳴らし始めてから無線を戻す。
-    // 先に戻すと、電波の探索（約 3 秒）の間 main loop が止まり、声が 5 秒遅れた（2026-09-22 実機）。
-    // 声は再生のタスクが鳴らすので、探索で loop が止まっても途切れない
+    // 眠りから呼ばれたときは、呼び名とその続きを言い終えてから無線を戻す（pumpWakeChime）。
+    // 電波の探索（約 3 秒）の間は main loop が止まり、マイクも読めない
     if (powerNetDown && sleepWakeStage != 1) {
         powerNetDown = false;
         // 再試行の待ち時間を捨てて即つなぎにいく。つまみを戻した人を
@@ -1568,6 +1582,9 @@ static void driveTo(katanori::RobotState target) {
 
 /** DOから届いた生PCM。そのまま再生キューへ積むだけ。 */
 static void onAudio(const int16_t* pcm, size_t samples) {
+    if (dropReplyAudio) {
+        return;  // 機体の側で割り込んだ返事の残り（dropReplyAudio の説明）
+    }
     if (!speaking) {
         speaking = true;
         turnComplete = false;
@@ -1659,6 +1676,7 @@ static void onControl(const char* json) {
     // 割り込み: マイクがスピーカー音を拾うと Gemini がこれを返す。
     // 未再生ぶんを捨てないと、古い応答が延々と流れ続ける。
     if (strstr(json, "\"interrupted\"") != nullptr) {
+        dropReplyAudio = false;  // 割り込まれた返事はここで終わり。次の返事は鳴らす
         Serial.println("[TURN] 割り込み検知 — 再生を中断します");
         // キューを空にすれば pumpOutputGate() が閉じる
         katanori::audioIo.stopPlayback();
@@ -1668,6 +1686,10 @@ static void onControl(const char* json) {
         return;
     }
     if (strstr(json, "\"turnComplete\"") != nullptr) {
+        if (dropReplyAudio) {
+            dropReplyAudio = false;  // 割り込んだ返事が終わった。turnComplete は次の返事のものではない
+            return;
+        }
         turnComplete = true;
     }
 
@@ -1739,6 +1761,17 @@ static void startTurn() {
     katanori::audioIo.startRecording();
     robot.injectEvent(katanori::RobotEvent::WAKE_WORD);
     Serial.println("[TURN] 会話開始（発話の区切りは自動判定。もう一度ボタンで会話終了）");
+
+    // 眠りから呼ばれて、話しかけられていないときは控えを送らない。
+    // 🔴 送ると、呼び名だけの音（誤爆ならテレビや話し声）に Gemini が返事をして、声で起きたのが
+    // バレる（2026-09-22 実機「カタノリ」とだけ言って黙ったら「ん？どうしたの？何か用事？」）。
+    // 指示に「名前だけなら黙って待つ」と書いても Live は守らなかった。
+    // このあと話し出せば、その声はライブでそのまま届く
+    if (sleepWakeStage != 0 && !wakeEngaged) {
+        katanori::wakeWatch.clearTurn();
+        Serial.println("[WAKE] 話しかけられていないので、控えの音は送りません");
+        return;
+    }
 
     // ボタンを押した（あるいは呼ばれた）ところから、繋がるまでに喋ったぶん。
     // setupComplete を待ってから送る位置なので、Gemini に捨てられない
@@ -1967,11 +2000,20 @@ static void pumpAutoConnect() {
         return;
     }
     if (sleepWakeStage == 1) {
-        return;  // 眠りから呼ばれ、「ちょっと待ってね」を鳴らす前。探索で loop を止めない（pumpPowerDown）
+        return;  // 眠りから呼ばれ、まだ言い終えていない。探索で loop を止めない（pumpPowerDown）
     }
+    // 眠りから呼ばれたあとは、Gemini まで来るまで「ちょっと／まってね」、Wi-Fi がつながったら
+    // 「あと／すこし」（sleepWakeStage の説明）
+    const bool wakeWait = sleepWakeStage != 0;
     if (katanori::netLink.wifiConnected()) {
         if (!bannerDemo) {
-            setNetMessage("");
+            if (sleepWakeStage == 3) {
+                setNetMessage("あと", "すこし");
+            } else if (wakeWait) {
+                setNetMessage("ちょっと", "まってね");
+            } else {
+                setNetMessage("");
+            }
         }
         noteWifiUp();
         return;
@@ -1985,13 +2027,17 @@ static void pumpAutoConnect() {
 
     // --- 1. 繋ぐ ---
     Serial.printf("[NET] 自動接続を試みます（%u回目）\n", (unsigned)wifiFailures + 1);
-    setNetMessage(ssidMissing ? "WiFiを" : "WiFiに",
-                  ssidMissing ? "さがしています" : "つないでいます");
+    if (wakeWait && !ssidMissing) {
+        setNetMessage("ちょっと", "まってね");
+    } else {
+        setNetMessage(ssidMissing ? "WiFiを" : "WiFiに",
+                      ssidMissing ? "さがしています" : "つないでいます");
+    }
     showNow();
     // 既定の20秒はここでは長い。待っている間は wifiWaitTick が顔を回す。
     // 結論が出た時点で打ち切られるので、駄目なときは実測2.5秒で戻ってくる。
     if (katanori::netLink.wifiConnect(12000, wifiWaitTick)) {
-        setNetMessage("");
+        setNetMessage(wakeWait ? "ちょっと" : "", wakeWait ? "まってね" : "");
         noteWifiUp();
         return;
     }
@@ -2606,21 +2652,25 @@ static bool echoGuardEnabled = false;
  */
 static constexpr uint32_t kUnmuteBlankMs = 30;
 
-/**
- * 再生が始まってから、AEC の係数が落ち着くまでの時間。
- *
- * 2026-09-21 実測: 再生開始直後の残留が RMS 8000〜13000、0.3〜0.6秒 で
- * 134〜677 まで落ちる。安全側に 600ms とる。
- */
-static constexpr uint32_t kAecSettleMs = 600;
+// 再生が始まってから AEC が落ち着くまで（600ms）は AudioIo.cpp の KATANORI_AEC_SETTLE_MS。
+// 録った時点で印が付く（AudioIo::MIC_PLAY_SETTLING）
 
 /**
  * 収束後の再生中に「人が喋った」とみなす音量。
  *
- * 2026-09-21 実測: 収束後の残留が最大 677、1m の人の声が 1880〜2632。
- * その間に置く。
+ * 2026-09-22 実測（ch0 の取り出し口 3・16 倍）: 収束後の残留は、つまみ 39% で中央 22・ほぼ 200 まで、
+ * 62〜67% で中央 21・最大 112（音量を上げてもほとんど増えない）。割り込もうとした人の声は 279〜1300。
+ * 2026-09-23 実測（黙って聞いた返事、0.3 秒ごとの最大）: つまみ 56% で最大 172（156 回）、92% で最大 286
+ * （40 回）。つまみを回した直後は別（AudioIo::noteKnobMoved）。線は残留の上、声の下の 450。
+ * 450 に届かない小さな声では割り込めない（2026-09-22 の声の下限 279 は切る）。
+ * 🔴 取り出し口を 4（AGC あり）から 3 に下げたとき測り直さず、4 のときの 1000（残留 677・声 1880〜2632）の
+ * ままにしていた。声が線に届かず、割り込めなかった（2026-09-22 ユーザー指摘）。取り出し口や倍率を
+ * 変えたら、ここも測り直すこと。
  */
-static constexpr float kPlaybackGateRms = 1000.0f;
+static constexpr float kPlaybackGateRms = 450.0f;
+/** 再生中、線を越える声がこれだけ続いたら、機体の側で再生を止める（pumpMic）。 */
+static constexpr uint32_t kBargeInMs = 200;
+// 機体の側で割り込んだあとの返事の残りを捨てる印は dropReplyAudio（speaking の近く）
 
 /** 再生が始まった時刻。0 なら再生していない。 */
 static uint32_t playStartedMs = 0;
@@ -2645,6 +2695,9 @@ static uint32_t wakeChimeAtMs = 0;     // 呼ばれた時刻
 static uint32_t wakeQuietSinceMs = 0;  // 静かになった時刻（0 = 話している）
 static constexpr uint32_t kWakeChimeQuietMs = 600;     // これだけ静かなら言い終えた
 static constexpr uint32_t kWakeChimeTimeoutMs = 8000;  // 静かにならなくても鳴らす
+static constexpr uint32_t kWakeContinueMs = 300;       // 聞き分けたあとこれだけ声が続いたら一息で続けた
+static constexpr uint32_t kWakeWaitVoiceMs = 250;      // 待っている間、これだけ声が続いたら話しかけられた
+static bool wakeEngagedInline = false;                 // 一息で続けた（待たせる声は出さない）
 static float vadThreshold();
 
 /*
@@ -2656,11 +2709,19 @@ static float vadThreshold();
  * Wi-Fi とサーバーの 2 つを待つ。黙っていると、届いていないと思って呼び直される。
  * 声は機体に焼いてある（VoiceClips.h・会話と同じ Gemini Live の声）。
  *
+ * 🔒 ユーザー 2026-09-22「ちょっと待ってねは辞めようかね。LEDに出すだけならいいのでは」
+ * 「（ワイファイがつながったよも）画面だけ」「その間に声があったら音出してほしい」。
+ * 誤爆のたびに声が出るとバレるので、ふだんは画面だけで待たせる。待っている間に話しかけ
+ * られたら（wakeEngaged・pumpWakeEngage）、そこから前と同じく声で待たせる。
+ *
  *   0: 何もしていない
- *   1: 呼ばれた。言い終えるのを待って「ちょっと待ってね、いま起きたところ」（pumpWakeChime）
- *   2: 言い終わるのを待つ。そのとき Gemini まで来ていれば「おまたせ！」、Wi-Fi だけなら
+ *   1: 呼ばれた。画面に「ちょっと／まってね」を出し、言い終えるのを待って無線を戻す
+ *      （pumpWakeChime）。画面は Gemini まで来るまで出す（pumpAutoConnect）
+ *   2: Wi-Fi を待つ。話しかけられたら「ちょっと待ってね、いま起きたところ」。
+ *      Wi-Fi がつながったら画面を「あと／すこし」へ。話しかけられていれば声でも
  *      「ワイファイがつながったよ、あと少し」
- *   3: Gemini まで来たら「おまたせ！」
+ *   3: Gemini を待つ。話しかけられたら「ちょっと待ってね、いま起きたところ」
+ *   Gemini まで来たら、話しかけられていて、しかも前の声から 2 秒以上待たせたときだけ「おまたせ！」
  * 声を鳴らしている間のマイクは控えに入れない（pumpMic）ので、自分の声は Gemini へ行かない。
  * 変数（sleepWakeStage）は、無線を戻す pumpPowerDown が見るので、上の待機スリープの節に置く。
  */
@@ -2703,13 +2764,78 @@ static void pumpWakeChime(const int16_t* pcm, size_t n) {
     if (quiet || now - wakeChimeAtMs >= timeoutMs) {
         wakeChimePending = false;
         if (sleepWakeStage == 1) {
-            announce(katanori::clips::WAKE_FROM_SLEEP, katanori::clips::WAKE_FROM_SLEEP_SAMPLES,
-                     "ちょっと待ってね、いま起きたところ");
+            // 🔒 ユーザー 2026-09-22「ちょっと待ってねは辞めようかね。LEDに出すだけならいいのでは」。
+            // 誤爆のたびに声が出るとバレる。画面の「ちょっと／まってね」は onMicroWake で出してある。
+            // 言い終えるまで無線を戻さない待ちはそのまま（探索の約 3 秒は main loop がマイクを読めない）
+            Serial.println("[WAKE] 言い終えました。無線を戻します（声は出さない）");
             sleepWakeStage = 2;
+            if (!wakeEngaged) {
+                katanori::audioIo.armVoiceWatch(kWakeWaitVoiceMs);  // ここからは待っている間の声を見る
+            }
         } else {
             announce(katanori::chimes::WAKE_ACK, katanori::chimes::WAKE_ACK_SAMPLES,
                      "呼ばれたのに気づきました");
         }
+    }
+}
+
+/**
+ * 眠りから呼ばれたあと、話しかけられたか（wakeEngaged）。main loop から毎回呼ぶ。
+ *
+ * 声が続いたかはマイクのタスクが数える（AudioIo::armVoiceWatch）。ここは印を受け取るだけ。
+ * ・段階 1（聞き分けたあと、言い終える前）に声が 300ms 続いた＝「カタノリ、今日の天気は？」と
+ *   一息で続けた。控え（続きの言葉）を送る。待たせる声は出さない（言いかけの途中に重なる）
+ * ・段階 2 以降（言い終えて待っている間）に声が 250ms 続いた＝話しかけられた。
+ *   「ちょっと待ってね」から声で待たせる
+ * 音量で見ているので、テレビの声も話しかけられたと数える。
+ */
+/**
+ * 再生中に話しかけられて、マイクのタスクが止めた（AudioIo::armBargeIn）。main loop から毎回呼ぶ。
+ *
+ * 🔴 Gemini が返事を作り終えたあと（generationComplete）は「interrupted」が来ないので、たまった返事を
+ * 最後まで鳴らし続けていた。🔒 ユーザー 2026-09-22「こっちが喋ってるのに無視されてるようでかなり心象がわるい」
+ * 「ブツっと切らずに音量下げればいい」。止めるのはタスク、ここは状態を合わせるだけ。
+ */
+static void pumpBargeIn() {
+    katanori::audioIo.armBargeIn(kPlaybackGateRms, kBargeInMs);
+    // 再生中の声の残り方を測る（AudioIo::takeLevels）。0.3 秒ごとの最大を出す
+    static uint32_t lvlMs = 0;
+    if (millis() - lvlMs >= 300) {
+        lvlMs = millis();
+        float c0 = 0.0f, c1 = 0.0f;
+        bool played = false;
+        katanori::audioIo.takeLevels(c0, c1, played);
+        if (played || c0 >= 150.0f) {
+            Serial.printf("[LVL] %s ch0最大=%.0f ch1最大=%.0f\n", played ? "再生中" : "鳴っていない", c0, c1);
+        }
+    }
+    if (!katanori::audioIo.takeBargeIn()) {
+        return;
+    }
+    Serial.println("[TURN] 話しかけられたので、音量を下げて返事を止めました");
+    dropReplyAudio = speaking && !turnComplete;  // 作っている途中なら、続きが届いても鳴らさない
+    speaking = false;
+    turnComplete = false;
+    robot.injectEvent(katanori::RobotEvent::SPEECH_DONE);
+}
+
+static void pumpWakeEngage() {
+    if (sleepWakeStage == 0) {
+        return;
+    }
+    katanori::audioIo.setVoiceThreshold(vadThreshold());
+    if (wakeEngaged || !katanori::audioIo.takeVoiceFired()) {
+        return;
+    }
+    wakeEngaged = true;
+    katanori::audioIo.armVoiceWatch(0);
+    if (sleepWakeStage == 1) {
+        wakeEngagedInline = true;
+        Serial.println("[WAKE] 呼び名に続けて話しています（控えを送ります・待たせる声は出さない）");
+    } else {
+        Serial.println("[WAKE] 待っている間に話しかけられました。声で待たせます");
+        announce(katanori::clips::WAKE_FROM_SLEEP, katanori::clips::WAKE_FROM_SLEEP_SAMPLES,
+                 "ちょっと待ってね、いま起きたところ");
     }
 }
 
@@ -2736,20 +2862,30 @@ static void pumpSleepWakeStages() {
     // つながらずに諦めた（pumpPendingTurn の上限）か、会話が別の道で終わった
     if (!pendingTurn && !katanori::netLink.wsReady()) {
         sleepWakeStage = 0;
+        katanori::audioIo.armVoiceWatch(0);
         return;
     }
     if (katanori::netLink.wsReady()) {
         // 🔒 ユーザー 2026-09-22「おまたせは、あと少しから数秒かかった時だけでいい。即時流れると
-        // 『別に待たなかったような・・・』って感じ」。前の声を言い終えてから 2 秒以上待たせたときだけ
-        if ((int32_t)(readyAtMs - quietAtMs) >= 2000) {
+        // 『別に待たなかったような・・・』って感じ」。前の声を言い終えてから 2 秒以上待たせたときだけ。
+        // 声で待たせていない（話しかけられていない）ときは言わない
+        if (!wakeEngaged || wakeEngagedInline) {
+            Serial.println("[VOICE] 声で待たせていないので「おまたせ！」は言いません");
+        } else if ((int32_t)(readyAtMs - quietAtMs) >= 2000) {
             announce(katanori::clips::WAKE_READY, katanori::clips::WAKE_READY_SAMPLES, "おまたせ！");
         } else {
             Serial.println("[VOICE] 待たせなかったので「おまたせ！」は言いません");
         }
         sleepWakeStage = 0;
+        katanori::audioIo.armVoiceWatch(0);
     } else if (sleepWakeStage == 2 && katanori::netLink.wifiConnected()) {
-        announce(katanori::clips::WAKE_WIFI_UP, katanori::clips::WAKE_WIFI_UP_SAMPLES,
-                 "ワイファイがつながったよ、あと少し");
+        // 画面の「あと／すこし」は pumpAutoConnect が出す。声は話しかけられたときだけ
+        if (wakeEngaged && !wakeEngagedInline) {
+            announce(katanori::clips::WAKE_WIFI_UP, katanori::clips::WAKE_WIFI_UP_SAMPLES,
+                     "ワイファイがつながったよ、あと少し");
+        } else {
+            Serial.println("[WAKE] Wi-Fi がつながりました（声で待たせていないので声は出さない）");
+        }
         sleepWakeStage = 3;
     }
 }
@@ -2767,7 +2903,8 @@ static void pumpMic() {
     if (unmutedAt != 0 && millis() - unmutedAt < kUnmuteBlankMs) {
         return;
     }
-    size_t n = katanori::audioIo.readMic(buf, sizeof(buf) / sizeof(buf[0]), wakeBuf);
+    uint8_t play = katanori::AudioIo::MIC_PLAY_NONE;  // この音を録ったときスピーカーが鳴っていたか
+    size_t n = katanori::audioIo.readMic(buf, sizeof(buf) / sizeof(buf[0]), wakeBuf, &play);
     if (n == 0) {
         return;
     }
@@ -2810,9 +2947,9 @@ static void pumpMic() {
     // 待機中の見張り。呼び名は機体の中で聞き分け、会話の頭は控えに貯める（WakeWatch.h）。
     // ここで DO へは送らない。会話はまだ始まっていない
     if (vadWatchingActive()) {
-        // 合図を鳴らしている間は貯めない。控えに入れると drain で送られ、
-        // Gemini が「人が喋った」と見なして応答を割り込みで捨てる
-        if (!katanori::audioIo.isPlaying()) {
+        // 合図を鳴らしている間に録った音は貯めない。控えに入れると drain で送られ、
+        // Gemini が「人が喋った」と見なして応答を割り込みで捨てる（録った時点の印で見る）
+        if (play == katanori::AudioIo::MIC_PLAY_NONE) {
             katanori::wakeWatch.feed(buf, n);
             vadFeed(buf, n);
             // 呼び名は機体の中で聞き分ける（MicroWake.h）。クラウドへは送らない
@@ -2844,7 +2981,7 @@ static void pumpMic() {
         }
         playStartedMs = 0;  // 次に鳴り始めたところから測り直す
     }
-    if (katanori::audioIo.isPlaying()) {
+    if (play != katanori::AudioIo::MIC_PLAY_NONE) {
         if (playStartedMs == 0) {
             playStartedMs = millis();
         }
@@ -2863,17 +3000,18 @@ static void pumpMic() {
                           rms, knobPercent, (unsigned)(millis() - playStartedMs));
         }
 
-        if (millis() - playStartedMs < kAecSettleMs) {
-            return;  // 収束前。この音は自分の声しか入っていない
+        if (play == katanori::AudioIo::MIC_PLAY_SETTLING) {
+            return;  // 収束前（またはつまみを回した直後）に録った音。自分の声しか入っていない（録った時点の印で見る）
         }
         if (rms < kPlaybackGateRms) {
             return;  // 残留の範囲。人が喋っていない
         }
+        // 話しかけられたら機体の側で止めるのはマイクのタスク（AudioIo::armBargeIn）。ここは送るだけ
     }
 
     // 喋っている最中も送る（声で割り込める・仕様書 2章）。AEC が消した後の信号なので、
     // 自分の声は Gemini に届かない前提。切り分けのときだけ `echoguard` で止められる
-    if (katanori::audioIo.isPlaying() && echoGuardEnabled) {
+    if (play != katanori::AudioIo::MIC_PLAY_NONE && echoGuardEnabled) {
         return;
     }
     // 会話中も控えに流しておく。繋ぎ直しになっても頭から出し直せる
@@ -3635,7 +3773,7 @@ static void onMicroWake() {
     // 🔒 合図の音はここでは鳴らさない。言い終えて一息ついたところで pumpWakeChime が鳴らす
     // （ユーザー 2026-09-22「合図の音を出すタイミングはウェイクと続きを受け取ってからに」）。
     // 呼ばれた直後に鳴らすと「カタノリ、今日の天気は？」の続きが合図と重なり、再生中の
-    // マイクを捨てる処理（kAecSettleMs）で続きがまるごと消えていた
+    // マイクを捨てる処理（KATANORI_AEC_SETTLE_MS）で続きがまるごと消えていた
     wakeChimePending = true;
     wakeChimeAtMs = millis();
     wakeQuietSinceMs = 0;
@@ -3644,6 +3782,11 @@ static void onMicroWake() {
     if (powerIdleAsleep) {
         noteActivity("呼びかけ");  // 次の pumpPowerDown で画面・接点・無線を戻す
         sleepWakeStage = 1;
+        wakeEngaged = false;
+        wakeEngagedInline = false;
+        katanori::audioIo.setVoiceThreshold(vadThreshold());
+        katanori::audioIo.armVoiceWatch(kWakeContinueMs);  // 一息で続けたか（pumpWakeEngage）
+        setNetMessage("ちょっと", "まってね");  // Gemini まで来るまで出す（pumpAutoConnect）
         katanori::netLink.setConnectTag("&woke=sleep");
         Serial.println("[WAKE] 眠っている間に呼ばれました。起きて Wi-Fi へつなぎます");
     }
@@ -4868,6 +5011,15 @@ static void handleSerial() {
             Serial.flush();
             delay(50);
             ESP.restart();
+        } else if (strcmp(line, "spkcut") == 0) {
+            // 止め方の試験のためにスピーカーを切り離す。コーデックをミュートしてから接点を開く
+            katanori::audioIo.setOutputMute(true);
+            muteRelaySet(false);
+            relayLockedOpen = true;
+            Serial.println("[RELAY] 接点を開けたまま鍵を掛けました（spkon で解く）");
+        } else if (strcmp(line, "spkon") == 0) {
+            relayLockedOpen = false;
+            Serial.println("[RELAY] 鍵を解きました（接点は次に閉じる処理で閉じます）");
         } else if (strcmp(line, "mute") == 0) {
             outputGateOverride = false;
             katanori::audioIo.setOutputMute(true);
@@ -5459,11 +5611,32 @@ void loop() {
         return;
     }
 
+    /*
+     * 再生キューが満杯に近いときは受信を待たせる（NetLink::holdReceive）。
+     * Gemini の返事は実時間の 2〜3 倍で届くので、長い返事はキュー（AudioIo の PLAY_BUF_PSRAM）を越える。
+     * 以前は越えた分を play() が捨てていて、返事の途中が抜けた（40 秒中 10 秒。2026-09-22）。
+     * 待たせれば TCP の流れが止まり、サーバー側で持つ。制御の JSON も一緒に遅れるので、
+     * 幅は 0.5 秒（容量の 1.5 秒手前で待たせ、2 秒手前で再開）に留める。
+     */
+    {
+        const size_t q = katanori::audioIo.queuedSamples();
+        const size_t cap = katanori::audioIo.queueCapacitySamples();
+        static bool held = false;
+        if (!held && q + (size_t)KATANORI_AUDIO_RATE * 3 / 2 > cap) {
+            held = true;
+        } else if (held && q + (size_t)KATANORI_AUDIO_RATE * 2 < cap) {
+            held = false;
+        }
+        katanori::netLink.holdReceive(held);
+    }
+
     // 電源を入れるだけで会話できる状態まで自力で行き着かせる
     pumpAutoConnect();
     pumpBannerDemo(); // `bn` のときだけ動く（表示を消す pumpAutoConnect より後）
 
     katanori::netLink.loop();
+    pumpBargeIn();
+    pumpWakeEngage();  // 控えを送るかを決める印なので、startTurn（pumpPendingTurn）より先に
     pumpPendingTurn(); // setupComplete は netLink.loop() の中で届く
     pumpSleepWakeStages();
     pumpMic();

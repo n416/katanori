@@ -40,6 +40,9 @@ uint32_t connectStartedMs = 0;
 // 判断はこちらを見ること。
 bool geminiReady = false;
 
+// 受信を待たせている間（NetLink::holdReceive）
+bool receiveHeld = false;
+
 NetLink::AudioSink audioSink = nullptr;
 NetLink::ControlSink controlSink = nullptr;
 
@@ -319,7 +322,7 @@ void NetLink::begin() {
 }
 
 void NetLink::loop() {
-    if (!wantConnected) {
+    if (!wantConnected || receiveHeld) {
         return;
     }
     // 応答音声は 4KB × 100フレーム規模がまとめて届く。OLEDの全面転送(約29ms)で
@@ -327,6 +330,14 @@ void NetLink::loop() {
     // 取りこぼしを防ぐ。
     for (int i = 0; i < 8; ++i) {
         ws.loop();
+    }
+}
+
+void NetLink::holdReceive(bool hold) {
+    if (hold != receiveHeld) {
+        receiveHeld = hold;
+        Serial.printf("[WS] 受信を%s（再生キューが%s）\n", hold ? "待たせます" : "再開します",
+                      hold ? "満杯に近い" : "減った", "");
     }
 }
 
