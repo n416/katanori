@@ -2660,6 +2660,17 @@ static constexpr uint32_t kWakeChimeQuietMs = 600;     // これだけ静かな�
 static constexpr uint32_t kWakeChimeTimeoutMs = 8000;  // 静かにならなくても鳴らす
 static float vadThreshold();
 
+/*
+ * 呼ばれたあとも少しのあいだ聞き分けを回し、確からしさの最大をログに出す。
+ *
+ * 🔴 聞き分けは、しきい値を越えた最初の瞬間に「呼ばれた」と返す。その値だけを出していた
+ * ころは 0.70〜0.86 と、しきい値のすぐ上の数字しか並ばず、「機体では余裕が無い」と
+ * 読み違えた（2026-09-22。同じ日・同じ機体の試験用ファームで最大を追うと 0.915〜1.000）。
+ */
+static uint32_t wakePeakUntilMs = 0;   // 0 = 追っていない
+static float wakeCrossValue = 0.0f;    // 越えた瞬間の値
+static constexpr uint32_t kWakePeakTrackMs = 600;
+
 /**
  * 言い終えて一息ついたところで、呼ばれたのに気づいた合図を鳴らす。
  *
@@ -2707,6 +2718,14 @@ static void pumpMic() {
         return;
     }
     pumpWakeChime(buf, n);
+    if (wakePeakUntilMs != 0) {
+        katanori::microWake.feed(wakeBuf, n);  // 返り値は見ない。最大を伸ばすだけ
+        if ((int32_t)(millis() - wakePeakUntilMs) >= 0) {
+            wakePeakUntilMs = 0;
+            Serial.printf("[WAKE] 呼び名の確からしさ 最大 %.3f（しきい値を越えた瞬間 %.3f）\n",
+                          katanori::microWake.peak(), wakeCrossValue);
+        }
+    }
 
     /*
      * 鳴らしていないときの音量を、再生中の [ECHO] とまったく同じ計算で出す。
@@ -3556,9 +3575,11 @@ static void vadStartWatching() {
  * 判定が機体の中で一瞬で済むので、待たせる間は無い。
  */
 static void onMicroWake() {
-    Serial.printf("[WAKE] ★呼ばれました（確からしさ %.3f・推論 1 回 %uus）\n",
+    Serial.printf("[WAKE] ★呼ばれました（越えた瞬間の確からしさ %.3f・推論 1 回 %uus）\n",
                   katanori::microWake.peak(), (unsigned)katanori::microWake.avgInvokeUs());
     robot.injectEvent(katanori::RobotEvent::WAKE_WORD);
+    wakeCrossValue = katanori::microWake.peak();
+    wakePeakUntilMs = millis() + kWakePeakTrackMs;
     // 🔒 合図の音はここでは鳴らさない。言い終えて一息ついたところで pumpWakeChime が鳴らす
     // （ユーザー 2026-09-22「合図の音を出すタイミングはウェイクと続きを受け取ってからに」）。
     // 呼ばれた直後に鳴らすと「カタノリ、今日の天気は？」の続きが合図と重なり、再生中の
