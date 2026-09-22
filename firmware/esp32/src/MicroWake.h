@@ -38,11 +38,22 @@ public:
     /** 直近の確からしさの 5 回平均の最大（0〜1）。ログ用。reset で 0 に戻る。 */
     float peak() const { return peak_; }
 
+    /**
+     * モデルを替える（WakeModel.h の kWakeModels の番号）。機体で比べるため。
+     * 見張りの途中で呼んでよい（状態は初期化される）。
+     */
+    bool setModel(int index);
+    int model() const { return model_; }
+    const char* modelName() const;
+    static int modelCount();
+    static const char* modelNameAt(int index);
+
     /** 1 回の推論にかかった時間の平均 [us]。 */
     uint32_t avgInvokeUs() const { return invokes_ ? (uint32_t)(invokeUs_ / invokes_) : 0; }
 
 private:
     bool ready_ = false;
+    int model_ = 0;
     float peak_ = 0.0f;
     uint64_t invokeUs_ = 0;
     uint32_t invokes_ = 0;

@@ -6,3 +6,6 @@ dist/
 # 試聴用WAV (tools/preview-*.mjs で再生成できる)
 fillers-preview/
 clips-preview/
+
+# Live で録った声の候補 (tools/live-takes.mjs で録り直せる)
+clips-takes/

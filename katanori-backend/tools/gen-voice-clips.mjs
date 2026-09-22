@@ -1,7 +1,6 @@
 /*
  * ============================================================================
- *  ファームに焼き込むローカル音声を生成して
- *  firmware/esp32/src/VoiceClips.h を作り直す。
+ *  ファームに焼き込むローカル音声を firmware/esp32/src/VoiceClips.h にまとめる。
  *
  *  サーバーに繋がる前・繋がらないときに鳴らす音なので、DO側には置けない。
  *  ファームのフラッシュに直接持たせる。
@@ -9,30 +8,27 @@
  *  16kHz に落として持つ。実機のI2Sは16kHz固定なので、24kHzのまま置くと
  *  マイコン側でリサンプルが必要になるうえ、そのまま流すと低く遅い声になる。
  *
- *  使い方:
- *    cd katanori-backend
- *    node tools/gen-voice-clips.mjs
+ *  声は会話と同じ Gemini Live で録り、耳で選んだ 1 本を入れる。
+ *    1. node tools/live-takes.mjs WAKE_READY 3       # 候補を clips-takes/ に録る
+ *    2. 聞いて選ぶ
+ *    3. node tools/gen-voice-clips.mjs --wav WAKE_READY=clips-takes/wake_ready_2.wav
+ *  --wav は何個でも並べてよい。指定しなかったクリップは、今の VoiceClips.h から写す
+ *  （録るたびに抑揚が変わるので、聞き慣れた物は触らない）。
  *
- *  声は tts.mjs に集約（実機が要求している声と同じでなければならない）。
+ *  TTS のモデル（tts.mjs の synth）で作った声は、名前が同じ Achird でも会話の声と
+ *  違い、2026-09-22 にユーザーから「カタノリの声じゃない」と言われた（live.mjs）。
+ *
  *  生成物の VoiceClips.h はコミットする。書き込み前に `pio run` が要る。
  * ============================================================================
  */
 
-import { writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import {
-  VOICE,
-  TTS_RATE,
-  MODEL,
-  apiKey,
-  synth,
-  trimSilence,
-  collapseGaps,
-  downsample,
-  msOf,
-} from "./tts.mjs";
+import { CLIPS } from "./clip-list.mjs";
+import { LIVE_MODEL } from "./live.mjs";
+import { VOICE, trimSilence, downsample, msOf } from "./tts.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = join(ROOT, "..", "firmware", "esp32", "src", "VoiceClips.h");
@@ -40,88 +36,74 @@ const OUT = join(ROOT, "..", "firmware", "esp32", "src", "VoiceClips.h");
 /** 実機のI2Sレート。firmware/esp32/src/AudioIo.h の KATANORI_AUDIO_RATE と揃える。 */
 const DEVICE_RATE = 16000;
 
-/*
- * 読み上げの雰囲気。
- *
- * 「明るく」と頼むと元気に叫ぶような読み方になり、置いてある家電としては
- * うるさい。一方でつなぎ言葉のような「つぶやき」にすると聞き取れない
- * （こちらは伝えるための音）。落ち着いた話し方で、はっきりだけ残す。
- *
- * 語尾に「！」を付けるとそれだけでテンションが上がるので付けないこと。
- */
-const STYLE = "小さくて親しみやすいロボットの声で、落ち着いて、やわらかく、はっきりと、短く言ってください。大きな声を出さないでください: ";
+/** --wav NAME=ファイル の並び。 */
+const picks = new Map();
+for (let i = 2; i < process.argv.length; i++) {
+  if (process.argv[i] === "--wav") {
+    const [name, file] = process.argv[++i].split("=");
+    picks.set(name, resolve(ROOT, file));
+  }
+}
+for (const name of picks.keys()) {
+  if (!CLIPS.some((c) => c.name === name)) {
+    throw new Error(`${name} は clip-list.mjs にありません`);
+  }
+}
 
-/*
- * 焼き込む音声。
- *
- * C の識別子になるので name は英大文字。増やすぶんだけフラッシュを食う
- * （16kHz 16bit モノラルで 1秒 = 32KB）。
- */
-const CLIPS = [
-  {
-    name: "BOOT_READY",
-    text: "カタノリ、起動しました",
-    comment: "Wi-Fiに繋がって会話できる状態になったとき",
-  },
-  {
-    name: "PROV_NEEDED",
-    text: "ワイファイの設定をしてください",
-    comment: "Wi-Fi設定モードに入ったとき（未設定・繋がらない・手動で入った）",
-  },
-  {
-    name: "WIFI_OK",
-    text: "ワイファイにつながりました",
-    comment: "設定モードで保存したWi-Fiへの初回接続に成功したとき（パスワードが合っていた合図）",
-  },
-];
+/** 今の VoiceClips.h に入っているクリップ（--wav で替えない分をここから写す）。 */
+function readExisting() {
+  const map = new Map();
+  if (!existsSync(OUT)) {
+    return map;
+  }
+  const src = readFileSync(OUT, "utf8").replace(/\r\n/g, "\n");  // git が CRLF で置くことがある
+  const re = /\/\*\* 「(.*?)」 (\d+)ms[^\n]*\n\s*static const int16_t (\w+)\[\] = \{([\s\S]*?)\n\};/g;
+  for (const m of src.matchAll(re)) {
+    const nums = m[4].split(/[,\s]+/).filter((x) => x !== "").map(Number);
+    map.set(m[3], { text: m[1], ms: Number(m[2]), samples: Int16Array.from(nums) });
+  }
+  return map;
+}
 
-/*
- * 短すぎる出力を弾くための下限。
- *
- * TTS は同じ文言でも実行ごとに長さが変わり、語の一部しか返さないことがある。
- * 検証せずに焼き込むと、書き込んで電源を入れるまで気づけない。
- */
-const MIN_MS = 700;
-const MAX_ATTEMPTS = 4;
+/** 16bit モノラルの WAV を読む。 */
+function readWav(file) {
+  const b = readFileSync(file);
+  if (b.toString("ascii", 0, 4) !== "RIFF" || b.readUInt16LE(22) !== 1 || b.readUInt16LE(34) !== 16) {
+    throw new Error(`${file} は 16bit モノラルの WAV ではありません`);
+  }
+  let off = 12;
+  while (off < b.length) {
+    const id = b.toString("ascii", off, off + 4);
+    const size = b.readUInt32LE(off + 4);
+    if (id === "data") {
+      return { rate: b.readUInt32LE(24), pcm: b.subarray(off + 8, off + 8 + size) };
+    }
+    off += 8 + size;
+  }
+  throw new Error(`${file} に data がありません`);
+}
 
-const key = apiKey();
+const existing = readExisting();
 const results = [];
 
 for (const clip of CLIPS) {
-  process.stdout.write(`生成中: ${clip.text} ... `);
-
-  let best = null;
-  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-    const raw = await synth(key, clip.text, { style: STYLE });
-    // 話速はいじらない。アナウンスは長さの制約が無いので、音程を触る理由がない。
-    const shaped = collapseGaps(trimSilence(raw));
-    const cand = { pcm: downsample(shaped, TTS_RATE, DEVICE_RATE), rawMs: msOf(raw) };
-    cand.ms = msOf(cand.pcm, DEVICE_RATE);
-
-    if (!best || cand.ms > best.ms) {
-      best = cand;
+  const file = picks.get(clip.name);
+  if (!file) {
+    const old = existing.get(clip.name);
+    if (!old || old.text !== clip.text) {
+      throw new Error(`${clip.name} は今の VoiceClips.h に無いか文言が違います。--wav で入れてください`);
     }
-    if (cand.ms >= MIN_MS) {
-      best = cand;
-      break;
-    }
-    process.stdout.write(`[${cand.ms}msと短い→再生成] `);
+    console.log(`そのまま: ${clip.text} ${old.ms}ms`);
+    results.push({ ...clip, samples: old.samples, ms: old.ms });
+    continue;
   }
-
-  if (best.ms < MIN_MS) {
-    throw new Error(
-      `"${clip.text}" が ${MAX_ATTEMPTS}回とも ${MIN_MS}ms 未満でした（最長 ${best.ms}ms）。` +
-      `文言か STYLE を見直してください。`
-    );
-  }
-
-  const samples = new Int16Array(best.pcm.buffer, best.pcm.byteOffset, best.pcm.byteLength >> 1);
-  let peak = 0;
-  for (const s of samples) {
-    peak = Math.max(peak, Math.abs(s));
-  }
-  console.log(`${best.ms}ms (${(best.pcm.byteLength / 1024).toFixed(1)}KB) peak=${peak}`);
-  results.push({ ...clip, samples, ms: best.ms });
+  const { rate, pcm } = readWav(file);
+  // 前後の無音だけを落とす。語の間の無音は詰めない（間合いが変わると抑揚が崩れる）
+  const d = downsample(trimSilence(Buffer.from(pcm)), rate, DEVICE_RATE);
+  const samples = new Int16Array(d.buffer, d.byteOffset, d.byteLength >> 1);
+  const ms = msOf(d, DEVICE_RATE);
+  console.log(`入れる: ${clip.text} ${ms}ms ← ${file}`);
+  results.push({ ...clip, samples, ms });
 }
 
 const totalKb = results.reduce((n, r) => n + r.samples.length * 2, 0) / 1024;
@@ -141,12 +123,11 @@ const out = [
   "/*",
   " * 自動生成ファイル — 手で編集しないこと。",
   " *",
-  " * 生成: cd katanori-backend && node tools/gen-voice-clips.mjs",
-  ` * 声  : ${VOICE} / モデル: ${MODEL}`,
+  " * 生成: cd katanori-backend && node tools/gen-voice-clips.mjs（手順はその頭）",
+  ` * 声  : ${VOICE} / モデル: ${LIVE_MODEL}（会話と同じ Gemini Live で録った）`,
   ` * 形式: ${DEVICE_RATE}Hz 16bit モノラル（実機のI2Sと同じ。変換不要でそのまま play() へ）`,
   " *",
-  " * サーバーに繋がる前・繋がらないときに鳴らす音。DO側のつなぎ言葉とは",
-  " * 別物だが、同じ声で作ってある。",
+  " * サーバーに繋がる前・繋がらないときに鳴らす音。",
   " */",
   "",
   "#ifndef KATANORI_VOICE_CLIPS_H",

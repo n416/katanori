@@ -29,6 +29,9 @@ FrontendConfig frontendCfg;
 FrontendState frontend;
 tflite::MicroMutableOpResolver<20> resolver;
 tflite::MicroInterpreter* interp = nullptr;
+uint8_t* arena = nullptr;      // 一度取ったら、モデルを替えても使い回す
+uint8_t* varArena = nullptr;
+bool frontendReady = false;
 int filled = 0;
 uint8_t win[kWakeWindow] = {0};
 int winPos = 0;
@@ -82,24 +85,33 @@ bool MicroWake::begin() {
     if (ready_) {
         return true;
     }
-    setupFrontendConfig();
-    if (!FrontendPopulateState(&frontendCfg, &frontend, kSampleRate)) {
-        Serial.println("[MWW] 前処理の初期化に失敗しました");
-        return false;
+    if (!frontendReady) {
+        setupFrontendConfig();
+        if (!FrontendPopulateState(&frontendCfg, &frontend, kSampleRate)) {
+            Serial.println("[MWW] 前処理の初期化に失敗しました");
+            return false;
+        }
+        frontendReady = true;
+        setupResolver();
     }
-    const tflite::Model* model = tflite::GetModel(kWakeModel);
+    const tflite::Model* model = tflite::GetModel(kWakeModels[model_].data);
     if (model->version() != TFLITE_SCHEMA_VERSION) {
         Serial.printf("[MWW] モデルの版が違います: %lu\n", (unsigned long)model->version());
         return false;
     }
     // 推論は内部 RAM で回す（PSRAM に置くと遅い）
-    auto* arena = (uint8_t*)heap_caps_aligned_alloc(16, kWakeArenaSize, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
-    auto* varArena = (uint8_t*)heap_caps_aligned_alloc(16, kVariableArenaSize, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    if (!arena) {
+        arena = (uint8_t*)heap_caps_aligned_alloc(16, kWakeArenaSize, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    }
+    if (!varArena) {
+        varArena = (uint8_t*)heap_caps_aligned_alloc(16, kVariableArenaSize, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    }
     if (!arena || !varArena) {
         Serial.println("[MWW] 内部 RAM が足りません");
         return false;
     }
-    setupResolver();
+    delete interp;  // モデルを替えるとき。変数の置き場は同じ所へ作り直す
+    interp = nullptr;
     auto* varAlloc = tflite::MicroAllocator::Create(varArena, kVariableArenaSize);
     auto* vars = tflite::MicroResourceVariables::Create(varAlloc, 20);
     interp = new tflite::MicroInterpreter(model, resolver, arena, kWakeArenaSize, vars);
@@ -107,10 +119,33 @@ bool MicroWake::begin() {
         Serial.println("[MWW] AllocateTensors に失敗しました");
         return false;
     }
-    Serial.printf("[MWW] 呼び名の聞き分けを用意しました（arena %u / %u バイト・しきい値 %.2f）\n",
-                  (unsigned)interp->arena_used_bytes(), (unsigned)kWakeArenaSize, kWakeCutoff);
+    Serial.printf("[MWW] 呼び名の聞き分けを用意しました（モデル %s・arena %u / %u バイト・しきい値 %.2f）\n",
+                  kWakeModels[model_].name, (unsigned)interp->arena_used_bytes(),
+                  (unsigned)kWakeArenaSize, kWakeCutoff);
     ready_ = true;
+    reset();
     return true;
+}
+
+bool MicroWake::setModel(int index) {
+    if (index < 0 || index >= kWakeModelCount) {
+        return false;
+    }
+    model_ = index;
+    ready_ = false;
+    return begin();
+}
+
+const char* MicroWake::modelName() const {
+    return kWakeModels[model_].name;
+}
+
+int MicroWake::modelCount() {
+    return kWakeModelCount;
+}
+
+const char* MicroWake::modelNameAt(int index) {
+    return (index >= 0 && index < kWakeModelCount) ? kWakeModels[index].name : "";
 }
 
 void MicroWake::reset() {

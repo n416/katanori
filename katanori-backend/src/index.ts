@@ -103,9 +103,10 @@ function nowInJapan(): string {
  * 会話が終わればすぐ切断される運用なのでズレは無視できるが、
  * 常時接続に戻すなら定期的な再注入が必要になる。
  */
-function buildSystemInstruction(): string {
+function buildSystemInstruction(woke: string): string {
   return [
     SYSTEM_INSTRUCTION,
+    ...wokeInstruction(woke),
     "",
     "【現在の日時】",
     `この会話が始まった時点の日本時間は ${nowInJapan()} です。`,
@@ -114,6 +115,32 @@ function buildSystemInstruction(): string {
     "会話中はこの時刻から少しずつ時間が経っていると考えてください。",
     "挨拶をするときも、この時刻に合ったもの（朝・昼・夜）を選んでください。",
   ].join("\n");
+}
+
+/**
+ * 会話の始まり方に合わせた指示（機体が ?woke= で伝える）。
+ *
+ * 眠っている間に呼ばれたとき、機体はつながるまでの間に自分の声で「ちょっと待ってね、
+ * いま起きたところ」「ワイファイがつながったよ、あと少し」「おまたせ！」と言ってある
+ * （firmware の VoiceClips.h）。Gemini はそれを知らないので、伝えないと挨拶を重ねる。
+ * 🔒 ユーザー 2026-09-22「これがAIへのプロンプトにもつなげておかないといけない」。
+ */
+function wokeInstruction(woke: string): string[] {
+  if (woke !== "sleep") {
+    return [];
+  }
+  return [
+    "",
+    "【この会話の始まり方】",
+    "あなたは眠っていたところを、名前を呼ばれて起きました。",
+    "つながるまで待たせている間に、あなたはもう「ちょっと待ってね、いま起きたところ」",
+    "「ワイファイがつながったよ、あと少し」のように言ってあり、待たせたときは「おまたせ！」も言ってあります。",
+    "同じ挨拶やお詫びを繰り返さないでください。",
+    "最初に届く音声は、待っている間に相手が話したものです。用件が入っていれば、それに答えてください。",
+    // 「なあに？」と聞かせたら、「おまたせ！」の直後で同じ呼びかけが 2 回続いて違和感があった
+    // （2026-09-22 ユーザー）。「おまたせ！」がもう「どうぞ」の合図になっている
+    "あなたの名前しか入っていなければ、何も言わずに、相手が話し始めるのを待ってください。",
+  ];
 }
 
 /** 上限を超えないよう分割して送る。 */
@@ -173,6 +200,8 @@ export class RobotDO implements DurableObject {
   lastFiller = -1;
   /** このセッションで Gemini に喋らせている声。つなぎ言葉の突き合わせに使う。 */
   voiceName = "";
+  /** 会話の始まり方（?woke=）。wokeInstruction を参照。 */
+  woke = "";
 
   constructor(state: DurableObjectState, env: Env) {
     this.state = state;
@@ -193,6 +222,7 @@ export class RobotDO implements DurableObject {
       // ?voice を付けないクライアントだけ本編とつなぎ言葉が別人になる。
       const voice = requestUrl.searchParams.get("voice") || FILLER_VOICE;
       this.voiceName = voice;
+      this.woke = requestUrl.searchParams.get("woke") || "";
 
       // ?pcm=<レート> を付けたクライアントは「生PCMバイナリ」でやり取りする。
       // 付けなければ従来どおり Gemini のメッセージを素通しする (wrapper.py 互換)。
@@ -476,7 +506,7 @@ export class RobotDO implements DurableObject {
         // native-audio-latest へ戻すこと(その場合クライアントは旧mediaChunks形式も可)
         model: "models/gemini-3.1-flash-live-preview",
         systemInstruction: {
-          parts: [{ text: buildSystemInstruction() }]
+          parts: [{ text: buildSystemInstruction(this.woke) }]
         },
         generationConfig: {
           responseModalities: ["AUDIO"],

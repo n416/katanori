@@ -848,8 +848,9 @@ void NetLink::wsConnect() {
         return;
     }
 
+    wsPath_ = String(KATANORI_WS_PATH) + connectTag_;
     Serial.printf("[WS] wss://%s:%d%s へ接続します\n",
-                  KATANORI_WS_HOST, KATANORI_WS_PORT, KATANORI_WS_PATH);
+                  KATANORI_WS_HOST, KATANORI_WS_PORT, wsPath_.c_str());
 
     wantConnected = true;
     connectStartedMs = millis();
@@ -857,11 +858,11 @@ void NetLink::wsConnect() {
 #if KATANORI_TLS_INSECURE
     // 緊急用の逃げ道。CAを更新するまでの一時しのぎ以外で使わないこと。
     Serial.println("[WS] !! 警告: TLSサーバ証明書を検証していません");
-    ws.beginSSL(KATANORI_WS_HOST, KATANORI_WS_PORT, KATANORI_WS_PATH);
+    ws.beginSSL(KATANORI_WS_HOST, KATANORI_WS_PORT, wsPath_.c_str());
 #else
     // ルートCAを検証する。接続できなくなった場合、まず疑うべきは
     // 接続先が発行元CAを変更したこと（RootCa.h のコメント参照）。
-    ws.beginSslWithCA(KATANORI_WS_HOST, KATANORI_WS_PORT, KATANORI_WS_PATH,
+    ws.beginSslWithCA(KATANORI_WS_HOST, KATANORI_WS_PORT, wsPath_.c_str(),
                       KATANORI_ROOT_CA_PEM);
 #endif
 }

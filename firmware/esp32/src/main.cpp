@@ -1167,6 +1167,8 @@ static bool powerDimmed = false;
 static bool powerRelayDown = false;
 /** 待機スリープで眠っているか（main loop が顔と自動接続を止める条件）。 */
 static bool powerIdleAsleep = false;
+/** 眠りから呼ばれたときの、待たせる声の段階（説明は pumpWakeChime の手前）。 */
+static uint8_t sleepWakeStage = 0;
 /** 音声の初期化が通ったか。通っていなければ接点は閉じない（setup の方針と同じ）。 */
 static bool audioReady = false;
 
@@ -1374,7 +1376,10 @@ static void pumpPowerDown() {
             muteRelaySet(true);
         }
     }
-    if (powerNetDown) {
+    // 眠りから呼ばれたときは、「ちょっと待ってね」を鳴らし始めてから無線を戻す。
+    // 先に戻すと、電波の探索（約 3 秒）の間 main loop が止まり、声が 5 秒遅れた（2026-09-22 実機）。
+    // 声は再生のタスクが鳴らすので、探索で loop が止まっても途切れない
+    if (powerNetDown && sleepWakeStage != 1) {
         powerNetDown = false;
         // 再試行の待ち時間を捨てて即つなぎにいく。つまみを戻した人を
         // 最大30秒待たせるのは、故障と区別がつかない。
@@ -1786,6 +1791,7 @@ static void endConversation() {
     endAfterReply = false;
     userHeardLen = 0;
     katanori::netLink.wsDisconnect();
+    katanori::netLink.setConnectTag("");  // 眠りから呼ばれた印（onMicroWake）は、この会話かぎり
     katanori::wakeWatch.clearTurn();
     driveTo(katanori::RobotState::IDLE);
     Serial.println("[TURN] 会話を終了しました");
@@ -1959,6 +1965,9 @@ static void wifiWaitTick() {
 static void pumpAutoConnect() {
     if (katanori::provisioning.active() || !katanori::netLink.hasCredentials()) {
         return;
+    }
+    if (sleepWakeStage == 1) {
+        return;  // 眠りから呼ばれ、「ちょっと待ってね」を鳴らす前。探索で loop を止めない（pumpPowerDown）
     }
     if (katanori::netLink.wifiConnected()) {
         if (!bannerDemo) {
@@ -2639,6 +2648,24 @@ static constexpr uint32_t kWakeChimeTimeoutMs = 8000;  // 静かにならなく�
 static float vadThreshold();
 
 /*
+ * 眠っている間に呼ばれたときの、待たせる声の段階。
+ *
+ * 🔒 ユーザー 2026-09-22「『ちょっと起きたばかりだから待ってね』とか言わせないとまずい。
+ * Wifi繋いだら『Wifiがつながったからあと少し』。API繋ぐのに時間が掛かるから繋がったら
+ * 『おまたせ！』とか言わさないと」。眠ると無線を止めているので、呼ばれてから話せるまでに
+ * Wi-Fi とサーバーの 2 つを待つ。黙っていると、届いていないと思って呼び直される。
+ * 声は機体に焼いてある（VoiceClips.h・会話と同じ Gemini Live の声）。
+ *
+ *   0: 何もしていない
+ *   1: 呼ばれた。言い終えるのを待って「ちょっと待ってね、いま起きたところ」（pumpWakeChime）
+ *   2: 言い終わるのを待つ。そのとき Gemini まで来ていれば「おまたせ！」、Wi-Fi だけなら
+ *      「ワイファイがつながったよ、あと少し」
+ *   3: Gemini まで来たら「おまたせ！」
+ * 声を鳴らしている間のマイクは控えに入れない（pumpMic）ので、自分の声は Gemini へ行かない。
+ * 変数（sleepWakeStage）は、無線を戻す pumpPowerDown が見るので、上の待機スリープの節に置く。
+ */
+
+/*
  * 呼ばれたあとも少しのあいだ聞き分けを回し、確からしさの最大をログに出す。
  *
  * 🔴 聞き分けは、しきい値を越えた最初の瞬間に「呼ばれた」と返す。その値だけを出していた
@@ -2671,10 +2698,59 @@ static void pumpWakeChime(const int16_t* pcm, size_t n) {
         wakeQuietSinceMs = now;
     }
     const bool quiet = wakeQuietSinceMs != 0 && now - wakeQuietSinceMs >= kWakeChimeQuietMs;
-    if (quiet || now - wakeChimeAtMs >= kWakeChimeTimeoutMs) {
+    // 眠りから呼ばれたときは、この声を鳴らすまで無線を戻さない（pumpPowerDown）。長く待たない
+    const uint32_t timeoutMs = sleepWakeStage == 1 ? 2000 : kWakeChimeTimeoutMs;
+    if (quiet || now - wakeChimeAtMs >= timeoutMs) {
         wakeChimePending = false;
-        announce(katanori::chimes::WAKE_ACK, katanori::chimes::WAKE_ACK_SAMPLES,
-                 "呼ばれたのに気づきました");
+        if (sleepWakeStage == 1) {
+            announce(katanori::clips::WAKE_FROM_SLEEP, katanori::clips::WAKE_FROM_SLEEP_SAMPLES,
+                     "ちょっと待ってね、いま起きたところ");
+            sleepWakeStage = 2;
+        } else {
+            announce(katanori::chimes::WAKE_ACK, katanori::chimes::WAKE_ACK_SAMPLES,
+                     "呼ばれたのに気づきました");
+        }
+    }
+}
+
+/** 眠りから呼ばれたあとの、待たせる声の続き（sleepWakeStage の説明）。main loop から毎回呼ぶ。 */
+static void pumpSleepWakeStages() {
+    static uint32_t readyAtMs = 0;    // Gemini の準備ができた時刻
+    static uint32_t quietAtMs = 0;    // 前の声を言い終えた時刻
+    if (sleepWakeStage < 2) {
+        readyAtMs = 0;
+        quietAtMs = 0;
+        return;
+    }
+    const uint32_t now = millis();
+    if (katanori::netLink.wsReady() && readyAtMs == 0) {
+        readyAtMs = now;
+    }
+    if (katanori::audioIo.isPlaying()) {
+        quietAtMs = 0;
+        return;
+    }
+    if (quietAtMs == 0) {
+        quietAtMs = now;
+    }
+    // つながらずに諦めた（pumpPendingTurn の上限）か、会話が別の道で終わった
+    if (!pendingTurn && !katanori::netLink.wsReady()) {
+        sleepWakeStage = 0;
+        return;
+    }
+    if (katanori::netLink.wsReady()) {
+        // 🔒 ユーザー 2026-09-22「おまたせは、あと少しから数秒かかった時だけでいい。即時流れると
+        // 『別に待たなかったような・・・』って感じ」。前の声を言い終えてから 2 秒以上待たせたときだけ
+        if ((int32_t)(readyAtMs - quietAtMs) >= 2000) {
+            announce(katanori::clips::WAKE_READY, katanori::clips::WAKE_READY_SAMPLES, "おまたせ！");
+        } else {
+            Serial.println("[VOICE] 待たせなかったので「おまたせ！」は言いません");
+        }
+        sleepWakeStage = 0;
+    } else if (sleepWakeStage == 2 && katanori::netLink.wifiConnected()) {
+        announce(katanori::clips::WAKE_WIFI_UP, katanori::clips::WAKE_WIFI_UP_SAMPLES,
+                 "ワイファイがつながったよ、あと少し");
+        sleepWakeStage = 3;
     }
 }
 
@@ -3563,6 +3639,14 @@ static void onMicroWake() {
     wakeChimePending = true;
     wakeChimeAtMs = millis();
     wakeQuietSinceMs = 0;
+    // 眠っている間に呼ばれたら、合図の音の代わりに声で待たせる（sleepWakeStage の説明）。
+    // サーバーにも印を渡し、Gemini への指示に「もう待たせる声を出した」と足させる
+    if (powerIdleAsleep) {
+        noteActivity("呼びかけ");  // 次の pumpPowerDown で画面・接点・無線を戻す
+        sleepWakeStage = 1;
+        katanori::netLink.setConnectTag("&woke=sleep");
+        Serial.println("[WAKE] 眠っている間に呼ばれました。起きて Wi-Fi へつなぎます");
+    }
     // 会話の頭は呼び名の前から。「カタノリ、〇〇して」の続きまで Gemini に届く。
     // startTurn は印が無いときだけ打つので、先にこちらで遡った印を打っておく。
     // 🔴 2 秒遡る。判定は言い終えてから少し遅れて出るので、1.5 秒では頭の「カ」まで
@@ -4805,6 +4889,15 @@ static void handleSerial() {
             vadEnroll();
         } else if (strncmp(line, "vadth ", 6) == 0) {
             vadSetThreshold(atof(line + 6));
+        } else if (strncmp(line, "wakemodel", 9) == 0) {
+            // 呼び名の聞き分けのモデルを替える（WakeModel.h）。番号なしなら一覧だけ
+            if (line[9] == ' ' && !katanori::microWake.setModel(atoi(line + 10))) {
+                Serial.printf("[MWW] %d 番のモデルはありません\n", atoi(line + 10));
+            }
+            for (int i = 0; i < katanori::MicroWake::modelCount(); ++i) {
+                Serial.printf("[MWW] %s%d: %s\n", i == katanori::microWake.model() ? "→ " : "  ",
+                              i, katanori::MicroWake::modelNameAt(i));
+            }
         } else if (strcmp(line, "wakeword") == 0) {
             // ⚠ "wake" は別のコマンド（スリープから起こす）が先に使っている
             const bool on = !katanori::settings.wakeEnabled();
@@ -5356,6 +5449,12 @@ void loop() {
         if (!powerNetDown) {
             katanori::netLink.loop();
         }
+        // 眠っていても呼び名は聞き分ける（機体の中で済み、無線は要らない）。呼ばれたら
+        // onMicroWake が起こす（2026-09-22 まで、眠ると呼んでも起きなかった）。
+        // つまみOFF（疑似電源OFF）のときは聞かない（切ったつもりの人に応えない）
+        if (powerIdleAsleep && !knobOff && vadWatchingActive()) {
+            pumpMic();
+        }
         delay(10);
         return;
     }
@@ -5366,6 +5465,7 @@ void loop() {
 
     katanori::netLink.loop();
     pumpPendingTurn(); // setupComplete は netLink.loop() の中で届く
+    pumpSleepWakeStages();
     pumpMic();
     pumpWake();
     pumpTurnState();

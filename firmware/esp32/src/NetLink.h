@@ -139,6 +139,11 @@ public:
 
     // --- WebSocket ---
     void wsConnect();
+    /**
+     * 次の接続で KATANORI_WS_PATH の後ろに足すクエリ（"&woke=sleep" など）。空で足さない。
+     * サーバーは会話の始まり方を Gemini への指示に足す（katanori-backend の wokeInstruction）。
+     */
+    void setConnectTag(const char* tag) { connectTag_ = tag ? tag : ""; }
     void wsDisconnect();
     bool wsConnected() const;
     /**
@@ -153,6 +158,8 @@ public:
     void printStatus() const;
 
 private:
+    String connectTag_;
+    String wsPath_;  // beginSsl に渡した道。ライブラリが参照し続けるので保持する
     static constexpr int kMaxCreds = 5;
 
     struct Cred {
