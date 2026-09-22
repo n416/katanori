@@ -1,6 +1,7 @@
 #include "NetLink.h"
 
 #include <WiFi.h>
+#include <esp_wifi.h>
 #include <Preferences.h>
 #include <WebSocketsClient.h>
 
@@ -287,6 +288,25 @@ void NetLink::begin() {
     prefs.end();
 
     WiFi.mode(WIFI_STA);
+    /*
+     * 接続を始めるのはこのプログラムだけにする。
+     *
+     * 🔴 Arduino の既定（persistent）では、WiFi.begin した接続先を ESP32 自身も NVS に
+     * 覚え、起動した瞬間に勝手に繋ぎに行く。そこへこちらがスキャンと WiFi.begin を重ねると、
+     * 進行中の握手が潰れる疑いがある（2026-09-22 実機: 起動直後にスキャンが -2 を返した回は
+     * 必ず 1 回目が 202 AUTH_FAIL、スキャンが通った回は 202 が出なかった）。
+     * 覚えている接続先を消し、以後は覚えさせない。こちらの一覧（prefs "katanori"）は別物で消えない
+     */
+    {
+        wifi_config_t conf = {};
+        if (esp_wifi_get_config(WIFI_IF_STA, &conf) == ESP_OK && conf.sta.ssid[0] != 0) {
+            Serial.printf("[NET] ESP32 自身が覚えていた接続先 \"%s\" を消します（起動時の自動接続を止める）\n",
+                          reinterpret_cast<const char*>(conf.sta.ssid));
+            WiFi.persistent(true);
+            WiFi.disconnect(false, true);  // 覚えている接続先を NVS から消す
+        }
+        WiFi.persistent(false);
+    }
     WiFi.onEvent(onWifiEvent);
     ws.onEvent(onWsEvent);
 
