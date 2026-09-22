@@ -2689,6 +2689,14 @@ static uint32_t playEndedMs = 0;
 
 static void onMicroWake();
 
+/**
+ * 試し聞きの印（シリアル `wakedry on`）。
+ *
+ * 入のあいだは、呼び名を聞き分けても会話へ進まない。確からしさを出して見張りへ戻るだけで、
+ * Wi-Fi もサーバーも触らない。聞き分けの当たり外れを何度も測るための道で、再起動で切に戻る。
+ */
+static bool wakeDryRun = false;
+
 /** 呼ばれたあと、合図の音を鳴らす機会を待っているか（onMicroWake・pumpWakeChime）。 */
 static bool wakeChimePending = false;
 static uint32_t wakeChimeAtMs = 0;     // 呼ばれた時刻
@@ -3765,6 +3773,12 @@ static void vadStartWatching() {
  * 機体を見ていないとき（肩に載せている・別の部屋にいる）は顔では伝わらない。
  */
 static void onMicroWake() {
+    if (wakeDryRun) {
+        // 試し聞き。記録だけ残して見張りへ戻る（会話もサーバーもなし）
+        Serial.printf("[WAKE] ☆試し 越えました（確からしさ %.3f）\n", katanori::microWake.peak());
+        katanori::microWake.reset();  // 同じ声で続けて鳴り続けないように戻す
+        return;
+    }
     Serial.printf("[WAKE] ★呼ばれました（越えた瞬間の確からしさ %.3f・推論 1 回 %uus）\n",
                   katanori::microWake.peak(), (unsigned)katanori::microWake.avgInvokeUs());
     robot.injectEvent(katanori::RobotEvent::WAKE_WORD);
@@ -3983,23 +3997,29 @@ static void xmosProbe(uint8_t resid) {
     Serial.printf("[XMOS] %d 個ありました\n", found);
 }
 
-/** ch0 の取り出し口を変える。 */
-static void xmosSetTapCh0(int v) {
+/**
+ * 取り出し口を変える（ch は 0 か 1）。
+ *
+ * ⚠ 読み返して同じ値になっても、それは XMOS がその番号の値を覚えている、というだけ。
+ * 音の経路が本当に切り替わったかは、値を変えて同じ音を録り比べないと分からない。
+ */
+static void xmosSetTap(int ch, int v) {
     if (v < 0 || v > 4) {
         Serial.println("[XMOS] 値は 0〜4 です");
         return;
     }
-    const int before = xmosReadCfg(kXmosCmdTapCh0);
-    if (!xmosWriteTap(kXmosCmdTapCh0, (uint8_t)v)) {
+    const uint8_t cmd = (ch == 0) ? kXmosCmdTapCh0 : kXmosCmdTapCh1;
+    const int before = xmosReadCfg(cmd);
+    if (!xmosWriteTap(cmd, (uint8_t)v)) {
         Serial.println("[XMOS] 書き込みに失敗しました（応答なし）");
         return;
     }
     delay(50);  // 反映を待つ
-    const int after = xmosReadCfg(kXmosCmdTapCh0);
-    Serial.printf("[XMOS] ch0 の取り出し口 %d → %d（%s）%s\n",
-                  before, after, xmosTapName(after),
+    const int after = xmosReadCfg(cmd);
+    Serial.printf("[XMOS] ch%d の取り出し口 %d → %d（%s）%s\n",
+                  ch, before, after, xmosTapName(after),
                   after == v ? "" : " ← 書けていません");
-    Serial.println("[XMOS] ⚠ 電源を入れ直すと出荷時（4）に戻ります。起動時は xmosApplyTapAtBoot() が 3 を書きます");
+    Serial.println("[XMOS] ⚠ 電源を入れ直すと出荷時に戻ります（ch0 は起動時に xmosApplyTapAtBoot() が 3 を書きます）");
 }
 
 /*
@@ -4795,10 +4815,30 @@ static void handleSerial() {
             otaEnabled = !otaEnabled;
             Serial.printf("[OTA] %s\n", otaEnabled ? "有効化しました"
                                                    : "無効化しました（再起動でも有効に戻ります）");
+        } else if (strncmp(line, "wakedump", 8) == 0) {
+            // wakedump <何秒前から> <秒数>（省略時 5 5）。30 秒の控えから ch1 を吐く（AudioIo::dumpWake）
+            float back = 5.0f, len = 5.0f;
+            if (line[8] == ' ') {
+                back = atof(line + 9);
+                const char* sp = strchr(line + 9, ' ');
+                len = sp ? atof(sp + 1) : back;
+            }
+            katanori::audioIo.dumpWake(back, len);
         } else if (strcmp(line, "au") == 0) {
             katanori::audioIo.printStatus();
         } else if (strcmp(line, "mic") == 0) {
             katanori::audioIo.micTest(5000);
+        } else if (strncmp(line, "wakegain", 8) == 0) {
+            // wakegain <倍率>（省略時は今の値と振り切れた数を出す）。聞き分けに渡す ch1 だけに掛かる
+            if (line[8] == ' ') {
+                katanori::audioIo.setWakeGain(atoi(line + 9));
+            }
+            Serial.printf("[WAKE] ch1 の倍率 %d 倍・振り切れ %u サンプル\n",
+                          katanori::audioIo.wakeGain(), (unsigned)katanori::audioIo.wakeClipped());
+        } else if (strcmp(line, "say") == 0) {
+            // 試験用。焼いてある声を 1 つ鳴らす（機体が喋った直後の聞き分けを測るため）
+            announce(katanori::clips::PROV_NEEDED, katanori::clips::PROV_NEEDED_SAMPLES,
+                     "（試験）ワイファイの設定をしてください");
         } else if (strcmp(line, "beep") == 0) {
             katanori::audioIo.toneTest(1000, 440, 600);
         } else if (strcmp(line, "beep2") == 0) {
@@ -5050,21 +5090,41 @@ static void handleSerial() {
                 Serial.printf("[MWW] %s%d: %s\n", i == katanori::microWake.model() ? "→ " : "  ",
                               i, katanori::MicroWake::modelNameAt(i));
             }
-        } else if (strcmp(line, "wakeword") == 0) {
-            // ⚠ "wake" は別のコマンド（スリープから起こす）が先に使っている
-            const bool on = !katanori::settings.wakeEnabled();
-            katanori::settings.setWakeEnabled(on);
-            if (!on) {
-                vadStopWatching();
+        } else if (strncmp(line, "wakedry", 7) == 0) {
+            // wakedry / wakedry on / wakedry off。入なら越えても会話へ進まない
+            const char* arg = (line[7] == ' ') ? line + 8 : "";
+            if (strcmp(arg, "on") == 0 || strcmp(arg, "off") == 0) {
+                wakeDryRun = (strcmp(arg, "on") == 0);
             }
+            Serial.printf("[WAKE] 試し聞き %s（入なら越えても会話しません。再起動で切）\n",
+                          wakeDryRun ? "入" : "切");
+        } else if (strncmp(line, "wakeword", 8) == 0) {
+            // ⚠ "wake" は別のコマンド（スリープから起こす）が先に使っている
+            // wakeword        … 今の状態を出すだけ（切り替えない）
+            // wakeword on/off … 指定した状態にする
+            // 🔴 入切を入れ替えるだけだった頃、切のまま試験して「どの倍率でも
+            //    起きない」という結果を出した（2026-09-23）。読める形にすること。
+            const char* arg = (line[8] == ' ') ? line + 9 : "";
+            if (strcmp(arg, "on") == 0 || strcmp(arg, "off") == 0) {
+                const bool on = (strcmp(arg, "on") == 0);
+                katanori::settings.setWakeEnabled(on);
+                if (!on) {
+                    vadStopWatching();
+                }
+            }
+            Serial.printf("[WAKE] 呼びかけの聞き分け %s・見張り %s\n",
+                          katanori::settings.wakeEnabled() ? "入" : "切",
+                          vadWatchingActive() ? "動いています" : "止まっています");
         } else if (strcmp(line, "probe") == 0) {
             xmosProbe(0xF1);
         } else if (strcmp(line, "probe0") == 0) {
             xmosProbe(0xF0);
         } else if (strcmp(line, "tap") == 0) {
             xmosPrintTaps();
+        } else if (strncmp(line, "tap1 ", 5) == 0) {
+            xmosSetTap(1, atoi(line + 5));  // 聞き分けに渡している ch1 の取り出し口
         } else if (strncmp(line, "tap ", 4) == 0) {
-            xmosSetTapCh0(atoi(line + 4));
+            xmosSetTap(0, atoi(line + 4));
         } else if (strcmp(line, "scan2") == 0) {
             katanori::audioIo.scanConfigs();
         } else if (strncmp(line, "i2s ", 4) == 0) {

@@ -61,6 +61,10 @@ constexpr uint32_t CAP_SAMPLES = KATANORI_AUDIO_RATE * 5;
 int16_t* capMain = nullptr;   // 会話・VAD 用（KATANORI_MIC_CHANNEL・KATANORI_MIC_GAIN）
 int16_t* capWake = nullptr;   // 呼び名の聞き分け用（ch1 を 16 倍）
 uint8_t* capPlay = nullptr;   // 録ったときのスピーカーの状態（AudioIo::MIC_PLAY_*）
+// ch1 を 30 秒ためる控え（dumpWake 専用）。受け皿（5 秒）とは別に、タスクが書き続ける
+constexpr uint32_t WAKE_LOG_SAMPLES = KATANORI_AUDIO_RATE * 30;
+int16_t* wakeLog = nullptr;
+volatile uint32_t wakeLogW = 0;   // 書いた総数（％ で位置を出す）
 
 /**
  * 再生が始まってから、AEC の係数が落ち着くまで [ms]。
@@ -221,6 +225,7 @@ bool AudioIo::begin() {
     capMain = static_cast<int16_t*>(heap_caps_malloc(CAP_SAMPLES * sizeof(int16_t), MALLOC_CAP_SPIRAM));
     capWake = static_cast<int16_t*>(heap_caps_malloc(CAP_SAMPLES * sizeof(int16_t), MALLOC_CAP_SPIRAM));
     capPlay = static_cast<uint8_t*>(heap_caps_malloc(CAP_SAMPLES, MALLOC_CAP_SPIRAM));
+    wakeLog = static_cast<int16_t*>(heap_caps_malloc(WAKE_LOG_SAMPLES * sizeof(int16_t), MALLOC_CAP_SPIRAM));
     if (capMain == nullptr || capWake == nullptr || capPlay == nullptr) {
         Serial.println("[I2S] マイクの受け皿（PSRAM）が取れません");
         return false;
@@ -337,9 +342,14 @@ size_t AudioIo::captureFromI2s(int16_t* out, size_t maxSamples, int16_t* wakeOut
         }
         return static_cast<int64_t>(reinterpret_cast<const int16_t*>(stereoScratch)[i * 2 + 1]) << 16;
     };
-    auto wakeOf = [](int64_t v32) -> int16_t {
-        const int64_t v = v32 >> 12;  // 16bit へは >>16。4 つ少なく落として 16 倍
-        return static_cast<int16_t>(v > 32767 ? 32767 : (v < -32768 ? -32768 : v));
+    auto wakeOf = [this](int64_t v32) -> int16_t {
+        // 16bit へは >>16。倍率ぶん掛けてから落とす（既定 16 倍 = 元の >>12 と同じ）
+        const int64_t v = (v32 * static_cast<int64_t>(wakeGain_)) >> 16;
+        if (v > 32767 || v < -32768) {
+            ++wakeClipped_;
+            return v > 0 ? 32767 : -32768;
+        }
+        return static_cast<int16_t>(v);
     };
     for (size_t i = 0; i < got; ++i) {
         int16_t s;
@@ -446,6 +456,10 @@ void AudioIo::runCapture() {
             capMain[at] = mainBuf[i];
             capWake[at] = wakeBuf[i];
             capPlay[at] = play;
+            if (wakeLog != nullptr) {
+                wakeLog[wakeLogW % WAKE_LOG_SAMPLES] = wakeBuf[i];
+                wakeLogW = wakeLogW + 1;
+            }
             capW = capW + 1;
         }
     }
@@ -597,6 +611,38 @@ size_t AudioIo::readMic(int16_t* out, size_t maxSamples, int16_t* wakeOut, uint8
 
 uint32_t AudioIo::micDropped() const {
     return capDropped;
+}
+
+void AudioIo::dumpWake(float backSec, float lenSec) {
+    if (wakeLog == nullptr) {
+        return;
+    }
+    holdCapture(true);  // 吐いている間に上書きされないよう、読み取りのタスクを止める
+    const uint32_t now = wakeLogW;
+    uint32_t back = (uint32_t)(backSec * KATANORI_AUDIO_RATE);
+    if (back > WAKE_LOG_SAMPLES) back = WAKE_LOG_SAMPLES;
+    if (back > now) back = now;
+    uint32_t count = (uint32_t)(lenSec * KATANORI_AUDIO_RATE);
+    if (count > back) count = back;
+    const uint32_t start = now - back;
+    static const char* const kHex = "0123456789abcdef";
+    char line[16 + 64 * 4 + 2];
+    uint32_t rows = 0;
+    for (uint32_t i = 0; i < count; i += 64) {
+        int len = snprintf(line, sizeof(line), "WD %05u ", (unsigned)rows);
+        for (uint32_t k = 0; k < 64 && i + k < count; ++k) {
+            const uint16_t v = (uint16_t)wakeLog[(start + i + k) % WAKE_LOG_SAMPLES];
+            line[len++] = kHex[(v >> 12) & 15];
+            line[len++] = kHex[(v >> 8) & 15];
+            line[len++] = kHex[(v >> 4) & 15];
+            line[len++] = kHex[v & 15];
+        }
+        line[len] = '\0';
+        Serial.println(line);
+        ++rows;
+    }
+    Serial.printf("WD END %u\n", (unsigned)rows);
+    holdCapture(false);
 }
 
 void AudioIo::holdCapture(bool hold) {

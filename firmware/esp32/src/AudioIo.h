@@ -231,8 +231,29 @@ public:
      */
     void holdCapture(bool hold);
 
+    /**
+     * ch1（呼び名の聞き分けに渡している音）を、専用の 30 秒の控えから吐く。
+     * backSec 秒前から lenSec 秒分。取りこぼした呼びかけをログの時刻から逆算して取り出す
+     * （チャットで知らせてもらうまでに 5 秒では足りなかった）。
+     * 1 行 64 サンプルの 16 進（"WD <行番号> <hex>"）、最後に "WD END <行数>"。
+     * 取りこぼした呼びかけを PC の推論（mww_test/pc/pcinfer.py）にかけて、機体の数字と比べるため。
+     * 吐いている間（約 20 秒）はマイクを読まない。
+     */
+    void dumpWake(float backSec, float lenSec);
+
     /** マイクのゲインで振り切れたサンプル数（多いなら倍率を下げる）。 */
     uint32_t micClipped() const { return micClipped_; }
+
+    /**
+     * 呼び名の聞き分けに渡す音の倍率（ch1）。既定 16。
+     *
+     * 声も騒音床も同じだけ大きくなる。声と床の差は変わらないので、
+     * 「起きない理由が数字の小ささなのか、声と床の差なのか」を分けるために使う。
+     */
+    void setWakeGain(int g) { wakeGain_ = g < 1 ? 1 : (g > 4096 ? 4096 : g); wakeClipped_ = 0; }
+    int wakeGain() const { return wakeGain_; }
+    /** その倍率で振り切れたサンプル数。 */
+    uint32_t wakeClipped() const { return wakeClipped_; }
 
     /**
      * 最後にミュートを解いた時刻 [ms]。0 なら一度も解いていない。
@@ -325,6 +346,8 @@ private:
     volatile float gain_ = 0.15f;
     // 48kHz のファームで 16kHz へ落とすときの持ち越し（readMic）
     uint32_t micClipped_ = 0;   // ゲインで振り切れたサンプル数
+    volatile int wakeGain_ = 16;      // 聞き分けに渡す ch1 の倍率（setWakeGain）
+    volatile uint32_t wakeClipped_ = 0;  // その倍率で振り切れたサンプル数
     int32_t decimAcc_ = 0;
     int64_t decimAccWake_ = 0;  // wakeOut 用（ch1 の 32bit 値を足す）
     int decimCount_ = 0;
