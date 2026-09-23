@@ -24,7 +24,8 @@
 | 運用 | OTA（`xiao_esp32s3_ota` env） | ✅ 2026-08-03 |
 | 運用 | 利用者の設定（メニュー ＋ `http://katanori.local/`・Settings.cpp） | ✅ 2026-09-11〜12 |
 | 運用 | Wi-Fi 越しのシリアル（`katanori.local` TCP 23・Console.cpp・OTA と同じ合言葉） | ✅ 2026-09-11 |
-| 未着手 | ウェイクワード / QRペアリング | 未着手 |
+| 呼びかけ | 「カタノリ」の聞き分け（`MicroWake.h`・`WakeModel.h` の `katanori_own_a`） | ✅ 2026-09-24 完成（[docs/WAKEUP.md](../../docs/WAKEUP.md)） |
+| 未着手 | QRペアリング | 未着手 |
 
 > 2026-08-02 に XMOS が起動しなくなった件は 2026-08-05 に解決済み（犯人は `D1`(GPIO2) = XMOS のリセット線。
 > この文書の「解決（2026-08-05深夜）」の節）。

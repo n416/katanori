@@ -60,7 +60,8 @@ Gemini Live API（音声in / 音声out）
 | 運用 | OTA更新 | ✅ 実機確認済み（2026-08-03） |
 | 運用 | 利用者の設定（画面の明るさ・眠るまでの時間・起動の声・おんりょうMAX） | ✅ 会話ボタン長押しのメニュー ＋ ブラウザの `http://katanori.local/`（2026-09-11〜12） |
 | 運用 | Wi-Fi 越しのシリアルコンソール（`katanori.local` の TCP 23・OTA と同じ合言葉） | ✅ 2026-09-11。筐体に入れて USB が挿せなくてもログとコマンドが届く |
-| 未着手 | ウェイクワード / QRペアリング | 未着手 |
+| 呼びかけ | 「カタノリ」を機体の中で聞き分ける（microWakeWord・`katanori_own_a`） | ✅ 2026-09-24 完成。映画 2 時間で誤爆 0・眠りからも起きる（[docs/WAKEUP.md](docs/WAKEUP.md)） |
+| 未着手 | QRペアリング | 未着手 |
 
 ### ハードウェア（いまここ）
 
@@ -232,7 +233,7 @@ python simulator\wrapper.py
 **その先（人に渡すため）**: 肩への固定・重量 → 認証・費用の上限・QRペアリング → 実使用者テスト。
 **フェーズ2**: 遠隔モジュール（Stackchan）を BLE で足す（[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)）。
 
-呼びかけ（「カタノリ」固定）は機体の中で聞き分けて動く。誤爆の調べが残る
+呼びかけ（「カタノリ」固定）は機体の中で聞き分けて動く。2026-09-24 に own_a で完成
 （[docs/WAKEUP.md](docs/WAKEUP.md)）。⬜ **保留中**: 証明書の有効期限検証は
 `CONFIG_MBEDTLS_HAVE_TIME_DATE` が無効で未検証だが、ピン留め済みなので実害は薄い。
 自前の音声の板は量産の計画が立つまで保留（[docs/VOICE-BOARD.md](docs/VOICE-BOARD.md)）。
