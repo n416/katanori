@@ -4815,6 +4815,14 @@ static void handleSerial() {
             otaEnabled = !otaEnabled;
             Serial.printf("[OTA] %s\n", otaEnabled ? "有効化しました"
                                                    : "無効化しました（再起動でも有効に戻ります）");
+        } else if (strncmp(line, "wakestream", 10) == 0) {
+            // wakestream on/off。ch1 を流しっぱなしで吐く（AudioIo::pumpWakeStream）。
+            // PC 側は tools/wakestream.py rec で受けて wav にする（誤爆した瞬間の音を残す）
+            const char* arg = (line[10] == ' ') ? line + 11 : "";
+            if (strcmp(arg, "on") == 0 || strcmp(arg, "off") == 0) {
+                katanori::audioIo.setWakeStream(strcmp(arg, "on") == 0);
+            }
+            Serial.printf("[WAKE] ch1 の流しっぱなし %s\n", katanori::audioIo.wakeStream() ? "入" : "切");
         } else if (strncmp(line, "wakedump", 8) == 0) {
             // wakedump <何秒前から> <秒数>（省略時 5 5）。30 秒の控えから ch1 を吐く（AudioIo::dumpWake）
             float back = 5.0f, len = 5.0f;
@@ -5594,6 +5602,7 @@ void loop() {
     // Wi-Fi モニタ（Console.h）。打たれた行は下の handleSerial() が USB と同じに読む
     katanori::console.loop();
     handleSerial();
+    katanori::audioIo.pumpWakeStream();  // wakestream on のときだけ ch1 を吐く
     handleButton();
     pumpMenu(); // メニューを 30 秒触らなければ出口へ進める・「かんりょう」を出し終えたら普段へ
 

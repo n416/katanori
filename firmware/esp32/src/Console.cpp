@@ -90,6 +90,9 @@ void clearRings() {
 } // namespace
 
 void Console::begin(unsigned long baud) {
+    // 送りの受け皿を広げる（既定は数百バイト）。wakestream（AudioIo::pumpWakeStream）が
+    // 1 行 270 バイト × 250 行/秒を直接ここへ書くため。狭いと write が USB の空きを待つ（2026-09-23）
+    Serial.setTxBufferSize(32768);
     Serial.begin(baud);
     // 前回のログを取り出してから輪を空にする（電源断のときは中身が不定なので捨てる）
     bool valid = esp_reset_reason() != ESP_RST_POWERON && rtcLog.magic == kLogMagic &&
@@ -126,6 +129,14 @@ void Console::printPreviousLog() {
 
 Console::operator bool() const {
     return static_cast<bool>(Serial);
+}
+
+size_t Console::writeRaw(const uint8_t* buf, size_t n) {
+    return Serial.write(buf, n);
+}
+
+int Console::rawAvailableForWrite() {
+    return Serial.availableForWrite();
 }
 
 size_t Console::write(uint8_t c) {

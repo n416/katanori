@@ -40,6 +40,13 @@ class Console : public Stream {
 public:
     /** USB シリアルを開く（`Serial.begin(115200)` がここへ来る）。 */
     void begin(unsigned long baud);
+
+    /**
+     * USB にだけ直接書く（RTC のログにも Wi-Fi の輪にも写さない）。wakestream の行のように
+     * 量が多くて残す価値の無い物のため。受け皿に入る分だけ書いて、待たない。
+     */
+    size_t writeRaw(const uint8_t* buf, size_t n);
+    int rawAvailableForWrite();
     /** Wi-Fi の相手に最初に求める合言葉。setup() で OTA と同じものを渡す。 */
     void setPassword(const char* pass) { password_ = pass; }
 

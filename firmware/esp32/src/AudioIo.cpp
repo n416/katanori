@@ -448,6 +448,13 @@ void AudioIo::runCapture() {
             if (play == MIC_PLAY_SETTLED) lvlPlayed = true;  // AEC が落ち着いたあとの再生中
         }
         for (size_t i = 0; i < n; ++i) {
+            // 30 秒の控えは受け皿が一杯でも書く（loop が止まっている間の音も残す。
+            // 受け皿の後に書いていた頃、wakestream の送信で loop が遅れると控えも欠けて、
+            // 3 分で 1 分 43 秒ぶんしか残らなかった・2026-09-23）
+            if (wakeLog != nullptr) {
+                wakeLog[wakeLogW % WAKE_LOG_SAMPLES] = wakeBuf[i];
+                wakeLogW = wakeLogW + 1;
+            }
             if (capW - capR >= CAP_SAMPLES) {
                 ++capDropped;  // 受け皿が一杯。読む側が 5 秒止まっている
                 continue;
@@ -456,10 +463,6 @@ void AudioIo::runCapture() {
             capMain[at] = mainBuf[i];
             capWake[at] = wakeBuf[i];
             capPlay[at] = play;
-            if (wakeLog != nullptr) {
-                wakeLog[wakeLogW % WAKE_LOG_SAMPLES] = wakeBuf[i];
-                wakeLogW = wakeLogW + 1;
-            }
             capW = capW + 1;
         }
     }
@@ -643,6 +646,46 @@ void AudioIo::dumpWake(float backSec, float lenSec) {
     }
     Serial.printf("WD END %u\n", (unsigned)rows);
     holdCapture(false);
+}
+
+void AudioIo::setWakeStream(bool on) {
+    if (on && !wakeStream_) {
+        wakeStreamR = wakeLogW - (wakeLogW % 64);  // 行の切れ目から
+    }
+    wakeStream_ = on;
+}
+
+void AudioIo::pumpWakeStream() {
+    if (!wakeStream_ || wakeLog == nullptr) {
+        return;
+    }
+    const uint32_t now = wakeLogW;
+    // 30 秒を越えて遅れたら上書きされた分を飛ばす（少し余裕を見て 25 秒前から）
+    if (now - wakeStreamR > WAKE_LOG_SAMPLES - KATANORI_AUDIO_RATE * 5) {
+        const uint32_t to = now - (KATANORI_AUDIO_RATE * 25);
+        const uint32_t skipRows = (to - wakeStreamR) / 64;
+        wakeStreamR += skipRows * 64;
+        Serial.printf("WD SKIP %u\n", (unsigned)skipRows);
+    }
+    static const char* const kHex = "0123456789abcdef";
+    char line[16 + 64 * 4 + 2];
+    // Console（Serial の差し替え先）を通さず本物の USB に書く。Console は 1 バイトずつ RTC のログと
+    // Wi-Fi の輪に写すので 67KB/秒には重く、loop が止まって 3 分で 1 分 43 秒しか残らなかった。
+    // 空きを待たずに次の loop へ回す形は 3 分で 2 分 47 秒しか送れなかった。write が空きを待つ形
+    // （Console の送りの受け皿 32KB）なら 3 分で 2 分 59.9 秒・欠け 0。1 回に最長 0.5 秒ぶん
+    for (int rows = 0; rows < 125 && now - wakeStreamR >= 64; ++rows) {
+        int len = snprintf(line, sizeof(line), "WD %u ", (unsigned)(wakeStreamR / 64));
+        for (uint32_t k = 0; k < 64; ++k) {
+            const uint16_t v = (uint16_t)wakeLog[(wakeStreamR + k) % WAKE_LOG_SAMPLES];
+            line[len++] = kHex[(v >> 12) & 15];
+            line[len++] = kHex[(v >> 8) & 15];
+            line[len++] = kHex[(v >> 4) & 15];
+            line[len++] = kHex[v & 15];
+        }
+        line[len++] = '\n';
+        katanori::console.writeRaw((const uint8_t*)line, len);
+        wakeStreamR += 64;
+    }
 }
 
 void AudioIo::holdCapture(bool hold) {
