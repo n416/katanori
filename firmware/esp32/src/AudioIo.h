@@ -241,17 +241,6 @@ public:
      */
     void dumpWake(float backSec, float lenSec);
 
-    /**
-     * ch1 を流しっぱなしで吐く（wakestream on/off）。誤爆した瞬間の音を PC に残すため。
-     * 30 秒の控え（dumpWake と同じ）を loop() の pumpWakeStream() が追いかけて出す。
-     * 行の形は dumpWake と同じ "WD <行番号> <hex 64 サンプル>"。行番号 × 64 が控えの位置なので、
-     * 届かなかった行があっても PC 側で時刻がずれない。会話中に loop が止まって 30 秒を
-     * 越えて遅れたら "WD SKIP <飛ばした行数>" を出して追いつく。
-     */
-    void setWakeStream(bool on);
-    bool wakeStream() const { return wakeStream_; }
-    void pumpWakeStream();
-
     /** マイクのゲインで振り切れたサンプル数（多いなら倍率を下げる）。 */
     uint32_t micClipped() const { return micClipped_; }
 
@@ -358,8 +347,6 @@ private:
     // 48kHz のファームで 16kHz へ落とすときの持ち越し（readMic）
     uint32_t micClipped_ = 0;   // ゲインで振り切れたサンプル数
     volatile int wakeGain_ = 16;      // 聞き分けに渡す ch1 の倍率（setWakeGain）
-    volatile bool wakeStream_ = false;  // ch1 を流しっぱなしで吐く（setWakeStream）
-    uint32_t wakeStreamR = 0;           // 吐いた位置（wakeLogW と同じ数え方）
     volatile uint32_t wakeClipped_ = 0;  // その倍率で振り切れたサンプル数
     int32_t decimAcc_ = 0;
     int64_t decimAccWake_ = 0;  // wakeOut 用（ch1 の 32bit 値を足す）
