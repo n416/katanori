@@ -24,6 +24,7 @@
 |---|---|---|---|
 | 🔴 | ハブ基板 v6.1（`hardware/pcb/katanori61/`）を JLCPCB へ。出す前に `python hardware/pcb/check_fab.py` で在庫と価格を取り直す（[PCB-V61.md](PCB-V61.md) 5・8 章） | ユーザー | 来月（ユーザー判断） |
 | 🔴 | 筐体 v6.1n の MJF 7 点（`hardware/stl/v61n/`）を JLC3DP へ（[CASE-V61N.md](CASE-V61N.md) 5 章） | ユーザー | 基板と一緒に |
+| 🔴 | ハブ基板 v6.1 のはんだ付け（[PCB-V61.md](PCB-V61.md)） | ユーザー | 基板の到着 |
 | 🟡 | ピーク電流の実測（スピーカーが鳴った瞬間・[POWER.md](POWER.md)） | ユーザー | 無し |
 | 🟡 | 音量の上限（天井 `KATANORI_KNOB_MAX_GAIN` 0.70）を耳で決める | ユーザー | 無し |
 | ⚪ | 時刻同期 | AI | 無し |
