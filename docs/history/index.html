@@ -706,11 +706,11 @@
 
   <section id="wake">
     <div class="sec-h"><h2>呼び名で起きるまで</h2><span class="note">09-21 → 09-24。ウェイクワード</span></div>
-    <p class="lead">「カタノリ」と呼ぶと眠りから起きて、そのまま会話を始める。電源スイッチのある機械なので「少しくらい誤爆してでも取りこぼさない」を優先した。4 日で <b>30 本以上</b>のモデルを作り、たどり着いたのは<b>持ち主の声だけで学習する</b>こと。合成音だけの道は、機体が拾った実際の音で頭打ちになった。この 4 日間を手順にしたのが<a href="#book">本と道具箱</a>。</p>
+    <p class="lead">「カタノリ」と呼ぶと眠りから起きて、そのまま会話を始める。電源スイッチのある機械なので「少しくらい誤爆してでも取りこぼさない」を優先した。4 日で <b>30 本以上</b>のモデルを作り、たどり着いたのは、<b>持ち主の声を真似た合成音を聞いて選び、正例を持ち主の声に絞る</b>こと。大勢の声を真似た合成音の道は、機体が拾った実際の音で頭打ちになった。この 4 日間を手順にしたのが<a href="#book">本と道具箱</a>。</p>
     <div class="stats" style="margin-top:0;margin-bottom:28px">
       <div class="stat"><div class="k">かかった日数</div><div class="n">4<small>日</small></div><div class="s">09-21 の whisper から 09-24 の発売まで</div></div>
       <div class="stat"><div class="k">作ったモデル</div><div class="n">30<small>本超</small></div><div class="s">microWakeWord。学習は別荘の GPU</div></div>
-      <div class="stat"><div class="k">合成音だけ</div><div class="n">≤1<small>/4</small></div><div class="s">機体が拾った呼びかけ 4 回に対して</div></div>
+      <div class="stat"><div class="k">大勢の声の合成音</div><div class="n">≤1<small>/4</small></div><div class="s">機体が拾った呼びかけ 4 回に対して</div></div>
       <div class="stat"><div class="k">持ち主の声で・誤爆</div><div class="n">0<small>回</small></div><div class="s">own_a。映画 2 時間を流して</div></div>
       <div class="stat"><div class="k">2 つ目の呼び名</div><div class="n">4<small>/4</small></div><div class="s">ワラビモチ。同じ手順で再現</div></div>
       <div class="stat"><div class="k">発売</div><div class="n">¥2,500</div><div class="s">本＋道具箱。BOOTH</div></div>
@@ -720,7 +720,7 @@
         <ul class="ml">
           <li><span class="d">09-21</span><span>VAD で切った音を whisper で書き起こし、登録した呼び名と比べる方式。呼んでから会話まで 4.3〜8.4 秒</span></li>
           <li class="big"><span class="d">09-21</span><span><b>咳で毎回起きて却下</b>。呼び名を「カタノリ」に固定し、機体の中で聞き分ける microWakeWord へ</span></li>
-          <li><span class="d">09-21</span><span>学習用のリポジトリ wakeword-maker を始める。合成音声（Irodori-TTS）で例を作るが、持ち主の実録にはほとんど効かない。声の高さの中央は合成 284Hz、持ち主 87Hz</span></li>
+          <li><span class="d">09-21</span><span>学習用のリポジトリ wakeword-maker を始める。合成音声（Irodori-TTS）で例を作るが、持ち主が呼んだ実際の声では、ほとんど起きない。声の高さの中央は合成 284Hz、持ち主 87Hz</span></li>
         </ul></div>
       <div class="phase"><div class="ph"><div class="t">機体で聞き分ける</div><div class="w">09-22</div></div>
         <ul class="ml">
