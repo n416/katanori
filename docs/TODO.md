@@ -26,7 +26,6 @@
 |---|---|---|---|
 | 🔴 | ハブ基板 v6.1（`hardware/pcb/katanori61/`）を JLCPCB へ。出す前に `python hardware/pcb/check_fab.py` で在庫と価格を取り直す（[PCB-V61.md](PCB-V61.md) 5・8 章） | ユーザー | 来月（ユーザー判断） |
 | 🔴 | 筐体 v6.1n の MJF 7 点（`hardware/stl/v61n/`）を JLC3DP へ（[CASE-V61N.md](CASE-V61N.md) 5 章） | ユーザー | 基板と一緒に |
-| ⬜ | リードスイッチが磁石に反応する距離を見る（MJF で 0.5 遠くなった） | ユーザー | MJF の到着 |
 
 ## A-1. 基板を組む
 
