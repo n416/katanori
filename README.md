@@ -223,7 +223,7 @@ python simulator\wrapper.py
 
 🔒 **いまはハードウェアの段である。ソフトの新機能は現フェーズに入っていない。**
 
-1. **発注**（[docs/TODO.md](docs/TODO.md) A-0）— ハブ基板 v6.1 を JLCPCB へ、筐体 v6.1n の MJF 7 点を JLC3DP へ、一緒に出す
+1. **発注**（[docs/TODO.md](docs/TODO.md) A 章）— ハブ基板 v6.1 を JLCPCB へ、筐体 v6.1n の MJF 7 点を JLC3DP へ、一緒に出す
    （ユーザー判断で来月。出す前に `hardware/pcb/check_fab.py` で在庫と価格を取り直す）
 2. **ピーク電流の実測**（スピーカーが鳴った瞬間）— 次の板の昇圧を 1A にできるかの決め手
 3. **音量の上限を耳で決める** — 天井 0.70 はイヤホンの頃の値。下げるだけなら設定の「おんりょうMAX」
