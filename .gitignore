@@ -68,3 +68,6 @@ hardware/_tmp_v61man/
 hardware/_tmp_sweep/
 hardware/_tmp_nutpath/
 hardware/_tmp_riser/
+
+# 稼働時間の実測ログ（batrun.py の出力。読んだ中身は POWER.md 6章へ書き写す）
+_batrun/
