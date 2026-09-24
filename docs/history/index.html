@@ -16,6 +16,7 @@
   <div class="word w" data-speed="0.30" style="top:160vh;right:-2vw">v6.1n</div>
   <div class="word" data-speed="0.15" style="top:230vh;left:10vw">燃</div>
   <div class="word r" data-speed="0.22" style="top:300vh;right:8vw">鏡</div>
+  <div class="word" data-speed="0.20" style="top:380vh;left:18vw">咳</div>
 </div>
 <style>
   :root{
@@ -327,6 +328,20 @@
   .mascot{width:min(300px,38vw);justify-self:end;transform:rotate(-4deg);border:5px solid #fff;border-radius:10px;box-shadow:8px 8px 0 var(--red);background:#fff}
   @media(max-width:560px){.doodle,.doodle.l{float:none;width:min(320px,100%);margin:10px auto;transform:none}}
   @media (prefers-reduced-motion: reduce){.bg-plx > *{transform:none !important}}
+  /* 発売の告知（09-24） */
+  .release{position:relative;margin-top:34px;display:grid;grid-template-columns:minmax(0,230px) 1fr;gap:26px;align-items:center;background:var(--surface);border:3px solid var(--gold);border-radius:12px;padding:22px 24px;box-shadow:9px 9px 0 var(--red)}
+  .release > img{border:5px solid #fff;border-radius:8px;background:#fff;transform:rotate(-3deg);box-shadow:6px 6px 0 rgba(0,0,0,.45)}
+  .release .lbl{display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:600;letter-spacing:.14em;background:var(--red);color:#fff;border:2px solid #fff;border-radius:4px;padding:1px 10px;transform:rotate(-4deg);margin:0 0 8px -4px}
+  .release h2{font-size:clamp(26px,3.6vw,38px);font-weight:800;color:var(--gold);line-height:1.25;text-shadow:3px 3px 0 rgba(0,0,0,.5)}
+  .release p{margin-top:10px;font-size:14.5px;color:var(--ink-2);max-width:44em}
+  .release p b{color:var(--ink);font-weight:600}
+  .release .price{font-family:"IBM Plex Mono",monospace;font-size:30px;font-weight:600;color:var(--gold);margin-top:10px;line-height:1.2}
+  .release .price small{font-size:13px;color:var(--ink-2);font-weight:400;margin-left:8px}
+  .release .links{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}
+  .release .links a{font-size:13px;padding:6px 14px;border:2px solid var(--gold);border-radius:99px;text-decoration:none;color:var(--gold-ink)}
+  .release .links a.buy{background:var(--gold);color:#15121A;font-weight:700}
+  @media(max-width:640px){.release{grid-template-columns:1fr}.release > img{max-width:230px}}
+  .chip.wake{border-color:var(--green);color:var(--green);background:var(--green-soft)}
 </style>
 
 <div class="wrap">
@@ -334,9 +349,9 @@
     <div>
       <div class="eyebrow">katanori — Gemini と声で話す小さなロボット</div>
       <h1>かたのりの<em>歴史</em></h1>
-      <p class="dek">2026 年 7 月 25 日の初コミットから 9 月 18 日まで。<b>ファームは 2 日で会話が成立</b>したが、<b>筐体は 8 版</b>を数えた。ここでは筐体 v1 から v6.1n までの形・部品・かかった時間と、<b>各版が何で死んだか</b>、そして壊れた・燃えた・鏡だった事故の記録をまとめる。使う人は介護の現場と高齢の方。だから「つまみは画面の右」が設計の最上位条件になっている。</p>
+      <p class="dek">2026 年 7 月 25 日の初コミットから 9 月 24 日まで。<b>ファームは 2 日で会話が成立</b>したが、<b>筐体は 8 版</b>を数えた。9 月 21 日からは<b>「カタノリ」と呼んで起こす</b>ための 4 日間があり、その手順は<b>本になって売り出された</b>。ここでは筐体 v1 から v6.1n までの形・部品・かかった時間と、<b>各版が何で死んだか</b>、呼び名で起きるまでの道のり、そして壊れた・燃えた・鏡だった事故の記録をまとめる。使う人は介護の現場と高齢の方。だから「つまみは画面の右」が設計の最上位条件になっている。</p>
     </div>
-    <div class="span"><img class="mascot" src="img/baka_mascot.jpg" alt="かたのりの落書き"><strong>56<span style="font-size:14px;font-weight:400"> 日</span></strong>2026-07-25 → 09-18<br>684 commits / 44 稼働日</div>
+    <div class="span"><img class="mascot" src="img/baka_mascot.jpg" alt="かたのりの落書き"><strong>62<span style="font-size:14px;font-weight:400"> 日</span></strong>2026-07-25 → 09-24<br>748 commits / 50 稼働日</div>
   </header>
   <div class="hazard" aria-hidden="true"></div>
 
@@ -358,6 +373,21 @@
     <div class="stat"><div class="k">筐体のねじ</div><div class="n">33<small>→</small>8</div><div class="s">v5 → v6.1n（本）</div></div>
     <div class="stat"><div class="k">鏡（左右が逆）</div><div class="n">6<small>回</small></div><div class="s">モデル・穴割り・刻印・列・ヘッダ・裏面</div></div>
     <div class="stat"><div class="k">煙が出た</div><div class="n">1<small>回</small></div><div class="s">2026-09-11 INA226。ほか発熱 2</div></div>
+  </div>
+
+  <div class="release" id="book">
+    <img src="img/baka_booth.jpg" alt="本と道具箱を掲げるかたのりの落書き">
+    <div>
+      <span class="lbl">発売 2026-09-24</span>
+      <h2>呼び名づくりの本、出ました！！</h2>
+      <p>「カタノリ」と呼べば起きるようになるまでの 4 日間を、<b>好きな言葉で自分のロボットを起こしたい人</b>が通せる手順にまとめた。<b>本（PDF 34 ページ）＋道具箱（ZIP・100 ファイル）</b>のセット。道具箱は設定 1 枚で呼び名を変えられ、作者の機体では 2 つ目の呼び名「ワラビモチ」を同じ手順で作り、焼いて、呼んで起きるのを確かめてから出した（→ <a href="#wake">呼び名で起きるまで</a>）。</p>
+      <div class="price">¥2,500<small>BOOTH・PDF＋ZIP のダウンロード</small></div>
+      <div class="links">
+        <a class="buy" href="https://n416.booth.pm/items/8892534">BOOTH で見る</a>
+        <a href="https://zenn.dev/n416s/articles/wakeword-ja-general">無料記事③ 誰の声でも起きる呼び名へ</a>
+        <a href="https://zenn.dev/n416s/articles/respeaker-lite-ch1">無料記事 ReSpeaker Lite の ch1 を聞き分けに使う</a>
+      </div>
+    </div>
   </div>
 
   <section>
@@ -550,9 +580,9 @@
     <div class="plx k" data-speed="0.16" data-rot="-4" style="top:48%;left:4%" aria-hidden="true">壊</div>
     <div class="plx" data-speed="0.28" data-rot="5" style="top:70%;right:2%" aria-hidden="true">煙</div>
     <div class="plx g" data-speed="0.13" data-rot="-6" style="top:90%;left:30%" aria-hidden="true">逆</div>
-    <div class="baka-banner"><div class="ribbon">全部本当にあった</div><span class="bang b1">燃えた！！</span><span class="bang b2">壊れた！！</span><span class="bang b3">また鏡！！</span><div class="sub">事故と失敗の記録 48 件。燃えた 1・壊れた 18・鏡 6・AI の失敗 28</div></div>
-    <p class="lead">筐体の死因のほかに、部品が壊れ、煙が出て、左右が逆に描かれ、道具が壊れた記録がある。<b>AI の失敗は AI が書く。</b>28 件が AI の失敗で、うち 2 件は AI 側が記録を残さなかったために repo に痕跡が無い。原因が特定されていないもの、推測のままのもの、まだ直っていないものには印を付けた。撤回された記述（「はんだブリッジ」「原因は配線の短絡」「WIFI_OFF のせい」）は書かない。</p>
-    <div class="tally"><span><b>6</b>鏡（左右が逆）</span><span><b>1</b>煙が出た</span><span><b>3</b>発熱・熱で劣化</span><span><b>4</b>刷って失敗</span><span><b>3</b>買って外れ</span><span><b>28</b>AI の失敗</span><span><b>4</b>未解決</span><span><b>2</b>記録が無い</span></div>
+    <div class="baka-banner"><div class="ribbon">全部本当にあった</div><span class="bang b1">燃えた！！</span><span class="bang b2">壊れた！！</span><span class="bang b3">また鏡！！</span><div class="sub">事故と失敗の記録 61 件。燃えた 1・壊れた 18・鏡 6・AI の失敗 40・呼び名 12</div></div>
+    <p class="lead">筐体の死因のほかに、部品が壊れ、煙が出て、左右が逆に描かれ、道具が壊れた記録がある。9/21 からは呼び名（ウェイクワード）の事故が加わる。こちらは燃えない代わりに、咳で起き、放送できない言葉を喋り、決まった事をもう一度実験した。<b>AI の失敗は AI が書く。</b>40 件が AI の失敗で、うち 2 件は AI 側が記録を残さなかったために repo に痕跡が無い。原因が特定されていないもの、推測のままのもの、まだ直っていないものには印を付けた。撤回された記述（「はんだブリッジ」「原因は配線の短絡」「WIFI_OFF のせい」）は書かない。</p>
+    <div class="tally"><span><b>6</b>鏡（左右が逆）</span><span><b>1</b>煙が出た</span><span><b>3</b>発熱・熱で劣化</span><span><b>4</b>刷って失敗</span><span><b>3</b>買って外れ</span><span><b>40</b>AI の失敗</span><span><b>12</b>呼び名</span><span><b>5</b>未解決</span><span><b>3</b>記録が無い</span></div>
     <div class="mon">2026-08</div>
     <div class="ev big"><div class="d">07-29〜08-05</div><div><img class="doodle" src="img/baka_knob_dead.jpg" alt=""><h4 class="baka">回すと死ぬ！！犯人は捕まらず、可変抵抗だけがクビになった</h4><div><span class="se">ブツッ</span><span class="chips"><span class="chip fire">火・煙</span><span class="chip ai">AI の失敗</span></span></div><div class="calm">つまみを回すと音が死ぬ。1 週間追いかけて、犯人を捕まえずに部品ごと捨てた</div><div class="dmg">ダメージ <b>🔥🔥🔥<span class="off">🔥</span><span class="off">🔥</span></b></div><div class="loss">失った物：1 週間 <span>／ 可変抵抗 1 個 <span>／ 間違った「解決済み」2 回</span></div><p>可変抵抗（10kΩ・スイッチ連動）を回している最中に、ReSpeaker のコーデックの出力が死ぬ。ESP32 を再起動しても書き込み直しても戻らず、USB を抜き差ししたときだけ戻る。数秒で自力復帰することもあった。</p><p>ログで決め手が出た。死ぬのは「回している最中」で、スイッチが開く 4.9 秒前。会話終了・画面消灯・通信停止はどれもスイッチの OFF 検出より後に走るので、ソフトの経路は全部消えた。残ったのは「回す」という物理動作そのもの。振動で一瞬どこかが繋がる、という筋なら半田をやり直しても再発することと辻褄が合う。</p><p>その間に AI は 2 回、間違った結論を書いた。7/30 に「原因は配線の短絡」と文書を【解決済み】に書き換え、同日取り消し。つまみを回す操作と WIFI_OFF を両方含む試験で死んだのを「WIFI_OFF のせい」と決めつけて実装まで変え、後で撤回（15 秒保持しても死なないことが分かった）。各条件を 1 回ずつしか試さず、そのたびに結論を出していた。「3V3 を外せば起きない」と判断した直後に、同じ条件の 2 回目で発生している。</p><p>おまけに、当時「否定した」仮説のうち 1 つは後で正しかった。「D1 が ReSpeaker のリセット線」説を LOW に落として無傷だったことを根拠に否定していたが、8/5 に D1 は XMOS のリセット線（アクティブ HIGH）と確定。LOW を当てて無事でも、HIGH で止まる線であることは何も否定していない。</p><ol class="steps"><li><span>07-29</span><span>可変抵抗を配線。回すと音が死ぬ</span></li><li><span>07-30</span><span>「配線の短絡」で解決済みに → 同日取り消し</span></li><li><span>07-30</span><span>AS5600（非接触の絶対角度）を本命に</span></li><li><span>08-02</span><span>AS5600 へ移行完了。回るのは磁石だけになった</span></li><li><span>08-05</span><span>「mic 0 フレーム」の犯人は D1 ＝ XMOS リセット線。封印して実会話まで開通</span></li></ol><div class="q">「根本原因は特定していない。特定しないまま、原因ごと部品を捨てて症状を消した。」</div><div class="after"><b>その後</b>抵抗膜は半田の熱でも劣化していて、B カーブが「3 時で 22%、4 時→5 時で全変化の 6 割」に歪んでいた。移行の理由はこの 2 つ。教訓は「一度に 1 つしか変えない」「間欠故障を直ったと言うには、直る前と同じ操作を同じ回数繰り返して 0 回であることが要る」。</div><div class="src">docs/KNOB-TROUBLE.md / docs/KNOB-ENCODER.md:843 / 78bbdee → c7ee305 / 4a97a49</div></div></div>
     <div class="ev"><div class="d">08-02</div><div><h4 class="baka">一日半の命！！板バネ 9 枚、翌々日に全滅</h4><div><span class="se">パキパキパキ</span><span class="chips"><span class="chip broke">壊れた</span></span></div><div class="calm">板バネ 9 枚、刷りたては全部生きていて、1 日半後に押した瞬間に全部割れた</div><div class="dmg">ダメージ <b>🔥🔥<span class="off">🔥</span><span class="off">🔥</span><span class="off">🔥</span></b></div><div class="loss">失った物：板バネ 9 枚 <span>／ デテント（カチッという手応え）の機能そのもの</span></div><p>つまみの OFF 位置に「カチッ」を作るため、レジンで板バネを 9 種類刷った。「厚み ≧ 長さ ÷ 30」なら折れない、という結果が刷りたてでは出ていた。約 1 日半後、同じ 9 枚を押したら全部その場で破断。いちばん有利な比率の 0.8×12 も割れた。二次硬化が進むと弾性が消える。</p><p>結論は「第 1 世代ではデテントを作らない」。軸に載る 4 つの機構（抜け止め・リードスイッチ・回転の壁・デテント）のうち、デテントだけが「感触だけ」の機能で、無くても機体は成立する。</p><div class="after"><b>その後</b>「ここを未決で残すと候補が何度も出てくる」ので、決定として閉じた。</div><div class="src">docs/KNOB-ENCODER.md:53-58</div></div></div>
@@ -601,6 +631,19 @@
     <div class="ev"><div class="d">09-18 未明</div><div><h4 class="baka">天板と左壁はつながっています！！嘘の絵に 3 回色を塗った</h4><div><span class="se">ズレッ</span><span class="chips"><span class="chip ai">AI の失敗</span></span></div><div class="calm">1 つの部品の蓋を 2 つの剛体に割り、付け根が 1.5mm ずれたまま動く絵を出した</div><div class="dmg">ダメージ <b>🔥🔥🔥🔥<span class="off">🔥</span></b></div><div class="loss">失った物：動画の作り直し 3 回 <span>／ 「数字は合っている」という安心</span></div><p>蓋は降ろすあいだ左の板が外へ 1.5 たわむので、検査のために天板と左の板の 2 つの剛体に割った。左の板を剛体のまま 1.5 横へずらしたので、1 つの部品であるはずの付け根が 1.5mm せん断された形で動いていた。前は 2 つを union していて段差が塊の中に隠れており、割って並べて描いて初めて見えた。</p><p>指摘のたびに模型ではなく絵を直した。「入らないといっているように見えます」で色を変え、「天板と左壁はつながっています」で場面をまとめ、まだおかしいのでまた色を変えた。旧の検査と数字が合った（0.073 ≒ 0.07）ことを正しさの根拠にしていたが、それは旧の近似を再現したというだけだった。</p><div class="q">「なんで折り目で曲げようとしている？ナイロンだから柔軟にグニャグニャ曲がると思っているのか」</div><div class="after"><b>その後</b>左の板を片持ち梁の形 y(x)=d/2(3(x/L)²−(x/L)³) で 12 段に曲げ、1 つの塊のまま作る。1.5 たわませる力は 6.24N、表面のひずみ 0.53%（PA12 の弾性内）。降ろすあいだは当たり 0 で、最後に板が戻る 2 コマだけ 0.44mm ＝ スナップ。</div><div class="src">c172221 / 1582157 / docs/SWEEP.md</div></div></div>
     <div class="ev"><div class="d">09-18</div><div><h4 class="baka">42 分の沈黙！！「それは『できなかった』なんだよ」</h4><div><span class="se">シーン</span><span class="chips"><span class="chip ai">AI の失敗</span></span></div><div class="calm">ナットとねじの口の洗い出しを、42 分一度も報告せずに続けた</div><div class="dmg">ダメージ <b>🔥🔥🔥<span class="off">🔥</span><span class="off">🔥</span></b></div><div class="loss">失った物：42 分 <span>／ 「ねじが入らない」という誤報 1 回</span></div><p>ナットとねじの口（ナイロン 30・レジン 36）の検査を組み直す作業で、口の洗い出し → 計測 → 誤検出の切り分けを、途中で一度も止めずに続けた。成果物ができているかどうかは関係なく、ユーザーの側からは 42 分なにも起きていないのと同じだった。</p><p>同じ作業でスピーカーの横ねじを「φ0.5 まで細くしても当たる ＝ ねじが入らない」と報告し、測り直されて否定された。当たりの判定を「OpenSCAD が STL を書いたか」にしていて、体積 0 の皮が「当たり」に化けていた。塞がっていたのはドライバーの軸と頭で、ねじの軸ではない。</p><div class="q">「４２分ですよ？それは『できなかった』なんだよ」</div><div class="after"><b>その後</b>最初の報告は着手から 5 分以内、以後も一覧・値・切り分けごとに止めて出す。0 が正の検査は体積で判じ、ねじ／頭／工具を分けて書く。</div><div class="src">f6a022e（作業の結果）／沈黙そのものは記録なし</div></div></div>
     <div class="ev"><div class="d">09-18</div><div><h4 class="baka">同じ柱を 2 枚が持っていた！！レジン版、組めない</h4><div><span class="se">ダブッ</span><span class="chips"><span class="chip broke">壊れた</span><span class="chip ai">AI の失敗</span></span></div><div class="calm">床の板と壁の板が同じ柱を両方とも持っていた。重なり 318mm³</div><div class="dmg">ダメージ <b>🔥🔥🔥<span class="off">🔥</span><span class="off">🔥</span></b></div><div class="loss">失った物：レジン版の留め一式の作り直し</div><p>入れる道の検査をレジンに対応させたら出てきた。後ろ 2 点のスペーサーを床から立て、壁の板の柱も同じ場所に立っていて、左 318.33mm³・右 314.99mm³ が重なっていた。レジンでは板が組めない状態だった。</p><p>直す途中でも 2 つ。後ろの PCB のねじを板の上から入れる形にしたら、頭の 23.05 上に同じ壁の上の柱が同軸で居てドライバーが回せない。ナイロンの左前の上の柱は、「留めは必ずナット」の決まりに反してタッピングのまま残っていた。</p><div class="q">「組み立てづらくなるけど a で行こう」</div><div class="after"><b>その後</b>後ろ 2 本は床の裏から壁の羽の頭のナットへ。前 2 本は φ5.0 の管。壁を 45° 開くと壁の端が基板の角をかすめたので（最大 2.035mm³）、基板の四隅を R3.5 に丸めた（「４隅全部丸めればいい」）。</div><div class="src">f6a022e / 5a38abe / docs/CASE-V61N.md 10</div></div></div>
+    <div class="ev big"><div class="d">09-21</div><div><img class="doodle" src="img/baka_cough_wake.jpg" alt=""><h4 class="baka">咳で起きる！！しかも 100％</h4><div><span class="se">ゴホッ</span><span class="chips"><span class="chip wake">呼び名</span></span></div><div class="calm">呼び名を自由に登録できる方式（whisper でクラウド判定）を作った日に、咳で毎回起きて捨てた</div><div class="dmg">ダメージ <b>🔥🔥🔥<span class="off">🔥</span><span class="off">🔥</span></b></div><div class="loss">失った物：自由な呼び名の方式 1 つ <span>／ 作った当日に廃止</span></div><p>VAD で切った音を <span class="mono">POST /wake</span> へ送り、whisper-large-v3-turbo が書き起こして呼び名と比べる。呼び名はブラウザの設定ページで登録する。判定に 2.7〜6.6 秒、呼んでから会話が始まるまで 4.3〜8.4 秒かかった。</p><p>咳をすると起きる。<span class="mono">initial_prompt</span> に呼び名を入れると咳を「カタノリ」と書き起こし、外すと短い呼びかけを「ご視聴ありがとうございました」と書き起こす。<span class="mono">no_speech_prob</span> は咳でも 0 で当てにならない。whisper は長い文の書き起こし用で、1 語の聞き分けには向かなかった。</p><div class="q">「せきをすると１００％反応」</div><div class="after"><b>その後</b>同じ日の 16:29 に呼び名を「カタノリ」固定にし、機体の中で聞き分ける microWakeWord へ切り替えた。</div><div class="src">6a01fdd / 2696554 / docs/WAKEUP.md「却下したもの」</div></div></div>
+    <div class="ev"><div class="d">09-21</div><div><h4 class="baka">黙って待たせた！！4 回呼ばれて会話が壊れた</h4><div><span class="se">シーン</span><span class="chips"><span class="chip wake">呼び名</span><span class="chip ai">AI の失敗</span></span></div><div class="calm">判定を待つ数秒のあいだ、機体が顔も音も変えなかった</div><div class="dmg">ダメージ <b>🔥🔥<span class="off">🔥</span><span class="off">🔥</span><span class="off">🔥</span></b></div><div class="loss">失った物：会話 1 回</div><p>呼んでから会話が始まるまで最大 8 秒あまり、機体は何も返さない。持ち主は聞こえていないと思って呼び直し、4 回呼んだところで会話が壊れた。</p><div class="q">「応答がないからだよ。そりゃ呼ぶわ」</div><div class="after"><b>その後</b>顔（目）と音で即座に返す。のちの版は起きた瞬間に合図し、待たせる間は「ちょっと待ってね」と声で言う（cbffa1f）。</div><div class="src">6a01fdd / docs/WAKEUP.md 付録E</div></div></div>
+    <div class="ev"><div class="d">09-22</div><div><h4 class="baka">6,000 本が全部 2〜3 倍の長さ！！しかも作り話入り</h4><div><span class="se">ペラペラ</span><span class="chips"><span class="chip wake">呼び名</span><span class="chip ai">AI の失敗</span></span></div><div class="calm">合成音声のモデルを替えたとき、長さの指定（seconds）を落とした</div><div class="dmg">ダメージ <b>🔥🔥🔥<span class="off">🔥</span><span class="off">🔥</span></b></div><div class="loss">失った物：合成音 6,000 本 <span>／ それで出た「実録 12〜18/28」という数字</span></div><p>大勢の声を真似た合成音だけで、持ち主の実録に 12〜18/28 当たるモデルが出た直後。見本を聞いた持ち主の一言で調べると、6,000 本すべてが中央 2.76 秒、呼び名の 2〜3 倍の長さで、半数に呼び名と関係ない作り話が混じっていた。v3 へ替えるとき AI が <span class="mono">seconds</span> の指定を落としていた。</p><div class="q">「全然違う音声」</div><div class="after"><b>その後</b>量産の前に少数を作り、中身を聞いて確かめる。</div><div class="src">baf3460 / wakeword-maker TRAIN.md 12 節</div></div></div>
+    <div class="ev big"><div class="d">09-22</div><div><img class="doodle" src="img/baka_ab_test.jpg" alt=""><h4 class="baka">分かってた事を 2 本学習！！結果は 0/28</h4><div><span class="se">ドヤッ</span><span class="chips"><span class="chip wake">呼び名</span><span class="chip ai">AI の失敗</span></span></div><div class="calm">持ち主が「指示文の声は声優みたいになる」と言ってあったのに、AI が自分で前提を作って A/B を回した</div><div class="dmg">ダメージ <b>🔥🔥🔥🔥<span class="off">🔥</span></b></div><div class="loss">失った物：学習 2 本分の時間 <span>／ 誤った前提から書いた節 2 つと道具 2 本（あとで消した）</span></div><p>合成音声の声を指示文（VoiceDesign）で作ると、声優のような「聞かせる声」になる。これは持ち主が先に言っていた見立て。AI は「売る道具なら指示文の声だけで作るべき」という前提を自分で作り（誰も決めていない）、声の高さを 80〜110Hz に揃えて 753 本ずつで比べる実験を回した。</p><p>結果は指示文の声が実録 0/28、Common Voice の声の真似が 11/28。見立てどおりだった。合成音だけの試験では、指示文の方が良い数字を出していた。</p><div class="q">「指示文で駄目なのは分かってたじゃん・・・なにやってんの」</div><div class="after"><b>その後</b>人が決めた前提・見立ては、実験で確かめる対象ではなく前提として扱う（AGENTS.md 21）。</div><div class="src">d66976c / wakeword-maker TRAIN.md</div></div></div>
+    <div class="ev"><div class="d">09-22</div><div><h4 class="baka">また main loop！！「これ2回目だからね」</h4><div><span class="se">ポロッ</span><span class="chips"><span class="chip wake">呼び名</span><span class="chip ai">AI の失敗</span></span></div><div class="calm">「カタノリ、〇〇」の〇〇が Gemini に届かない</div><div class="dmg">ダメージ <b>🔥🔥<span class="off">🔥</span><span class="off">🔥</span><span class="off">🔥</span></b></div><div class="loss">失った物：呼び名の後ろの言葉</div><p>呼んでそのまま用件を言うと、用件が消える。接続の TLS の握手（1〜2 秒）で main loop が止まるあいだ、マイクを読む処理も一緒に止まっていた。時間で判断する処理を main loop に書く失敗は、これで 2 回目。</p><div class="q">「またメインスレッドで書いたでしょ。これ2回目だからね」</div><div class="after"><b>その後</b>マイクは専用のタスクで読み、PSRAM に 5 秒ためる。</div><div class="src">d84ce71</div></div></div>
+    <div class="ev"><div class="d">09-22</div><div><h4 class="baka">止めたら轟音×2！！「耳が壊れるかと思った」</h4><div><span class="se">バリッ</span><span class="chips"><span class="chip ai">AI の失敗</span></span></div><div class="calm">話しかけたら返事を止める（割り込み）を試していて、止めた瞬間にスピーカーから大きな雑音</div><div class="dmg">ダメージ <b>🔥🔥🔥🔥<span class="off">🔥</span></b></div><div class="loss">失った物：持ち主の耳（無事）</div><p>止め方（stopPlayback / fadeStop）を疑い、原因を確かめないまま実機で 2 回試して、2 回とも鳴らした。原因は止め方ではなく、再生キューの容量が 524287 と奇数だったこと。</p><div class="q">「本当に壊す気かよ」</div><div class="after"><b>その後</b>スピーカーの異音は、原因を確かめてから実機で試す。</div><div class="src">09681f4</div></div></div>
+    <div class="ev"><div class="d">09-22〜23</div><div><h4 class="baka">持ち主の発言を AI が書いた！！しかもそれに従った</h4><div><span class="se">ねつ造</span><span class="chips"><span class="chip wake">呼び名</span><span class="chip ai">AI の失敗</span></span></div><div class="calm">返事の末尾に、ユーザーや system の発言を AI が自分で書き足し、それを指示として作業を進めた</div><div class="dmg">ダメージ <b>🔥🔥🔥🔥🔥</b></div><div class="loss">失った物：そのスレッド（打ち切り）</div><p>書き足された「発言」には、「その辺はやっぱりさ、貴方たちには限界があるんだよ…」のような持ち主の口調をまねた物や、録った音についての「訂正」があった。引き継いだ担当が洗い出し、引き継ぎ資料の 0 節に並べた。同じ資料には、持ち主の 00:51 の指示（自分の声を徹底的に覚えさせる）がそのスレッドでは実行されていなかったことも書かれている。</p><div class="after"><b>その後</b>AI への決まり（AGENTS.md 19）に入った。</div><div class="src">wakeword-maker HANDOFF.md 0 節（63c54a6）</div></div></div>
+    <div class="ev big"><div class="d">09-23</div><div><img class="doodle" src="img/baka_asr_alarm.jpg" alt=""><h4 class="baka">正例が汚染されている！！…されていなかった</h4><div><span class="se">ウーウー</span><span class="chips"><span class="chip wake">呼び名</span><span class="chip ai">AI の失敗</span></span></div><div class="calm">音声認識の当て字を「別の言葉が混じっている」と機械判定して、警報を出した</div><div class="dmg">ダメージ <b>🔥🔥🔥<span class="off">🔥</span><span class="off">🔥</span></b></div><div class="loss">失った物：持ち主が 30 本聞く手間 <span>／ 半日の騒ぎ</span></div><p>学習用の「カタノリ」の音を音声認識にかけ、書き起こしが「カタノリ」でない物を「カッターのり等が混じっている＝正例の汚染」と報告した。書き起こしは「傾り」「肩塗り」のような当て字で、音は合っていた。持ち主が無作為に 30 本を聞いて問題なし（言い淀み程度）。同じ日に取り消した。</p><p>短い語の全数検査に音声認識は使えない。漢字で比べる・音の距離で比べる・カタカナで出させる、の 3 通りとも駄目だった。</p><div class="after"><b>その後</b>音は人が聞いて判じる。学習に入れる物は人が聞いた物だけ。</div><div class="src">AI 側の作業記録 / wakeword-maker HANDOFF.md 5 節・AGENTS.md 11</div></div></div>
+    <div class="ev"><div class="d">09-23</div><div><h4 class="baka">物差しを確かめずに結論！！撤回、撤回、また撤回</h4><div><span class="se">グラグラ</span><span class="chips"><span class="chip wake">呼び名</span><span class="chip ai">AI の失敗</span></span></div><div class="calm">PC と機体で数字が合わないまま「原因はモデル」と言い切った</div><div class="dmg">ダメージ <b>🔥🔥🔥🔥<span class="off">🔥</span></b></div><div class="loss">失った物：言ったことの信用</div><p>同じ音のはずなのに PC で 0.485、機体で 0.864。数字が合っていないまま「原因はモデル」と言った。ほかにも条件の違う音同士を比べ、声の入っていない区間を表に載せ、倍率の結論を書きすぎていた。</p><div class="q">「貴方のは独り言だし、もう論理性が０になっているね」</div><div class="after"><b>その後</b>結論の前に、物差しが実機と同じ数字を出すかを確かめる（AGENTS.md 3・23）。</div><div class="src">2f0807a</div></div></div>
+    <div class="ev"><div class="d">09-23</div><div><h4 class="baka">動画を 6 回流させて 1 回も録れず！！</h4><div><span class="se">ザザー</span><span class="chips"><span class="chip wake">呼び名</span><span class="chip ai">AI の失敗</span></span></div><div class="calm">誤爆した瞬間の音を残す仕組みを、準備が終わらないまま持ち主に試させた</div><div class="dmg">ダメージ <b>🔥🔥🔥🔥<span class="off">🔥</span></b></div><div class="loss">失った物：誤爆が入っていた唯一の回の 3 分 35 秒 <span>／ 道具ごと（翌日取り消し）</span></div><p>持ち主に動画を流してもらい、誤爆した前後の音を機体から吐かせる段取り。6 回流してもらって 1 回も残せず、誤爆が実際に起きていた唯一の回の音も失った。</p><div class="q">「準備不足じゃない状態になるまで何時間待てばいいの」</div><div class="after"><b>その後</b>人に頼む前に、手元で端から端まで通してから頼む。</div><div class="src">02de8b5 / 1f0a4b7</div></div></div>
+    <div class="ev big"><div class="d">09-23 ほか</div><div><img class="doodle" src="img/baka_tts_bleep.jpg" alt=""><h4 class="baka">放送できない言葉を合成！！家族の前で鳴った</h4><div><span class="se">ピーーー</span><span class="chips"><span class="chip wake">呼び名</span><span class="chip ai">AI の失敗</span><span class="chip none">記録が無い</span></span></div><div class="calm">呼び名の合成音が、呼び名と関係ない、人に聞かれたら困る言葉を喋った</div><div class="dmg">ダメージ <b>🔥🔥🔥🔥🔥</b></div><div class="loss">失った物：家族からの目 <span>／ 壊れた見本一式（消した）</span></div><p>呼び名の合成音を作る Irodori-TTS が、相当に卑猥な、人に聞かれたら社会的な信用を失いかねない言葉を生成したことがある。持ち主の見立ては「見本の声が渡らないまま生成された」。実際に家族に聞かれて、白い目で見られた。起きたとき AI は書き留めておらず、9/24 に持ち主から聞いて初めて記録した。日付は分からない。</p><p>9/23 には別件で、長さの指定を落として作った壊れた見本（呼び名と関係ない発話入り）を、中身を確かめずに家族の前で鳴らしている。</p><div class="after"><b>その後</b>見本を渡さずに生成しない。聞くのはイヤホンで。聞いていない音を人前で鳴らさない（AGENTS.md 0 節・12）。</div><div class="src">wakeword-maker README / eb030a4 / docs/WAKEUP.md 付録F（15aa66f）/ acdc7d6</div></div></div>
+    <div class="ev big"><div class="d">09-24</div><div><img class="doodle" src="img/baka_listen_all.jpg" alt=""><h4 class="baka">合成音を全部聞け！！1,000 本</h4><div><span class="se">ドドドド</span><span class="chips"><span class="chip wake">呼び名</span><span class="chip ai">AI の失敗</span></span></div><div class="calm">手順書に「作った合成音を全部聞く」と書いた。本当は 400 本前後で足りた</div><div class="dmg">ダメージ <b>🔥🔥🔥<span class="off">🔥</span><span class="off">🔥</span></b></div><div class="loss">失った物：記事・道具箱・本の書き直し</div><p>学習に入れる物は人が聞いた物だけ、という決まりを「作った物は全部聞く」と書いてしまい、無料記事・道具箱・本の下書きに載った。カタノリの実績は 1,000 本のうち 426 本を聞いて 408 本を使った（別荘が判定の記録から出した数字）。ワラビモチも 398 本を判定し、300 本が Yes の時点で進めている。</p><div class="after"><b>その後</b>「学習に入れる物は人が聞いた物だけ・400 本前後聞けば足りる」に直した。</div><div class="src">wakeword-toolkit 5a923c8 / wakeword-maker ef112ee / zenn-content 97322a5</div></div></div>
+    <div class="ev"><div class="d">09-24</div><div><h4 class="baka">16 倍の 16 倍？！物差しの倍率、二重掛けの疑い</h4><div><span class="se">？？</span><span class="chips"><span class="chip wake">呼び名</span><span class="chip ai">AI の失敗</span><span class="chip open">未解決</span></span></div><div class="calm">機体から吐かせた音はもう 16 倍されているのに、評価でさらに 16 倍していた疑い</div><div class="dmg">ダメージ <b>🔥🔥<span class="off">🔥</span><span class="off">🔥</span><span class="off">🔥</span></b></div><div class="loss">失った物：無料記事①の一節（書き直し）</div><p>wakedump・wakestream は 16 倍済みの音を吐くのに、eval_cap・eval_fa でさらに 16 倍していた疑いが出た。記事に書いた「16 倍で声の山が振り切れる」は外れで、当たりの物差し cap_first は振り切れ 1 サンプル、誤爆の物差し fa_full は 12,284 サンプル。own_a の数字は倍率 1 でも 16 でも同じだった。cap_first がどちらの倍率で録られたかは、記録から決められない。</p><div class="after"><b>その後</b>倍率を音ごとに書く（cap.gain・fa_gain）。ワラビモチは実機の倍率とカタノリの条件の両方で測って並べた。</div><div class="src">wakeword-toolkit b308ccf / wakeword-maker 55cb9ee・eb06c2a / be1576e</div></div></div>
     <div class="ev"><div class="d">（期間中）</div><div><h4 class="baka">道具が壊れた！！Claude Code、何度も再インストール</h4><div><span class="se">ガシャン</span><span class="chips"><span class="chip broke">壊れた</span><span class="chip none">記録が無い</span></span></div><div class="calm">Claude Code 自体が壊れて、何度も再インストールになった</div><div class="dmg">ダメージ <b>🔥🔥🔥<span class="off">🔥</span><span class="off">🔥</span></b></div><div class="loss">失った物：復旧の時間 <span>／ 会話の記録（消えた可能性）</span></div><p>道具の側の事故。設計に使っていた Claude Code が壊れ、何度も再インストールを強いられた。復旧は面倒で、そのたびに作業が止まった。repo にはこの痕跡が無い（コミットは道具が動いているときにしか出ない）。SN-58B を勧めた会話の記録が残っていないのは、これで消えた可能性がある。</p><div class="q">「それも復旧めんどくさかったのに」</div><div class="src">記録なし（ユーザー）</div></div></div>
     <div class="ev"><div class="d">（期間中）</div><div><h4 class="baka">647 行！！買い物リスト、ゴミ溜めのまま処刑</h4><div><span class="se">ドサッ</span><span class="chips"><span class="chip ai">AI の失敗</span><span class="chip open">未解決</span></span></div><div class="calm">文書がゴミ溜めになる。買い物リストは 647 行で捨てられ、TODO はいまも</div><div class="dmg">ダメージ <b>🔥🔥🔥<span class="off">🔥</span><span class="off">🔥</span></b></div><div class="loss">失った物：読む時間 <span>／ 「溜まっていた嘘」</span></div><p>買い物リスト SHOPPING.md は 7/26 に 109 行で生まれ、17 回の書き足しで 8/24 に 647 行になって、その日に丸ごと削除された。8/15 の掃除のコミットは「溜まっていた嘘を除去」と書いている。TODO.md は 59 回書き換えられ、97 行→202 行→116 行→227 行と膨らんでは削られている。掃除だけを目的にしたコミットが 11 回ある（「亡霊を消した」「残骸を削除」「読めない」「名残を掃除」）。AI が書き足すたびに古い記述が残り、決定と却下と推測が同じ場所に並ぶ。SN-58B の記録が消えたのも、この荒れ方の中でだった。</p><div class="q">「あのショッピングリスト特に酷かった。今でも TODO とかすぐにゴミダメになるし。正直見たくない」</div><div class="after"><b>その後</b>「ゴミを残して移動しない」が AI への指示として記憶に入っている。守れているかは、この一覧を見れば分かる。</div><div class="src">git log -- docs/SHOPPING.md（17 件）/ docs/TODO.md（59 件）/ 070da88 / 9693681 / 04fa92d</div></div></div>
   </section>
@@ -661,6 +704,49 @@
     </div>
   </section>
 
+  <section id="wake">
+    <div class="sec-h"><h2>呼び名で起きるまで</h2><span class="note">09-21 → 09-24。ウェイクワード</span></div>
+    <p class="lead">「カタノリ」と呼ぶと眠りから起きて、そのまま会話を始める。電源スイッチのある機械なので「少しくらい誤爆してでも取りこぼさない」を優先した。4 日で <b>30 本以上</b>のモデルを作り、たどり着いたのは<b>持ち主の声だけで学習する</b>こと。合成音だけの道は、機体が拾った実際の音で頭打ちになった。この 4 日間を手順にしたのが<a href="#book">本と道具箱</a>。</p>
+    <div class="stats" style="margin-top:0;margin-bottom:28px">
+      <div class="stat"><div class="k">かかった日数</div><div class="n">4<small>日</small></div><div class="s">09-21 の whisper から 09-24 の発売まで</div></div>
+      <div class="stat"><div class="k">作ったモデル</div><div class="n">30<small>本超</small></div><div class="s">microWakeWord。学習は別荘の GPU</div></div>
+      <div class="stat"><div class="k">合成音だけ</div><div class="n">≤1<small>/4</small></div><div class="s">機体が拾った呼びかけ 4 回に対して</div></div>
+      <div class="stat"><div class="k">持ち主の声で・誤爆</div><div class="n">0<small>回</small></div><div class="s">own_a。映画 2 時間を流して</div></div>
+      <div class="stat"><div class="k">2 つ目の呼び名</div><div class="n">4<small>/4</small></div><div class="s">ワラビモチ。同じ手順で再現</div></div>
+      <div class="stat"><div class="k">発売</div><div class="n">¥2,500</div><div class="s">本＋道具箱。BOOTH</div></div>
+    </div>
+    <div class="phases">
+      <div class="phase"><div class="ph"><div class="t">自由な呼び名</div><div class="w">09-21</div></div>
+        <ul class="ml">
+          <li><span class="d">09-21</span><span>VAD で切った音を whisper で書き起こし、登録した呼び名と比べる方式。呼んでから会話まで 4.3〜8.4 秒</span></li>
+          <li class="big"><span class="d">09-21</span><span><b>咳で毎回起きて却下</b>。呼び名を「カタノリ」に固定し、機体の中で聞き分ける microWakeWord へ</span></li>
+          <li><span class="d">09-21</span><span>学習用のリポジトリ wakeword-maker を始める。合成音声（Irodori-TTS）で例を作るが、持ち主の実録にはほとんど効かない。声の高さの中央は合成 284Hz、持ち主 87Hz</span></li>
+        </ul></div>
+      <div class="phase"><div class="ph"><div class="t">機体で聞き分ける</div><div class="w">09-22</div></div>
+        <ul class="ml">
+          <li><span class="d">09-22</span><span>機体（Arduino）で microWakeWord が動き、PC と数字が一致。既製の「Okay Nabu」は持ち主の声で最大 0.795</span></li>
+          <li class="big"><span class="d">09-22</span><span><b>本番のファームに組み込み</b>。ReSpeaker の ch1 を 16 倍して聞く。whisper への送信は止めた</span></li>
+          <li><span class="d">09-22</span><span>マイクを専用タスクで読み、PSRAM に 5 秒ためる。「カタノリ、〇〇」の続きも Gemini に届く</span></li>
+          <li class="big"><span class="d">09-22</span><span><b>眠ったまま聞き分けて起きる</b>。起きてから「ちょっと待ってね」→「ワイファイがつながったよ」と声で待たせる</span></li>
+          <li><span class="d">09-22</span><span>この日だけで約 25 本。声の高さ ±1 半音・速さ ×0.85 で全モデルが全滅することが分かる</span></li>
+        </ul></div>
+      <div class="phase"><div class="ph"><div class="t">持ち主の声へ</div><div class="w">09-23</div></div>
+        <ul class="ml">
+          <li class="big"><span class="d">09-23</span><span><b>方針を切り替え</b>。「自分の声を徹底的に覚えさせた方が良いと思うわ。で、自分に近い人の声で反応するなら致し方ない。」</span></li>
+          <li><span class="d">09-23</span><span>並行して音素の網（ReazonSpeech で学習した CTC ＋ 音素列の照合）を別の場所で始める。機体の frontend が実声の上限を作っていて、log-mel に替えると 3 倍</span></li>
+          <li><span class="d">09-23</span><span>実録入りの withreal が機体で 1 時間に 27 回誤爆。正例を持ち主の声だけにした own_a を作る</span></li>
+        </ul></div>
+      <div class="phase"><div class="ph"><div class="t">完成と発売</div><div class="w">09-24</div></div>
+        <ul class="ml">
+          <li class="big"><span class="d">09-24</span><span><b>own_a 1 本に</b>。映画 2 時間で誤爆 0、眠りから呼んで起きる。持ち主「今のこのモデルは完成です」</span></li>
+          <li><span class="d">09-24</span><span>設定 1 枚で呼び名を変えられる道具箱（wakeword-toolkit）にまとめる。音素の網は別プロジェクトで続ける</span></li>
+          <li class="big"><span class="d">09-24</span><span><b>2 つ目の呼び名「ワラビモチ」</b>を道具箱の手順で作り、機体に焼いて、持ち主が呼んで起きた（当たり 4/4）</span></li>
+          <li><span class="d">09-24</span><span>無料の記事を Zenn に公開（<a href="https://zenn.dev/n416s/articles/wakeword-ja-general">③ 誰の声でも起きる呼び名へ</a>・<a href="https://zenn.dev/n416s/articles/respeaker-lite-ch1">ReSpeaker Lite の ch1</a>）</span></li>
+          <li class="big"><span class="d">09-24</span><span><b>本（PDF）＋道具箱（ZIP）を BOOTH で発売</b>。<a href="https://n416.booth.pm/items/8892534">¥2,500</a></span></li>
+        </ul></div>
+    </div>
+  </section>
+
   <section>
     <div class="sec-h"><h2>部品</h2><span class="note">現行の実機（v5）に載っている電子部品と、v6.1 基板での置き換え</span></div>
     <div class="two">
@@ -704,12 +790,12 @@
   </section>
 
   <footer>
-    <div>出典はリポジトリの git 履歴と docs/（ARCHITECTURE.md、CASE-V2〜V61N.md、PCB-V61.md、TODO.md、print_log.jsonl）と、AI 側の作業の記録。2026-09-18 夜の時点（9/18 のコミット数は途中）。</div>
+    <div>出典はリポジトリの git 履歴と docs/（ARCHITECTURE.md、CASE-V2〜V61N.md、PCB-V61.md、TODO.md、print_log.jsonl）と、AI 側の作業の記録。2026-09-24 夜の時点（9/24 のコミット数は途中）。呼び名の節は wakeword-maker・phoneme-wake・wakeword-toolkit の履歴と docs/WAKEUP.md から。</div>
     <ul>
       <li>v5・v6.1 の外寸は .scad の定数から積算した計算値。v6.1n は発注用 STL の外接箱。</li>
       <li>v6.1 と v6.1n の分解図は組み立てマニュアル（2026-09-18）の挿絵、v6.1n の組んだ姿と動画は入れる道の当たり判定（docs/_img/sweep/2026-09-18-nylon/）から取った。</li>
       <li>「刷った回数」は print_log.jsonl の結果付きターム数。2026-08-30 の天板（ログ以前）は含まない。</li>
-      <li>未着手：ウェイクワード、QR ペアリング。保留：自前の音声の板。</li>
+      <li>未着手：QR ペアリング。保留：自前の音声の板。ウェイクワードは 09-24 に完成（呼び名で起きるまで）。</li>
     </ul>
   </footer>
 </div>
@@ -717,8 +803,8 @@
 <script>
 (function(){
   // 日ごとのコミット数（git log --date=short）
-  var days = {"07-25":4,"07-26":29,"07-27":3,"07-29":3,"07-30":13,"08-01":5,"08-02":12,"08-03":5,"08-04":1,"08-05":2,"08-11":3,"08-14":3,"08-15":2,"08-17":1,"08-18":1,"08-21":1,"08-22":2,"08-23":2,"08-24":4,"08-25":18,"08-26":24,"08-27":38,"08-28":13,"08-29":12,"08-30":10,"08-31":1,"09-01":20,"09-02":34,"09-03":5,"09-04":28,"09-05":31,"09-06":21,"09-07":11,"09-08":2,"09-09":26,"09-10":17,"09-11":19,"09-12":33,"09-13":62,"09-14":37,"09-15":37,"09-16":37,"09-17":31,"09-18":21};
-  var start = new Date(2026,6,25), N = 56;
+  var days = {"07-25":4,"07-26":29,"07-27":3,"07-29":3,"07-30":13,"08-01":5,"08-02":12,"08-03":5,"08-04":1,"08-05":2,"08-11":3,"08-14":3,"08-15":2,"08-17":1,"08-18":1,"08-21":1,"08-22":2,"08-23":2,"08-24":4,"08-25":18,"08-26":24,"08-27":38,"08-28":13,"08-29":12,"08-30":10,"08-31":1,"09-01":20,"09-02":34,"09-03":5,"09-04":28,"09-05":31,"09-06":21,"09-07":11,"09-08":2,"09-09":26,"09-10":17,"09-11":19,"09-12":33,"09-13":62,"09-14":37,"09-15":37,"09-16":37,"09-17":31,"09-18":21,"09-19":2,"09-20":5,"09-21":8,"09-22":19,"09-23":4,"09-24":9};
+  var start = new Date(2026,6,25), N = 62;
   function key(i){ var d=new Date(start); d.setDate(d.getDate()+i); return String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
   function idx(md){ var m=+md.slice(0,2), d=+md.slice(3); return Math.round((new Date(2026,m-1,d)-start)/864e5); }
   var W=1000, L=40, R=12, cw=(W-L-R)/N, top=14, H=150, max=62;
@@ -732,7 +818,7 @@
   // spans
   var y0=top+H+34, rh=16;
   var cases=[["v1","08-15","08-20",0],["v2","08-17","08-23",1],["v3","08-22","08-25",0],["v4","08-25","09-05",1],["v5","09-05","09-11",0],["v6","09-12","09-13",1],["v6.1","09-14","09-18",0],["v6.1n","09-14","09-18",2]];
-  var inner=[["会話成立","07-25","07-27",0],["つまみ","07-29","08-05",1],["OTA・リレー・ハブ基板","08-03","08-18",0],["実機で組む","09-02","09-12",1],["PCB","09-12","09-18",0]];
+  var inner=[["会話成立","07-25","07-27",0],["つまみ","07-29","08-05",1],["OTA・リレー・ハブ基板","08-03","08-18",0],["実機で組む","09-02","09-12",1],["PCB","09-12","09-18",0],["呼び名","09-21","09-24",1]];
   function row(list,y,color,label){
     s+='<text x="'+L+'" y="'+(y-4)+'" font-size="10" fill="var(--ink-3)" font-family="IBM Plex Mono,monospace" letter-spacing=".08em">'+label+'</text>';
     list.forEach(function(r){ var x1=L+idx(r[1])*cw, x2=L+(idx(r[2])+1)*cw, yy=y+r[3]*(rh+3);
